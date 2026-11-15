@@ -2,7 +2,7 @@ package compute_pipes_test
 
 // A characterisation test of JrPoolWorker.executeRules, on the C++ engine. It ran
 // on the Go engine until that engine's retirement (October 2026), and needs the cgo
-// environment of jets/cmds/rules_unit_test/README.md; a C++ engine that does not
+// environment of docs/src/content/docs/developer/testing/go-and-cpp.md; a C++ engine that does not
 // build fails the test.
 //
 // rules_unit_test_harness Phase 1, task AA.1. Nothing tested the rule loop

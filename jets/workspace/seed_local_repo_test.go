@@ -185,7 +185,7 @@ func TestSeedLeavesOutWhatTheCallerNames(t *testing.T) {
 		t.Errorf("scripts/run.sh lost its execute bit: %#o", fi.Mode().Perm())
 	}
 	// And every directory is traversable by any identity, which is the property
-	// the whole seed exists to preserve — see jets/workspace/README.md.
+	// the whole seed exists to preserve — see docs/src/content/docs/developer/workspace/index.md.
 	if err := filepath.WalkDir(dest, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err

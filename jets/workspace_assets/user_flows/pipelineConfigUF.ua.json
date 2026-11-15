@@ -15,7 +15,7 @@
       ]
     },
     "pcGoToAddPipelineConfig": {
-      "description": "+ Add on the pipeline config table: clear every key the edit path sets, so an add after an edit inserts rather than updating the configuration just edited (pcSavePipelineConfigUF updates whenever pcPipelineConfigTable is set), then open the add page. The list is in actions.md",
+      "description": "+ Add on the pipeline config table: clear every key the edit path sets, so an add after an edit inserts rather than updating the configuration just edited (pcSavePipelineConfigUF updates whenever pcPipelineConfigTable is set), then open the add page. The list is in the Developer's Guide, /docs/developer/workspace/assets/flow-actions/",
       "steps": [
         { "do": "clearSelection", "key": "pcPipelineConfigTable" },
         { "do": "clearSelection", "key": "pcMainProcessInputKey" },

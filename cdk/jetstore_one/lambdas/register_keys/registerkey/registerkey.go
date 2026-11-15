@@ -303,7 +303,7 @@ func doFileKey(ctx context.Context, _ *pgxpool.Pool, dtCtx *datatable.DataTableC
 // warnOfUnreadHookKeys logs a warning naming each key the hook added to
 // components that RegisterFileKeys does not read, which it would drop without a
 // word: a misspelt key is otherwise a registration that silently lacks what the
-// site meant to add (JM-096). Keys the file key's path put there are not the
+// site meant to add. Keys the file key's path put there are not the
 // hook's and are not named.
 func warnOfUnreadHookKeys(fileKey string, before map[string]bool, components map[string]any) {
 	var unread []string
@@ -323,7 +323,7 @@ func warnOfUnreadHookKeys(fileKey string, before map[string]bool, components map
 // The version is the one the event was raised for, when the bucket is versioned
 // (versionId is empty otherwise), so a key overwritten since is not read in its
 // place. The event's size only sizes the first allocation: the body is what was
-// downloaded, which is not that size when the object changed (I-37).
+// downloaded, which is not that size when the object changed.
 func doFileSchema(dbpool *pgxpool.Pool, dtCtx *datatable.DataTableContext, fileKey, versionId string,
 	fileSize int64, token string) error {
 

@@ -8,7 +8,7 @@ package harness
 // compiles a scratch copy of test_ws, runs that rule file through the looping
 // protocol on the C++ engine, snapshots the session and evaluates checks on it.
 // It ran on the Go engine until that engine's retirement (October 2026), and needs
-// the cgo environment of jets/cmds/rules_unit_test/README.md; a C++ engine that
+// the cgo environment of docs/src/content/docs/developer/testing/go-and-cpp.md; a C++ engine that
 // does not build fails the test.
 //
 // WHY A CHILD PROCESS. The rete package and compute_pipes read WORKSPACES_HOME

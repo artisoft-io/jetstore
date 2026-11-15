@@ -45,8 +45,8 @@ always listed in full. Files in one tree only are listed, and so are the totals 
 ## The known-difference list
 
 A JSON file of entries. **A difference is unclassified unless an entry matches it.** Each entry has an
-`id`, `refs` (where the difference is recorded, such as a section of the rule engine's readme,
-`jets/rete/README.md`) and a `description`, and then:
+`id`, `refs` (where the difference is recorded, such as a section of
+[the rule engine's page](/docs/developer/engine/rule-engine/)) and a `description`, and then:
 
 | Field | |
 |---|---|

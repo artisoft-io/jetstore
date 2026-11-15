@@ -311,7 +311,7 @@ def check_against_matrix(parts: list[Part], types_csv: Path) -> list[str]:
 # populated depends on the lifecycle stage rather than on the author's choice (I-14).
 # `pipes_config` is written by JetStore and never by an author, so a part carrying it
 # validates and cannot be authored; `reducing_pipes_config` is the author's but
-# deprecated (MATRIX_SCHEMA.md:175). Neither may reach the library.
+# deprecated (docs/src/content/docs/developer/tools/cpipes-contract/matrix.md). Neither may reach the library.
 ROOT_TYPE = "ComputePipesConfig"
 RUNTIME_ONLY = "pipes_config"
 DEPRECATED = "reducing_pipes_config"

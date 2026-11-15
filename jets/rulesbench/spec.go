@@ -28,7 +28,7 @@ import (
 )
 
 // Spec is a bench spec, a JSON file. jetrules_config and input_sessions are a
-// .tst.json's, in exactly its shape (jets/cmds/rules_unit_test/README.md), so
+// .tst.json's, in exactly its shape (docs/src/content/docs/developer/testing/rules-unit-tests/), so
 // that a test definition's input can be benchmarked as written; the test's
 // expectations are read and ignored. The other fields are the bench's own.
 type Spec struct {

@@ -120,7 +120,7 @@ class ReteMetaStore {
    * Decides, once for every session built on this meta store, which node vertexes
    * record their inferred triples: one with a consequent that mints a resource or
    * reads the graph, so that retraction replays what its rows inferred rather than
-   * recomputing it (jets/rete/README.md, the retraction record).
+   * recomputing it (docs/src/content/docs/developer/engine/rule-engine/, the retraction record).
    */
   int
   initialize()

@@ -4,7 +4,7 @@ package rulesbench
 // jets/jetrules/test_ws in a child process: the workspace packages fix their
 // paths at init, as the RunRuleSets tests in jets/compute_pipes note. These ran on
 // the Go engine until its retirement (October 2026); they now need the cgo
-// environment of jets/cmds/rules_unit_test/README.md; a C++ engine that does not
+// environment of docs/src/content/docs/developer/testing/go-and-cpp.md; a C++ engine that does not
 // build fails the test. Run with -count=1.
 
 import (

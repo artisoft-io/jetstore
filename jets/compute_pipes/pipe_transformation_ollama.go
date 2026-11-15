@@ -24,7 +24,7 @@ package compute_pipes
 // on_error handling are the shared inference plumbing of pipe_transformation_infer.go,
 // reached through the inferBackend seam.
 //
-// See pipe_transformation_ollama_design.md for the design notes.
+// See docs/src/content/docs/developer/compute-pipes/operators/infer-ollama.md for the design notes.
 
 import (
 	"bytes"

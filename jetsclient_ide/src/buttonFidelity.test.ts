@@ -46,7 +46,7 @@
  *
  * It compares **declarations**. A button that is present, correctly named, correctly
  * styled and correctly gated can still run the wrong action — that is failures 2
- * through 5 of `src/actions/README.md`, and none of them is visible from here.
+ * through 5 of `docs/src/content/docs/developer/testing/web-app/action-documents.md`, and none of them is visible from here.
  * `checkActions` (`userflow/documentSet.ts`) already refuses a button naming an
  * action the document does not define, so the two checks are complementary and
  * neither subsumes the other.

@@ -301,7 +301,7 @@ def classify(
     if token in contract_tokens:
         reason = (
             "a JetStore built-in this node does not implement "
-            "(whether the subset is permanent is D-206 / P9-I04)"
+            "(this node implements a subset of the built-ins by design)"
         )
     elif kind is TokenKind.TRANSFORMATION:
         reason = "neither a declared built-in nor a registered site operator"

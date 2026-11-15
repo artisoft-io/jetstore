@@ -26,7 +26,7 @@ set(C_LIBRARY_NAME jets)
 #   -DJETS_ABSEIL_SOURCE=<abseil-cpp source tree>  builds that abseil here, with
 #                       these flags, instead of the installed one; otherwise point
 #                       CMAKE_PREFIX_PATH at an abseil installed with them.
-# The gate is one command, from the repository root (jets/rete/README.md):
+# The gate is one command, from the repository root (docs/src/content/docs/developer/engine/rule-engine/):
 #   cmake -S . -B build-san -DCMAKE_BUILD_TYPE=Release -DJETS_SANITIZE=ON \
 #     -DJETS_ABSEIL_SOURCE=/path/to/abseil-cpp-20260107.1 \
 #     && make -C build-san -j8 jets_test && (cd build-san/jets && ctest)

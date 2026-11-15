@@ -11,7 +11,7 @@ package jetrules_native_adaptor
 //
 // Runs in a child process over a compiled copy of jets/jetrules/test_ws, as
 // engine_mode_test.go does. Needs the cgo environment of
-// jets/cmds/rules_unit_test/README.md; run it with -count=1.
+// docs/src/content/docs/developer/testing/go-and-cpp.md; run it with -count=1.
 
 import (
 	"math"

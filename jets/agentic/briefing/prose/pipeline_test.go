@@ -5,7 +5,7 @@ package prose_test
 // believed.
 //
 // It links the C++ engine: build against a libjets.so of this commit with the cgo
-// override in jets/cmds/rules_unit_test/README.md, and run it with -count=1:
+// override in docs/src/content/docs/developer/testing/go-and-cpp.md, and run it with -count=1:
 //
 //	CGO_CFLAGS="-I$PWD/jets" CGO_LDFLAGS="-L$LIB" LD_LIBRARY_PATH=$LIB \
 //	  go test -count=1 ./jets/agentic/briefing/prose/
