@@ -58,7 +58,10 @@ test("Run rules unit tests", async ({ page }) => {
   await settle(page);
   await page.getByRole("button", { name: "View Result" }).click();
   await expect(page.getByRole("heading", { name: "Checks of the Selected Run" })).toBeVisible();
-  await waitForTable(page);
+  // The two runs write their checks as each finishes, so a check's key, the
+  // # column, depends on which finished first: it is hidden.
+  const checks = await waitForTable(page);
+  await hideColumn(checks, "#");
   await shot(page, "test-result");
   await page.getByRole("button", { name: "Back" }).click();
   await expect(page.getByRole("heading", { name: "Rules Unit Test Runs" })).toBeVisible();

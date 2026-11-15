@@ -66,7 +66,8 @@ when you press Ctrl-C:
 4. migrates the database with `update_db`, and loads the workspace's configuration for the client
    `CI`, `process_config/ci_workspace_init_db.sql`, as an installation loads a client's configuration;
 5. sets every user email in the configuration to the stack's admin, `admin@localhost.test`, then
-   applies the fixtures in `docs/screenshots/fixtures/`, in name order;
+   applies the fixtures in `docs/screenshots/fixtures/`, in name order (an address at
+   `localhost.test` is the stack's own, and is left as it is);
 6. starts the apiserver with git access off, serving your `jetsclient_ide/dist` and `docs/dist`;
 7. runs the specs, with a 1440 × 900 window, the light theme and a device scale of 1;
 8. stops the apiserver, removes the container and the temporary directory.
@@ -78,13 +79,20 @@ A full run takes well under a minute once the binaries and the two web builds ex
 says which images it wrote:
 
 ```text
-[shots] 0 new, 1 rewritten, 3 unchanged
-  written src/assets/screenshots/developer/contributing/screenshots/home-data-registry.png
+[shots] 0 new, 1 rewritten, 144 unchanged
+  written src/assets/screenshots/user/screens/workspaces/commit-dialog.png (40 px differ, 40 in the densest 16 x 16 square)
+  closest unchanged: src/assets/screenshots/user/screens/user-administration/update-user-dialog.png (6 px differ, 6 in the densest 16 x 16 square)
 ```
 
-**An image is rewritten only when it differs from the committed one** by more than a small share of
-its pixels, so a second run with no change to the screens writes nothing, and `git status` shows
-exactly the images that changed. Look at each one before you commit it.
+**An image is rewritten only when it differs from the committed one where a reader could see it**:
+when some 16 × 16 square of it holds 12 differing pixels or more, anti-aliasing aside. A changed
+character, a button enabled or a box ticked is a cluster of pixels, however small; what differs
+between two runs of an unchanged screen is a few pixels at most. The rewritten image above is a
+two-letter typo corrected in a dialog's label, 40 pixels in all, which a rule counting the share of
+the whole image let through. So a second run with no
+change to the screens writes nothing, and `git status` shows exactly the images that changed. Look at
+each one before you commit it. The last line names the unchanged image that came closest to the rule,
+so you can see the margin. `SHOTS_MIN_WINDOW_PIXELS` sets another count, for a run that needs one.
 
 ### Several checkouts at once
 
@@ -137,7 +145,7 @@ The helpers, in `docs/screenshots/lib/shots.ts`:
 | `waitForTable(page, table?)` | Waits for a data table, the first on the page by default, to have its rows; returns it. |
 | `settle(page)` | Waits until nothing is loading and the page has stopped changing. |
 | `screenshotsFor(pagePath)` | Returns `shot` for the page at `docs/src/content/docs/<pagePath>.md`. |
-| `shot(target, name, { mask })` | Takes `<name>.png` of the whole window, or of one element when `target` is a locator, and writes it if it changed. `mask` paints over regions that change at every run. |
+| `shot(target, name, { mask, maskColor })` | Takes `<name>.png` of the whole window, or of one element when `target` is a locator, and writes it if it changed. `mask` paints over regions that change at every run, in the grey of the screens' table borders unless `maskColor` names another colour. |
 
 **Reach every screen through the app's own links**, as a user would: the session is held in the
 browser's memory, so loading an address directly signs you out. **Perform the page's steps**: if the

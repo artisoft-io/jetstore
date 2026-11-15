@@ -67,21 +67,9 @@ CREATE TRIGGER shots_fix_workspace_registry BEFORE INSERT OR UPDATE ON jetsapi.w
 UPDATE jetsapi.workspace_registry SET workspace_uri = workspace_uri WHERE workspace_name = 'jets_ws';
 
 -- ---------------------------------------------------------------------------
--- 2. Users. The stack sets every address in a user_email column to its admin
--- after the fixtures; this trigger keeps the localhost.test accounts below as
--- they are, since an account's address is its key. Their passwords are not
--- password hashes, so none of them can sign in.
-CREATE OR REPLACE FUNCTION public.shots_keep_fixture_users() RETURNS trigger AS $$
-BEGIN
-  IF OLD.user_email LIKE '%@localhost.test' THEN
-    NEW.user_email := OLD.user_email;
-  END IF;
-  RETURN NEW;
-END
-$$ LANGUAGE plpgsql;
-DROP TRIGGER IF EXISTS shots_keep_fixture_users ON jetsapi.users;
-CREATE TRIGGER shots_keep_fixture_users BEFORE UPDATE OF user_email ON jetsapi.users
-  FOR EACH ROW EXECUTE FUNCTION public.shots_keep_fixture_users();
+-- 2. Users, at localhost.test addresses, which the stack's email rewrite
+-- (stack/user_email.sql) leaves as they are. Their passwords are not password
+-- hashes, so none of them can sign in.
 
 -- The apiserver writes the admin's row when it starts, after the fixtures,
 -- with the time of the run; this trigger gives it a fixed date instead.
