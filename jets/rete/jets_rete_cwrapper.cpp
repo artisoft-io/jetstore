@@ -655,7 +655,7 @@ int get_datetime_details(HJR hdl, int* year, int* month, int* day, int* hr,
 // the resource's own storage as the other getters do. Each used to return
 // c_str() of the temporary it formatted, which was freed before the caller read
 // it: a datetime's 19 characters and more are past the small-string buffer, so
-// the bridge's C.GoString read freed heap (I-162).
+// the bridge's C.GoString read freed heap.
 //
 // get_date_iso_string3 and get_datetime_iso_string3 write the text into storage
 // the caller passes, and are the ones to call. jets/bridge calls them.

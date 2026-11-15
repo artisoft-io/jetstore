@@ -308,7 +308,7 @@ def check_against_matrix(parts: list[Part], types_csv: Path) -> list[str]:
 # ---------------------------------------------------------------------------
 
 # `ComputePipesConfig` holds three fields that can carry pipes, and which one is
-# populated depends on the lifecycle stage rather than on the author's choice (I-14).
+# populated depends on the lifecycle stage rather than on the author's choice.
 # `pipes_config` is written by JetStore and never by an author, so a part carrying it
 # validates and cannot be authored; `reducing_pipes_config` is the author's but
 # deprecated (docs/src/content/docs/developer/tools/cpipes-contract/matrix.md). Neither may reach the library.

@@ -2,7 +2,7 @@
 // line, sorted, in a text form that is the same on the Go and the C++ engine, so
 // that two runs can be compared by a line diff. It is the equivalence check of
 // projects/rules_benchmark (§5.7 of its plan, task AB.4); jets/cmds/rules_bench_diff
-// compares two dump trees (AB.5).
+// compares two dump trees.
 //
 // # What is written
 //

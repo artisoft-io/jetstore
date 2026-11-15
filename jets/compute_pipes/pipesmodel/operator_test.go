@@ -88,8 +88,8 @@ func TestOperatorEnvExposesExactlyTheDecidedList(t *testing.T) {
 // `conditional_config` are consumed before a factory can be reached, and
 // `*TransformationSpec` itself never crosses.
 //
-// **Nine until Phase 9, eleven since.** `Outputs` (P9-T01) and `Lookups`
-// (P9-T02) are the two extensions D-202 rules, and each is ErrorChannel's move
+// **Nine until Phase 9, eleven since.** `Outputs` and `Lookups`
+// are the two extensions D-202 rules, and each is ErrorChannel's move
 // repeated on one of the two things §12.6 withholds -- `channelRegistry` and
 // `lookupTableManager`. The builder
 // resolves what the step itself declared and hands the result over, so §12.6's
@@ -141,7 +141,7 @@ func TestOperatorArgsCarriesExactlyTheDecidedFields(t *testing.T) {
 // `Config` is json.RawMessage and not `map[string]any`, and the difference is
 // that the site owns its own schema: it unmarshals into a typed struct of its
 // own and validates it, which is the whole benefit of the platform not knowing
-// what is in there (`I-777`).
+// what is in there.
 //
 // The property under test is that the bytes survive verbatim. The document
 // crosses a process boundary as JSON twice before a factory sees it, and a field

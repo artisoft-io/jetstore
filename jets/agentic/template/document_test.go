@@ -98,7 +98,7 @@ func TestTheWorkedDocument(t *testing.T) {
 
 // TestTheWorkedDocumentOverAnEmptyRecord is the fallback firing under a preamble
 // that emits regardless, which is the arrangement a flat element list cannot
-// express (§10.6).
+// express.
 func TestTheWorkedDocumentOverAnEmptyRecord(t *testing.T) {
 	tmpl, err := CompileJSON([]byte(workedDocument))
 	if err != nil {

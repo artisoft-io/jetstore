@@ -199,7 +199,7 @@ func processErrors(t *testing.T, pool *pgxpool.Pool, execKey int, session string
 }
 
 // A configuration with one map_record instance and no error channel, which is
-// what 243 of the corpus's 243 instances look like (F188).
+// what 243 of the corpus's 243 instances look like.
 const configNoErrorChannel = `{"pipes_config":[{"type":"fan_out","input_channel":{"name":"input"},
   "transformation_pipes":[{"type":"map_record","column_evaluators":[],
     "output_channel":{"name":"output"}}]}], "on_error":"drop"}`
@@ -349,7 +349,7 @@ func LocusOf(h *Hypothesis) string {
 // bears on a column the two Go types cannot check between them: both evidence
 // columns are jsonb rather than text[], because an Evidence is a value object
 // with three fields and text[] — the emitter's unmapped-type fall-through —
-// would have stored three fields as one opaque string per item (I-287).
+// would have stored three fields as one opaque string per item.
 //
 // **Writing rows here is not AC.3.** Nothing in this package writes; the test
 // composes the insert to establish that what the ranker emits fits the column,

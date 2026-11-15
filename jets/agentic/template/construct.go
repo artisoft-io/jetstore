@@ -29,7 +29,7 @@ import (
 // rather than a chain plus a rule about what precedes it.
 
 // shape is what a construct does to the *list* a chain carries, and it is the
-// column that makes a chain checkable at compile time (§10.5).
+// column that makes a chain checkable at compile time.
 type shape int
 
 const (
@@ -219,7 +219,7 @@ var constructs = map[string]*construct{
 		fold: func(in []any, args []chainArg) (any, bool) {
 			items := make([]string, 0, len(in))
 			for _, v := range in {
-				// I-624: the skip is `join`'s here and is the caller's in the
+				// The skip is `join`'s here and is the caller's in the
 				// package this generalises.
 				if s := strings.TrimSpace(scalar(v)); s != "" {
 					items = append(items, s)
@@ -370,7 +370,7 @@ func maxDate(vals []any) (time.Time, bool) {
 	return best, found
 }
 
-// stripCode removes a leading parenthesised code: "(F1120) Alcohol dependence"
+// stripCode removes a leading parenthesised code: "Alcohol dependence"
 // becomes "Alcohol dependence". A value with no leading code is returned
 // unchanged, which is what makes it total over a document that stops emitting
 // them.

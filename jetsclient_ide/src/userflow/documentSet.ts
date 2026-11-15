@@ -15,8 +15,8 @@
  * an author writing a flow does not produce four complete files atomically. So
  * "the set is consistent" is only answerable at *load*, which is where this runs.
  *
- * That gap is not theoretical. It was found from the outside, twice in one day
- * (I-50, I-51), by the agentic_ai project generating document sets and asking
+ * That gap is not theoretical. It was found from the outside, twice in one day,
+ * by the agentic_ai project generating document sets and asking
  * what would consume them: four validation layers passed a set whose flow named
  * an action no document defined. **Every layer validates a document alone, and
  * nothing asked whether the set was complete.**
@@ -176,7 +176,7 @@ function checkActions(flow: UserFlow, actions: ActionDocument, forms: FormDocume
 }
 
 /**
- * Every `itemsFrom` names a query the same form declares. Task I.2b.
+ * Every `itemsFrom` names a query the same form declares.
  *
  * **This one is inside a single document, and it is here anyway.** The file's
  * header says these checks span the set, so the widening is stated rather than
@@ -220,7 +220,7 @@ function checkItemSources(forms: FormDocument): SetFinding[] {
 }
 
 /**
- * A table action's `actionName` and `configForm` resolve. Task F.3.
+ * A table action's `actionName` and `configForm` resolve.
  *
  * **The third source of action names, and the first flow to have one is F.3's.**
  * `checkActions` above reads a state's `stateAction` and a form's buttons,
@@ -231,7 +231,7 @@ function checkItemSources(forms: FormDocument): SetFinding[] {
  * the first migrated flow whose tables carry actions — `client.tc.json` names
  * `deleteClientAction`, `org.tc.json` names `deleteOrgAction` and opens
  * `ufVendor` — so the gap had no way to show before now. `loadFilesUF`, the one
- * earlier set with table actions, happens to define both of its (I-88).
+ * earlier set with table actions, happens to define both of its.
  *
  * **And `configForm` is the same gap on the form side.** `showDialog` and
  * `doActionShowDialog` name a form, and the four forms the corpus calls
@@ -239,7 +239,7 @@ function checkItemSources(forms: FormDocument): SetFinding[] {
  * four a table names this way — `ufVendor`, `loadRawRowsDialog`,
  * `pcNewProcessInputDialog` and `pcNewProcessInputDialog4MI`. Unreferenced there
  * means *named by no state*, which is what the corpus measures; it does not mean
- * unreachable, and F23 read it as though it did (I-89).
+ * unreachable, and F23 read it as though it did.
  *
  * **Both action rows, since F.5, and that widening found the only two references
  * `pipelineExecStatusTable` has.** A second row is presentation — the Dart draws
@@ -350,7 +350,7 @@ export function validateTableActions(
  * all. `rulesUnitTestUF`'s runs table publishes the run selected for *View
  * Result*, its *+ Add* clears the previous test selection and none of the run's
  * keys, and its start posts named fields rather than the whole state. Requiring
- * the run's keys there would refuse a correct document (`Q-26`).
+ * the run's keys there would refuse a correct document.
  */
 export function validateAddClearsState(
   set: DocumentSet,

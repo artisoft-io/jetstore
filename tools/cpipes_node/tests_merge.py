@@ -185,7 +185,7 @@ def test_the_graph_reads_the_flag_off_the_declaration_and_not_the_token():
 
     The same assertion `graph.py` makes about `fan_out`, extended to this task's
     token. Structural rather than behavioural, because a correct diagnosis in a
-    docstring has stopped nobody here (healthcare_corpus P7-I88).
+    docstring has stopped nobody here.
     """
     source = Path(__import__("cpipes_node.graph", fromlist=["x"]).__file__).read_text()
     assert '"merge_files"' not in source
@@ -511,7 +511,7 @@ def test_the_environment_substitutes_and_the_partition_label_is_empty():
     passes its own label (`pipe_transformation_partition_writer.go:495`). So
     `$CURRENT_PARTITION_LABEL` in a merge's `key_prefix` resolves to nothing in
     Go, and this node was resolving it to the merge node's `jp`: a destination
-    divergence on a key no authored document reaches today (P9-I147).
+    divergence on a key no authored document reaches today.
 
     Asserted as the literal key, both halves — the environment reference
     substitutes and the partition reference does not — because asserting only
@@ -980,7 +980,7 @@ def test_the_driver_dispatches_on_the_result_type_and_not_on_a_field(tmp_path):
 
 
 def test_an_unset_stage_prefix_is_refused_rather_than_merging_nothing(tmp_path):
-    """**A named divergence** (P9-I66), and the direction matters.
+    """**A named divergence**, and the direction matters.
 
     With the variable unset Go lists a prefix beginning with `/`, matches no
     object and merges an empty file. Refused here instead, because an empty
@@ -1022,7 +1022,7 @@ def test_a_merge_step_is_validated_to_run_on_exactly_one_partition():
     assert "jets_partition=%s" in go_source("jets/compute_pipes/actions_s3_utils.go")
 
 
-# --- the destination's two accessors (P9-I133, D-252) -----------------------
+# --- the destination's two accessors -----------------------
 
 
 def test_the_file_name_comes_from_name_when_the_document_spells_name():
@@ -1116,7 +1116,7 @@ def test_the_go_accessors_this_node_mirrors_are_still_a_pair_of_two_json_names()
     )
 
 
-# --- the bucket the merged object lands in (P9-I134, D-253) -----------------
+# --- the bucket the merged object lands in -----------------
 
 
 def test_the_merged_object_lands_in_the_external_bucket_the_entry_names(
@@ -1248,7 +1248,7 @@ def test_the_two_readings_of_gos_bucket_switch_agree_on_every_input():
     assert refused == 1
 
 
-# --- the partition a merge is reading (P9-I132, D-251) ----------------------
+# --- the partition a merge is reading ----------------------
 
 
 def test_a_merge_over_more_than_one_partition_is_refused_with_gos_message(
@@ -1259,7 +1259,7 @@ def test_a_merge_over_more_than_one_partition_is_refused_with_gos_message(
     Four partitions under the step's prefix and this node reading one of them is
     the state P9-I132 produced at four nodes: it merged 1/4 of every table, said
     *merged 1 part file(s)*, and exited 0. Go's starter refuses it; this node is
-    not a starter and nothing in either repository is (P9-I136), so the refusal
+    not a starter and nothing in either repository is, so the refusal
     is made here from the same listing.
     """
     store = Local(tmp_path / "bucket")
@@ -1285,7 +1285,7 @@ def test_one_partition_that_is_not_this_nodes_is_refused_rather_than_merged_empt
     `0000P`: Go's starter would have passed the label it listed, so the only way
     here is an invoker that did not. Merging would write an **empty** object,
     which is exactly what a step whose partition wrote nothing writes — the
-    distinction `_stage_file_keys` already refuses to lose (P9-I66).
+    distinction `_stage_file_keys` already refuses to lose.
     """
     store = Local(tmp_path / "bucket")
     store.put(stage_key("p0", "member_parts"), b"a,b\n1,2\n")

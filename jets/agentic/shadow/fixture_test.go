@@ -36,7 +36,7 @@ var migratedTables = []string{
 
 // unmigratedTables is the execution record and nothing else — the state of a
 // deployment that has never run `update_db -migrateDb` since AB.1, which is
-// every deployment measured on 2026-08-25 (I-132).
+// every deployment measured on 2026-08-25.
 var unmigratedTables = []string{
 	"pipeline_execution_status", "pipeline_execution_details",
 }
@@ -208,7 +208,7 @@ const configNoErrorChannel = `[{"type":"fan_out","input_channel":{"name":"input"
 
 // multiLocusSession is triage's own census case: a failed worker, a stalled
 // worker, a collapsed worker, per-record errors and an operator configured with
-// no error channel, all in one run. Five loci fire (F280), which is what makes it
+// no error channel, all in one run. Five loci fire, which is what makes it
 // the right subject for a writer that emits one incident per locus.
 func multiLocusSession(t *testing.T, pool *pgxpool.Pool, session string) {
 	t.Helper()

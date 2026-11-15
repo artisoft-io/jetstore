@@ -1,7 +1,6 @@
 package compute_pipes
 
-// Tests for the render transformation operator, see pipe_transformation_render.go
-// (agentic_ai Phase 8 `AZ.3`).
+// Tests for the render transformation operator, see pipe_transformation_render.go.
 //
 // **The division of labour with `jets/agentic/template` is deliberate and it is
 // what these tests do not cover.** The notation, the ten constructs, the twelve

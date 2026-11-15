@@ -1,6 +1,6 @@
 """The domain-model JSON Schema emitter (item 2a) — a projection, not a dump.
 
-Two products from the one Pydantic source (§5.1):
+Two products from the one Pydantic source:
 
 - `emit()` — `jets_agentic.schema.json`, the committed bundle: every entity
   and every vocabulary as a `$defs` entry, the `$ref` targets item 3's
@@ -20,7 +20,7 @@ optionals are collapsed to the bare type (optionality already lives in
 `prop()` plants (`key`, `data_classification`) are stripped — the schema's
 one job is constraining a decode; property metadata belongs to the sidecar.
 
-The vocabularies are where the schema earns the most (§5.1): each `StrEnum`
+The vocabularies are where the schema earns the most: each `StrEnum`
 survives as a `$defs` entry with an `enum` keyword that entity properties
 `$ref` — the shape §A.2.8 writes by hand — and under guided decoding an
 out-of-taxonomy value is unreachable, which is the single constraint the

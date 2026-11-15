@@ -26,7 +26,7 @@
 // `TransformationSpec` does not cross. It is a union carrying one pointer per
 // built-in operator, so 38 of the 57 types reachable from it are configuration
 // a site can neither use nor extend -- and it has no field a site's own
-// configuration could occupy (`I-766`).
+// configuration could occupy.
 //
 // `OutputChannelConfig` does not cross either, and that is `BC.2`'s correction
 // to `BC.1`: a factory receives the *resolved* `*OutputChannel`, never the spec

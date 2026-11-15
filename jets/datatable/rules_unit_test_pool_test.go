@@ -1,6 +1,6 @@
 package datatable
 
-// The executor pool (AC.3) and the recording of a run (AC.4), against fake
+// The executor pool and the recording of a run, against fake
 // harnesses: shell scripts named through JETS_RULES_UNIT_TEST_HARNESS that write
 // a result, exit without one, overrun the deadline, or allocate past the memory
 // ceiling. So the pool is tested without the C++ engine (plan §5). Needs

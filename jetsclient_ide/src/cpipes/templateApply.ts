@@ -131,7 +131,7 @@ export function assembleAt(
       const child = `${prefix}.${head}`;
       if (child === key) {
         // A leaf. **Empty is absent, not empty string** — a projected form offers every
-        // declarable property (I-80) and a config that carried all 43 of
+        // declarable property and a config that carried all 43 of
         // `InputChannelConfigStage`'s as `""` would be a different config from the one
         // the author meant, and would fail the contract rather than the wizard.
         const text = read(key);
@@ -234,7 +234,7 @@ export function createCpipesTemplateApply(deps: TemplateApplyDeps): ActionEscape
     let plan: ApplyPlan;
     try {
       // **`readWorkspaceFile` rather than `readFile`, and the difference is not
-      // cosmetic** (I-147, 2026-08-25). `readFile` takes a tree node and asks
+      // cosmetic** (2026-08-25). `readFile` takes a tree node and asks
       // `fileNameOf` for the path, which returns null unless `node.type` is
       // `"file"`; this line used to synthesise `{label, key} as never` — a shape
       // with no `type` — so the escape would have thrown *"…is not a file"*

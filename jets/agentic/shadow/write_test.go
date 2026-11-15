@@ -14,7 +14,7 @@ import (
 
 // TestTriageWritesAnIncidentPerLocusWithItsHypotheses is the whole of AC.3's
 // forward path against a real database, and it is the first time in this project
-// that anything other than a test fixture has written jetsapi.incident (F288).
+// that anything other than a test fixture has written jetsapi.incident.
 func TestTriageWritesAnIncidentPerLocusWithItsHypotheses(t *testing.T) {
 	pool := freshDB(t, "shadow_write", migratedTables, true)
 	ctx := context.Background()
@@ -138,7 +138,7 @@ func TestTriageWritesAnIncidentPerLocusWithItsHypotheses(t *testing.T) {
 
 // TestTheBasisReachesTheRecord is criterion 45's last clause meeting the write.
 //
-// jetsapi.hypothesis has no basis column and no locus column (F402), which §19.7
+// jetsapi.hypothesis has no basis column and no locus column, which §19.7
 // grades as *met for what AC.2 emits and not surviving the write*. Two of the
 // three losses are repaired by where things are written rather than by a schema
 // change, and this asserts both.
@@ -322,7 +322,7 @@ func TestTheCeilingRefusesToAct(t *testing.T) {
 
 // TestAnUnmigratedDatabaseIsRefusedByName is F107's lesson at the write end.
 //
-// Every deployment measured on 2026-08-25 is in this state (I-132): the execution
+// Every deployment measured on 2026-08-25 is in this state: the execution
 // record is there and the agentic tables are not. Untreated, the first symptom is
 // an insert failing on a missing relation, which reads as a defect in the
 // classifier rather than as a migration nobody has run.

@@ -11,7 +11,7 @@ import (
 // The InsertRawRows pre-processing hook for raw_rows/process_mapping deletes an
 // existing mapping before delegating to InsertRows, and InsertRows is where the
 // capability check used to live. That ordering meant a caller who failed the
-// check got the delete committed and nothing inserted to replace it. I-124.
+// check got the delete committed and nothing inserted to replace it.
 //
 // **A source-level test rather than a behavioural one, for the same reason
 // read_capability_test.go is one**: exercising this path needs a database, a

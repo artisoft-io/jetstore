@@ -914,7 +914,7 @@ func TestE2ECoordinatorRequestSharedBySessions(t *testing.T) {
 
 // An archived run already past 180 days when its session is deleted is archived
 // and purged in the same run: the plan keeps an archived run as long as the live
-// table would have (§3.4, Q-2), so it is gone from the view too. This records the
+// table would have, so it is gone from the view too. This records the
 // behaviour; it is what the plan asks for.
 func TestE2EArchivedPast180DaysPurgedSameRun(t *testing.T) {
 	pool := purgetest.DB(t, e2eDB)

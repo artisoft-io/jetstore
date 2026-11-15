@@ -1,5 +1,5 @@
 /**
- * Which app serves which flow, while both exist. Task S.8.
+ * Which app serves which flow, while both exist.
  *
  * ## The finding that decides this, and it was not what the plan assumed
  *

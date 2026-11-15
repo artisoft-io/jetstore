@@ -261,7 +261,7 @@ func shortHash(h []byte) string {
 }
 
 // Render writes the transcript as readable text — the rendering criterion 29's
-// "viewable" asks for, and the one an IDE screen (K.3) or an operator at a
+// "viewable" asks for, and the one an IDE screen or an operator at a
 // terminal reads the same way.
 //
 // **The verdict leads, and the defects are shown where they happened.** A log

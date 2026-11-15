@@ -1,7 +1,7 @@
 package datatable
 
 // A numeric column sorts as a number when its column names no table. Project
-// jetstore_maintenance_02, Phase 3, task AJ.3 (I-49; rules_unit_test_harness I-33).
+// jetstore_maintenance_02, Phase 3, task AJ.3.
 //
 // makeSelectColumns casts every plain column to text and keeps its name
 // ("shard_id"::text), and PostgreSQL resolves a bare ORDER BY name to an output

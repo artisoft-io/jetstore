@@ -1,7 +1,7 @@
 package jetrules_native_adaptor
 
 // Capture the evaluation population's prompts, so `AV` can benchmark a backend
-// without running a rule session per record (agentic_ai `AV.1`, `AV.2`).
+// without running a rule session per record.
 //
 // # Why the prompts are captured rather than generated in the benchmark
 //

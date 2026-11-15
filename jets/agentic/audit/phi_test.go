@@ -1,5 +1,5 @@
-// Making the data_classification marker load-bearing (task AE.2, I-311), and
-// the additive half of a migration (task AB.4, I-337).
+// Making the data_classification marker load-bearing, and
+// the additive half of a migration.
 //
 // **What is worth testing here is that the marker and its enforcement cannot
 // drift apart**, which is the whole defect: the marker was correct, travelled
@@ -234,7 +234,7 @@ func TestTheGeneratedDDLCarriesTheAdditiveMigration(t *testing.T) {
 	// argument that adding one to a populated table needs a default and that is a
 	// decision no emitter is entitled to take. That argument is intact and it was
 	// answering the wrong question: the emitter's alternative to a bad default is
-	// not silence. `AC.3` added two required columns to `Hypothesis` (Q-46) and
+	// not silence. `AC.3` added two required columns to `Hypothesis` and
 	// under the old rule they would have reached a fresh database and no migrated
 	// one — I-337 with the loudness removed.
 	//
@@ -243,7 +243,7 @@ func TestTheGeneratedDDLCarriesTheAdditiveMigration(t *testing.T) {
 	// is every table this widening does not touch; it takes on a migrated empty
 	// table, which is every deployment of `jetsapi.hypothesis` there is; and on a
 	// populated table missing the column it fails, naming the column, which is a
-	// migration that stops rather than a 42703 in production later (**I-381**).
+	// migration that stops rather than a 42703 in production later.
 	for _, want := range []string{
 		"ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_session_id text NOT NULL;",
 		"ALTER TABLE jetsapi.hypothesis ADD COLUMN IF NOT EXISTS hypothesis_locus text NOT NULL;",

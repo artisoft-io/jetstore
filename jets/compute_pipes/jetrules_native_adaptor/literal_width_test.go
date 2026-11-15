@@ -1,6 +1,6 @@
 package jetrules_native_adaptor
 
-// INTEGER LITERALS KEEP 64 BITS (rules_benchmark I-150, Q-86).
+// INTEGER LITERALS KEEP 64 BITS.
 //
 // NewIntLiteral and NewUIntLiteral went through the bridge's 32-bit calls, so a
 // value outside 32 bits was truncated silently. A value that fits is still a

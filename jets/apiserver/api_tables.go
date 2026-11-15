@@ -202,7 +202,7 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		code = 200
 
 	case "resubmit_sessions_as_pending":
-		// Session Registry's Resubmit as Pending (JM-185, 2026-11-12): copies the
+		// Session Registry's Resubmit as Pending (2026-11-12): copies the
 		// selected sessions' runs into new sessions with status pending and starts
 		// nothing, so the sessions they replace can be deleted before Check Pending
 		// starts them (datatable.ResubmitSessionsAsPending). It inserts what

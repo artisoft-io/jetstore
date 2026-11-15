@@ -37,7 +37,7 @@ const (
 	Coarse Evidenceability = "coarse"
 	// Asymmetric — the class can be proposed and not established.
 	Asymmetric Evidenceability = "asymmetric"
-	// None — the record cannot evidence the class at all (I-262), or can
+	// None — the record cannot evidence the class at all, or can
 	// evidence the locus and not the cause.
 	None Evidenceability = "none"
 )
@@ -143,7 +143,7 @@ var causeClasses = []CauseClass{
 		// Reclassifying a row of the gate's table on this task's authority would
 		// be the extraction gap 2b exists to prevent; what this file does is
 		// apply a correction another section of the same plan already made and
-		// record that §9.5's own cell has not been edited (I-359).
+		// record that §9.5's own cell has not been edited.
 		Evidenceability: Coarse,
 		Note: "the locus yes, the cause coarsely: N.4's StepRegression establishes that this step used to " +
 			"work, and a run now names a workspace and a compiled version (§16.2, AB.3), which that " +

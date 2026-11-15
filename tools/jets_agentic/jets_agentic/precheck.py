@@ -2,7 +2,7 @@
 
 F7 makes workspace names one flat namespace, and the compiler's own
 enforcement (`data_properties.name` is globally unique in workspace.db) fails
-without naming what collided (I-10). This check runs *before* A21.1's install
+without naming what collided. This check runs *before* A21.1's install
 step, against the target workspace's compiled `workspace.db`, and fails with
 the colliding names: every emitted class name against `domain_classes`, every
 emitted property name against `data_properties` and `object_properties`.

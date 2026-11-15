@@ -7,8 +7,8 @@ import (
 )
 
 // The rule validation and the class checks wrote to the text log only, so a
-// compile they failed returned a CompilationError whose Errors() was empty
-// (I-63): a repair loop reading the diagnostics was told the compile failed and
+// compile they failed returned a CompilationError whose Errors() was empty:
+// a repair loop reading the diagnostics was told the compile failed and
 // not why. Each case fails the compile for one reason, and the diagnostic must
 // carry the message the text log carries.
 func TestValidationErrorsReachDiagnostics(t *testing.T) {

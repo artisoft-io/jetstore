@@ -14,7 +14,7 @@
 // validator (the thing the harness exists to observe).
 //
 // Each step is validated on a fresh unmarshal of the document: the validator
-// mutates its input as it applies defaults (issue I-4), and the real callers each
+// mutates its input as it applies defaults, and the real callers each
 // see a fresh copy per lambda invocation, so validating step N on a document
 // step N-1 already mutated would test a state that never occurs.
 package main

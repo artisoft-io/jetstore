@@ -99,7 +99,7 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
   }, [load]);
 
   /**
-   * Record a verdict (`AJ.2`, Q-52).
+   * Record a verdict.
    *
    * The confirmation names the actor, the kind and the audit seq, because those
    * three are what make the row a label rather than an edit — and because the
@@ -316,7 +316,7 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
             // who meets three withheld statements should not have to work out
             // that they share one cause. The server names both the capability
             // and the classified properties, so this sentence does not encode a
-            // policy the browser could get wrong (AE.2, I-311).
+            // policy the browser could get wrong.
             <p className="empty-sub" role="status">
               Evidence marked as protected health information is withheld from this view
               {detail.phiProperties?.length ? ` — ${detail.phiProperties.join(", ")}` : ""}. It is

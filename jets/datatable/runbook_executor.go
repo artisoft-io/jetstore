@@ -305,7 +305,7 @@ func runbookAppName(key int64) string { return "jetstore_runbook_" + strconv.For
 // runbookAuditRunID is the agent_audit run_id a runbook run's events chain
 // under. agent_audit's run_id is not a foreign key and its actor is an agent
 // identity or a user email, so a person's runbook run is a run of that chain
-// in its own right (Q-6).
+// in its own right.
 func runbookAuditRunID(key int64) string { return "runbook_run:" + strconv.FormatInt(key, 10) }
 
 // auditStep appends one event to the run's chain in the caller's transaction.

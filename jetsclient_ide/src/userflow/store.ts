@@ -1,5 +1,5 @@
 /**
- * Loading and saving user flows from a workspace. Task S.3.
+ * Loading and saving user flows from a workspace.
  *
  * **No new plumbing, which is what §2 of the plan predicted.** The Workspace IDE
  * already reads and writes workspace files through `/dataTable`
@@ -18,7 +18,7 @@
  *
  * **The key is the file name and nothing else.** S.1 settled that a flow carries
  * no self-key, because `FormConfig.key` had drifted from its registry key twice
- * in fifty (I-14). The same reasoning applies to the file: two names for one
+ * in fifty. The same reasoning applies to the file: two names for one
  * thing is one name too many.
  *
  * ## Loading validates, and a flow that does not validate does not load
@@ -37,7 +37,7 @@
  * S.3 loaded `.uf.json` and `.ua.json`. It did not load the `.form.json`, and
  * `FormDocumentSchema` had no consumer outside three test files, so a form could
  * be authored, saved, validated in Go and rejected properly when malformed —
- * and nothing in the client would ever open it (**I-51**). The `.tc.json` a
+ * and nothing in the client would ever open it. The `.tc.json` a
  * `dataTable` field names was in the same position after I.3a.
  *
  * Both are loaded here now, and **the set is validated as a set**
@@ -227,7 +227,7 @@ export class FlowStore {
    *
    * Read from the file tree rather than from a manifest: a manifest is a second
    * place the set of flows is written down, and S.1 spent a finding on what
-   * happens when one name is recorded twice (I-14).
+   * happens when one name is recorded twice.
    */
   async list(): Promise<string[]> {
     const tree = await this.api.fileTree(this.options.workspaceName);
@@ -248,7 +248,7 @@ export class FlowStore {
    *
    * **Six checks, in an order chosen so the first failure is the useful one**:
    * shape, then the flow's internal references, then the *set*, then the tables'
-   * shape, then the tables' cross-document references (F.3), then whether every
+   * shape, then the tables' cross-document references, then whether every
    * escape name exists in this build. Each rests on the one before — a set check
    * over a document that did not parse would report missing forms that are merely
    * unreadable.
@@ -256,7 +256,7 @@ export class FlowStore {
   async load(key: string): Promise<LoadedFlow> {
     const reads = await this.readAll([flowPath(key), actionPath(key), formPath(key)]);
     // The checks after parsing are `checkFlowSet`'s, which the workspace
-    // validator also calls (`jetstore_maintenance_02` `AM.3`). This method's
+    // validator also calls. This method's
     // part is the reading and the order in which a failing stage is thrown.
     const unreadable = reads.filter((r) => r.error !== undefined);
     if (unreadable.length > 0) {
@@ -415,7 +415,7 @@ export class FlowStore {
    * Reads one workspace file by path.
    *
    * **This went through `readFile` and could not have worked against the real
-   * API** (I-65). `readFile` takes a tree node and asks `fileNameOf` for the
+   * API**. `readFile` takes a tree node and asks `fileNameOf` for the
    * path, which returns null unless `node.type === "file"`; the caller here
    * synthesised `{ label, key } as never`, which has no `type`, so the real
    * method would have thrown *"…is not a file"* on every load. The store's tests
@@ -481,7 +481,7 @@ export function describeFlowSaveWarnings(result: FlowSaveResult): string | null 
 export const serialise = (document: unknown): string => `${JSON.stringify(document, null, 2)}\n`;
 
 /**
- * Every escape name a *form* document references. Task F.1.
+ * Every escape name a *form* document references.
  *
  * The third document to name one, after the flow (`formStateInitializer`) and
  * the action document (`escape` steps). A form names a `validator` and, when it
@@ -546,7 +546,7 @@ export function escapeReferences(flow: UserFlow, actions: ActionDocument): Escap
       // `escapes.ts` refuses for the other six namespaces, and it was live: the
       // coverage document's `into` named two columns the statement does not
       // return, which a load-time check on the *name* would not have caught but
-      // which is the same class of gap one field over (I-113).
+      // which is the same class of gap one field over.
       if (step.do === "query") {
         references.push({ kind: "queries", name: step.name, at: `/actions/${name}/steps/${index}` });
       }
@@ -593,8 +593,8 @@ export interface FlowCheckFinding {
  *
  * 1. `references`: `validateFlow`, warnings included;
  * 2. `set`: `validateDocumentSet`;
- * 3. `tables`: `validateTableActions` over the tables given (I-88), and
- *    `validateAddClearsState` (`AM.4`);
+ * 3. `tables`: `validateTableActions` over the tables given, and
+ *    `validateAddClearsState`;
  * 4. `escapes`: every escape the flow, its actions, its forms and the given
  *    tables name is in the registry.
  *

@@ -1,5 +1,5 @@
 /**
- * A form document, rendered. Task F.0a.
+ * A form document, rendered.
  *
  * **The last piece of R2, and the smallest of the four.** The schema, the
  * validator, the interpreter and the engine were all built in Phase 2 and all
@@ -13,7 +13,7 @@
  * I.2b's. `label`, `spacer` and F.2's `button` are layout — they carry no key,
  * hold no value and cannot be validated, which is why `valueFieldsOf` exists to
  * exclude them (`form.ts`). The 55 `PaddingConfig` and 12 `TextFieldConfig`
- * instances the corpus counts (I-12) are the second largest thing in a form
+ * instances the corpus counts are the second largest thing in a form
  * after the inputs, so they are not an afterthought — and the three
  * `FormActionConfig` instances it counts are why a button is a field kind at
  * all.
@@ -73,7 +73,7 @@ export interface FormHost {
   tableConfig(key: string): TableConfig;
   fetcher: DataTableFetcher;
   /**
-   * The query context every table on this form is built with. Task F.5.
+   * The query context every table on this form is built with.
    *
    * **Nothing supplied one until now and one table needed it.** A.4a's
    * `QueryContext` has carried `homeFilters` and `dataRegistryFilters` since it
@@ -89,7 +89,7 @@ export interface FormHost {
    */
   tableContext?: UseTableBindingOptions["context"];
   /**
-   * Whether `ufPrevious` has anywhere to go. Task D.11.
+   * Whether `ufPrevious` has anywhere to go.
    *
    * **The engine owns this and no document should have to declare it.** `back`
    * (`engine.ts`) throws *"Already at the first step"* when `visited` holds one
@@ -115,7 +115,7 @@ export interface FormHost {
   /** Whether the form as a whole passes — `enableOnlyWhenFormValid` reads this. */
   formValid: boolean;
   /**
-   * How many validation groups to draw. Task F.1.
+   * How many validation groups to draw.
    *
    * One for every form in the corpus but `fmMappingFormUF`, which draws its rows
    * once per row of `repeat.from`'s result — so the count is the **query's**, not
@@ -228,7 +228,7 @@ function FormGroup({
 }
 
 /**
- * Whether a field is read-only right now. Task C.2b.
+ * Whether a field is read-only right now.
  *
  * The literal `isReadOnly` **or** a resolved `isReadOnlyFrom` predicate. No field
  * in either corpus sets both, and `or` is the composition that makes adding the
@@ -373,7 +373,7 @@ function FieldView({
  * So the same engine action is drawn two ways depending on which form the user
  * happens to be on — *Previous* and *Cancel* filled and *Next* plain on one
  * screen, the reverse on the next. **This was invisible until D.11 fixed
- * `btn--`** (I-308): while no declared style reached a rule, all 537 buttons
+ * `btn--`**: while no declared style reached a rule, all 537 buttons
  * drew identically and the disagreement cost nothing.
  *
  * **Keyed on the action rather than on the majority.** Three of the four
@@ -407,11 +407,11 @@ const FLOW_ACTION_STYLE: Readonly<Record<string, string>> = {
 };
 
 /**
- * One button, wherever it sits. Task F.2.
+ * One button, wherever it sits.
  *
  * Factored out of the action bar's map so the bar and an inline `button` field
  * cannot drift on the two enable gates — which is the pair `mapperOk` and
- * `mapperDraft` proved are independent branches rather than one flag (I-76).
+ * `mapperDraft` proved are independent branches rather than one flag.
  */
 function FormActionButton({ action, host }: { action: FormAction; host: FormHost }): ReactNode {
   // `isEnabledEval`, resolved through the registry the table actions already use

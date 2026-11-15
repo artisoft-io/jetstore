@@ -853,7 +853,7 @@ func listenAndServe() error {
 	//
 	// `static_ide.go` predicted this exact change and declined to make it early:
 	// *"a change worth making on its own when the Flutter app is retired, not as a
-	// rider on this one"*. This is that task (X.1).
+	// rider on this one"*. This is that task.
 	//
 	// **A catch-all was not needed before and is required now**, which is the part
 	// worth knowing. `jetsclient` never called `setPathUrlStrategy`, so Flutter web

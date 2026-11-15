@@ -209,7 +209,7 @@ func (failingRecorder) Propose(context.Context, json.RawMessage) (string, error)
 	return "", nil
 }
 
-// D.7: a successful run produces a proposal row, in draft, and writes nothing
+// A successful run produces a proposal row, in draft, and writes nothing
 // to git. The "nothing to git" half is not testable as an absence — what is
 // testable is that the only thing produced is a row, which is what this
 // asserts by reading it back.

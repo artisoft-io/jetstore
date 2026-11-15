@@ -1,6 +1,6 @@
 package compiler
 
-// WHAT THE RULE OPTIMIZER MUST KEEP (rules_benchmark Phase 8, task BS.1).
+// WHAT THE RULE OPTIMIZER MUST KEEP.
 //
 // OptimizeJetruleNode reorders a rule's antecedents, re-places its filters and renames
 // its variables, after validation has checked the rule in its authored order. It is on
@@ -94,7 +94,7 @@ func checkBindingOrder(t *testing.T, c *Compiler, rule *rete.JetruleNode) {
 	}
 }
 
-// I-200: a negated term the heuristic scores above the term that binds its variable.
+// A negated term the heuristic scores above the term that binds its variable.
 // not(?c rdf:type ex:Closed) scores 380 with ?c unbound, for rdf:type's bonus, and
 // (?c ex:amount ?v) 180, so a reordering by score alone puts the negation first.
 func TestOptimizerKeepsANegatedTermAfterItsBindings(t *testing.T) {
@@ -207,7 +207,7 @@ func TestOptimizerKeepsTheConsequentsVariables(t *testing.T) {
 	}
 }
 
-// I-201: terms the heuristic scores equally keep their authored order. Once ?x is bound,
+// Terms the heuristic scores equally keep their authored order. Once ?x is bound,
 // the (?x ex:pNN ?vNN) terms tie with each other, and so do the (?zNN ex:qNN ?x) terms,
 // at another score. slices.SortFunc is not stable: it sorts 12 elements or fewer by
 // insertion, which keeps the order, and more with pdqsort, which need not. So the rule

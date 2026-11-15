@@ -112,7 +112,7 @@ class Report:
     """Per-hole outcomes. **There is deliberately no aggregate.**"""
 
     model: str
-    # Which candidate-selection method produced the few-shot examples (T.3).
+    # Which candidate-selection method produced the few-shot examples.
     # Mandatory in the sense that it is always rendered: a fragment pass rate whose
     # report cannot say how examples were chosen will be compared with one produced
     # the other way, which is `eval.ToolReport.Mechanism`'s argument one toolchain over.
@@ -245,11 +245,11 @@ def examples_for(
 
 
 # ---------------------------------------------------------------------------
-# What actually occupies the context window (Q-15)
+# What actually occupies the context window
 # ---------------------------------------------------------------------------
 
 
-# Measured against `granite4.1:3b`'s `prompt_eval_count`, 2026-08-20 (I-42). Characters
+# Measured against `granite4.1:3b`'s `prompt_eval_count`, 2026-08-20. Characters
 # per token, by what the region contains:
 #
 #   typescript  4.6   declarations: long identifiers, few delimiters
@@ -359,7 +359,7 @@ def instruction_for(
     that the schema does not enter the context at all, so the two had to become one
     function or drift apart again.
 
-    **The selection method changes which examples appear and nothing else** (T.3). The
+    **The selection method changes which examples appear and nothing else**. The
     instruction's structure, the TypeScript declarations, the token list and the
     ordering of the regions are identical across arms, so a difference in compile-pass
     is attributable to the examples rather than to the prompt.
@@ -434,7 +434,7 @@ def from_model(
     The hole's `prompt` is the English description criterion 22 is about; the hole's
     `schema_ref` becomes the `format`, so the model is constrained by the contract rather
     than asked to remember it. **The target is never consulted**; the library is, as
-    few-shot material, and `method` is which of it (T.3).
+    few-shot material, and `method` is which of it.
 
     ~~**Neither the library nor the target is consulted.**~~ That sentence was left
     behind by F.6, which added the `library` parameter above it: `instruction_for`
@@ -458,7 +458,7 @@ def from_model(
             method=method, embedder=embedder,
         )
         # The server is already in hand here, so take its count and fall back to the
-        # estimate only when it will not answer (I-42).
+        # estimate only when it will not answer.
         exact = count_tokens(instruction, model, host, timeout)
         size = exact if exact is not None else estimate_tokens(instruction)
         verdict = fits(size, budget)

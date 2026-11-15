@@ -45,7 +45,7 @@ Three inputs are refused rather than approximated, each naming what it needs:
   faithfully rather than widened.
 - **xlsx**, which Go itself carries as `//*TODO Add support for xlsx`.
 
-# P9-I09: the bridge is built, and the argument is that the harness should read
+# The bridge is built, and the argument is that the harness should read
 # the tree instead
 
 **P9-I09 asks whether Phase 8's harness should read the partitioned tree rather
@@ -150,7 +150,7 @@ DEFAULT_DELIMITER = ","
 #: in a merge's `key_prefix` resolves to nothing in Go, where the same token in a
 #: partition writer's resolves to that writer's label. A named constant rather
 #: than a bare `""` because the two call sites are eight lines apart in Go and a
-#: reader has to be able to see that the difference is deliberate (P9-I147).
+#: reader has to be able to see that the difference is deliberate.
 MERGE_PARTITION_LABEL = ""
 
 
@@ -359,8 +359,8 @@ def output_file_name(out_spec: Any) -> str:
     *accessor* and never the field.
 
     This function exists because reading one of the pair alone is not a near
-    miss, it is a **destination** defect, and it fails in the silent direction
-    (**P9-I133**). Measured over the corpus document on 2026-09-19: its twelve
+    miss, it is a **destination** defect, and it fails in the silent direction.
+    Measured over the corpus document on 2026-09-19: its twelve
     `output_files` entries all spell `name`, the field alone resolved none of
     them, all twelve merges fell through to `$NAME_FILE_KEY` and wrote **one**
     key — `corpus/out/$SESSIONID/trigger.json` — each overwriting the last, so
@@ -501,7 +501,7 @@ def partitions_under(store: ObjectStore, prefix: str) -> tuple[str, ...]:
     double the cost of the listing to make a set smaller in a case where a
     partition wrote a part file with nothing in it. That difference can only
     ever make this node's count *larger* than the starter's, so it is stated
-    rather than hidden (**P9-I149**).
+    rather than hidden.
     """
     found: set[str] = set()
     for key in store.list(prefix):
@@ -546,7 +546,7 @@ def destination_key(
     …)`, twice — where the partition writer passes its own label, so a
     `$CURRENT_PARTITION_LABEL` in a merge's `key_prefix` resolves to nothing in
     Go. This function took the node's `jp` instead, which is a destination
-    divergence on a key no authored document reaches today (**P9-I147**); the
+    divergence on a key no authored document reaches today; the
     parameter is removed rather than passed empty, so there is no argument left
     for a caller to get wrong.
 
@@ -793,7 +793,7 @@ def run_merge(ctx: Any, spec: Any) -> MergeResult:
     if channel_type != MERGE_INPUT_CHANNEL_TYPE:
         # `ValidatePipeSpecConfig`'s message. Go makes this check in the
         # *starter*; making it here as well is why `stage` need not be a
-        # declared channel type (D-224).
+        # declared channel type.
         raise MergeInvalid(
             "configuration error: merge_files must read from input_channel of "
             f"type 'stage' (this one reads {channel_type!r})"
@@ -807,11 +807,11 @@ def run_merge(ctx: Any, spec: Any) -> MergeResult:
     key = destination_key(out_spec, prefixes, ctx.env, out_format)
     external = external_bucket(out_spec, ctx.env)
     bucket = _reported_bucket(external, ctx)
-    # **The store is bound here and the write below uses nothing else** (D-253).
+    # **The store is bound here and the write below uses nothing else**.
     # `for_bucket` returns `self` for the node's own bucket, so the ordinary
     # case allocates nothing; what it removes is the state this repair was for,
     # where the bucket was resolved for the log and the payload went to
-    # `ctx.store` regardless (P9-I134).
+    # `ctx.store` regardless.
     destination = store.for_bucket(external or None)
     input_keys = tuple(ctx.input_file_keys)
 

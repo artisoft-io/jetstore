@@ -86,7 +86,7 @@ def test_keys_under_several_prefixes_are_deduplicated(tmp_path: Path):
     assert keys_under(store, ["a/", "b/", "a/"]) == ("a/1.csv", "b/1.csv")
 
 
-# --- the destination bucket (D-242) -----------------------------------------
+# --- the destination bucket -----------------------------------------
 #
 # Go resolves a partition writer's bucket in two steps and this file holds the
 # second: `is_own_bucket` is the *sentinel*, checked at the upload in both Go
@@ -183,7 +183,7 @@ def test_a_mapped_bucket_carries_the_mapping_forward(tmp_path: Path):
     assert store.for_bucket("b").for_bucket("b") == Local(tmp_path / "b")
 
 
-# --- put_stream (D-243) ------------------------------------------------------
+# --- put_stream ------------------------------------------------------
 
 
 def test_put_stream_and_put_write_the_same_object(tmp_path: Path):

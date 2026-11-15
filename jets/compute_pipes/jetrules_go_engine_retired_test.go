@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// THE GO ENGINE IS RETIRED, AND A REQUEST FOR IT IS REFUSED (rules_benchmark Phase 6).
+// THE GO ENGINE IS RETIRED, AND A REQUEST FOR IT IS REFUSED.
 //
 // use_jet_rules_go: true fails the pipeline when its first step starts, wherever the
 // document sets it; false asks for nothing and is accepted. A jetrules step on a node

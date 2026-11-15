@@ -1,4 +1,4 @@
-"""Emit the cpipes JSON Schema: one document, every type in `$defs` (B.11).
+"""Emit the cpipes JSON Schema: one document, every type in `$defs`.
 
 Every addressable type of the matrix — each (go_struct, token) class, the
 merged classes, and the discriminated-union aliases — lands as an independently

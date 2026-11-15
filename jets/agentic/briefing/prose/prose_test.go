@@ -160,7 +160,7 @@ func TestAdherenceAppearsNowhereInTheProse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Render: %v", err)
 	}
-	// §1.10.4: as a number and as a flag. The ratio is on the entity - it
+	// As a number and as a flag. The ratio is on the entity - it
 	// reaches the model arm - and the prose says three fills and a date instead.
 	for _, forbidden := range []string{"0.89", "adherence", "Adherence", "0.9", "coverage"} {
 		if strings.Contains(got, forbidden) {
@@ -171,7 +171,7 @@ func TestAdherenceAppearsNowhereInTheProse(t *testing.T) {
 	// is that the count and the latest fill are what replaces the ratio; where
 	// the greedy wrap happens to break the sentence is a property of the wrap
 	// width and of the list order, and both moved on 2026-09-10 when the encoder
-	// started sorting (agentic_ai I-574). An assertion that pins a wrap point is
+	// started sorting. An assertion that pins a wrap point is
 	// asserting the wrong thing, and it failed for the right reason once.
 	if !strings.Contains(unwrapped(got), "three fills, most recently 24 August") {
 		t.Error("what replaces the ratio is the count and the latest fill, and it is missing")
@@ -193,7 +193,7 @@ func TestTheMemberIdAndTheCodesAreNotInTheProse(t *testing.T) {
 	}
 }
 
-// The notice is above the prose and the rule is between them (§1.10.5). A notice
+// The notice is above the prose and the rule is between them. A notice
 // a representative reaches after the content is a notice that arrives after they
 // have started talking.
 func TestTheNoticeIsAboveTheProse(t *testing.T) {

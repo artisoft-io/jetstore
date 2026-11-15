@@ -60,7 +60,7 @@ func (sfm *SourceFileManager) SaveNewSourceFileNames(ctx context.Context, db *sq
 	var data [][]any
 	// In name order: the keys are already fixed, but rows inserted in map
 	// order lay the table's pages out differently, so workspace.db differed
-	// between two compiles of the same sources (Q-49)
+	// between two compiles of the same sources
 	for _, sourceFileName := range slices.Sorted(maps.Keys(sfm.sourceFileNameToKey)) {
 		key := sfm.sourceFileNameToKey[sourceFileName]
 		if key > sfm.lastDbKey {

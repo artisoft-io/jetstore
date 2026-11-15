@@ -47,7 +47,7 @@ The nine refusals, and the reason each is a refusal rather than an omission:
 **The universe is the contract's and never a list here.** `REFUSED` plus the
 builder registry must exactly cover `contract.column_types()`, asserted by a
 test, so a sixteenth column type JetStore adds is refused by *existing* rather
-than by being remembered (P3-I20).
+than by being remembered.
 
 # The record expression, and why it is not `expressions.build`
 

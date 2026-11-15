@@ -15,7 +15,7 @@ import (
 
 // This file contains the cost order: the antecedents of a rule ordered by the
 // rows each is estimated to add, from statistics of the graph a workspace
-// commits in OptimizerStatisticsFile (rules_benchmark Phase 9, BY.1). The file's
+// commits in OptimizerStatisticsFile. The file's
 // format is version 1 of jetstore.optimizer_statistics.
 //
 // Without statistics nothing here runs, and a rule is ordered by evaluateScore
@@ -297,7 +297,7 @@ func orderLabel(order []*rete.RuleTerm, authored map[*rete.RuleTerm]int) string 
 // authored one: every variable of a negated antecedent, and of a filter, is
 // bound by a positive antecedent placed before it (a filter's own antecedent
 // included). Validation runs before the optimizer, so without this an order
-// that placed a negation too early compiled with a clean exit (I-232).
+// that placed a negation too early compiled with a clean exit.
 func (s *JetRuleListener) validateOrderedRule(rule *rete.JetruleNode) bool {
 	isValid := true
 	bound := make(map[string]bool)

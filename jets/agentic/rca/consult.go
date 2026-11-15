@@ -22,7 +22,7 @@ import (
 //
 // # What can be measured here without labels, and what cannot
 //
-// AA.2 counted the labelled population and it is **zero** (plan §10): no
+// AA.2 counted the labelled population and it is **zero**: no
 // incident anywhere in reach of this repository is paired with a written cause.
 // So *is the model right* is not a question this or any harness here can ask,
 // and a hit rate would be a number with no denominator. What can be asked is
@@ -42,7 +42,7 @@ import (
 //
 // # The schema goes in the prompt as well as in the format
 //
-// I-180: infer.Client puts the schema in Ollama's `format` field and builds its
+// infer.Client puts the schema in Ollama's `format` field and builds its
 // messages from the system and user strings alone, and Phase 1's I-41 measured
 // that shape at nine parseable, non-conformant fragments out of nine. The
 // remedy Phase 1 recorded — the schema has to be in the prompt — was
@@ -114,7 +114,7 @@ type ConsultReport struct {
 	// the record contradicts, and one at a **not_evaluable** locus is a claim
 	// about something nobody looked at — the second is unfalsifiable rather than
 	// false, and on the deployment state all four production environments were
-	// measured in, four of the nine loci are not_evaluable by default (F282).
+	// measured in, four of the nine loci are not_evaluable by default.
 	//
 	// LociNotPresent is kept rather than replaced so that §19.6's figures stay
 	// comparable as a sum.
@@ -180,7 +180,7 @@ func (r *ConsultReport) Describe() string {
 //
 // **This is why the list is here rather than inlined at its use.** It is a
 // dated reading of a substrate that three tasks moved inside one afternoon, and
-// the next task to move one has to find it (I-360).
+// the next task to move one has to find it.
 var sourcesWithNoSubstrate = []string{SourceInfrastructureLog}
 
 // Consult asks a model for a ranking over the same evidence the floor read, and
@@ -396,8 +396,8 @@ Rules you must follow:
 
 // instruction renders the evidence and the schema into one user message. The
 // schema is included here because infer.Client sends it only as Ollama's format
-// field (I-180) and Phase 1 measured that shape at nine non-conformant
-// fragments out of nine (I-41, F114).
+// field and Phase 1 measured that shape at nine non-conformant
+// fragments out of nine.
 func instruction(in *Input) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Run: session %s.\n\nTriage verdicts (%s):\n\n",

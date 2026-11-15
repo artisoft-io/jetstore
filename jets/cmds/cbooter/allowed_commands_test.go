@@ -1,7 +1,7 @@
 package main
 
-// Tests for the launcher's allow-list as the scheduled agentic detection task uses it
-// (agentic_ai I-861). The task runs `cbooter anomaly_detect` and `cbooter shadow_triage`
+// Tests for the launcher's allow-list as the scheduled agentic detection task uses it.
+// The task runs `cbooter anomaly_detect` and `cbooter shadow_triage`
 // (cdk/jetstore_one/stack/build_agentic_detect.go), so both names must be allowed, and
 // neither may be made to wait on a workspace it never opens.
 

@@ -32,7 +32,7 @@ writers are a function of their `columns` argument.
 
 **The other half of the chain is not this package's and must not be faked here.**
 `healthcare_corpus.generate.dictionary` holds the 511-column declaration, and
-this package may not import the corpus (D-216). So the `.pc.json`'s twelve
+this package may not import the corpus. So the `.pc.json`'s twelve
 channel specs have to be *generated from* that dictionary rather than typed by
 hand, and nothing in this repository can check that they were: a hand-typed
 column list that happens to be right validates, resolves and writes. That is
@@ -241,7 +241,7 @@ def write_csv_to(
     `write_csv` is this over a `BytesIO`, so there is **one** csv encoder and
     `stream_data_out` selects where the bytes land rather than how they are
     made. Two encoders would be two chances to disagree about the quoting rule
-    X7 compares bytes against (D-222).
+    X7 compares bytes against.
     """
     if len(delimiter) != 1:
         raise WriterError(f"the csv delimiter must be one character, not {delimiter!r}")
@@ -535,7 +535,7 @@ def write_partition_to(
     property of the channel and the node id is a property of the run, so only
     the caller can answer it. `write_partition`'s docstring said exactly that
     before any caller did it, and **nothing in the package read
-    `put_headers_on_first_partition` at all** (P9-I117): measured over the
+    `put_headers_on_first_partition` at all**: measured over the
     corpus document at four nodes, every node wrote a header on its own first
     part and the merged `member` carried **four** header lines over 200 rows
     where Go writes one.
@@ -562,7 +562,7 @@ def partition_file_name(
     """`part%04d-%07d.%s`, the name a partition takes when none is authored.
 
     Transcribed because it is a value two engines must agree on: a merge step
-    (P9-T08) and Phase 8's harness both find these files by listing a prefix,
+    and Phase 8's harness both find these files by listing a prefix,
     and a node that named them differently would write a corpus nothing reads.
     """
     extension = FILE_EXTENSIONS.get(device_writer_type, "")

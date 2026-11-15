@@ -14,10 +14,10 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// Tools 5 and 6 — list_workspace_files, read_workspace_file (T.1).
+// Tools 5 and 6 — list_workspace_files, read_workspace_file.
 // ---------------------------------------------------------------------------
 //
-// J.1 decided these two in Phase 2 and built neither (F34). A§5.2 names
+// J.1 decided these two in Phase 2 and built neither. A§5.2 names
 // *Read — workspace* as a tool class and no tool read a workspace file, so an
 // MCP client authoring against the live workspace could neither fetch a source
 // nor discover a path — while compile_rule_file and validate_cpipes_config both

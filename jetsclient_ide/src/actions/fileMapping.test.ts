@@ -1,5 +1,5 @@
 /**
- * `mapFileUF`'s two escapes. Task F.1.
+ * `mapFileUF`'s two escapes.
  *
  * These are the parts of the file mapping worksheet that did **not** become
  * data, so they are the parts a document cannot be read to check. Every case
@@ -205,8 +205,8 @@ describe("mappingFormValidator — the cleansing function and its argument", () 
   });
 
   it("passes while the registry query is still in flight", () => {
-    // The Dart asserts and then calls `firstWhere`, which throws in release
-    // (I-47). Treating an absent row as "not required" keeps the form usable
+    // The Dart asserts and then calls `firstWhere`, which throws in release.
+    // Treating an absent row as "not required" keeps the form usable
     // rather than blank.
     const formState = new FormState();
     formState.setValue(0, "function_name", "to_date");
@@ -243,7 +243,7 @@ describe("the seven cases that are not ported", () => {
     // dialog's, and **no form in `jetsclient` declares a field with any of those
     // keys** — a form validator is only ever called with its own form's keys, and
     // `mappingFormValidator` has exactly one consumer. Asserting the fall-through
-    // is what keeps the omission a decision rather than a hole (I-73).
+    // is what keeps the omission a decision rather than a hole.
     const formState = withColumns([]);
     for (const key of ["client", "org", "object_type", "source_type", "entity_rdf_type"]) {
       expect(mappingFormValidator(context(formState), key, "")).toBeNull();

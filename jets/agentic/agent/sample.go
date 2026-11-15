@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-// Generate-and-filter (plan §4.3, task E.8), beside sequential repair rather
+// Generate-and-filter, beside sequential repair rather
 // than instead of it.
 //
 // **Why it is available at all** is a fact the analysis established rather than

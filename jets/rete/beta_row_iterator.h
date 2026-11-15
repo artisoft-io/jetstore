@@ -196,8 +196,8 @@ class BetaRowScan;
  *
  * A scan iterates its container in place. The engine can change a relation while one
  * of its scans is live: a filter's error path, or a create_entity in a filter,
- * inserts into a graph whose callbacks insert into and remove from beta relations
- * (I-90). A flat container's iterators do not survive an insert that grows it, so
+ * inserts into a graph whose callbacks insert into and remove from beta relations.
+ * A flat container's iterators do not survive an insert that grows it, so
  * the relation freezes its scans of a container before it changes that container:
  * each copies the rows it has yet to return and continues over the copy. This is the
  * treatment the RDF graph's iterators have (BaseGraph::freeze_iterators).

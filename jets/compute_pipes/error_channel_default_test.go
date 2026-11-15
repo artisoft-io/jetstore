@@ -427,7 +427,7 @@ func TestSynthesizeIsIdempotent(t *testing.T) {
 	}
 }
 
-// --- The deployment switch (AM.2) ---------------------------------------------
+// --- The deployment switch ---------------------------------------------
 //
 // Always-on is the default and off is one environment variable, because how much
 // error data a deployment wants written by default belongs to whoever operates it

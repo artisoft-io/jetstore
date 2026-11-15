@@ -35,7 +35,7 @@
  *
  * `jetstore_read`, which is what `fetch_file_from_stage` requires
  * (`jets/apiserver/api_tables.go`). Flutter declared `run_pipelines`. The plan's
- * rule for `D01` (`AD.3`, `I-2`) is *the endpoint's capability, not the retired
+ * rule for `D01` is *the endpoint's capability, not the retired
  * client's*, and it applies here unchanged (`Q-14`, answered so).
  */
 

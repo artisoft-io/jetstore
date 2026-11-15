@@ -1,5 +1,5 @@
 /**
- * The `UserFlowConfig` schema. Task S.1.
+ * The `UserFlowConfig` schema.
  *
  * A user flow is a state machine over screens, modelled on the Amazon States
  * Language (`jetsclient/lib/models/user_flow_config.dart:40`). It was Dart until
@@ -13,7 +13,7 @@
  * The gate (`userflow_contract_sharing_assessment.md`) left the authoring
  * language open and named the criterion: **where is the schema actually edited
  * most**. Under decision 1 the answer is here, beside the interpreter that reads
- * a flow (S.2) and the editor that authors one — both TypeScript. Go was the
+ * a flow and the editor that authors one — both TypeScript. Go was the
  * other candidate, being closest to the enforcement point, but the enforcement
  * point reads the *emitted* JSON Schema and never the source, so Go would put
  * the one consumer that does not use this file in charge of its form.
@@ -35,7 +35,7 @@
  * Every claim about what flows actually contain comes from
  * `fixtures/user_flows.json`, generated out of the running Flutter app by
  * `jetsclient/test/user_flow_corpus_test.dart` — the third corpus of this phase,
- * and for the reason the first two exist (I-3, I-12): the source text and the
+ * and for the reason the first two exist: the source text and the
  * constructed object graph have already disagreed three times.
  *
  * **Eleven flows, 46 states, 46 distinct forms** in the Dart corpus at S.1 — every
@@ -239,9 +239,9 @@ export const StateSchema = z
  * ## `title` — added by D.7, and it is not the self-key I-14 refused
  *
  * **The runner rendered `<h1>{key}</h1>` and a user saw `loadFilesUF` where a
- * title belongs** (I-263). The comment at that site read *"a flow document
+ * title belongs**. The comment at that site read *"a flow document
  * carries no title — S.1 dropped it, because the key is the name and two names
- * for one thing is one too many (I-14)"*, and **that is a misreading of I-14
+ * for one thing is one too many"*, and **that is a misreading of I-14
  * this field corrects.** I-14 is about a document naming *itself* — a
  * `FormConfig.key` beside the registry key it is reached by, which disagreed for
  * two of the fifty forms because nothing read it. Its rule is exact: *a name

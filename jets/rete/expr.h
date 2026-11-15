@@ -36,7 +36,7 @@ class ReteSession;
 // exception under its on_error policy. truth_of is v's truth when a rule tests
 // it: text is read with rdf::parse_bool, and text outside the accepted
 // spellings raises an exception and sets ok to false, which the caller turns
-// into a null result. Empty text is null, false with no exception (I-45).
+// into a null result. Empty text is null, false with no exception.
 // Defined in rete_session.cc, where ReteSession is complete.
 void raise_exception(ReteSession * rs, std::string const& msg);
 bool truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok);

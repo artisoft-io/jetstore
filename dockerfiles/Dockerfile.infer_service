@@ -49,8 +49,7 @@ RUN echo "----------------JetStore-Version------------------" >> /VERSION.txt &&
 #
 # No chmod after it: go build writes cbooter 0755 and COPY keeps the mode, and a
 # chmod in a later layer stores the file again -- measured on 2026-10-11, the RUN
-# that chmod'ed it added 5.2 MB, the binary's own size, and changed no mode
-# (rules_unit_test_harness I-31, I-34).
+# that chmod'ed it added 5.2 MB, the binary's own size, and changed no mode.
 COPY --from=builder $JETS_SOURCE_DIR/cbooter /usr/local/bin/
 
 # The backend cbooter starts. Stated rather than left to the default, so that the two

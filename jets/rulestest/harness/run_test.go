@@ -191,7 +191,7 @@ func TestRunOnTestWs(t *testing.T) {
 		u + "persons_badcol.csv":  "jets:key,rdf:type,lp:nme\np1,lp:Person,Ann\n",
 		u + "persons_badcell.csv": "jets:key,rdf:type,lp:name\np1,lp:Person\n",
 		u + "state.csv":           "jets:key,rdf:type\njets:iState,jets:State\n",
-		// I-20: rule-local columns, typed and untyped, a blank cell, an array
+		// Rule-local columns, typed and untyped, a blank cell, an array
 		u + "local.csv": "jets:key,rdf:type,lp:name,_0:score as int,_0:tag\n" +
 			"p1,lp:Person,Ann,3,\"{\"\"a\"\",\"\"b\"\"}\"\np2,lp:Person,Bob,,c\np3,lp:Person,Cy,{},{}\n",
 		u + "local_nokey.csv":         "rdf:type,lp:name,_0:score\nlp:Person,Ann,3\n",
@@ -237,7 +237,7 @@ func TestRunOnTestWs(t *testing.T) {
 	runChild(t, "TestRunOnTestWs", home, "test_ws")
 }
 
-// localTest asserts file, whose _0: columns are rule-local properties (I-20),
+// localTest asserts file, whose _0: columns are rule-local properties,
 // and checks what the session holds for them.
 func localTest(file string) string {
 	count := func(s, p, n string) map[string]any {
@@ -309,7 +309,7 @@ func runOnTestWsChild(t *testing.T) {
 		"input file persons_badcol.csv: column 'lp:nme' is not a data property of the workspace; did you mean 'lp:name'?")
 	wantResult(t, runTest(root, u+"badcell.tst.json"), rulestest.StatusError, "wrong number of fields")
 
-	// I-20: a _0: column is asserted on the row's jets:key, cast by the type its
+	// A _0: column is asserted on the row's jets:key, cast by the type its
 	// header gives (text by default); without a jets:key, with a type the grammar
 	// does not have, or with a cell that does not cast, the test is an error.
 	r = runTest(root, u+"local.tst.json")
@@ -335,7 +335,7 @@ func runOnTestWsChild(t *testing.T) {
 		t.Errorf("engine %q, want native", r.Engine)
 	}
 
-	// The Go engine is retired (rules_benchmark Q-77): a test asking for it, alone
+	// The Go engine is retired: a test asking for it, alone
 	// or compared, fails validation naming the retirement.
 	for _, name := range []string{"go.tst.json", "compare.tst.json"} {
 		r = runTest(root, u+name)
@@ -343,7 +343,7 @@ func runOnTestWsChild(t *testing.T) {
 		wantResult(t, r, rulestest.StatusError, rulestest.GoEngineRetired)
 	}
 
-	// The LEGACY retraction mode is deleted (rules_benchmark Q-102): a legacy object
+	// The LEGACY retraction mode is deleted: a legacy object
 	// whose switches are false names the one behaviour and runs; a switch set true,
 	// or a rule_config setting _0:no_truth_main_on_exist, fails validation naming the
 	// deletion. Every result records legacy_mode fixed.

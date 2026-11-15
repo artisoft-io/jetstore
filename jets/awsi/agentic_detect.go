@@ -1,7 +1,6 @@
 package awsi
 
-// Start the agentic detection task on demand, and read back what ECS did with it
-// (agentic_ai I-861).
+// Start the agentic detection task on demand, and read back what ECS did with it.
 //
 // The task is the one the daily rule runs (cdk/jetstore_one/stack/build_agentic_detect.go):
 // anomaly_detect, then shadow_triage. Starting the same task definition, on the same

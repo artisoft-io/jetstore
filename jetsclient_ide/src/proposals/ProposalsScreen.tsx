@@ -19,7 +19,7 @@
  * server rather than assumed.
  *
  * **It used to default to `audit.Terminal`'s complement and that was the wrong
- * audience** (2026-09-01, I-249). Non-terminal is a fact about the *machine* --
+ * audience** (2026-09-01). Non-terminal is a fact about the *machine* --
  * `approved` still has an outgoing edge to `deployed`, so it is movable and was
  * therefore "open". But `deployed` is left only by `superseded`, which nothing
  * routine does, so every decided proposal stayed in the default view for ever

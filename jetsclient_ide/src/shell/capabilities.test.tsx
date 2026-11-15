@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * Tests for the capability model (task A.2).
+ * Tests for the capability model.
  *
  * Two things are being pinned. The **policy** — what an absent, held, missing or
  * empty capability means — and the **treatment**, which is that a control the

@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// Who moved an incident, and from what to what (task AB.2, I-276) — the
+// Who moved an incident, and from what to what — the
 // labelling instrument plan §10.7 argues for, built now so that Phase 5 can
 // accumulate a population it cannot accumulate retrospectively.
 //
@@ -102,7 +102,7 @@ type IncidentTransition struct {
 	// ActorKind is ActorHuman or ActorAgent — the column I-276 asks for.
 	ActorKind string
 	// RunRef is the AgentRun this transition belongs to, or "" to take the
-	// incident's own `incident_run_ref` (AB.4). It is therefore an input *and*
+	// incident's own `incident_run_ref`. It is therefore an input *and*
 	// an output: RecordIncidentTransition writes back whichever run the chain
 	// event was appended to, and "" on return means the incident named none
 	// either. The chain event is appended iff it is non-empty afterwards.
@@ -144,7 +144,7 @@ func (t *IncidentTransition) validate() error {
 			t.IncidentRef, t.FromStatus, t.ToStatus, IncidentTransitions(t.FromStatus))
 	}
 	// The attribution rule is shared with RecordTierTransition rather than
-	// spelled twice (task AJ.2). It was this function's, moved into
+	// spelled twice. It was this function's, moved into
 	// state_change.go unchanged — including its messages, which two tests match
 	// on — when a second act of the same shape arrived and needed exactly it.
 	return validateAttribution(fmt.Sprintf("transition %s", t.IncidentEventId), t.Actor, t.ActorKind)

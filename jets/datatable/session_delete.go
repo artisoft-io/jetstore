@@ -28,7 +28,7 @@ var ErrSessionsChanged = errors.New("the sessions to delete changed; review them
 // GuardInputSession is what a pipeline start does, in the transaction that
 // inserts its status row, before a run reads inputSessionID: it takes the session
 // lock (sessionpurge.LockSession), then refuses with 409 if session_deletion has
-// a row for the session, whatever its reason and status (Q-16). It answers 200
+// a row for the session, whatever its reason and status. It answers 200
 // and nil when the run may start, and does nothing for an empty id.
 //
 // The lock orders the start against the executor, which takes the same lock

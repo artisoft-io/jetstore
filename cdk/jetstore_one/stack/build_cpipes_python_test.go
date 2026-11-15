@@ -31,8 +31,7 @@ import (
 // **The A/B must be run from one directory**, which cost this task a false positive: run from
 // two worktrees at different paths, six of the ten Lambda zips differ, because `go build`
 // embeds absolute source paths and neither `-buildvcs=false` nor `-ldflags "-s -w"` removes
-// them. Same tree, two checkouts, is the only form of this comparison that means anything
-// (P9-I50).
+// them. Same tree, two checkouts, is the only form of this comparison that means anything.
 //
 // These tests are kept for the reason §13.4 keeps their sibling: they run in milliseconds, and
 // the regression they catch -- somebody changing the predicate or the flag literal -- is what a

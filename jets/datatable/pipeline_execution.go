@@ -150,7 +150,7 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 	// The fields a submitted run's start reads from the request, checked here,
 	// before anything is read or written. Unchecked, a missing file_key let the
 	// row be inserted and then panicked the handler at the start, leaving a
-	// submitted run that nothing would start (JM-076).
+	// submitted run that nothing would start.
 	var startFields map[string]string
 	if dataTableAction.FromClauses[0].Table == "pipeline_execution_status" && status == "submitted" {
 		startFields, err = requiredStrings(dataTableAction.Data[irow], "file_key", "client", "user_email")
@@ -1101,7 +1101,7 @@ func (ctx *DataTableContext) RegisterSchemaEvent(dbpool *pgxpool.Pool, schemaEve
 	if err != nil {
 		return err
 	}
-	// The event's one row must register input (JM-096). RegisterFileKeys skips
+	// The event's one row must register input. RegisterFileKeys skips
 	// such a row with a 200, by design for a request of many keys, so a schema
 	// event for an unknown source config, or with no file_key, was reported as
 	// handled when nothing would ever run.
@@ -1169,7 +1169,7 @@ func (ctx *DataTableContext) ProcessCoordinatorMapRegisterSchemaEvent(dbpool *pg
 		// schemaInfo["request_id"] = requestId
 		return fmt.Errorf("request_id is missing in schemaInfo, it must be provided for pipeline coordinator map register schema event")
 	}
-	// Check every step before writing anything (JM-096): a step that cannot
+	// Check every step before writing anything: a step that cannot
 	// register left the map in_progress for ever, with the steps before it
 	// running.
 	for i, step := range coordinatedPipesMap {

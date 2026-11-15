@@ -1,4 +1,4 @@
-// AG.2: the backend bake-off, measured as first-shot schema validity.
+// The backend bake-off, measured as first-shot schema validity.
 //
 // **What this measures, and why it is not a throughput benchmark.** vLLM was
 // wanted for two reasons: it constrains the decoder with the output schema, and
@@ -9,7 +9,7 @@
 // and tokens per second is a component of that rather than a headline. A
 // backend that answers correctly on the first attempt at half the tokens per
 // second is the better backend for this workload, and a report led by tok/s
-// would obscure it (plan §20.2, §20.8).
+// would obscure it.
 //
 // **The metric has a predicted value, which is what makes this an experiment.**
 // Under true constrained decoding a non-conformant response is not unlikely, it
@@ -18,7 +18,7 @@
 // a published prior in the other direction: I-41 measured the deployed shape at
 // nine parseable, non-conformant fragments out of nine.
 //
-// **Three arms, because two would confound the result** (plan §20.3), and the
+// **Three arms, because two would confound the result**, and the
 // third turned into two on contact with a server:
 //
 //	1   ollama_format     Ollama, the schema in `format` only        the deployed shape
@@ -32,7 +32,7 @@
 // would have reported whichever the pinned server happens to honour, and on
 // vLLM 0.28.0 the answer is that `guided_json` is accepted and discarded while
 // the OpenAI-compatible arm constrains: 0 of 24 against 23 of 24, same server,
-// same model, same prompts, one request field different (plan §24.5).
+// same model, same prompts, one request field different.
 //
 // Arm 2 is the one that makes the result mean something. Benchmarking arm 1
 // against arm 3 cannot attribute a vLLM win between *constrained decoding beats
@@ -253,7 +253,7 @@ func run(c config) error {
 		len(corpus.Files), len(corpus.Instances), c.everyNth, len(split.HeldOut), len(split.Train))
 
 	// One sub-schema per operator, resolved once. The unit a hole addresses is
-	// the operator's *bundle* and not the flat leaf (F112): the leaf's
+	// the operator's *bundle* and not the flat leaf: the leaf's
 	// conditional_config re-admits every operator's config and blows the
 	// window, and the bundle ranges that field to itself.
 	schemas := map[string]json.RawMessage{}

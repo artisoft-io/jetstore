@@ -1,5 +1,5 @@
 /**
- * Tests for the `UserFlowConfig` schema (task S.1).
+ * Tests for the `UserFlowConfig` schema.
  *
  * Three things are being checked, and they are not the same thing.
  *
@@ -57,7 +57,7 @@ const PROJECTED = ["map_claim_load_stages", "qc_metrics", "qc_report"];
  * Michel's answer to that project's `Q-5` — *we need to move away from the big
  * legacy file* — is that a document this repository edits leaves the emitted set
  * the first time it is touched, rather than being changed by editing a fixture
- * headed *do not edit by hand* (`ui_refresh`'s **I-299** asked which way). These
+ * headed *do not edit by hand* (`ui_refresh`'s asked which way). These
  * three are the flows `D06` makes open on their table.
  *
  * **A list of its own rather than an entry in `PROJECTED`**, because the two are
@@ -177,14 +177,13 @@ describe("the shipping corpus", () => {
     // flows and `file_mapping/` defines two.
     //
     // **Ten and 45 since 2026-10-01**: `registerFileKeyUF`, one state, was retired
-    // by `jetstore_maintenance_02` (`Q-6`, `AD.4`) and its fixture entry deleted
+    // by `jetstore_maintenance_02` and its fixture entry deleted
     // with it. The Dart registered eleven; the count here is what is emitted.
     // **Seven and 19 the same day**, when `clientRegistryUF` (4 states),
     // `sourceConfigUF` (12) and `pipelineConfigUF` (10) left the fixture for
-    // `HAND_AUTHORED` (`AF.1`, `D06`).
+    // `HAND_AUTHORED`.
     // **Six and 17 the same day again**, when `fileMappingUF` (2 states) left
-    // for `HAND_AUTHORED` so that its *Done* could return to its start table
-    // (`jetstore_maintenance_02` Phase 2).
+    // for `HAND_AUTHORED` so that its *Done* could return to its start table.
     // **Five and 13 on 2026-10-02**, when `startPipelineUF` (4 states) left too,
     // so that it could always end on Home (same phase, Michel's decision).
     // **Three and 8 on 2026-10-11**, when `loadConfigUF` (2 states) and
@@ -226,7 +225,7 @@ describe("the shipping corpus", () => {
   //
   // **One form since 2026-10-02**: `not` and `isNullOrEmpty` were the nested
   // choice in `startPipelineUF`, which left this fixture for `HAND_AUTHORED`
-  // (`jetstore_maintenance_02` Phase 2) and carried it on disk until Release
+  // and carried it on disk until Release
   // 4.0.4 removed its merged-sources step (2026-10-15).
   //
   // **None in the fixture since 2026-10-11**: the one `contains` was
@@ -339,7 +338,7 @@ describe("the reference checks the schema cannot express", () => {
     // is the point.** S.1 reported two states in `pipelineConfigUF` as dead on
     // the strength of a nearby comment. They are reached by a button — an action
     // that jumps the flow — which the walk could not see because the document
-    // did not declare the edge. It does now, via `goToStates` (I-18).
+    // did not declare the edge. It does now, via `goToStates`.
     for (const key of Object.keys(flows)) {
       expect({ [key]: validateFlow(flows[key]!) }).toEqual({ [key]: [] });
     }
@@ -372,7 +371,7 @@ describe("the reference checks the schema cannot express", () => {
     // transition can take.
     //
     // **On `startPipelineUF` since 2026-10-01**, and on `clientRegistryUF` until
-    // then: that flow left this fixture (`jetstore_maintenance_02` `AF.1`) and
+    // then: that flow left this fixture and
     // `D06` removed the two-way choice this case broke. Go's twin,
     // `TestFindingsCarryAPath`, moved with it.
     //

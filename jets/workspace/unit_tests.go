@@ -29,8 +29,8 @@ const UnitTestSuffix = ".tst.json"
 // UnitTestRecord is one row of workspace.db's unit_tests table.
 //
 // Findings holds the error findings only, and is empty for a test that may be
-// started. That is the contract the rules_unit_test insert target reads
-// (track AC, I-17): a row whose findings are NULL, the empty string, '[]' or 'null' is
+// started. That is the contract the rules_unit_test insert target reads:
+// a row whose findings are NULL, the empty string, '[]' or 'null' is
 // runnable, so a warning written here would refuse a test the validator
 // accepts.
 type UnitTestRecord struct {

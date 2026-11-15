@@ -63,7 +63,7 @@ type LookupTable interface {
 // table from another, so the pair is the smallest thing that makes the list
 // usable without widening the interface every implementation would have to grow.
 //
-// **A slice of pairs rather than a map, and the reason is order** (D-209). A
+// **A slice of pairs rather than a map, and the reason is order**. A
 // map's range order is unspecified, so an operator that iterated its lookups
 // would do so differently from run to run -- which is invisible in a keyed read
 // and fatal to anything downstream that must be a pure function of its inputs.
@@ -111,8 +111,7 @@ type Lookup struct {
 // A site that consumes this interface is not broken by a method being added; a
 // site that *implements* one is, and a test double is an implementation. **Embed
 // OperatorEnv in the fake and override only what the test needs**, so that a
-// method added later compiles and panics on use rather than failing the build
-// (`I-781`).
+// method added later compiles and panics on use rather than failing the build.
 //
 //	type fakeEnv struct {
 //		pipesmodel.OperatorEnv // nil; any method not overridden panics
@@ -302,8 +301,8 @@ type OperatorArgs struct {
 	// operators. A name that no `lookup_tables` entry defines is refused there,
 	// by name, the way every other operator's reference is.
 	//
-	// **It is built for the contract rather than for its first consumer**
-	// (D-202). The corpus generator that motivated the operator contract does
+	// **It is built for the contract rather than for its first consumer**.
+	// The corpus generator that motivated the operator contract does
 	// not use this field: it keeps its own reference-table package, because a
 	// generic keyed map gives neither per-table declared key normalisation nor
 	// the refusals that make a table which quietly lost rows visible. An

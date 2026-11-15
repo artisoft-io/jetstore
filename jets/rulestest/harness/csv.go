@@ -22,7 +22,7 @@ import (
 // casts every cell by the property's type in build/properties.json.
 //
 // A column named _0:<name> is a rule-local property, which a pipeline's input
-// never carries and properties.json does not declare (I-20). Its cells are
+// never carries and properties.json does not declare. Its cells are
 // text unless the header gives a type, "_0:units as int", and they are
 // asserted on the row's jets:key, which a table with one must supply.
 type InputTable struct {
@@ -169,7 +169,7 @@ func checkColumns(name string, columns, dataColumns []string) error {
 // assertInput argument of RunRuleSets, which calls it once the first rete
 // session exists, the pipeline's order. Until 2026-10-11 C++ needed that order:
 // the native session made its nodes through the meta graph before a rete
-// session existed (I-15).
+// session existed.
 func assertTables(spec *compute_pipes.JetrulesSpec, tables []*InputTable, isDebug bool) func(compute_pipes.JetRdfSession) error {
 	return func(rdfSession compute_pipes.JetRdfSession) error {
 		for _, t := range tables {

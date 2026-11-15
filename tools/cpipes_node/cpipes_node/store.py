@@ -27,7 +27,7 @@ that escapes the root resolves perfectly well on a filesystem and not at all in
 a bucket, and a run that works locally and fails deployed is the failure this
 seam exists to prevent.
 
-# A bucket that is not the node's own (D-242)
+# A bucket that is not the node's own
 
 `for_bucket` is the seam an authored `output_channel.bucket` reaches. **A store
 is bound to one bucket**, as Go's `S3DeviceWriter` is bound to one
@@ -115,7 +115,7 @@ class ObjectStore(Protocol):
         ...
 
     def for_bucket(self, bucket: str | None) -> ObjectStore:
-        """This store, or one bound to `bucket` (D-242).
+        """This store, or one bound to `bucket`.
 
         `is_own_bucket(bucket)` returns `self`, so the ordinary case allocates
         nothing and the two spellings of "the node's own" are one branch.
@@ -207,7 +207,7 @@ class S3:
     package — which every test does — does not require the AWS SDK. **Nothing
     in this class is exercised by any check in this repository**, because there
     is no AWS to exercise it against; that is stated rather than papered over,
-    and what would settle it is the first deployment (P9-T15) or a moto
+    and what would settle it is the first deployment or a moto
     fixture, which is a dependency nobody has asked for yet.
     """
 

@@ -309,7 +309,7 @@ def _tokens(args) -> int:  # type: ignore[no-untyped-def]
 
     The three sets and the coverage statement print on every path, `--check`
     included, because whoever reads a green result is the person who needs to
-    know how narrow the claim is (`AG.2`).
+    know how narrow the claim is.
     """
     try:
         diff = compute(go_contract=args.go_contract, jetstore=args.jetstore)

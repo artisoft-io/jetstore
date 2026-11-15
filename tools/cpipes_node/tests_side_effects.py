@@ -272,7 +272,7 @@ def test_the_side_effect_set_is_the_four_writes_and_no_others():
         "actions_start_reducing_cp.go",
         "actions_start_sharding_cp.go",
         "compute_pipes.go",
-        # The run manifest (D-255), written from StatusUpdate.CoordinateWork
+        # The run manifest, written from StatusUpdate.CoordinateWork
         # rather than from a worker. Added 2026-09-21 when this assertion went
         # red on jetstore_maintenance_01's track AC -- the guard working, not a
         # guard being widened to keep quiet.
@@ -317,7 +317,7 @@ def test_domain_keys_registry_is_neither_the_nodes_nor_the_starters():
 
 
 def test_cpipes_results_is_written_by_nothing_and_so_this_node_writes_it_too():
-    """**P9-I62.** `SaveResultsContext.Save` is reached from nowhere.
+    """`SaveResultsContext.Save` is reached from nowhere.
 
     Its five call sites are commented out in `actions_process_file.go` and have
     been since 2024-07-18. The assertion is in both directions: the method exists
@@ -782,7 +782,7 @@ def test_a_kill_switch_is_not_a_failure():
 def test_the_four_metric_names_are_the_go_switchs_own():
     """Read off `ReportMetrics`' `case` labels.
 
-    The partition into measurable and not is this node's judgement (P9-I65); the
+    The partition into measurable and not is this node's judgement; the
     *set* of four is Go's, and a fifth metric added there makes this red.
     """
     source = go_source(METRICS_GO)

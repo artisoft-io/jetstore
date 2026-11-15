@@ -23,7 +23,7 @@
 // audit.InstallSchema (jets/update_db/main.go:71), and it was absent from all
 // four production environments measured on 2026-08-25 — so the first symptom
 // of running this against an unmigrated deployment would be an insert failing
-// on a missing relation, which reads as a defect in a detector (I-169).
+// on a missing relation, which reads as a defect in a detector.
 //
 // And it refuses to run the step-regression detector with -baseline 0, rather
 // than comparing against an empty history. A step with no baseline is not a

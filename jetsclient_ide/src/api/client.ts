@@ -25,7 +25,7 @@
  * they lacked a capability for. The apiserver answered 401 for both a dead token and
  * a refused capability, so `post` could not tell them apart and treated every one as
  * an expiry: a refusal presented as a session failure, on every screen with a gated
- * write. Raised as ui_refresh **I-189** by C.14, fixed at **C.17**.
+ * write. Raised as ui_refresh by C.14, fixed at **C.17**.
  *
  * **The fix is on the server**, because it had to be. The obvious cheap alternative —
  * read the error string — cannot work, and that is a stronger statement than "it is
@@ -85,7 +85,7 @@ export class SessionExpiredError extends ApiError {
 }
 
 /**
- * Thrown on 403: the session is live and the server refused what was asked. C.17.
+ * Thrown on 403: the session is live and the server refused what was asked.
  *
  * **It extends `ApiError` and not `SessionExpiredError`, and that is the whole of
  * its contract.** Every existing consumer already discriminates on
@@ -111,7 +111,7 @@ export class PermissionDeniedError extends ApiError {
 /**
  * The signed-in user's git identity, as the sign-in response carries it.
  *
- * Task C.14. **Three fields of the four the server sends**, and the omission is
+ * **Three fields of the four the server sends**, and the omission is
  * the point — see `LoginResponse.gitProfile` below.
  */
 export interface GitProfile {
@@ -136,13 +136,13 @@ export interface User {
   /**
    * The deployment's own Pipeline Status buttons, from the login response's
    * `custom_buttons` (`jets/apiserver/custom_buttons.go`). jetstore_maintenance_02
-   * `D04`, `AE.8`. Empty when the deployment configures none or the value cannot
+   * Empty when the deployment configures none or the value cannot
    * be used — see `actions/customButtons.ts` for why it is all or nothing.
    */
   customButtons: CustomButton[];
   devMode: boolean;
   /**
-   * The git identity, for the git profile screen. Task C.14.
+   * The git identity, for the git profile screen.
    *
    * It lives on the user rather than on the screen because that is where the
    * Flutter app keeps it and what makes the screen's route parameterless: the
@@ -227,7 +227,7 @@ export class ApiClient {
   }
 
   /**
-   * Creates an account. Task X.4.
+   * Creates an account.
    *
    * **Registration does not sign you in, and that is the Dart's behaviour rather
    * than an omission.** `CreateUser` mints a token and returns it
@@ -299,7 +299,7 @@ export class ApiClient {
   }
 
   /**
-   * Records a git profile the user has just saved. Task C.14.
+   * Records a git profile the user has just saved.
    *
    * The server writes `jetsapi.users` and answers with no profile, so the copy
    * held here would otherwise stay at what sign-in returned until the next one —
@@ -354,7 +354,7 @@ export class ApiClient {
   }
 
   /**
-   * POST to one of the endpoints an authored action may name. Task F.0a.
+   * POST to one of the endpoints an authored action may name.
    *
    * `dataTable` was the only public poster, and a flow's `post` step names an
    * endpoint: two flows in the corpus use `/registerFileKey` rather than

@@ -414,7 +414,7 @@ func validateJetrulesConfig(td *TestDefinition, raw map[string]any) []wsvalidate
 			"process_name is required: a rule file listed in rule_sets, or a rule sequence name"))
 	}
 	// The Go engine is retired: a test asking for it fails validation rather than run
-	// on C++ where Go was asked for (rules_benchmark Q-77).
+	// on C++ where Go was asked for.
 	if jc.UseJetRulesGo {
 		f = append(f, errorf(CodeRefused, "/jetrules_config/use_jet_rules_go",
 			"use_jet_rules_go asks for the Go engine: %s; remove it", GoEngineRetired))

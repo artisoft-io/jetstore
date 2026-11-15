@@ -17,7 +17,7 @@ carry it at all — `cpipes_contract.reflect` itself loads it through
 `_load_contract_model` states the search order in its error. **The fix belongs
 on the other side of the seam**: moving the file into the package costs one
 default path in `cpipes_contract/main.py`, and until that happens a container
-image for this node (P9-T14) must ship the contract tree and not only its
+image for this node must ship the contract tree and not only its
 wheel.
 
 **The model described the authored document and the node reads the runtime
@@ -189,7 +189,7 @@ SchemaProviderSpecDefault = model.SchemaProviderSpecDefault
 #: no call site and the next reader finds the shape under the name they already
 #: know. The current step's pipes arrive under `pipes_config` and not under
 #: `conditional_pipes_config`, which is why `when` on a *step* is the starter's
-#: to evaluate and `when` on an *operator* is the node's (P9-T04).
+#: to evaluate and `when` on an *operator* is the node's.
 PipesConfig = model.ComputePipesRuntimeConfig
 
 
@@ -250,8 +250,7 @@ def column_types() -> tuple[str, ...]:
     the way it dispatches an operator, so it has no place in `TOKEN_STRUCTS`.
     It is read off the same index for the same reason — `columns.py` implements
     a subset and refuses the rest, and the universe it is a subset **of** has to
-    be the contract's own or the two lists can drift with nothing going red
-    (P3-I20).
+    be the contract's own or the two lists can drift with nothing going red.
     """
     keys: dict[str, tuple[str, str]] = model._MATRIX_KEYS
     return tuple(

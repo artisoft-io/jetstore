@@ -44,8 +44,7 @@ class Generator(InputChannel):
         graph owns the width and the termination signal. **The point of routing
         through here is that `graph.py` contains no `if type == "generator"`** —
         the dispatch is the declaration, so a channel type this node grows is
-        reached by the class being written and not by an `if` being remembered
-        (P3-I20).
+        reached by the class being written and not by an `if` being remembered.
         """
         from .. import graph
 

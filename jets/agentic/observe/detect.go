@@ -9,7 +9,7 @@ import (
 
 // The two detectors, section 12.2 rows 2 and 3. Which two is a measurement
 // rather than a preference: row 1's numerator sums to zero across four
-// production environments and 22.6 billion input records (F72), and row 4's
+// production environments and 22.6 billion input records, and row 4's
 // predicate fires four times in thirty days across all four, so a family
 // cannot be proven on it. Rows 5 and 10 read
 // jetsapi.pipeline_execution_channel_details, which is deployed nowhere.
@@ -112,7 +112,7 @@ func Gather(ctx context.Context, db DB, detect Window, baselineFor time.Duration
 // It fires only on a worker that reached 'completed'. A worker that failed has
 // already reported itself through its status, and an anomaly beside that
 // failure is the second copy of a signal rather than a new one; a worker still
-// in progress has NULL counts (F99) and is row 4's observation, not this one.
+// in progress has NULL counts and is row 4's observation, not this one.
 type VolumeCollapse struct {
 	// MinRatio fires the detector when output_records_count / input_records_count
 	// is below it. Unsourced; see the file comment.
@@ -163,7 +163,7 @@ func (d VolumeCollapse) Detect(ev *Evidence) []Anomaly {
 		if r.Status != StatusCompleted {
 			continue
 		}
-		// F99: the six counts are NULL for exactly as long as the worker is
+		// The six counts are NULL for exactly as long as the worker is
 		// running, and a coalesce written for tidiness here would turn a
 		// stalled worker into a total collapse.
 		if r.InputRecords == nil || r.OutputRecords == nil {
@@ -206,7 +206,7 @@ func (d VolumeCollapse) Detect(ev *Evidence) []Anomaly {
 func (d VolumeCollapse) recordConfounders(r *WorkerRow, ev *Evidence) []string {
 	var out []string
 	if r.StepId == "" {
-		// F52: ten reducing steps in the corpus carry an empty label, so the
+		// Ten reducing steps in the corpus carry an empty label, so the
 		// anomaly cannot say which step of the config this row is.
 		out = append(out, ConfounderStepLabelAmbiguous)
 	}
@@ -215,7 +215,7 @@ func (d VolumeCollapse) recordConfounders(r *WorkerRow, ev *Evidence) []string {
 	}
 	// Without the per-channel child table there is no way to say which DAG
 	// edge lost the rows, so a collapse cannot be attributed inside the
-	// worker. The table is deployed nowhere as of 2026-08-25 (F71, I-132), so
+	// worker. The table is deployed nowhere as of 2026-08-25, so
 	// this is the ordinary case rather than the exception.
 	if ev.Extent != nil && !ev.Extent.ChannelDetails {
 		out = append(out, ConfounderCrossStepJoinUnavailable)
@@ -252,7 +252,7 @@ func (d VolumeCollapse) basis(r *WorkerRow, in, got int64, cc *ConfigConfounders
 // The source is (client, process_name, main_object_type, cpipes_step_id) and
 // not the input file key, which for a periodic feed differs every run. That is
 // the whole reason this detector needs the run header at all: three of the four
-// keys are on the worker row (F98) and main_object_type is not.
+// keys are on the worker row and main_object_type is not.
 type StepRegression struct {
 	// MinPriorRuns is how many prior runs of the step the baseline must hold
 	// before a failure is called a regression. One prior success is not a

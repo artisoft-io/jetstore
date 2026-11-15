@@ -1,5 +1,5 @@
 /**
- * The dropdown widget. Task A.3.
+ * The dropdown widget.
  *
  * Eleven `FormDropdownFieldConfig` instances across the nine flows — the one
  * figure of the assessment's field table the corpus confirms unchanged. Their
@@ -76,7 +76,7 @@ export function Dropdown({
   // The separator is NUL because it is the one character an item value cannot
   // contain, and it is written `\0` rather than as a literal byte: a raw NUL in
   // the source makes `grep` classify the whole file as binary and skip it
-  // without saying so, which in this project is a measurement hazard (I-46).
+  // without saying so, which in this project is a measurement hazard.
   //
   // **It reads the form state, not `value`** (jetstore_maintenance_02 `I-30`,
   // 2026-10-27). This is a passive effect, so it can run after a change event

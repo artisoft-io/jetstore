@@ -1,11 +1,11 @@
 /**
  * @vitest-environment jsdom
  *
- * Tests for the text input and dropdown widgets (task A.3).
+ * Tests for the text input and dropdown widgets.
  *
  * The assertions that matter are the ones about **form state**, not about
  * markup: these widgets exist to feed the same store the data table publishes
- * into (I-9), and the query builder downstream distinguishes an absent key from
+ * into, and the query builder downstream distinguishes an absent key from
  * an empty one. Getting that wrong would not look wrong on screen.
  */
 
@@ -258,7 +258,7 @@ describe("the field corpus", () => {
 
   it("cannot see the two exotic field types, which is not the same as their being absent", () => {
     // **This assertion was read for a year as evidence about the app and it is
-    // evidence about the corpus** (I-60, 2026-08-23). `FormTypeaheadFieldConfig`
+    // evidence about the corpus** (2026-08-23). `FormTypeaheadFieldConfig`
     // and `FormDropdownWithSharedItemsFieldConfig` have three constructor sites
     // between them — two live, one commented out — all inside `mapFileUF`'s
     // `inputFieldRowBuilder`, and `allFields` deliberately does not walk a row
@@ -271,7 +271,7 @@ describe("the field corpus", () => {
     // say what it measures: it is still the guard that would fire if one of these
     // types appeared in a statically declared field, which is a real thing to
     // learn. Both are now served — the typeahead by `widgets/Typeahead.tsx` and
-    // the shared-items dropdown by `Dropdown.tsx` plus `itemsFrom` (I.2b).
+    // the shared-items dropdown by `Dropdown.tsx` plus `itemsFrom`.
     for (const type of ["FormTypeaheadFieldConfig", "FormDropdownWithSharedItemsFieldConfig"]) {
       expect(fields.some((f) => f.type === type)).toBe(false);
     }

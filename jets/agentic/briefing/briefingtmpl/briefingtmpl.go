@@ -98,7 +98,7 @@ func Compiled() (*template.Template, error) {
 // it does are exactly the three §10.7 says do not belong inside one.
 //
 // It refuses a prefixed entity. That is the one of `prose.Render`'s three
-// refusals that stays with the caller (**I-623**): it is a claim about the
+// refusals that stays with the caller: it is a claim about the
 // column's `remove_model_prefixes` setting rather than about the data, it is
 // the same for every template, and no arrangement of a template makes it
 // decidable at build time. Without it a misconfigured column renders an empty

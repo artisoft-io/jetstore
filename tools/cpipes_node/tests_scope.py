@@ -5,7 +5,7 @@ tokens JetStore has" reads them off `cpipes_model._MATRIX_KEYS` through
 `contract.contract_tokens`. A hand-kept list of the nineteen would make
 `test_every_contract_token_outside_the_scope_is_refused` pass over a twentieth
 the day JetStore added one — which is the shape of failure this repository has
-recorded thirty-seven times, and the one the phase's highest risk (P9-R01) runs
+recorded thirty-seven times, and the one the phase's highest risk runs
 straight into.
 
 **One assertion here is deliberately a literal**, and it is
@@ -176,8 +176,8 @@ def test_implementedness_is_derived_and_not_declared():
             implemented.append(cls.token)
         else:
             assert cls.owed_by, f"{cls.__name__} declares a stub owing nobody"
-    # **Measured over the merged state rather than taken from either branch**
-    # (P7-I62). P9-T04 implemented the two input-channel types and `fan_out`;
+    # **Measured over the merged state rather than taken from either branch**.
+    # P9-T04 implemented the two input-channel types and `fan_out`;
     # P9-T08 added `merge_files`; P9-T06 and P9-T07 added the three
     # transformations. Neither branch could see the other's four, and each was
     # correct about its own — so the union is the only right answer and it was

@@ -30,10 +30,10 @@ import (
 //     against a throwaway copy. Nothing is saved: the compiler runs with
 //     saveJson false, so SaveModel is never called and workspace.db is neither
 //     rewritten nor deleted. That last part matters — a full compile deletes
-//     workspace.db first (Phase 0's F4), which is exactly what a validation
+//     workspace.db first, which is exactly what a validation
 //     tool must not do to a workspace someone is using.
 //   - **Imports resolve.** A rule file is textually inlined with its data model
-//     before parsing and its class declarations generate rete nodes (F1, F2),
+//     before parsing and its class declarations generate rete nodes,
 //     so a rule compiled without its workspace's vocabulary is not the same
 //     rule. The throwaway carries the workspace's rule sources for that reason,
 //     and copying only .jr files keeps it cheap.
@@ -66,7 +66,7 @@ type RuleDiagnostic struct {
 type compileArgs struct {
 	RuleText string `json:"rule_text"`
 	// RulePath is I-94's remedy: name a workspace file instead of carrying its
-	// text (T.2). J.2 measured the model reproducing a rule file correctly 9
+	// text. J.2 measured the model reproducing a rule file correctly 9
 	// times in 18, deterministically, with a verbatim-copy instruction making
 	// it worse — and `rule_text` is `{"type":"string"}`, so no schema anywhere
 	// can see a dropped import line. A path removes the failure rather than
@@ -93,7 +93,7 @@ type compileArgs struct {
 	// as the argument 10 times of 10 — the right rules in the wrong place —
 	// and, shown an inline example, sent the document as a string, whose
 	// quotes around ?variables it rewrote as curly quotes 11 times of 14
-	// (I-250, 2026-10-12). A whole document, and a string holding either
+	// (2026-10-12). A whole document, and a string holding either
 	// form, are still accepted, since each has one reading.
 	Rules    json.RawMessage `json:"rules"`
 	Imports  []string        `json:"imports"`
@@ -266,7 +266,7 @@ func renderRules(raw json.RawMessage, imports []string) (*symbolic.Rendered, *Co
 //
 // The canonical form is 'rules' an array of rules with 'imports' beside it.
 // Three other forms are accepted because each has one reading, and the
-// measurement found a model sending all three (I-250, 2026-10-12):
+// measurement found a model sending all three (2026-10-12):
 //
 //   - a whole document, {"imports": [...], "rules": [...]}, under 'rules';
 //   - a string holding the array or the document;

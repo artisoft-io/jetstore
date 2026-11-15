@@ -24,8 +24,8 @@ func testFlags(t *testing.T, set ...string) map[string]bool {
 	return visitedFlags(fs)
 }
 
-// -legacy chose a retraction mode until the LEGACY retraction mode was deleted
-// (rules_benchmark Q-95): given, whatever its value, it is refused naming the
+// -legacy chose a retraction mode until the LEGACY retraction mode was deleted:
+// given, whatever its value, it is refused naming the
 // deletion; not given, nothing is refused.
 func TestLegacyFlagIsRefused(t *testing.T) {
 	if err := refuseLegacyFlag(testFlags(t)); err != nil {
@@ -39,8 +39,7 @@ func TestLegacyFlagIsRefused(t *testing.T) {
 	}
 }
 
-// -observe is untimed: with it, the timing outputs are refused, naming -observe
-// (rules_benchmark BU.2).
+// -observe is untimed: with it, the timing outputs are refused, naming -observe.
 func TestObserveRefusesTheTimingFlags(t *testing.T) {
 	if err := refuseTimingFlags(testFlags(t, "-observe", t.TempDir()), "-observe"); err != nil {
 		t.Errorf("-observe alone: %v", err)
@@ -56,8 +55,7 @@ func TestObserveRefusesTheTimingFlags(t *testing.T) {
 	}
 }
 
-// -stats is untimed: with it, the timing outputs are refused, naming -stats
-// (rules_benchmark BX.2).
+// -stats is untimed: with it, the timing outputs are refused, naming -stats.
 func TestStatsRefusesTheTimingFlags(t *testing.T) {
 	if err := refuseTimingFlags(testFlags(t, "-stats", "s.json"), "-stats"); err != nil {
 		t.Errorf("-stats alone: %v", err)

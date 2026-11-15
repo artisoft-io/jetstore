@@ -1,6 +1,6 @@
 package jetrules_native_adaptor
 
-// `AU.1`: does TOON cost accuracy against JSON? (agentic_ai Phase 7 track AU)
+// Does TOON cost accuracy against JSON? (agentic_ai Phase 7 track AU)
 //
 // # The design is paired per member, and that is what makes it one variable
 //
@@ -21,8 +21,7 @@ package jetrules_native_adaptor
 // of a list has the same key set and every field is primitive, and the expanded
 // form otherwise (agentic_ai §1.25.2, reproduced on 40 of 40 lists). **JSON has
 // no such split**, so a pooled TOON-against-JSON comparison sets one encoding
-// against a blend of two, in a proportion fixed by this population's regimen mix
-// (**I-577**).
+// against a blend of two, in a proportion fixed by this population's regimen mix.
 //
 // So every count below is reported **per stratum**. And the stratum is not
 // independent of the hazard: a list is expanded *because* it carries a

@@ -45,8 +45,8 @@ const instructionBudgetShare = 2
 // and which moved nothing, and extra is anything else.
 func Instruction(c *Case, numCtx int, inPrompt json.RawMessage, extra string) (string, error) {
 	// The served window is what the instruction competes for, and what else is
-	// in it depends on where the schema goes: as `format` it costs nothing
-	// (F113), in the instruction it costs its own size and the budget for the
+	// in it depends on where the schema goes: as `format` it costs nothing,
+	// in the instruction it costs its own size and the budget for the
 	// context abstract shrinks by exactly that.
 	budgetTokens := prompt.DefaultReserveTokens / instructionBudgetShare
 	if numCtx > 0 {

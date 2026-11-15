@@ -60,13 +60,13 @@
 // toon column the model arm reads is built by the same walk. Sorting here alone
 // would make the two arms differ in something other than the renderer, which is
 // exactly what criterion 76 forbids. The fix belongs in `extractAsEntity`, where
-// it reaches both arms at once (I-562); until it lands, this renderer is a total
+// it reaches both arms at once; until it lands, this renderer is a total
 // function of the entity map it is given and the map is what varies.
 //
 // # What it deliberately does not carry
 //
-// `cintel:Adherence` appears nowhere in the prose, as a number or as a flag
-// (§1.10.4, F754). The ratio's observation window ends at the last fill, so a
+// `cintel:Adherence` appears nowhere in the prose, as a number or as a flag.
+// The ratio's observation window ends at the last fill, so a
 // member who **stops** filling scores higher than one who does not; what
 // replaces it is what the ratio is computed from - "three fills, most recently
 // 24 August". The ratio stays on the entity and reaches the model arm unchanged,
@@ -115,7 +115,7 @@ func SplitNotice(rendered string) (notice, body string) {
 
 // emptyCase is what a briefing with no claims activity says.
 //
-// **It emits a sentence rather than nothing** (§1.10.6). A blank artefact under
+// **It emits a sentence rather than nothing**. A blank artefact under
 // a notice reads as a rendering failure, and I-515's whole subject is a briefing
 // that is empty when it should not be - so the one state a reader must be able
 // to distinguish from a broken renderer is the one that would otherwise look
@@ -139,7 +139,7 @@ const emptyCase = "No claims activity on record for this member."
 //     `remove_model_prefixes: false` on the column and would otherwise render an
 //     empty briefing that looks like a member with no claims;
 //   - a briefing with no `Briefing_Disclaimer`, because the artefact is notice,
-//     rule, prose in that order (§1.10.5) and prose delivered without its notice
+//     rule, prose in that order and prose delivered without its notice
 //     is the one output worse than no output;
 //   - a pharmacy event carrying no `Drug_Name`. §1.10.6 keeps the components
 //     beside the joined `Medication` value precisely so that no renderer has to
@@ -208,8 +208,8 @@ func renderBody(entity map[string]any) ([]string, error) {
 // elementVolumeAndWindow is §1.10.3's element 1 and element 2 in one paragraph:
 // how much and how recently, then what the last contact was.
 //
-// **`latest_by` is applied to the events rather than to `Latest_Service_Date`**
-// (§1.10.6): the briefing-level extremum is a date, and element 2 needs the
+// **`latest_by` is applied to the events rather than to `Latest_Service_Date`**:
+// the briefing-level extremum is a date, and element 2 needs the
 // *encounter* the extremum belongs to - an emergency room in June and a
 // laboratory draw in August are different calls.
 //
@@ -252,9 +252,9 @@ func elementVolumeAndWindow(entity map[string]any, medical []map[string]any, cou
 // framing that make it read as claims history rather than as a finding. **Do not
 // "improve" the order.**
 //
-// **The parenthesised diagnosis code is stripped here and stays on the entity**
-// (§1.10.4): the code exists so a checker can match a whole string exactly, and
-// "(F1120)" is noise to a member and jargon to a representative.
+// **The parenthesised diagnosis code is stripped here and stays on the entity**:
+// the code exists so a checker can match a whole string exactly, and
+// "" is noise to a member and jargon to a representative.
 func elementConditions(entity map[string]any) string {
 	conditions := make([]string, 0, 4)
 	for _, v := range values(entity, selConditions) {
@@ -276,7 +276,7 @@ func elementConditions(entity map[string]any) string {
 // `Fill_Date`) and never the joined `Medication` value. See `Render` for why
 // that is a refusal rather than a fallback.
 //
-// **The individual fill dates are not listed** (§1.10.4): the count and the
+// **The individual fill dates are not listed**: the count and the
 // latest carry the whole of what this element does, and three dates per drug is
 // length for a member on four maintenance drugs.
 func elementMedications(pharmacy []map[string]any, count int) (string, error) {

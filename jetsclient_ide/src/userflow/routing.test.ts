@@ -1,5 +1,5 @@
 /**
- * Tests for the flow routing switch (task S.8).
+ * Tests for the flow routing switch.
  *
  * Small, because the decision is the deliverable and the decision is that there
  * is nothing to dispatch — see `routing.ts`. What is worth pinning is that the
@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import { appForFlow, flutterFlowPath, handoffFor, reactFlowPath } from "./routing";
 
 // `homeFiltersUF` replaced `registerFileKeyUF` here on 2026-10-01, when that flow
-// was retired (`jetstore_maintenance_02` `AD.4`); the set only needs two members
+// was retired; the set only needs two members
 // that are not `pipelineConfigUF`.
 const migrated = new Set(["loadFilesUF", "homeFiltersUF"]);
 

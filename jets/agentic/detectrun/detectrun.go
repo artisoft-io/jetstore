@@ -1,7 +1,7 @@
 // Package detectrun records each run of the agentic detection commands,
 // anomaly_detect and shadow_triage, in jetsapi.agentic_detection_run, so that
 // a person can see that the detectors ran, when, on whose request, and what
-// they found, without reading CloudWatch (agentic_ai I-861).
+// they found, without reading CloudWatch.
 //
 // # One row per command per task
 //

@@ -5,7 +5,7 @@ entities, and named `text` literals for the vocabularies — a named literal
 lands in `resources` with `type='text'`, `id` set and `inline` null, so rules
 reference the constant by name and a mistyped value is a compile error.
 Rule-visible metadata (`data_classification`) is emitted as `triple(...)`
-facts (§3.5); everything emitter-only goes to the sidecar instead.
+facts; everything emitter-only goes to the sidecar instead.
 """
 
 from __future__ import annotations

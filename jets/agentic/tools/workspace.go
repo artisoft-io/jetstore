@@ -17,7 +17,7 @@ import (
 // not acquire the stdio adapter's local-disk shape, or Phase 2 inherits a
 // signature it cannot use (plan section 6).
 type Workspace struct {
-	// The workspace-wide class view, from build/classes.json (F5).
+	// The workspace-wide class view, from build/classes.json.
 	Classes map[string]*rete.ClassNode
 	// The jets_agentic sidecar, from data_model/jets_agentic.meta.json;
 	// nil when the workspace has no schema-first model installed.

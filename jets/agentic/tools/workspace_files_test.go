@@ -1,4 +1,4 @@
-// T.1 and T.2: the two workspace reads, and the path-valued alternative to the
+// The two workspace reads, and the path-valued alternative to the
 // two verifiers' content arguments.
 //
 // The fixture is the same compiled workspace the rest of this package uses, so
@@ -168,7 +168,7 @@ func TestWorkspacePathConfinement(t *testing.T) {
 	}
 }
 
-// T.2: the two verifiers accept a path, refuse both arguments at once, and
+// The two verifiers accept a path, refuse both arguments at once, and
 // refuse neither.
 func TestVerifiersTakeAPath(t *testing.T) {
 	ws := fixture(t)

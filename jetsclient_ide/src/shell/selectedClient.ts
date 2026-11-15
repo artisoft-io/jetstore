@@ -1,5 +1,5 @@
 /**
- * The client filter every screen's tables are queried against. Task C.6.
+ * The client filter every screen's tables are queried against.
  *
  * ## It is the shell's, not a screen's
  *
@@ -33,7 +33,7 @@
  * One `raw_query` against `jetsapi.client_registry`, which is what the Dart runs
  * at sign-in (`jetsclient/lib/modules/actions/user_delegates.dart`, the
  * `client_registry` query in the login delegate). This app has no sign-in
- * bootstrap (I-67), so the shell asks once when it mounts.
+ * bootstrap, so the shell asks once when it mounts.
  *
  * **A failure leaves the picker empty and every table unfiltered**, which is the
  * same state a deployment with no registered clients is in, and is deliberately

@@ -42,7 +42,7 @@ type fakeOps struct {
 	// server-side derivation of actor and tier is asserted.
 	recorded *audit.Approval
 
-	// The incident half (task AE.1). `incidentErr` is what makes the
+	// The incident half. `incidentErr` is what makes the
 	// unmigrated-database path testable here at all: the alternative is a
 	// database with no schema, which the audit package tests and this one
 	// cannot.
@@ -53,7 +53,7 @@ type fakeOps struct {
 	// assert the screen's filter reached the store rather than the wrong field.
 	statusFilter []string
 
-	// phiSeen captures the PHI decision ReadIncident was handed (task AE.2).
+	// phiSeen captures the PHI decision ReadIncident was handed.
 	// **The redaction itself is not testable here**: this fake stands where the
 	// audit package's read would be, and that read is where the withholding
 	// happens — which is the design rather than a limitation of the fake. What
@@ -62,13 +62,13 @@ type fakeOps struct {
 	phiSeen  audit.PHIAccess
 	phiAsked bool
 
-	// The verdict write (task AJ.2, Q-52).
+	// The verdict write.
 	recordedVerdict             *audit.IncidentTransition
 	verdictErr                  error
 	verdictClassificationBefore string
 	verdictRunRef               string
 
-	// The Detection screen (I-861); its methods are in
+	// The Detection screen; its methods are in
 	// api_agentic_detection_test.go.
 	detection detectionFake
 }
@@ -404,7 +404,7 @@ func TestAProposalWithNoRunCannotBeDecided(t *testing.T) {
 	}
 }
 
-// The incident half (task AE.1) --------------------------------------------
+// The incident half --------------------------------------------
 //
 // **What is worth asserting here is what the endpoint refuses to lose**, on the
 // same argument as the proposal tests above: both taxonomies travel together,
@@ -565,7 +565,7 @@ func TestPHIAccessReachesTheReadAndIsReportedToTheCaller(t *testing.T) {
 	}
 }
 
-// The grant was taken by the user on 2026-09-04 (Q-42): knowledge_engineer, the
+// The grant was taken by the user on 2026-09-04: knowledge_engineer, the
 // role jets_init_db.sql calls a super user and the only seeded role holding
 // agent_supervision. This test is the one the earlier version said would have to
 // be edited, and it is edited rather than deleted, because what it asserts is
@@ -647,14 +647,14 @@ func TestAnUnmigratedDatabaseIs503RatherThan500(t *testing.T) {
 	}
 }
 
-// IncidentTransitionsFor completes the agenticOps interface for the fake store
-// (task AC.3). The scripted value is `transitions`; nil is a legitimate answer
+// IncidentTransitionsFor completes the agenticOps interface for the fake store.
+// The scripted value is `transitions`; nil is a legitimate answer
 // and is what a database migrated between AB.1 and AB.2 would give.
 func (f *fakeOps) IncidentTransitionsFor(context.Context, string) ([]audit.IncidentTransition, error) {
 	return f.transitions, f.transitionsErr
 }
 
-// RecordIncidentTransition is the verdict write (task AJ.2). `recordedVerdict`
+// RecordIncidentTransition is the verdict write. `recordedVerdict`
 // captures what the handler composed, which is how the two things the request
 // may not carry — the actor and the actor **kind** — are asserted to have been
 // derived server-side.
@@ -675,7 +675,7 @@ func (f *fakeOps) RecordIncidentTransition(_ context.Context, t *audit.IncidentT
 	return 11, nil
 }
 
-// The verdict control's server half (task AJ.2, Q-52) — the single change that
+// The verdict control's server half — the single change that
 // gives `HumanVerdicts` a writer.
 //
 // **Every test below is about something the request may not decide.** The
@@ -825,7 +825,7 @@ func TestAVerdictOnAMissingIncidentIs404(t *testing.T) {
 }
 
 // The detail response carries what may be done next and what a reclassification
-// may claim, both from the server (AJ.2).
+// may claim, both from the server.
 func TestGetIncidentCarriesThePermittedTransitionsAndTheCauses(t *testing.T) {
 	ops := &fakeOps{incident: &audit.Incident{IncidentSummary: sampleIncident()}}
 	res, code, err := dispatch(t, ops,

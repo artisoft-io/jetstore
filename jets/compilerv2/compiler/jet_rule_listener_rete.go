@@ -161,7 +161,7 @@ func (l *JetRuleListener) reteNodeByNormalizedLabel(parentVertex int, normalized
 // one, which the Go engine ran at the lowest of the saliences and the C++
 // engine at the first rule's, so a declared salience could be overruled with no
 // error, and the aggregate salience check, which reads declared saliences,
-// missed it (rules_unit_test_harness I-25).
+// missed it.
 func (l *JetRuleListener) terminalReteNode(parentVertex int, normalizedLabel string, salience int) *rete.RuleTerm {
 	for _, node := range l.jetRuleModel.ReteNodes {
 		if node.ParentVertex != parentVertex || node.NormalizedLabel != normalizedLabel {

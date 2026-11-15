@@ -73,7 +73,7 @@ func (t *Template) Render(doc map[string]any) (string, []Violation) {
 	return strings.Join(wrapped, "\n\n"), r.violations
 }
 
-// render emits an element's paragraphs (§10.6).
+// render emits an element's paragraphs.
 //
 // A paragraph emits when its `when` holds and its rendered text is not blank,
 // which is `renderBody`'s rule as data. A group emits its children in array
@@ -153,7 +153,7 @@ func (s ifSpan) render(ctx any, r *renderState) string {
 }
 
 // render scopes a span to the node the chain yields, and emits nothing when it
-// yields none. **That guard is the whole argument for the form** (F1148): the
+// yields none. **That guard is the whole argument for the form**: the
 // alternative is writing the chain out once per substitution and guarding each
 // occurrence by hand, which is what the notation's source sketch did and is
 // what it got wrong.

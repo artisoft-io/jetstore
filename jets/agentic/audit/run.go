@@ -138,7 +138,7 @@ func FinishRun(ctx context.Context, db Execer, runId, status string, tokenSpend 
 	return nil
 }
 
-// RunTier reads the autonomy tier a run was operating at (task K.3).
+// RunTier reads the autonomy tier a run was operating at.
 //
 // **It exists because `approval_event.tier_at_event` must not come from the
 // client.** The column is NOT NULL and CHECKed against T0–T4, and its docstring

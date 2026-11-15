@@ -56,7 +56,7 @@ func TestParseRdfNodeValueUint(t *testing.T) {
 // The native adaptor made every unsigned literal through the bridge's 32-bit
 // create_uint (C.uint), so 18446744073709551615 came back as 4294967295 of type
 // uint32 (measured 2026-10-22, rules_benchmark Phase 6, I-150). Since Phase 7 a
-// value outside 32 bits is a uint64 literal and comes back whole (Q-86); one that
+// value outside 32 bits is a uint64 literal and comes back whole; one that
 // fits is a uint32 literal, as before.
 func TestParseRdfNodeValueUlong(t *testing.T) {
 	if inScratchTestWs(t) {
@@ -95,8 +95,8 @@ func TestParseRdfNodeValueUlong(t *testing.T) {
 	}
 }
 
-// TestParseRdfNodeValueBool: rule configuration reads a bool as the engines do
-// (rules_unit_test_harness I-45): the accepted spellings, trimmed and in any
+// TestParseRdfNodeValueBool: rule configuration reads a bool as the engines do:
+// the accepted spellings, trimmed and in any
 // case; empty is null; anything else is an error, which fails the pipeline at
 // start. It read the first letter until 2026-10-11, so "tomato" was true.
 func TestParseRdfNodeValueBool(t *testing.T) {

@@ -1,5 +1,5 @@
 /**
- * The rules a JSON Schema cannot state. Task S.1.
+ * The rules a JSON Schema cannot state.
  *
  * `schema.ts` absorbs everything expressible in the document's *shape*,
  * including two rules the Dart validator either checks or only documents. What
@@ -56,7 +56,7 @@ export const strictPolicy: Policy = { unreachableState: "error" };
  * at build time — the same property that made `/ide/` non-relocatable in A.1 —
  * and a browser has no environment to read at run time.
  *
- * So the authority is Go, at the save-time check the gate settled on (G.3):
+ * So the authority is Go, at the save-time check the gate settled on:
  * `jets/userflow/policy.go` reads the variable and its `ValidateFlow` obeys it.
  * This side exists for the two consumers that *do* have an environment — the
  * tests, and any build-time or CLI validation — and to keep the two

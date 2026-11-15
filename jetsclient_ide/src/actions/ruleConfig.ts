@@ -1,5 +1,5 @@
 /**
- * The one escape `/ruleConfig` needs. Task C.10.
+ * The one escape `/ruleConfig` needs.
  *
  * ## What the grammar cannot say, stated precisely
  *

@@ -1,6 +1,6 @@
 /**
  * Every user-flow and table document in a workspace, validated as the app would
- * load them. `jetstore_maintenance_02` task AG.2 (`R12`).
+ * load them.
  *
  * ## Why this exists
  *
@@ -294,7 +294,7 @@ function unresolvedFindings(
 
 /**
  * An authored `isEnabled` the runtime would not use. `jetstore_maintenance_02`
- * `AM.1` (`I-11`).
+ *
  *
  * **The action bar does not read the document's `isEnabled`.** It asks
  * `isEnabledEscapeFor(tableKey, actionKey)` (`actionBarModel.ts`), because
@@ -438,7 +438,7 @@ export function validateWorkspace(reader: WorkspaceReader, options: ValidateWork
       }
     }
 
-    // `load`'s checks, by calling them (`AM.3`). Every stage is reported rather
+    // `load`'s checks, by calling them. Every stage is reported rather
     // than the first that fails, each finding at the file it is about.
     for (const f of checkFlowSet({ flow, actions, forms }, named, { registry, policy }, key)) {
       // A table's escapes were reported in step 1 for every table on disk, so

@@ -1,9 +1,9 @@
 /**
- * `homeFiltersUF`'s escapes, and the store they write. Task F.5.
+ * `homeFiltersUF`'s escapes, and the store they write.
  *
  * **This is the first action escape the port has, and it earned the name.** F.1
  * expected `mapFileUF` to need one and the grammar swallowed both of its save
- * buttons instead (I-74), so `productionRegistry.actions` has been `{}` since it
+ * buttons instead, so `productionRegistry.actions` has been `{}` since it
  * was written. `updateHomeFilters` is different in kind: it does not post, set or
  * navigate — it **compiles a filter into `WhereClause` objects** that a *different*
  * screen's query builder will splice into its `WHERE`, including `LIKE` patterns
@@ -188,7 +188,7 @@ function timeBound(at: string | null, offset: string | null): string | null {
  * start bound, the end bound. **The order matters and is asserted**, because the
  * lists are sent as an array and a server-side `WHERE` built from them in a
  * different order is a different query text — which is the trap F.3 found in a
- * coverage document (I-90).
+ * coverage document.
  */
 export function updateHomeFilters(context: EscapeContext): Promise<string | null> {
   const { formState, group } = context;
@@ -541,7 +541,7 @@ export const hasSessionRegistryFilters = (_formState: FormState, _group: number)
   store.sessionRegistryFilters !== null && store.sessionRegistryFilters.length > 0;
 
 /**
- * The Session Registry tab's *Set Session Id*: a comma list, or a range. `Q-6`.
+ * The Session Registry tab's *Set Session Id*: a comma list, or a range.
  *
  * - **`a, b, c`** filters `session_id` on those values, as `setIdFilter` does for
  *   the other tabs. The server puts each between quotes as written, so an id is

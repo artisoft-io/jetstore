@@ -1,7 +1,7 @@
 """The emitted schema and the model, held to each other.
 
 **They are two readers of one contract and they disagreed for six days.**
-Gap 2b (`I-778`) put the `~site` complement branch into `types.csv` and into
+Gap 2b put the `~site` complement branch into `types.csv` and into
 the emitted JSON Schema, and left `cpipes_model.py`'s `TransformationSpec`
 alias carrying only the nineteen tagged members. Nothing noticed, because until
 2026-09-19 no authored `.pc.json` in JetStore's own corpus named a site
@@ -169,7 +169,7 @@ def _schema_errors(doc: dict) -> list[str]:
 
 
 def test_both_readers_refuse_a_document_without_cluster_config():
-    """`cluster_config` is required at the root (JM-052, 2026-11-10).
+    """`cluster_config` is required at the root (2026-11-10).
 
     The sharding start step and the coordinator both refuse a document without
     it; before the start step did, it decoded one and panicked on the first

@@ -168,7 +168,7 @@ func TestTwoLociMapToNoCauseClass(t *testing.T) {
 // become so.** §9.5 also answered "no" for transformation_defect, on F196's
 // ground that nothing binds a run to a workspace version; §16.2 supersedes that
 // in terms, AB.3 and AH.2 having landed the binding the same day, so this file
-// classifies that row Coarse and cites §16.2 for it (I-359). Had the
+// classifies that row Coarse and cites §16.2 for it. Had the
 // transcription been literal, a class the record can now distinguish coarsely
 // would have been ranked below every class it can evidence at all.
 //

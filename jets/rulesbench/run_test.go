@@ -242,7 +242,7 @@ func TestRun(t *testing.T) {
 				}
 			}
 		})
-		// BU.2 (Q-98): an observing run writes one file per session and repetition,
+		// An observing run writes one file per session and repetition,
 		// each rule set's vertices with their rows, visits and rules, keyed to
 		// workspace.db by rule set file and vertex; it is untimed.
 		t.Run("observe_writes_each_session", func(t *testing.T) {
@@ -300,7 +300,7 @@ func TestRun(t *testing.T) {
 				}
 			}
 		})
-		// BX.2: a statistics run counts the first measured repetition of each
+		// A statistics run counts the first measured repetition of each
 		// session, after each rule set of a sequence, for the rule set's antecedents
 		// only; its counts are the dump's, its keys are the rules', its bytes do not
 		// depend on the pool's order, and it is untimed. The second rule set,
@@ -484,7 +484,7 @@ func TestRun(t *testing.T) {
 				t.Errorf("a cap from the flag: %v", err)
 			}
 		})
-		// One retraction behaviour (rules_benchmark Q-95, Q-102): a spec's legacy
+		// One retraction behaviour: a spec's legacy
 		// object with its switches false is accepted, timed or not, and selects
 		// nothing; a switch set true is refused naming the deletion. Every result
 		// records legacy_mode fixed, and an untimed run refuses the timing options.
@@ -515,7 +515,7 @@ func TestRun(t *testing.T) {
 				}
 			}
 		})
-		// I-20: the unit-test harness reads _0: columns, and a benchmark refuses one.
+		// The unit-test harness reads _0: columns, and a benchmark refuses one.
 		t.Run("local_column_refused", func(t *testing.T) {
 			path := writeBench(t, 1, `, "max_vertex_visits": 1000`)
 			csv := filepath.Join(filepath.Dir(path), "case1.csv")

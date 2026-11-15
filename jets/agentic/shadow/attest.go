@@ -47,7 +47,7 @@ import (
 // **jetsapi.incident_event has no append-only trigger.** The DDL says so in
 // terms: unlike jetsapi.agent_audit it is not trigger-protected, so a row can be
 // deleted. The hash chain covers a transition only where the incident names an
-// AgentRun (AB.4), and a deterministic classifier is not one — so every incident
+// AgentRun, and a deterministic classifier is not one — so every incident
 // this package writes is outside it (R-44, gap 27). What the attestation
 // establishes is therefore a property of the record **as it stands**, not a
 // proof that nothing was removed from it.
@@ -83,7 +83,7 @@ type Attestation struct {
 	// AdjudicationsByAgent counts transitions into one of the three human
 	// verdicts that an agent made. Not an acting failure — nothing executes —
 	// but it would mean the system had labelled itself, which is the other thing
-	// this wiring is refused (plan §10.7).
+	// this wiring is refused.
 	AdjudicationsByAgent int64
 }
 

@@ -241,9 +241,9 @@ FROM jetsapi.pipeline_execution_status_archive
 --                 runs; for a tombstone, which keeps no source_period_key, the
 --                 year and month of its month_period and no day.
 --   file_key_date the same year, month and day as a date, which the tab's File
---                 Key Date filters compare (2026-11-12, JM-185); NULL for a
+--                 Key Date filters compare (2026-11-12); NULL for a
 --                 tombstone and for a period whose day is 0, the value an
---                 unparseable day takes (JM-170), so the column never raises.
+--                 unparseable day takes, so the column never raises.
 -- Columns are only ever appended: CREATE OR REPLACE VIEW cannot drop, rename or
 -- reorder a column of a view already deployed, so a column the tab stops showing
 -- stays in the view (object_type, since the tab replaced Domain Key with the

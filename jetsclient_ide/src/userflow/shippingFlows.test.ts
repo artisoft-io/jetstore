@@ -26,7 +26,7 @@
  * 4. `validateTableActions` — a table's `doAction` and `showDialog` resolve in
  *    *this flow's* action and form documents.
  *
- * Escape resolution against the production registry is the validator's (AG.2),
+ * Escape resolution against the production registry is the validator's,
  * not this test's.
  */
 

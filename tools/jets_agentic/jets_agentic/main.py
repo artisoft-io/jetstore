@@ -2,7 +2,7 @@
 
 One command, emitters registered so items 2a and 3 extend the registry rather
 than edit the command (§4, deliverable 2). Outputs land in
-`jets/workspace_assets/data_model/` (§3.9) and are committed — the generator
+`jets/workspace_assets/data_model/` and are committed — the generator
 stays off the deployment path and out of the client's toolchain.
 """
 
@@ -23,7 +23,7 @@ EMITTERS: list[tuple[str, object]] = [
     ("jets/workspace_assets/data_model/jets_agentic.meta.json", sidecar.emit),
     ("jets/workspace_assets/data_model/jets_agentic.schema.json", schema.emit),
     ("jets/agentic/audit/agent_audit.sql", ddl.emit),
-    # AE.2: the data_classification markers as data, beside the DDL and for
+    # The data_classification markers as data, beside the DDL and for
     # the same reason -- the package that consumes it is the package it has
     # to live in.
     ("jets/agentic/audit/data_classification.go", phi.emit),

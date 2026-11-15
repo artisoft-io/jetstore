@@ -1,6 +1,5 @@
 /**
- * Typed wrappers over the Detection screen's two actions on `/agentic`
- * (agentic_ai I-861).
+ * Typed wrappers over the Detection screen's two actions on `/agentic`.
  *
  * **This directory is the agentic_ai project's**, on the terms `src/incidents/`
  * and `src/proposals/` already hold: self-contained, its own stylesheet, and

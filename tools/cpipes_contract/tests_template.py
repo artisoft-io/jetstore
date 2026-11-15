@@ -32,7 +32,7 @@ class Pending(_PendingBase):
     **And pytest did not, until 2026-09-19.** This module's own header offers
     both runners and only `__main__` knew about `Pending`; under pytest it was
     an ordinary error. That was invisible while `pytest` in this directory
-    collected nothing at all (P9-I128). Derived from pytest's own skip
+    collected nothing at all. Derived from pytest's own skip
     exception when pytest is importable, so the reason is printed by `-rs` and
     the epsilon the raise site forbids widening is untouched.
     """
@@ -268,7 +268,7 @@ def test_criterion_21_the_expansion_regenerates_its_target_exactly():
 
 
 # ---------------------------------------------------------------------------
-# Q-15: the prompt is the constraint, not the schema
+# The prompt is the constraint, not the schema
 # ---------------------------------------------------------------------------
 
 
@@ -581,7 +581,7 @@ def test_the_resolver_reaches_the_tail_i35_said_it_could_not():
 
 
 def test_a_harvested_fixture_is_not_the_same_as_a_valid_fragment():
-    """The finding that decides what source 2 is worth (I-45).
+    """The finding that decides what source 2 is worth.
 
     A§6.1 calls the fixtures "correct by construction". They are correct *for their
     test*: partial where the test only needs part, deliberately wrong where the test is
@@ -654,7 +654,7 @@ from cpipes_contract.authoring import (  # noqa: E402
     CHARS_PER_TOKEN, estimate_tokens, fits, instruction_for, segments,
 )
 
-# Measured against granite4.1:3b's prompt_eval_count, 2026-08-20 (Q-15).
+# Measured against granite4.1:3b's prompt_eval_count, 2026-08-20.
 MEASURED = {"ColumnAggregation": 1824, "ConditionalPipeSpec": 10291, "AnalyzePipe": 13501}
 CURATED = [
     json.loads(line)
@@ -725,7 +725,7 @@ def test_json_tokenises_finer_than_typescript():
 
 
 def test_a_prompt_near_the_budget_is_unclear_rather_than_rounded():
-    """Three answers, because there are three (I-42)."""
+    """Three answers, because there are three."""
     budget = 24576
     assert fits(1000, budget) == "fits"
     assert fits(budget - 1, budget) == "unclear"

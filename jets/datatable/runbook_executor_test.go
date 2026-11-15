@@ -941,7 +941,7 @@ func TestRunbookListAndGet(t *testing.T) {
 	}
 }
 
-// The jets_ws example (plan AD.1) end to end: every step type that runs
+// The jets_ws example end to end: every step type that runs
 // without AWS, a manual record bound into a ddl, two previewed ddl steps.
 func TestRunbookExampleEndToEnd(t *testing.T) {
 	src := os.Getenv("JETS_RUNBOOK_EXAMPLE_DIR")

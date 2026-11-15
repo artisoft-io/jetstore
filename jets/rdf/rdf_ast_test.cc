@@ -283,7 +283,7 @@ TEST(RdfAstTest, DateTime)
 
 // The rule on a double too small to round to 15 digits: round_to_digits' factor
 // overflows below about 1e-294, and it returned NaN, which fcmp took for equal to
-// anything, so 1e-300 == 5 (I-132). Such a value is compared unrounded. The
+// anything, so 1e-300 == 5. Such a value is compared unrounded. The
 // comparison table in expr_op_test.cc checks it through the operators, where
 // compare15's fast path decides; this is the rule itself.
 TEST(Compare15, ATinyDoubleIsComparedUnrounded) {

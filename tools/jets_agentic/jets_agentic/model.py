@@ -18,15 +18,15 @@ module through Pydantic reflection; nothing else does. Authoring rules:
   §A.2.9's required properties named as absent rather than dropped quietly —
   and `IncidentEvent`, appended in the same task, was never in the tranche at
   all: it is A.5's *"every transition records actor and timestamp"* given an
-  entity (I-276). Two entities are still skeletons: `DomainModelVersion`, and
+  entity. Two entities are still skeletons: `DomainModelVersion`, and
   `Evidence`, which is a value object with nothing pending.
 - Entities whose schema exists in the proposal's Appendix A (`Anomaly` §A.2.6,
   `Incident` §A.2.7, `Hypothesis` §A.2.8, `Remediation` §A.2.9,
   `ChangeProposal` §A.2.10) follow that schema; do not re-derive them.
   **Departing from one is allowed and being quiet about it is not**: N.2
-  extended §A.2.6's vocabularies (I-127) and AB.1 adds a required property
-  §A.2.8 has no counterpart for (I-286) and a required locus §A.2.7 does not
-  name (§9.5). Each is argued in the entity's docstring and carried as an issue;
+  extended §A.2.6's vocabularies and AB.1 adds a required property
+  §A.2.8 has no counterpart for and a required locus §A.2.7 does not
+  name. Each is argued in the entity's docstring and carried as an issue;
   none prunes what the appendix declares.
 - F7 makes property names one flat workspace-wide namespace, and workspace.db
   enforces it (data_properties.name is globally unique). A property shared by
@@ -36,12 +36,12 @@ module through Pydantic reflection; nothing else does. Authoring rules:
   sharing proves real.
 - Vocabularies are `StrEnum`s, not classes. The emitters treat any `StrEnum`
   reachable from an entity as a vocabulary — `EvidenceSource` is scoped to one
-  entity and absent from §A.4, so working from §A.4's list would miss it (Q-6).
+  entity and absent from §A.4, so working from §A.4's list would miss it.
 - `Evidence` is the one value object: `$base_classes = [owl:Thing]` and
   `$as_table = false` on the `jets:State` precedent — a value in working
   memory has no client, org or source period of its own. Everything else
   inherits `jets:Entity` and acquires them.
-- Property metadata splits by consumer (§3.5): what a rule must reason over
+- Property metadata splits by consumer: what a rule must reason over
   (`data_classification`) is emitted as `triple(...)` facts; what only an
   emitter consumes (descriptions, defaults) goes to the sidecar.
 """
@@ -54,7 +54,7 @@ from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
-# The reserved prefix of every emitted class and property name (F7). Three of
+# The reserved prefix of every emitted class and property name. Three of
 # the four characters of `jets:` so the kinship is visible, short enough for a
 # rule antecedent, and colliding with none of the corpus's 17 prefixes.
 PREFIX = "jetsa"
@@ -112,7 +112,7 @@ class IncidentLocus(StrEnum):
     **Both vocabularies are carried, which is §9.5's recommendation rather than
     this task's choice.** `IncidentClassification` above says what *produced*
     the failure and three of its ten members have no substrate in JetStore at
-    all (I-262); pruning it on this project's authority is the unreviewed
+    all; pruning it on this project's authority is the unreviewed
     extraction gap 2b exists to prevent. So `classification` stays typed against
     §A.4's ten and `incident_locus` is added beside it. **The locus is evidence
     and the classification is a claim**, which is the distinction §12.3 drew
@@ -134,15 +134,15 @@ class IncidentLocus(StrEnum):
     run_not_started = "run_not_started"
     # row 2: a `cpipes_step_id` history has and this run does not.
     step_never_started = "step_never_started"
-    # row 3: a worker still 'in progress' under a terminal header (F192).
+    # row 3: a worker still 'in progress' under a terminal header.
     worker_not_terminated = "worker_not_terminated"
-    # row 4: status 'failed' with an `error_message` (F191).
+    # row 4: status 'failed' with an `error_message`.
     worker_failed = "worker_failed"
     # row 5: an edge carries an error under a parent that completed.
     sink_failed_under_completed_worker = "sink_failed_under_completed_worker"
     # row 6: counts collapse with every status terminal and clean.
     rows_lost_silently = "rows_lost_silently"
-    # row 7: `process_errors` rows exist for the session (F186).
+    # row 7: `process_errors` rows exist for the session.
     per_record_failures_reported = "per_record_failures_reported"
     # row 8: the failing operator has no error channel, so nothing could be
     # reported. Indistinguishable from a clean run, which is why it is a locus.
@@ -187,7 +187,7 @@ class ActorKind(StrEnum):
     Two members and no more. `agent` covers a deterministic classifier as well
     as a model-driven one: the distinction that matters to a metric is whether
     the transition came from **outside** the system under test, and AC.1 being
-    deterministic does not put it outside (AB.2, **I-292**).
+    deterministic does not put it outside.
     """
 
     human = "human"
@@ -209,7 +209,7 @@ class Reversibility(StrEnum):
     checkable and left in prose is one that goes quiet the first time nobody
     re-reads the appendix. The excluded member is read off this enum rather than
     spelled into the SQL, so a rename moves the rule instead of silently stopping
-    it from firing (AB.2, **I-293**).
+    it from firing.
     """
 
     fully_reversible = "fully_reversible"
@@ -287,7 +287,7 @@ class AnomalySubject(StrEnum):
     thing: F52 reads `cpipes_step_id` as a stage location, but a worker is finer
     than a stage by shard and partition, and an edge is finer again.
 
-    Added at N.2 with the SignalType additions above, on the same terms (I-127).
+    Added at N.2 with the SignalType additions above, on the same terms.
     """
 
     feed = "feed"
@@ -350,8 +350,8 @@ class EvidenceSource(StrEnum):
     substrate at all** — `commit_history` (no run names a commit, F196),
     `infrastructure_log` (what the record holds is a decoded `StoppedReason`
     string, not a log) and `prior_incident`, the last of which stops being
-    substrate-less the moment `jetsapi.incident` exists, which is this task
-    (I-263). That vocabulary is therefore **too wide** for the record, which is
+    substrate-less the moment `jetsapi.incident` exists, which is this task.
+    That vocabulary is therefore **too wide** for the record, which is
     the mirror of I-127, where §A.2.6's was too narrow; the honest response is
     to say so rather than to prune an imported model unilaterally, so nothing
     is removed here.
@@ -365,7 +365,7 @@ class EvidenceSource(StrEnum):
     contradicting side of a ranked hypothesis, had a populated substrate and no
     way to name it. `detector_confounder` is that name, and it is an **addition**
     rather than a re-derivation: the only change this reading asks of an
-    imported vocabulary (§9.8).
+    imported vocabulary.
     """
 
     run_telemetry = "run_telemetry"
@@ -377,7 +377,7 @@ class EvidenceSource(StrEnum):
     dq_result = "dq_result"
     code_inspection = "code_inspection"
     profile = "profile"
-    # Ours (§9.7): a confounder the detector declared it could not rule out.
+    # Ours: a confounder the detector declared it could not rule out.
     # `source_ref` carries the AnomalyConfounder member and the anomaly it was
     # read from.
     detector_confounder = "detector_confounder"
@@ -411,8 +411,8 @@ def prop(
     key: bool = False,
 ) -> Any:
     """A model property. `default=...` (unset) makes it required — is_required
-    applies to data and object properties alike (§3.6). `data_classification`
-    is rule-visible metadata, emitted as a triple (§3.5); the description and
+    applies to data and object properties alike. `data_classification`
+    is rule-visible metadata, emitted as a triple; the description and
     default are emitter-only and go to the sidecar. `key` marks the entity's
     business identity for the sidecar and the eventual DDL emitter."""
     extra: dict[str, Any] = {}
@@ -456,7 +456,7 @@ class JetsaValue(BaseModel):
 class AgentRun(JetsaEntity):
     """One execution of one agent: the unit the audit store correlates on
     (§7.2's run_id) and the carrier of the reproducibility fields the
-    proposal's generated_by block names (§A.2.7)."""
+    proposal's generated_by block names."""
 
     jr_as_table: ClassVar[bool] = True
 
@@ -486,7 +486,7 @@ class AgentRun(JetsaEntity):
 class ApprovalEvent(JetsaEntity):
     """One human or agent decision on a supervised subject: the supervision
     seam. Outcomes are appended, never updated — a decision is a new event
-    referencing the same subject (§7.2)."""
+    referencing the same subject."""
 
     jr_as_table: ClassVar[bool] = True
 
@@ -502,7 +502,7 @@ class ApprovalEvent(JetsaEntity):
 
 
 class ChangeProposal(JetsaEntity):
-    """A proposed code or configuration change (§A.2.10), flattened to scalar
+    """A proposed code or configuration change, flattened to scalar
     and array properties: code_diff, ci_result and impact_analysis are nested
     objects in the schema and JetRules has no anonymous nested object."""
 
@@ -533,8 +533,8 @@ class ChangeProposal(JetsaEntity):
 # Skeleton tranche (A1.4) — identity, key and lifecycle only; consumed by
 # Phases 3–4. Defining more now is how a model acquires fields nobody uses.
 #
-# **Anomaly is no longer in it (N.2, 2026-08-24), neither are Incident and
-# Hypothesis (AB.1, 2026-09-04), and neither is Remediation (AB.2, same day).**
+# **Anomaly is no longer in it (2026-08-24), neither are Incident and
+# Hypothesis (2026-09-04), and neither is Remediation (AB.2, same day).**
 # All four stay here in emission order, because ENTITIES is append-ordered and
 # moving them would churn every emitted artifact for no gain, but they are
 # tables now — Remediation with four of §A.2.9's required properties still
@@ -544,7 +544,7 @@ class ChangeProposal(JetsaEntity):
 
 
 class Anomaly(JetsaEntity):
-    """A deterministic detector's observation (§A.2.6), widened at N.2 from the
+    """A deterministic detector's observation, widened at N.2 from the
     skeleton to what phase-3 plan §12.2 says the execution record can actually
     populate, and made a table.
 
@@ -554,7 +554,7 @@ class Anomaly(JetsaEntity):
     populate them, which is §12's own test applied honestly:
 
     - `confidence` — §A.2.6 has it optional. All six rows are predicates or
-      windowed aggregates over a relational table (§12.3), so a detector emits a
+      windowed aggregates over a relational table, so a detector emits a
       fact and has no calibrated confidence to report. Adding it would invite a
       constant. **Its consumer is the Observer agent, not a detector.**
     - `correlation_group_id` — §A.2.6 says *"Assigned by Observer Agent"*, so by
@@ -674,8 +674,8 @@ class Evidenceability(StrEnum):
     and answered in prose per cell. `AC.2`'s ranker reduced those answers to five
     tiers and **sorts on them as its primary key** — a class the substrate cannot
     speak to is not a weak candidate, which is the finding that inverted its first
-    ranking (**I-361**). The tier is therefore an input to a rank rather than a
-    gloss on one, and `AC.3` persists it for that reason (Q-46).
+    ranking. The tier is therefore an input to a rank rather than a
+    gloss on one, and `AC.3` persists it for that reason.
 
     The order below is the sort order: better-evidenced first.
     """
@@ -700,8 +700,8 @@ class HypothesisBasis(JetsaValue):
 
     **Why it is persisted at all, which the question had to settle rather than
     assume.** *Reconstructable by re-running* is false for the model arm: `AC.2`
-    measured 16 hypotheses on one run and 13 on the next from identical input
-    (§19.6). And the evidence expires while the row persists, on two independent
+    measured 16 hypotheses on one run and 13 on the next from identical input.
+    And the evidence expires while the row persists, on two independent
     clocks — `RETENTION_DAYS` with no default and a hard-coded six months on the
     run header (P3 F54) — so even the deterministic floor's basis is
     reconstructable only inside a window nobody has set.
@@ -723,8 +723,8 @@ class HypothesisBasis(JetsaValue):
 
 
 class Hypothesis(JetsaEntity):
-    """A causal hypothesis for an Incident (§A.2.8): the RCA agent's output
-    contract (§B.3). contradicting_evidence is required — a calibration
+    """A causal hypothesis for an Incident: the RCA agent's output
+    contract. contradicting_evidence is required — a calibration
     control, not a documentation nicety (§A.2.8's own note).
 
     **Made a table at AB.1, and it gained exactly one property to be one.**
@@ -733,8 +733,7 @@ class Hypothesis(JetsaEntity):
     document and is not adequate for a row. `hypothesis_incident_ref` is that
     name and it is **required**: a hypothesis whose incident is unknown cannot be
     ranked against its siblings, which is what `rank` is for. The departure from
-    §A.2.8 is stated rather than applied silently, on I-126's precedent
-    (**I-286**).
+    §A.2.8 is stated rather than applied silently, on I-126's precedent.
 
     **The parent keeps its object property and the child gains a reference, and
     both are correct.** `Incident.hypotheses` is what a rule traverses in working
@@ -784,25 +783,25 @@ class Hypothesis(JetsaEntity):
 
 
 class Incident(JetsaEntity):
-    """A triaged cluster of anomalies (§A.2.7), keyed on a session (AB.1).
+    """A triaged cluster of anomalies, keyed on a session.
 
     Widened at AB.1 from the skeleton to what phase-4 plan §9's reading of the
     execution record says an incident can be *about*, and made a table. The
     first line above is deliberately a complete sentence: the `.jr` emitter
     takes an entity's class comment from the docstring's first **physical**
-    line, so a sentence that wraps is published half-written (I-288).
+    line, so a sentence that wraps is published half-written.
 
     **The widening is a grain and a locus, and both come from the record rather
     than from §A.2.7.**
 
-    **The grain (§9.6, I-264).** As declared through Phase 3 this entity had six
+    **The grain.** As declared through Phase 3 this entity had six
     properties — identity, classification, severity, status, model version and
     its hypotheses — and **none of them was a session, a run, a pipeline or a
     time**, so an incident could not say what it was about. Q-23 asked whether an
     incident aggregates anomalies or is one per anomaly; the record answers that
     it aggregates and that the key is `session_id`, because seven tables can
     carry evidence for an incident and `session_id` is the only key all seven
-    share (F202). `incident_session_id` is therefore required. **The step and
+    share. `incident_session_id` is therefore required. **The step and
     shard references are optional and that is the finding, not a hedge**:
     localisation is a property of an incident and not its identity, evidenced
     where the locus supplies it and absent where it does not.
@@ -814,7 +813,7 @@ class Incident(JetsaEntity):
     settled is that an incident cannot be keyed *below* the session. `AC.1`
     decides whether to split within one.
 
-    **The locus (§9.5).** `incident_locus` is required and is typed against
+    **The locus.** `incident_locus` is required and is typed against
     `IncidentLocus`, which is what the record actually decides; `classification`
     stays, typed against the imported `IncidentClassification`, which is what a
     diagnosis claims. Carrying both is §9.5's recommendation and it is followed
@@ -822,14 +821,14 @@ class Incident(JetsaEntity):
     the imported taxonomy is not this project's call to make.
 
     **The one thing §9.5 did not settle is which of the two is required, and the
-    answer follows from its own finding.** `classification` is **optional**
-    (I-289). §9.5 says the record supplies a locus and never a cause and §9.8
+    answer follows from its own finding.** `classification` is **optional**.
+    §9.5 says the record supplies a locus and never a cause and §9.8
     puts the step between them in `AC.2`; a required classification would make a
     deterministic triage step unable to write an incident without inventing a
     cause, which is R-27's failure compiled into the schema. Optional is not
     pruning: the property and its ten values both survive, and N.2 has the
     precedent — three of §A.2.6's required properties are optional on `Anomaly`
-    because requiring them would force a detector to invent a number (I-126).
+    because requiring them would force a detector to invent a number.
 
     **`incident_confounders` reuses `AnomalyConfounder` deliberately.** §9.6
     requires an incident that names a step to inherit `step_label_ambiguous`,
@@ -840,7 +839,7 @@ class Incident(JetsaEntity):
     an empty list asserting that none of the fourteen applies — Anomaly's own
     discipline.
 
-    **The run reference (AB.4, Q-32), added 2026-09-04 and it is a governance
+    **The run reference, added 2026-09-04 and it is a governance
     property rather than a localisation one.** Every other reference on this
     entity says where in the *execution record* the incident sits;
     `incident_run_ref` says which *agent run* raised it, and it exists because
@@ -943,10 +942,10 @@ class Incident(JetsaEntity):
 
 
 class Remediation(JetsaEntity):
-    """A proposed corrective action (§A.2.9), tabled at AB.2 and with no executor.
+    """A proposed corrective action, tabled at AB.2 and with no executor.
 
     The first line above is deliberately one physical line: the `.jr` emitter
-    takes an entity's class comment from the docstring's first line (I-288).
+    takes an entity's class comment from the docstring's first line.
 
     **It is a table before it is a writer, and that is the task rather than a
     shortcut.** Nothing in this phase proposes a remediation, and nothing
@@ -967,14 +966,14 @@ class Remediation(JetsaEntity):
     to say.
 
     **Four of §A.2.9's nine required properties are deliberately absent, and
-    naming them is cheaper than rediscovering them** (**I-294**):
+    naming them is cheaper than rediscovering them**:
 
     - `action_type` (§A.4's ten-member `RemediationActionType`) — the dispatch
       key. Nothing dispatches, and a tier rule keyed on it (*T2 may rerun a load
       and may not rotate a credential*) would be this task inventing Phase 5's
       gate. It is the first widening the executor's task owes.
     - `proposed_by` — `$ref Incident#/properties/generated_by`, the block
-      `Incident` also does not carry (AB.1), for the same reason.
+      `Incident` also does not carry, for the same reason.
     - `rationale` and `blast_radius` — both are read by a supervision screen
       deciding whether to approve, and `AE.1` is read-only this round.
 
@@ -986,7 +985,7 @@ class Remediation(JetsaEntity):
     applies to `Incident.hypotheses`.
 
     **A.5's Remediation machine and A.4's ApprovalState do not agree, and this
-    entity cannot fix it** (**F252**, **I-295**). §A.2.9 types `approval_state`
+    entity cannot fix it**. §A.2.9 types `approval_state`
     against `ApprovalState`; A.5 draws the machine over `proposed`,
     `awaiting_approval`, `executing`, `succeeded`, `failed`, `rolled_back`,
     `partial` and `escalated`, of which ApprovalState contains **two**. That is
@@ -1029,14 +1028,14 @@ class DomainModelVersion(JetsaEntity):
 class IncidentEvent(JetsaEntity):
     """One transition of one Incident: who moved it, when, and from what to what.
 
-    The first line above is deliberately one physical line (I-288).
+    The first line above is deliberately one physical line.
 
     **Ours entirely; the proposal has no counterpart, and A.5 is why it is
     owed.** A.5's preamble says *"Every transition records actor, agent version
     where applicable, and timestamp"* and then draws four machines and no entity
     to record any of them. `ApprovalEvent` is that entity for `ChangeProposal`;
     nothing was it for `Incident`, so a transition on an incident was a mutable
-    `status` column and nothing else (**I-276**).
+    `status` column and nothing else.
 
     **What that cost is a population rather than an audit trail.** Three of
     `IncidentStatus`'s eleven values are adjudications rather than progress —
@@ -1058,7 +1057,7 @@ class IncidentEvent(JetsaEntity):
     **Three departures from `ApprovalEvent`, each with a reason.**
 
     - **`event_actor_kind` is a column, where `ApprovalEvent` leaves human and
-      agent apart by the shape of `actor`.** See `ActorKind` (**I-292**): the
+      agent apart by the shape of `actor`.** See `ActorKind`: the
       metric partitions on kind, and a partition decided by a regular expression
       over an email address is not a partition.
     - **`classification_before` and `classification_after` travel on the event.**
@@ -1072,14 +1071,14 @@ class IncidentEvent(JetsaEntity):
     - **There is no `tier_at_event`.** An approval is an authority-bearing act
       and an incident transition is not; the tier a *corrective action* requires
       is `Remediation.autonomy_tier_required`, one entity over. Recorded as
-      **I-296** rather than left as an omission.
+      rather than left as an omission.
 
     **~~`event_run_ref` is optional and that is the one weakness worth
     stating.~~ Half of that weakness is gone as of AB.4 and the half that
     remains is a different shape.** It read: `agent_audit.run_id` is `AgentRun`'s
     key, neither a human working a screen nor a deterministic triage step is an
     `AgentRun`, and `Incident` has no run reference at all where
-    `ChangeProposal.trigger_ref` carries one (**F255**) — so a transition with no
+    `ChangeProposal.trigger_ref` carries one — so a transition with no
     run was durable, attributable and not tamper-evident, and the alternative was
     refused as deciding `AE.1`'s design from here (**R-34**, **I-297**).
 
@@ -1171,7 +1170,7 @@ ENTITIES: list[type[BaseModel]] = [
     DomainModelVersion,
     # AB.2.
     IncidentEvent,
-    # AC.3 (Q-46). A JetsaValue, so it is emitted as a class and gets no table;
+    # AC.3. A JetsaValue, so it is emitted as a class and gets no table;
     # `_assert_tables_agree` checks that in the direction that would otherwise be
     # invisible - a Postgres table nothing in the domain model asks for.
     HypothesisBasis,

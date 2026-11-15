@@ -17,7 +17,7 @@ import (
 // 0 — declared, CHECK-constrained, exercised by TestEventTypes, and written by
 // nothing. `ApprovalEvent` has been a modelled entity just as long, with nine
 // typed properties and no table, because `jr_as_table` is a JetRules property
-// and says nothing about Postgres (I-24). So K.1 wrote no new concepts; it
+// and says nothing about Postgres. So K.1 wrote no new concepts; it
 // connected two that had been waiting for each other.
 //
 // **Why both rather than the event alone.** The event is what makes a decision

@@ -1,12 +1,12 @@
 /**
  * A form document, rendered over the current screen. Task C.2b, and the debt
- * **I-68** filed for whoever needed one first.
+ * filed for whoever needed one first.
  *
  * ## What was missing, exactly
  *
  * `showDialog` and `doActionShowDialog` open a `configForm` in a modal, and
  * `actionDispatch.requestFor` has resolved both — with their parameters, and with
- * S.2b's precedence rule (I-24) — since Phase 2. `FormRenderer` has drawn a form
+ * S.2b's precedence rule — since Phase 2. `FormRenderer` has drawn a form
  * document since F.0a. **Neither end was missing; the thing between them was.**
  * I-68 filed it as debt rather than as a task on the stated ground that a
  * speculative host built against no consumer is worse than none, and that the
@@ -129,11 +129,11 @@ export interface ModalDialogProps {
  *
  * **Split out of `FormDialog` so a confirmation that is not a form document
  * does not grow a second dialog system.** The Infer Server Admin screen's stop
- * confirmation (D07) is two buttons and a sentence, one of them gated on a
+ * confirmation is two buttons and a sentence, one of them gated on a
  * capability through `ActionButton`; expressing it as a form document would have
  * meant a document for a sentence. Everything that made `FormDialog` a modal
  * lives here unchanged — `showModal`, the jsdom fallback, Escape as dismissal —
- * and the `.uf-dialog` class that `styles.css` sizes (D08) is set in exactly one
+ * and the `.uf-dialog` class that `styles.css` sizes is set in exactly one
  * place, which is what lets that rule say it reaches every dialog.
  */
 export function ModalDialog({
@@ -196,7 +196,7 @@ export function ModalDialog({
       className="uf-dialog"
       aria-label={label}
       // Escape lands here. ~~Escape and a backdrop click both land here.~~
-      // **Corrected 2026-10-01 (jetstore_maintenance_02 `AB.2`): a backdrop
+      // **Corrected 2026-10-01: a backdrop
       // click does not.** A modal `<dialog>` with no `closedby` attribute
       // treats only a close request — Escape, or a phone's back gesture — as
       // dismissal, and a click on its backdrop does nothing at all. So form

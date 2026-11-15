@@ -1,5 +1,5 @@
 /**
- * The one escape `/workspaces` needs. Tasks C.2b and C.3.
+ * The one escape `/workspaces` needs.
  *
  * ## What the Dart's *Open* button does, and why the port is three lines
  *
@@ -47,7 +47,7 @@ import type { EscapeContext, EscapeHost } from "./escapes";
  * discovering a disagreement at run time. It is the Flutter path verbatim, minus
  * nothing — `App.tsx` mounts it under the `/ide` basename, so handing a user over
  * from the other app is a prefix change rather than a translation, as it is for
- * C.7 and C.8.
+ *
  */
 export const WORKSPACE_HOME_ROUTE = "/workspaces/:workspace_name/home";
 

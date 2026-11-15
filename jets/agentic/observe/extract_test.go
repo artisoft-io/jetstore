@@ -369,7 +369,7 @@ func TestInsertAnomaly(t *testing.T) {
 		t.Errorf("confounders round-tripped as %v", conf)
 	}
 	// The three nullable properties are nullable because four of the six
-	// derivable rows are within-run predicates with no range (I-126).
+	// derivable rows are within-run predicates with no range.
 	if min != nil || max != nil {
 		t.Errorf("an unset expected range came back non-null: %v %v", min, max)
 	}

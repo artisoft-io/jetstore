@@ -64,7 +64,7 @@ export interface EndpointResult {
 }
 
 /**
- * What an **action** escape may reach outside form state. Task F.8.
+ * What an **action** escape may reach outside form state.
  *
  * **Why this exists at all, stated plainly: two of the corpus's escapes talk to
  * the server and the mechanism had no way to let them.** `EscapeContext` is
@@ -130,7 +130,7 @@ export interface EscapeHost {
   /** Closes the dialog or screen. `Navigator.of(context).pop()`. */
   close(): void;
   /**
-   * Sends the user to another route of *this* app. Task C.3.
+   * Sends the user to another route of *this* app.
    *
    * **Optional, and that is not hedging.** Only a host inside the router can
    * navigate, and two of the three hosts are not screens: a dialog host is opened
@@ -195,7 +195,7 @@ export interface EscapeHost {
 }
 
 /**
- * What `EscapeHost.fetchStageFile` answers. jetstore_maintenance_02 AE.3.
+ * What `EscapeHost.fetchStageFile` answers.
  *
  * `missing` carries the path that was asked for, because the message a caller
  * shows is about *that* object; `error` carries the server's text, because the
@@ -209,7 +209,7 @@ export type StageFetchResult =
 /**
  * An action body that could not be expressed as steps. **Six of these exist**,
  * not the four the sizing found — `downloadMapping` and `loadRawRows` came out
- * of the coverage pass (I-23).
+ * of the coverage pass.
  *
  * **The sentence that stood here described both of them wrongly, and F.8 read
  * the Dart rather than this comment.** It said *"both build a query, act on its
@@ -252,7 +252,7 @@ export type ValidatorEscape = (
 ) => string | null;
 
 /**
- * Seeds one validation group from one row of a query. Task F.1.
+ * Seeds one validation group from one row of a query.
  *
  * **A repeating form's row builder, minus the layout.** The Dart's
  * `inputFieldRowBuilder` does two things at once — write the row's values into
@@ -289,7 +289,7 @@ export type CellFilterEscape = (value: string | null) => string | null;
 export type PredicateEscape = (formState: FormState, group: number) => boolean;
 
 /**
- * A statement a `query` step may run, registered by the build. Task F.6.
+ * A statement a `query` step may run, registered by the build.
  *
  * **The only entry here that is data rather than a body, and it belongs here for
  * the mechanism rather than the type.** The header names the shape these six

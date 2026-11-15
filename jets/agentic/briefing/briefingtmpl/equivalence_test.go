@@ -14,7 +14,7 @@ package briefingtmpl_test
 // `section1106Entity` and `TestRenderCases`' six mutations are unexported
 // helpers of `package prose`'s own test binary, so no other package can call
 // them, and `AY.3` may not add a file to that directory. **So they are
-// transcribed here rather than shared** (`I-679`), and the transcription is
+// transcribed here rather than shared**, and the transcription is
 // pinned rather than trusted: every case asserts the two renderers agree, and
 // the anchor case additionally asserts that both produce plan §10.9's printed
 // block byte for byte. A transcription that had drifted would fail the second
@@ -217,7 +217,7 @@ func TestTheTwoRefusalsThatAreTemplateAssertions(t *testing.T) {
 		}
 	})
 	// **And the third refusal is the caller's**, which is the half of §10.7
-	// that this package rather than the document carries (I-623).
+	// that this package rather than the document carries.
 	t.Run("a prefixed entity", func(t *testing.T) {
 		_, err := agree(t, map[string]any{
 			"cintel:Briefing_Disclaimer":  shippedNotice,

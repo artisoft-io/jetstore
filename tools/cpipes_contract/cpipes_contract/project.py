@@ -1,4 +1,4 @@
-"""The projection: a template and its bindings become a UserFlow document. Task M.4.
+"""The projection: a template and its bindings become a UserFlow document.
 
 **Author-time, like `expand`, and for the same reason.** The output is an ordinary
 `.uf.json` / `.form.json` pair that `jetsclient_ide` interprets without knowing a
@@ -9,8 +9,8 @@ vocabulary into a UserFlow document would reverse that on the first commit.
 
 ## What the projection walks, and why it is two surfaces
 
-**Holes and scalar bindings both** (M.1). Every one of the contract's 200 `$defs`
-entries is an object type, so a hole cannot produce a bare string (I-43) and everything
+**Holes and scalar bindings both**. Every one of the contract's 200 `$defs`
+entries is an object type, so a hole cannot produce a bare string and everything
 a config needs that *is* a bare string lives in the bindings. For two of the three
 shipped templates the bindings are *entirely* that residue: a wizard walking only holes
 could fill each `ConditionalPipeSpec` of `map_claim_load_stages` and could not choose
@@ -18,7 +18,7 @@ which three entities to load.
 
 ## One state per *fill*, not per hole
 
-A hole carrying a `$body` is a loop rather than a blank (I-76), and a hole nested inside
+A hole carrying a `$body` is a loop rather than a blank, and a hole nested inside
 a repeating hole fires the product of the two counts — `qc_metrics.metric_columns` fires
 nine times from two lists of three. **So this module does not walk the template.** It
 drives `expand` with a recording `Fill` and projects what the expander actually asks
@@ -27,7 +27,7 @@ nesting level from another, and a second traversal written here could drift from
 first without either being obviously wrong. There is one traversal, and the projection
 is a consumer of it.
 
-## How a composite property is rendered (M.2)
+## How a composite property is rendered
 
 Three renderings, chosen by two structural tests on the property rather than by taste —
 its arity, and whether its target closes a cycle in the contract:
@@ -247,7 +247,7 @@ class _Fills:
         # call sequence, and an object keeps `expand`'s list splicing honest — a
         # repeating hole must still return a list for the splice branch to see one.
         # The marker carries the state key, so the same run that yields the fill
-        # sequence also yields the skeleton the apply substitutes into (M.5).
+        # sequence also yields the skeleton the apply substitutes into.
         return {FILL_MARKER: state_key(hole, index)}
 
 
@@ -378,7 +378,7 @@ class _Projector:
         #: A chooser's key looks exactly like a field's, and a contract type may
         #: legitimately declare a property called `type`; and a `json` field's value is
         #: a string in form state and a list in the config. Both are recorded here
-        #: rather than re-derived, for the reason the fill sequence is (M.4).
+        #: rather than re-derived, for the reason the fill sequence is.
         self.choosers: dict[str, dict] = {}
         self.json_fields: list[str] = []
         #: Properties the schema fixes, per value key. **A `const` is not a field and it
@@ -432,7 +432,7 @@ class _Projector:
 
         **Required properties first, then optional, separated by a `label`.** Every
         declarable property gets a field: `InputChannelConfigStage` declares 43 and the
-        corpus sets a median of 5 (I-80), so this is a long form — and the alternative,
+        corpus sets a median of 5, so this is a long form — and the alternative,
         offering only what four workspaces happen to use, makes a legal config
         unreachable in the IDE while remaining legal in the file. **A wizard that cannot
         express a legal config is a worse failure than a wizard that is long**, and the
@@ -594,8 +594,8 @@ class Projection:
     """The three documents the loader needs, the apply plan behind them, and what the
     projection would not do.
 
-    **It was two documents until M.5, and that was a defect rather than a scope**
-    (I-84). `FlowStore.load` reads `<key>.uf.json` *and* `<key>.ua.json` in one
+    **It was two documents until M.5, and that was a defect rather than a scope**.
+    `FlowStore.load` reads `<key>.uf.json` *and* `<key>.ua.json` in one
     `Promise.all` and throws before it reaches the escape registry, so a pair does not
     fail at the missing registration M.4 predicted — it fails at *read*, one layer
     earlier, with a message about a file. None of the four validation layers could see
@@ -731,7 +731,7 @@ def _apply_plan(name: str, skeleton: object, projector: "_Projector") -> dict:
       state. `FormStateValue` is `string | string[]`, so every field's value arrives as
       text and the arity has to be restored from somewhere.
 
-    **The plan is sized when it is generated and cannot grow** (I-82). That is Q-19's
+    **The plan is sized when it is generated and cannot grow**. That is Q-19's
     consequence rather than a choice made here: a repeat count is read from the bindings
     and never from the filler, so a projected flow edits the values of a fixed shape.
     Editing a count means editing the bindings and projecting again.
@@ -777,7 +777,7 @@ def project(template: Template, context: dict, schema: dict) -> Projection:
     blocks: list[_Block] = []
 
     # 1. The scalar bindings, first — they are where the repeat counts came from, so an
-    #    author meets the entities before the steps that configure them (M.1).
+    #    author meets the entities before the steps that configure them.
     if scalars:
         rows = []
         for path, value in scalars:

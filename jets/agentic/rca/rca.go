@@ -1,4 +1,4 @@
-// Package rca is the advisory half of Phase 4's agent track (task AC.2): it
+// Package rca is the advisory half of Phase 4's agent track: it
 // ranks causal hypotheses for one run, and every hypothesis it emits carries
 // the evidence against itself as well as the evidence for.
 //
@@ -56,8 +56,7 @@
 //
 // AC.3 is the shadow-mode wiring. This package returns a Ranking; it does not
 // insert into jetsapi.hypothesis, does not create an incident, and does not
-// supply the severity that jetsapi.incident requires and no locus determines
-// (I-306).
+// supply the severity that jetsapi.incident requires and no locus determines.
 package rca
 
 import (
@@ -134,7 +133,7 @@ var EvidenceSources = []string{
 // more.
 type Evidence struct {
 	// Statement is the evidence in words. It is the model's one
-	// data_classification = "PHI" property (AE.2), so a caller putting a
+	// data_classification = "PHI" property, so a caller putting a
 	// hypothesis on a screen goes through audit's redaction rather than
 	// reading this field directly.
 	Statement string
@@ -276,7 +275,7 @@ func (e *Evidence) validate() error {
 //
 // It is keyed on the session and not on an incident for the reason §9.6 gives
 // for an incident's own grain: session_id is the only key all seven
-// evidence-bearing tables carry (F202). A caller that has written incidents
+// evidence-bearing tables carry. A caller that has written incidents
 // assigns IncidentRef afterwards.
 type Ranking struct {
 	SessionId string
@@ -287,7 +286,7 @@ type Ranking struct {
 	// UnmappedLoci are the loci that fired and that §9.5's table maps to no
 	// cause class, so no hypothesis was emitted for them. **Two of the nine are
 	// permanently in this state** — step_never_started and
-	// per_record_failures_unreportable appear in no row of §9.5 (F393) — and a
+	// per_record_failures_unreportable appear in no row of §9.5 — and a
 	// caller counting hypotheses per locus needs to know the difference between
 	// a locus that produced none and a locus that was never asked.
 	UnmappedLoci []string

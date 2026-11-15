@@ -132,7 +132,7 @@ export function previewRowOf(raw: unknown): PreviewRow | null {
  * *What it is* is its process for a pipeline's session and its object type for a
  * file's, the two things a user recognises a session by; the source type when it
  * has neither. **The client is shown as written**, `(unknown)` included: that is
- * the purge's name for a session whose client could not be read (`I-18`), and a
+ * the purge's name for a session whose client could not be read, and a
  * user deleting it should see that rather than a blank.
  */
 export function previewLine(row: PreviewRow): string {

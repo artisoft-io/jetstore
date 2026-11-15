@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * The typeahead widget. Task I.2b.
+ * The typeahead widget.
  *
  * The ordering and filtering rules are `suggestionsFor`'s and are tested without
  * a DOM in `userflow/formQueries.test.ts`. What is asserted here is the part that

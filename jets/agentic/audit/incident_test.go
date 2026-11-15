@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// The incident read path (task AE.1).
+// The incident read path.
 //
 // **Three of these need no database and one needs a database with *no* schema**,
 // which is the unusual one and the reason it is here. Every other test in this
@@ -118,7 +118,7 @@ func insertHypothesis(t *testing.T, pool *pgxpool.Pool, id, incidentRef, cause, 
 	rank int64, confidence float64, supporting, contradicting string) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(),
-		// hypothesis_locus and basis are columns as of AC.3 (Q-46). The fixture
+		// hypothesis_locus and basis are columns as of AC.3. The fixture
 		// writes a locus from the same nine-value vocabulary the CHECK admits and
 		// a basis whose counts are those of the two arrays above, so a read-path
 		// test still exercises a row shaped like one the writer produces.
@@ -289,8 +289,8 @@ func TestListIncidentsReportsAnUnmigratedDatabase(t *testing.T) {
 }
 
 // basisFor builds the `basis` column for a fixture from the two evidence arrays
-// it is written beside, so the counts describe the row rather than being typed
-// (AC.3, Q-46). The evidenceability tier is left `none` for a fixture, which is
+// it is written beside, so the counts describe the row rather than being typed.
+// The evidenceability tier is left `none` for a fixture, which is
 // the honest value for a hand-composed row: nothing here consulted plan §9.5.
 func basisFor(supporting, contradicting, category string) string {
 	count := func(raw string) int {

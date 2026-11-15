@@ -34,7 +34,7 @@ import (
 // they name. These four functions are named by no document and were byte
 // identical in both arms, so an equivalence test could never have separated
 // them - two identical copies fail together. What can still separate the arms
-// is `filters.go`'s ten functions, which stay copied (`I-647`), and what
+// is `filters.go`'s ten functions, which stay copied, and what
 // catches a shared reader whose behaviour changed is the golden on each side:
 // `TestRendersSection1106Verbatim` and `TestTheAnchorFixture` both hold plan
 // §10.9's printed block byte for byte.

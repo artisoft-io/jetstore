@@ -68,7 +68,7 @@ func (engine *JetRuleEngineNative) MainRuleFile() string {
 }
 
 // JetResources is built once, by the first caller. Every session of a pool calls it,
-// from its own goroutine, on the one engine they share (rules_benchmark I-22).
+// from its own goroutine, on the one engine they share.
 func (engine *JetRuleEngineNative) JetResources() *compute_pipes.JetResources {
 	engine.jetResourcesOnce.Do(func() {
 		engine.jetResources = compute_pipes.NewJetResources(engine.GetMetaResourceManager())
@@ -196,7 +196,7 @@ func (rm *JetResourceManagerNative) NewDoubleLiteral(x float64) compute_pipes.Rd
 
 // NewIntLiteral makes an int32 literal when data fits in 32 bits, as it always
 // did, and an int64 literal when it does not, which the bridge's int32 call
-// truncated (rules_benchmark I-150, Q-86). Only a value that does not fit
+// truncated. Only a value that does not fit
 // changes: C++ holds int32 and int64 as different resources, so a rule's
 // constant 5 matches an int32 5 and not an int64 one, and every value that fits
 // keeps its type.
@@ -400,7 +400,7 @@ func (ses *JetRdfSessionNative) FindSPO(s, p, o compute_pipes.RdfNode) compute_p
 	}
 	// The null comes from the RDF session, not ses.rs: ses.rs is nil until the
 	// first NewReteSession, and the four Find methods dereferenced it until
-	// 2026-10-20 (rules_benchmark, AB.4), so a Find before any rete session panicked.
+	// 2026-10-20, so a Find before any rete session panicked.
 	null, _ := ses.rdfSession.NewNull()
 	return NewTripleIteratorNative(itor, null)
 }

@@ -10,7 +10,7 @@
 #include "../rete/rete_types_impl.h"
 
 // What the sessions of one meta store share, and what a session reads of the
-// meta graph: the antecedent query keys (I-86) and the vertex-visit limit (Q-83).
+// meta graph: the antecedent query keys and the vertex-visit limit.
 
 namespace jets::rete {
 namespace {
@@ -98,7 +98,7 @@ struct TwoChildren {
   }
 };
 
-// I-86: the keys are set when the meta store is built, before any session. Each
+// The keys are set when the meta store is built, before any session. Each
 // session's BetaRelation::initialize used to write them into the shared node
 // vertexes, so until the first session they were all 0.
 TEST(MetaStoreSharingTest, QueryKeysAreSetWhenTheMetaStoreIsBuilt)
@@ -202,7 +202,7 @@ struct Counter {
   }
 };
 
-// Q-83: with no jets:max_vertex_visits, a session stops at 10,000 visits of a
+// With no jets:max_vertex_visits, a session stops at 10,000 visits of a
 // vertex, and its message names the limit and the setting. A session with no
 // setting had no limit, so at the base this rule ran its 50,000 visits.
 TEST(VertexVisitLimitTest, TheDefaultStopsAt10000)

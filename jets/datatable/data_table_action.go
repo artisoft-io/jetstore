@@ -720,7 +720,7 @@ var ErrRefused = errors.New("error: unauthorized, cannot get user info or does n
 // deliberate: the classification is for the status line, not for the body.
 //
 // **The configuration error is the exception, and it is the one case where the body
-// moves too** (ui_refresh D.2). Collapsing it into ErrRefused would answer 500 with
+// moves too**. Collapsing it into ErrRefused would answer 500 with
 // a sentence asserting the caller is unauthorised -- the misdescription this fix is
 // about, surviving the fix. I-124's argument does not reach it either: that argument
 // is about two gates on one path staying indistinguishable, and both of those gates
@@ -1410,7 +1410,7 @@ const (
 	// sqlInsertStmts["pipeline_execution_status"] and
 	// sqlInsertStmts["input_loader_status"] already require, named here for the two
 	// paths that reach the same authority without resolving a statement: DropTable
-	// below, and the inline resubmit_pipeline arm in jets/apiserver. I-125.
+	// below, and the inline resubmit_pipeline arm in jets/apiserver.
 	CapabilityRunPipelines = "run_pipelines"
 	// CapabilityDeleteSession gates preview_session_deletion and delete_sessions.
 	CapabilityDeleteSession = "delete_session"

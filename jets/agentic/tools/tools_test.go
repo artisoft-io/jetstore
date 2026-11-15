@@ -1,6 +1,6 @@
 // Criterion 12, second clause: the same three tools reachable from a Go
 // test with no adapter — which is what proves the registry, not MCP, is the
-// interface (Q-4). The fixture is a real compiled workspace: test_ws plus
+// interface. The fixture is a real compiled workspace: test_ws plus
 // the installed jets_agentic assets, compiled offline by compile_workspace
 // (no database — Postgres is only for the upload), so build/classes.json is
 // the genuine F5 view, not a hand-made stand-in.
@@ -194,7 +194,7 @@ func TestRegistryDrivesAllThreeTools(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Tool 1 — the workspace-wide view is reachable (F5).
+	// Tool 1 — the workspace-wide view is reachable.
 	raw := call(t, reg, ws, "list_domain_classes", "{}")
 	var listed struct {
 		Classes []ClassSummary `json:"classes"`
@@ -226,8 +226,8 @@ func TestRegistryDrivesAllThreeTools(t *testing.T) {
 	if got := len(desc.Vocabularies["IncidentStatus"]); got != 11 {
 		t.Errorf("describe jetsa:Incident: IncidentStatus inlined with %d values, want 11", got)
 	}
-	// The declaring file, not the first file of the flattened import unit
-	// (I-16). jets_agentic.jr imports jets_model.jr, so everything it declares
+	// The declaring file, not the first file of the flattened import unit.
+	// jets_agentic.jr imports jets_model.jr, so everything it declares
 	// used to be reported as belonging to jets_model.jr.
 	if desc.SourceFile != "data_model/jets_agentic.jr" {
 		t.Errorf("describe jetsa:Incident: source_file %q, want data_model/jets_agentic.jr",

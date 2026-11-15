@@ -66,7 +66,7 @@ func (jsComp *JetStoreStackComponents) BuildInferEc2(scope constructs.Construct,
 	//    managed independently of the instance lifecycle.
 	//
 	// This volume holds the model weights, so its throughput is the model-load
-	// half of scale-from-zero. Measured 2026-09-10 (agentic_ai F894, I-607):
+	// half of scale-from-zero. Measured 2026-09-10:
 	// vLLM reads a 6.34 GiB bf16 checkpoint in 51.0 s and ollama a ~2.1 GiB
 	// Q4_K_M blob in 17.3 s -- 124 and ~120 MiB/s. Neither server is slow at
 	// loading; both are reading at gp3's *baseline* 125 MiB/s, because nothing

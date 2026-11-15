@@ -238,7 +238,7 @@ func TestRegisterFileKeysFileKeyAbsentIsSkipped(t *testing.T) {
 		NoAutomatedLoad: true,
 		IsSchemaEvent:   true,
 	}
-	// RegisterFileKeys skips the row with a 200 and says why (JM-096);
+	// RegisterFileKeys skips the row with a 200 and says why;
 	// RegisterSchemaEvent, whose one row this would be, makes that an error.
 	res, status, err := ctx.RegisterFileKeys(action, "")
 	if err != nil || status != http.StatusOK {

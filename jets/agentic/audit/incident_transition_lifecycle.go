@@ -2,7 +2,7 @@ package audit
 
 import "sort"
 
-// The Incident lifecycle (task AB.2, I-276) — which transitions the server
+// The Incident lifecycle — which transitions the server
 // will accept on an incident, and which a supervision screen may offer.
 //
 // **This is lifecycle.go's shape a second time, and the repetition is the
@@ -38,7 +38,7 @@ import "sort"
 // `reclassified`'s line down the page and into `resolved`, which would make a
 // reclassification a resolution. Read as a graph the second is also
 // unreachable from anything the prose says. So `reclassified -> triaged` is
-// the edge, and `reclassified -> resolved` is not (**I-298**). The rationale
+// the edge, and `reclassified -> resolved` is not. The rationale
 // half of that sentence is enforced one layer down, by
 // `incident_event_reclassified_ck` in the generated DDL, and not here: a
 // transition table says which edges exist and a CHECK says what a row must

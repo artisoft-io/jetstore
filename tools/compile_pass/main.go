@@ -1,4 +1,4 @@
-// P.1: give the eval harness a caller.
+// Give the eval harness a caller.
 //
 // **What this is.** One compile-pass run end to end — load the live corpus,
 // split it at file level, cut a case by mutation, drive the Phase-1 authoring
@@ -6,7 +6,7 @@
 // Every part of that existed before this file and none of them had ever met:
 // LoadCorpus, SplitFiles, Coverage and MakeCase had no consumer outside
 // eval_test.go, and jets/agentic/agent had no non-test consumer anywhere in the
-// repository (F32, F111). Criterion 20 was met by the harness satisfying its
+// repository. Criterion 20 was met by the harness satisfying its
 // own contract, which is what the criterion asked and is less than a
 // measurement.
 //
@@ -23,7 +23,7 @@
 // schema that constrains generation is one operator's TransformationSpec — and
 // on the emitted cpipes contract every one of the sixteen flat leaves closes
 // over the same shared substrate of channel specs and column evaluators, at
-// 28,277 to 30,542 estimated tokens (F112). Task.validate calls prompt.Fits,
+// 28,277 to 30,542 estimated tokens. Task.validate calls prompt.Fits,
 // which reserves 8,192 of a 32,768 window for the instruction and the answer,
 // so against the **leaf** entry point every held-out case is refused before a
 // model is called — every operator in the corpus, for the same reason.
@@ -46,8 +46,8 @@
 // > than deleted because the leaf measurement is still true and is still the
 // > reason the bundle layer exists.
 //
-// **And the budget prompt.Fits enforces is not one this serving path spends
-// (F113).** The schema rides in Ollama's `format` field, where it is compiled
+// **And the budget prompt.Fits enforces is not one this serving path spends.
+// ** The schema rides in Ollama's `format` field, where it is compiled
 // into a sampling grammar; it is never sent as messages. Measured against the
 // running server on 2026-08-27: an 84-byte schema and a 119,038-byte schema
 // both report prompt_eval_count of 30 for the same prompt, and 23 for another.
@@ -217,7 +217,7 @@ func run(root, schemaPath, bundlePath, host, model, era string, everyNth, maxCas
 	// walk sorts its output because "a harness whose case list reshuffles
 	// between runs cannot be compared with itself" — and the determinism
 	// stopped at the corpus. At Ollama's default temperature the same 45 cases
-	// gave two passes on one run and none on the next (F118), so the figure had
+	// gave two passes on one run and none on the next, so the figure had
 	// a sampling variance nobody had measured and no run could be repeated.
 	// Greedy decoding with a fixed seed is the default here for that reason;
 	// -temperature is how a caller measures the variance deliberately.
@@ -230,7 +230,7 @@ func run(root, schemaPath, bundlePath, host, model, era string, everyNth, maxCas
 	// exists to prevent, arriving one layer below it.
 	// **Every case is checked against its own ground truth before the model
 	// sees it, and the ones that cannot be won are excluded from the
-	// denominator (F120).** A case whose removed instance does not validate
+	// denominator.** A case whose removed instance does not validate
 	// when put back is not a case: no answer can pass it, including the right
 	// one. Thirteen of the 134 are in that state — `anonymize_file.pc.json`
 	// reads `$CGT_MULTIPART_OUTPUT` and `$MAIN_INPUT_ROW_COUNT` in its `when`
@@ -480,7 +480,7 @@ func run(root, schemaPath, bundlePath, host, model, era string, everyNth, maxCas
 //
 // **It says mutation, and that is the whole of P.1's provenance decision.**
 // Plan §4 asked whether Case gains a provenance field or the two libraries stay
-// apart; they stay apart (I-115, I-136), so what a reader needs is not a label
+// apart; they stay apart, so what a reader needs is not a label
 // on each case but a statement of the population a figure was measured over.
 func caseSource(everyNth, planBudget, numCtx int, temperature float64, seed int, schemaInPrompt bool) string {
 	where := "schema in `format` only, as the Phase-1 loop sends it"
@@ -499,7 +499,7 @@ func caseSource(everyNth, planBudget, numCtx int, temperature float64, seed int,
 //
 // **Getting this wrong is the whole difference between a harness that runs and
 // one that refuses every case, and the first version of this file got it
-// wrong (F114).** The contract's own discriminator maps `map_record` to
+// wrong.** The contract's own discriminator maps `map_record` to
 // `TransformationSpecMapRecord`, which reads like the answer and is not: that
 // leaf's `conditional_config` reaches `ConditionalTransformationSpec`, which
 // re-admits every operator's config, so its closure is 61 definitions and
@@ -518,7 +518,7 @@ func caseSource(everyNth, planBudget, numCtx int, temperature float64, seed int,
 // authoritative by design because it expresses semantics the model cannot.
 // An operator with no bundle row falls back to the leaf and is reported as
 // doing so — `embed` is the one, added after the bundle layer was authored
-// and never given a row (F119).
+// and never given a row.
 func transformationSpecNames(contract []byte, bundlePath string) (map[string]string, error) {
 	var doc struct {
 		Defs map[string]struct {

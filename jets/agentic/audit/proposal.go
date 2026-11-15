@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// What a run proposes (plan §3.6, task D.7).
+// What a run proposes.
 //
 // **Phase 1 writes a row and nothing to git.** Staged branch writes are the
 // analysis's §5.2 "Write — staged" class and arrive with the Phase-2 approval

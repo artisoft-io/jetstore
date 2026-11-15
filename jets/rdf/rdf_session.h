@@ -291,7 +291,7 @@ class RDFSession {
   // Asserting a triple the rules inferred moves it to the asserted graph: the inferred
   // copy is erased without a notice to the rete (erase_without_notice), since the triple
   // never leaves the session and a notice would only withdraw and rebuild the rows built
-  // on it (I-103).
+  // on it.
   template<typename L>
   inline typename literal_restrictor<L, int>::result
   insert(r_index s, r_index p, L const& v)

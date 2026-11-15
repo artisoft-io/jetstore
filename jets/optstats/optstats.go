@@ -1,7 +1,7 @@
 // Package optstats is the rule optimizer's statistics file: what a session's graph
 // holds when each main rule set ends, counted for the predicates and constants
 // that the rule set's antecedents name, so that the compiler can order a rule's
-// antecedents by the rows each would add (rules_benchmark Phase 9).
+// antecedents by the rows each would add.
 //
 // The file is jet_rules/optimizer_statistics.json in a workspace, committed, or
 // a statistics process's own jet_rules/<process>.optimizer_statistics.json,

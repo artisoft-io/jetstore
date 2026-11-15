@@ -56,7 +56,7 @@ import (
 // 2: rdf.ParseBool reads "yes" as true, so a YES in a bool column packages as 1.
 // 3: and "y", so a Y does too.
 // 4: an empty bool cell packages as NULL, served as rdf null, not 0; a value
-// outside the accepted spellings stops the compile (I-45).
+// outside the accepted spellings stops the compile.
 var lookupDbFormatVersion = 4
 
 // lookupDbMetaTable holds the fingerprint. The double underscores keep it out

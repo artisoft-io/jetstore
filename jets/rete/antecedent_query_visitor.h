@@ -132,7 +132,7 @@ struct AQVRemoveIndexBetaRowsVisitor: public boost::static_visitor<>
   using O = AQOther;
   AQVRemoveIndexBetaRowsVisitor(BetaRelation * g, b_index m, BetaRow const* r) 
     : beta_relation(g), node_vertex(m), row(r), key(m->antecedent_query_key) {}
-  // Each removes the row's own entry under its key, not the other rows' (I-85)
+  // Each removes the row's own entry under its key, not the other rows'
   void operator()(I const&s, I const&p, I const&o){ beta_relation->beta_row_idx3_[key].erase( {s.to_r(row), p.to_r(row), o.to_r(row)}, row );}
   void operator()(O const&s, I const&p, I const&o){ beta_relation->beta_row_idx2_[key].erase( {p.to_r(row), o.to_r(row)}, row );}
   void operator()(O const&s, O const&p, I const&o){ beta_relation->beta_row_idx1_[key].erase( o.to_r(row), row );}
@@ -166,7 +166,7 @@ struct AQVQueryIndexVisitor: public boost::static_visitor<int>
 // visitor: adds the parent relation's index for a child AlphaNode. The child's
 // antecedent_query_key, the position of that index, is set once by
 // ReteMetaStore::initialize; each session used to write it here into the shared
-// meta store, a data race while the value was the same (I-86). The session adds
+// meta store, a data race while the value was the same. The session adds
 // the indexes in the same order, and the position it gets is checked against it.
 struct AQVInitializeIndexesVisitor: public boost::static_visitor<>
 {

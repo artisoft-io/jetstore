@@ -194,7 +194,7 @@ func ValidateFormDocument(content string) []wsvalidate.Finding {
 	return validateAgainst(formSchemaFile, content)
 }
 
-// ValidateTableDocument is the .tc.json validator. Task I.3.
+// ValidateTableDocument is the .tc.json validator.
 //
 // Schema only, and the two things it cannot check are worth naming because both
 // look checkable from here.

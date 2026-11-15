@@ -69,8 +69,8 @@ describe("hasDataRegistryFilters", () => {
     ~~"is false, because this app has nowhere to set the filters yet"~~ — that was
     this case's name until 2026-10-01, and it asserted the hard-coded `false`.
     The filters had a home by then (`homeFilters.ts`'s store), so the case was
-    pinning a defect: three *Clear Filters* buttons that could never enable
-    (`jetstore_maintenance_02`, `F8`, `F33`). It now asserts the Dart's body,
+    pinning a defect: three *Clear Filters* buttons that could never enable.
+    It now asserts the Dart's body,
     `dataRegistryFilters != null && …isNotEmpty`, across the store's three states.
   */
   const applied = (answers: Record<string, string | string[]>) => {
@@ -141,7 +141,7 @@ describe("the production registry", () => {
     // a flow nobody hand-wrote.
     //
     // **`openWorkspace` is the eighth and the first registered by a non-flow
-    // screen** (C.2b). It passes the same test on a document that is bundled
+    // screen**. It passes the same test on a document that is bundled
     // rather than in a workspace: `screens/documents/workspaceRegistry.ua.json`
     // names it, so a body that were absent would be a screen that will not load —
     // which is what `documentFindings` checks and what
@@ -150,9 +150,9 @@ describe("the production registry", () => {
     // **It is also the only body here that is deliberately incomplete**, and that
     // is not a violation of the bound. The bound is about names with no body; this
     // has one, and what the body does is report that its destination screen is
-    // C.3's (I-183). A registered escape that says why it cannot finish is the
+    // C.3's. A registered escape that says why it cannot finish is the
     // thing `escapes.ts` prefers to an unregistered name, one layer up.
-    // **`loadReteSession` is the ninth** (C.9), and the interesting half of that
+    // **`loadReteSession` is the ninth**, and the interesting half of that
     // task's count is what is *not* here. `/processErrors`'s Dart delegate has
     // three live arms; `reteSession.VisitEntity` is a guarded `set` in the
     // screen's action document, and the third belongs to the v1 dialog C.0
@@ -168,7 +168,7 @@ describe("the production registry", () => {
       "copySchemaEvent",
       "cpipesTemplateApply",
       "downloadMapping",
-      // **Eleven as of 2026-10-01** (jetstore_maintenance_02 AE.3): a clipboard
+      // **Eleven as of 2026-10-01**: a clipboard
       // button needs the response body, which a grammar `post` drops.
       "fetchStageToClipboard",
       "loadRawRows",

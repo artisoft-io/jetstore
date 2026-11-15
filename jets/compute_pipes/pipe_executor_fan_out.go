@@ -47,7 +47,7 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel,
 			// Without this arm a channel declared there is registered by
 			// StartComputePipes and resolved onto OperatorArgs.Outputs and then
 			// closed by nothing, so every reader of it blocks on a channel that
-			// never sees EOF (P9-I13). siteOutputChannelConfigs answers nil when
+			// never sees EOF. siteOutputChannelConfigs answers nil when
 			// there is no site_config, no list, or the token is a built-in, so a
 			// document declaring none takes exactly the path it took before this
 			// arm existed.

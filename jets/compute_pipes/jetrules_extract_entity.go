@@ -22,7 +22,7 @@ func (ce *JrSpecialColumnEncoding) EncodeColumnData(rdfSession JetRdfSession, su
 	extractAsEntity(rdfSession, ce.Config.RemoveModelPrefixes, subject, entityObj, ce.ExcludeProperties)
 	// log.Printf("*** Extracting json/toon obj - end")
 	if ce.Config.EntityEncoding == "briefing_prose" {
-		// The deterministic briefing (agentic_ai Phase 7 AT.3): the same entity
+		// The deterministic briefing: the same entity
 		// map the toon and json arms encode, rendered as the briefing itself.
 		//
 		// **It hangs here rather than beside the operator on purpose.** Plan
@@ -159,7 +159,7 @@ func extractAsEntity(rdfSession JetRdfSession, removeModelPrefixes bool, subject
 // five of the six possible orderings of three conditions, one per process.**
 // A cpipes worker is a process, so a run is internally consistent - nothing
 // looks wrong - and the next run over identical data produces a different
-// prompt. Downstream (F836, F837) the TOON prompt differed byte for byte in 22
+// prompt. Downstream the TOON prompt differed byte for byte in 22
 // of 22 members between two runs and as a multiset of lines in 16 of 22, while
 // the deterministic template arm was byte-identical in only 4 of 22 and
 // identical as a bag of words in 22 of 22 - its variation was list order and

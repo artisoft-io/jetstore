@@ -1,4 +1,4 @@
-// F.2b: harvest the compute_pipes test fixtures into library parts.
+// Harvest the compute_pipes test fixtures into library parts.
 //
 // A§6.1 source 2 proposes the test fixtures as a source for the fragment library:
 // author-written, correct by construction, and concentrated where the live corpus is

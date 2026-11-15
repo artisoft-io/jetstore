@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-// The write-side counterpart of read_capability_test.go. I-125, I-126.
+// The write-side counterpart of read_capability_test.go.
 //
 // **A source-level test rather than a behavioural one, for the same reason
 // read_capability_test.go is one**: exercising these paths needs a database, a
@@ -36,7 +36,7 @@ import (
 //
 // **InsertRawRows is deliberately absent.** Its gate lives inside the
 // raw_rows/process_mapping arm rather than at the top of the function, because
-// the arm is what performs the delete (I-124), and insert_raw_rows_authz_test.go
+// the arm is what performs the delete, and insert_raw_rows_authz_test.go
 // asserts that ordering precisely. Duplicating it here with a coarser rule would
 // weaken it. TestInsertRawRowsIsCoveredByItsOwnTest keeps the delegation from
 // rotting silently.

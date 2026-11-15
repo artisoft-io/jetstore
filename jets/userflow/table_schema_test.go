@@ -13,7 +13,7 @@ import (
 // that file for why the translation is round-tripped rather than only emitted.
 //
 // **37 of them are the flows' and ten are not.** `pipelineExecStatusTable` is
-// registered on the non-flow side and rendered by `homeFiltersUF` (plan F18), so
+// registered on the non-flow side and rendered by `homeFiltersUF`, so
 // F.5 could not author that flow without it; `workspaceRegistryTable` is the
 // `/workspaces` screen's, added by C.2; C.7 added `pipelineExecDetailsTable` and
 // `cpipesExecDetailsTable`, the tables of `/executionStatusDetails/:session_id`
@@ -40,8 +40,8 @@ import (
 // rendered by the home screen, which is F18 read backwards.
 //
 // **Two of the 49 are authored rather than translated, and they are the first.**
-// `wsLookupTableTable` and `wsLookupColumnTable` are the `lookups` compiled view
-// (C.3a), which the Flutter app never built — so there is no Dart configuration
+// `wsLookupTableTable` and `wsLookupColumnTable` are the `lookups` compiled view,
+// which the Flutter app never built — so there is no Dart configuration
 // to measure and nothing for a round trip to compare against. That changes
 // nothing on this side: this test reads the directory and validates what it
 // finds, and an authored document that does not validate fails here exactly as a
@@ -52,7 +52,7 @@ import (
 // committed and not emitted — the TypeScript side compares the directory against
 // what it just produced, so it cannot notice a file that reached neither.
 // **37 of them are the flows' and three are not.** `pipelineExecStatusTable` is
-// registered on the non-flow side and rendered by `homeFiltersUF` (plan F18), so
+// registered on the non-flow side and rendered by `homeFiltersUF`, so
 // F.5 could not author that flow without it; `workspaceRegistryTable` is the
 // `/workspaces` screen's, added by track C's C.2; `queryToolResultSetTable` is
 // `/queryTool`'s, added by C.4 and the only one in either corpus that asks the
@@ -135,7 +135,7 @@ func TestShippingTablesValidate(t *testing.T) {
 	// lookback periods, and mergeProcessInputTable, merged_input_registry_keys and
 	// spInjectedProcessInput were retired (RetiredAssets).
 	//
-	// **61 -> 63 on 2026-11-08**: session_registry Phase 2 (JM-081) added Home's
+	// **61 -> 63 on 2026-11-08**: session_registry Phase 2 added Home's
 	// Session Registry and Archived Pipelines tabs (sessionRegistryTable,
 	// pipelineArchiveTable), bundled with the client.
 	//
@@ -236,7 +236,7 @@ func TestTableSchemaRejects(t *testing.T) {
 			"columns":[{"name":"a","label":"A"}],"sortColumn":"a","rowsPerPage":10,
 			"from":[{"schema":"jetsapi","table":"t"}],
 			"fromConfigRowActions":[{"key":"k","label":"L","action":"doAction","actionName":"x","style":"secondary"}]}`,
-		// The third row (AE.1) is on the query arm only, and absent is how a
+		// The third row is on the query arm only, and absent is how a
 		// document says it has none.
 		"thirdRowActions on a static table": `{"schemaVersion":1,"source":"static","label":"L",
 			"columns":[{"name":"a","label":"A"}],"sortColumn":"a","rowsPerPage":10,"rows":[["x"]],

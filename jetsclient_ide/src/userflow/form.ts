@@ -36,7 +36,7 @@
  * I.2a and the *query* half with I.2b, which is `queries` and `itemsFrom` below.
  *
  * **A form drawn once per row of a query.** Not foreseen here at all; one form of
- * the fifty has it, and it is `repeat` below (F.1).
+ * the fifty has it, and it is `repeat` below.
  *
  * ## Why a sibling document rather than fields on the state
  *
@@ -124,13 +124,13 @@ export const DropdownItemSchema = z
   .meta({ id: "DropdownItem", description: "One choice offered by a dropdown" });
 
 /**
- * A named query the form runs to fill its item sources. Task I.2b.
+ * A named query the form runs to fill its item sources.
  *
  * ## The query is named on the form, and in the Dart that is true of one of the
  * two mechanisms rather than of both
  *
  * I-11 and I-43 both state it as a fact about `jetsclient`, and **half of it is
- * a fact about the port instead** (I-70). The Dart has two item-source paths and
+ * a fact about the port instead**. The Dart has two item-source paths and
  * they disagree about where the SQL lives:
  *
  * | Dart | Where the SQL is | How it runs |
@@ -172,7 +172,7 @@ export const FormQuerySchema = z
      * The statement, run by `raw_query_map` against the deployment's database.
      *
      * **Raw SQL in an authored document is a capability question and it was
-     * asked** (I-71). Saving a workspace file requires `workspace_ide`
+     * asked**. Saving a workspace file requires `workspace_ide`
      * (`jets/datatable/workspace_data_table_action.go`, `SaveWorkspaceFileContent`),
      * and `workspace_ide` *is* `CapabilityQueryTool`
      * (`jets/datatable/data_table_action.go`, `CapabilityQueryTool`) — the
@@ -226,7 +226,7 @@ export const FormActionSchema = z
      */
     enableOnlyWhenFormNotValid: z.boolean().optional(),
     /**
-     * A named predicate over form state that gates this button. Task C.5.
+     * A named predicate over form state that gates this button.
      *
      * **`isEnabledEval` — the third gate, and the first one that is not about
      * form validity.** `FormActionConfig.isEnabledEval` is
@@ -265,7 +265,7 @@ export const FormActionSchema = z
  * `text`, `dataTable`, `dropdown` and `typeahead` are widgets; `label` and
  * `spacer` are not, and they are here because a form is a layout as well as a set
  * of inputs — the 55 `PaddingConfig` and 12 `TextFieldConfig` instances across the
- * flows (I-12) are the second largest thing in a form after the inputs themselves.
+ * flows are the second largest thing in a form after the inputs themselves.
  */
 export const FieldSchema = z
   .union([
@@ -285,8 +285,8 @@ export const FieldSchema = z
        * the prop since A.3 — so the gap was the authoring layer alone, which is
        * what I-62 said and why it is one line here.
        *
-       * **The count read *20 of the 36* until F.6 and both halves were wrong**
-       * (I-111). The corpus has held 46 since it was generated and
+       * **The count read *20 of the 36* until F.6 and both halves were wrong**.
+       * The corpus has held 46 since it was generated and
        * `TextInput.tsx`'s own option table reads 23 of 46, three files away — so
        * two documents in this repository disagreed about one generated number,
        * and the one nobody re-derived is the one that drifted. 20 is the count
@@ -303,7 +303,7 @@ export const FieldSchema = z
        */
       isReadOnly: z.boolean().optional(),
       /**
-       * A named predicate deciding whether the field is read-only. Task C.2b.
+       * A named predicate deciding whether the field is read-only.
        *
        * **`isReadOnlyEval`, which is a Dart closure and therefore a name here** —
        * the move `cellFilter` and a table action's `isEnabled` already make. The
@@ -352,7 +352,7 @@ export const FieldSchema = z
       defaultValue: z.string().optional(),
       /**
        * Re-read the form state when something other than the user writes this
-       * key. Task C.5.
+       * key.
        *
        * **`syncWithFormState` (`models/form_config.dart`, `FormInputFieldConfig`),
        * and the same story as `enabledWhen` above: the widget has taken it since
@@ -371,7 +371,7 @@ export const FieldSchema = z
        */
       syncWithFormState: z.boolean().optional(),
       /**
-       * What the widget will let the user type. Task F.6.
+       * What the widget will let the user type.
        *
        * **Two sites, both `lookback_periods` on this flow's dialogs**, and both
        * `digitsOnly` (`datatable/fixtures/form_fields.json`). `TextInput.tsx` has
@@ -392,7 +392,7 @@ export const FieldSchema = z
       /** The table configuration key; A.4's widget resolves it. */
       table: Identifier,
       /**
-       * How much of the row this table takes, against its siblings. Task C.9.
+       * How much of the row this table takes, against its siblings.
        *
        * **Absent means the whole row, which is what every form until now wanted
        * and what the stylesheet asserted was the only possibility.** Its comment
@@ -418,7 +418,7 @@ export const FieldSchema = z
     }),
     /**
      * A closed list, chosen from literals. Task I.2a, requested by the agentic
-     * project (I-43).
+     * project.
      *
      * **The widget is not the gap and never was.** A.3 built `Dropdown.tsx` to
      * take `items` as a prop precisely so "a static list and a query result
@@ -447,7 +447,7 @@ export const FieldSchema = z
       label: z.string().min(1),
       items: z.array(DropdownItemSchema).min(1),
       /**
-       * A `queries` entry whose rows are appended to `items`. Task I.2b.
+       * A `queries` entry whose rows are appended to `items`.
        *
        * **Appended, not substituted**, because that is what the Dart does with
        * both of its paths: `setDropdownItems` starts from `_config.items` and adds
@@ -468,8 +468,8 @@ export const FieldSchema = z
        * declares the dropdown, gets the same `key` from its own `query` step
        * against `process_config`. So `returnedModelCacheKey` has two writers and
        * one reader, and the reader is nobody's flow — which is why this schema
-       * needs no field for it and why `pipelineConfigUF`'s form document drops it
-       * (I-118). The sentence above is still the rule; the example was the wrong
+       * needs no field for it and why `pipelineConfigUF`'s form document drops it.
+       * The sentence above is still the rule; the example was the wrong
        * one.
        */
       itemsFrom: Identifier.optional(),
@@ -477,7 +477,7 @@ export const FieldSchema = z
       defaultItemPos: z.number().int().nonnegative().optional(),
       isReadOnly: z.boolean().optional(),
       /**
-       * Lock the field once it holds a value. Task C.10.
+       * Lock the field once it holds a value.
        *
        * `FormDropdownFieldConfig.makeReadOnlyWhenHasSelectedValue`
        * (`jetsclient/lib/models/form_config.dart`), set by the two dropdowns of
@@ -503,7 +503,7 @@ export const FieldSchema = z
     }),
     /**
      * A text box with suggestions. Task I.2b, and the one widget F.0b found
-     * missing (F21, I-60).
+     * missing.
      *
      * **It is not a dropdown and the difference is the point.** The value is
      * whatever the user typed — the Dart's `onChanged` writes it through on every
@@ -538,7 +538,7 @@ export const FieldSchema = z
       rules: z.array(RuleSchema).optional(),
     }),
     /**
-     * A line of text. `TextFieldConfig`, 12 instances across the flows (I-12).
+     * A line of text. `TextFieldConfig`, 12 instances across the flows.
      *
      * **`fromKey` is the repeating-row case and it is why this is a union.** A
      * form with `repeat` draws the same fields once per row, so a label that says
@@ -554,7 +554,7 @@ export const FieldSchema = z
     z.strictObject({ field: z.literal("label"), fromKey: Identifier }),
     z.strictObject({ field: z.literal("spacer") }),
     /**
-     * A button *inside the rows* rather than in the action bar. Task F.2.
+     * A button *inside the rows* rather than in the action bar.
      *
      * **The corpus has three and this is not a layout preference in any of
      * them.** `form_fields.json` reports `FormActionConfig` at three sites *among
@@ -586,7 +586,7 @@ export const FieldSchema = z
   .meta({ id: "Field", description: "One field of a form" });
 
 /**
- * A form drawn once per row of a query. Task F.1.
+ * A form drawn once per row of a query.
  *
  * **One form of the fifty has this shape** — `fmMappingFormUF`, the only one the
  * corpus reports with `hasRowBuilder: true` and `fieldCount: 0`
@@ -628,7 +628,7 @@ export const FormSchema = z
   .strictObject({
     title: z.string().min(1).optional(),
     /**
-     * Named queries this form runs when it loads. Task I.2b.
+     * Named queries this form runs when it loads.
      *
      * A field names one with `itemsFrom`; nothing else reads them today, and the
      * rows are addressable by query name from an escape, which is where the two
@@ -658,7 +658,7 @@ export const FormSchema = z
     validator: Identifier.optional(),
     /**
      * Show validation messages as the user types, rather than when an action
-     * asks. Task F.1.
+     * asks.
      *
      * `AutovalidateMode.always` (`models/form_config.dart`, `autovalidateMode`).
      * **Four live sites in the whole corpus and all four are in
@@ -713,13 +713,13 @@ export function fieldsOf(form: Form): Field[] {
 }
 
 /**
- * Every button a form offers — the action bar's and the rows' alike. Task F.2.
+ * Every button a form offers — the action bar's and the rows' alike.
  *
  * **This exists because the document-set checks were written when there was only
  * one place to look**, and adding the second place without it would have made
  * both of them quietly incomplete: `checkActions` would stop refusing an inline
  * button naming an undefined action, and `checkEndStateButtons` would stop
- * refusing an end state whose *inline* button advances (I-57). Neither failure
+ * refusing an end state whose *inline* button advances. Neither failure
  * shows at authoring time, which is the whole reason that layer exists.
  *
  * Order is the action bar first, then the rows in document order — the bar is

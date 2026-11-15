@@ -344,7 +344,7 @@ func isSecretEnvName(name string) bool {
 }
 
 // harnessEnviron is the harness's environment: the apiserver's, less every
-// variable that carries a secret, with the run's workspace set (I-19).
+// variable that carries a secret, with the run's workspace set.
 //
 // **The harness opens no database and calls no AWS service, so it needs none of
 // them -- and it links jets/user**, through compute_pipes, jets/workspace and

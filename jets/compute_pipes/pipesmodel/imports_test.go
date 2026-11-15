@@ -70,7 +70,7 @@ func TestPackageImportsStandardLibraryOnly(t *testing.T) {
 // the S3 and pgx reaches are in the *implementations*, which stayed put. Lookup
 // is the pair that carries a table's key beside it, since LookupTable has no
 // accessor for its own name and a site handed a bare list could not tell one
-// table from another (D-209).
+// table from another.
 //
 // **Eighteen since `Q-148` on 2026-09-15**, which added RowLevelError: the
 // per-record half of an error row, which a site fills and OperatorEnv.ReportError

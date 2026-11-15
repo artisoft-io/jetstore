@@ -38,7 +38,7 @@
  * ## Why `qc_report` for the DOM walk
  *
  * It projects to **one** state — all eleven of its holes are loops, so it asks a filler
- * for nothing and its configuration is its bindings (I-76). That makes it the whole of a
+ * for nothing and its configuration is its bindings. That makes it the whole of a
  * flow in one render, which is what a seam test wants; `qc_metrics`' 34-step walk is
  * already covered headlessly next door and would test the engine a second time rather
  * than the screen.
@@ -245,7 +245,7 @@ describe("the runner drives one, in a DOM, against the real client", () => {
                 {/* Where a finished flow lands. **`/home` since D.8, and it was
                     `/workspace` until then** — a flow declaring no `exitScreenPath`,
                     which a projected one does not, used to exit to the Workspace IDE
-                    wherever it began (I-265). It now returns to the `returnTo` its
+                    wherever it began. It now returns to the `returnTo` its
                     url carries, and to the app's index when it carries none, which
                     is this case. Stubbed so that "the flow completed" is observable
                     rather than a router warning. Changed by the ui_refresh session
@@ -284,7 +284,7 @@ describe("the runner drives one, in a DOM, against the real client", () => {
       expect({ saved: saved.length, alerts }).toEqual({ saved: 1, alerts: [] });
     });
     // Escaped, because that is what `saveFile` takes and what the server
-    // unescapes on the way in (I-147).
+    // unescapes on the way in.
     expect(saved[0]!.fileName).toBe(queryEscape(configPath("qc_report")));
 
     // **A config, not a form dump.** The escape substitutes into the generator's
@@ -296,7 +296,7 @@ describe("the runner drives one, in a DOM, against the real client", () => {
 
     // And the flow finished: `ufCompleted` exits after the state action, so the
     // runner is gone and the app is where a completed flow leaves a user — the
-    // index, since this url carries no `returnTo` (D.8).
+    // index, since this url carries no `returnTo`.
     await waitFor(() => expect(screen.getByText("Home")).toBeTruthy());
   });
 

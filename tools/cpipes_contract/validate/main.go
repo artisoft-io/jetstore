@@ -3,7 +3,7 @@
 // engine's Go side will use, so the schema is proven in the language that
 // consumes it. A real config that fails means the schema is wrong, not the
 // config (criterion 6); live means workspaces/*/pipes_config/** and excludes
-// the retired documents under */data/ (I-13).
+// the retired documents under */data/.
 //
 // Run from the JetStore repo root:
 //

@@ -65,7 +65,7 @@ type rbRun struct {
 	Revisions     []runbook.Revision
 	// RevisionFiles maps a revision number ("1") to its files' content, by
 	// path relative to runbooks/. It is what the executor runs, so an edit on
-	// disk takes effect only when a person resumes the run (§4.4).
+	// disk takes effect only when a person resumes the run.
 	RevisionFiles map[string]map[string]string
 	Environment   runbook.Environment
 	StartedBy     string
@@ -365,7 +365,7 @@ func utcOrNil(t *time.Time) *time.Time {
 	return &u
 }
 
-// resultOf is the `.rbr.json` document of a run (§3.5). Every time in it is
+// resultOf is the `.rbr.json` document of a run. Every time in it is
 // UTC, as /runbook's views write them.
 func resultOf(r *rbRun, steps []*rbStep) (*runbook.Result, error) {
 	res := &runbook.Result{

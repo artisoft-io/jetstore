@@ -46,7 +46,7 @@ const parse = (flowDoc: unknown, actionsDoc: unknown, formsDoc: unknown): Docume
 
 const sets: [string, DocumentSet][] = [
   // **`mapFileUF` since 2026-10-01**, in the slot `registerFileKeyUF` held until
-  // `jetstore_maintenance_02` retired that flow (`Q-6`, task `AD.4`). It takes the
+  // `jetstore_maintenance_02` retired that flow. It takes the
   // slot because it is the corpus's other end state that finishes without
   // `ufCompleted` (`fmMappingFormUF`), which is what the end-state case below
   // reads `sets[0]` for; the indices of the others are unchanged.
@@ -58,7 +58,7 @@ const sets: [string, DocumentSet][] = [
   ["loadConfigUF", parse(loadConfigFlowDoc, loadConfigActionsDoc, loadConfigFormsDoc)],
   // F.3's, and the first whose form document defines a form no *state* names:
   // `ufVendor` is a table action's `configForm`, which is why the corpus calls
-  // it unreferenced and why that word does not mean unreachable (I-89).
+  // it unreferenced and why that word does not mean unreachable.
   ["clientRegistryUF", parse(clientRegistryFlowDoc, clientRegistryActionsDoc, clientRegistryFormsDoc)],
 ];
 
@@ -195,17 +195,17 @@ describe("the corpus the narrow rule was chosen from", () => {
     // here where such a change would be made.
     //
     // **Ten and one since 2026-10-01**: `registerFileKeyUF`'s end state left the
-    // fixture when the flow was retired (`jetstore_maintenance_02` `AD.4`), and
+    // fixture when the flow was retired, and
     // `fmMappingFormUF` is the one left.
     const flows = (corpus as { flows: Record<string, { states: Record<string, { isEnd?: boolean }> }> }).flows;
     const endStates = Object.values(flows).flatMap((flow) =>
       Object.entries(flow.states).filter(([, state]) => state.isEnd === true),
     );
     // **Seven the same day**, once `clientRegistryUF`, `sourceConfigUF` and
-    // `pipelineConfigUF` left the fixture to be written by hand (`AF.1`, `D06`).
+    // `pipelineConfigUF` left the fixture to be written by hand.
     // All three of theirs used `ufCompleted`, so the one exception is unchanged.
-    // **Six the same day again**, when `fileMappingUF` left on the same terms
-    // (`jetstore_maintenance_02` Phase 2); its end state used `ufCompleted` too.
+    // **Six the same day again**, when `fileMappingUF` left on the same terms;
+    // its end state used `ufCompleted` too.
     // **Five on 2026-10-02**, when `startPipelineUF` followed; its summary page's
     // *Start Pipeline & Done* is `ufCompleted`, so `fmMappingFormUF` is still the
     // one exception here.
@@ -221,7 +221,7 @@ describe("the corpus the narrow rule was chosen from", () => {
 });
 
 /**
- * An inline `button` field is a button. Task F.2.
+ * An inline `button` field is a button.
  *
  * **Both checks had to learn about it and neither would have failed loudly.** A
  * form's buttons were `form.actions` until F.2 added a field kind that is also a
@@ -266,7 +266,7 @@ describe("a button inside the rows", () => {
  * `doAction` names an entry in the flow's action document and its `showDialog`
  * names a form in the flow's form document; before `clientRegistryUF` the only
  * migrated set with table actions was `loadFilesUF`, which happens to define
- * both of its and offers no dialog at all. So the gap (I-88) had two years of
+ * both of its and offers no dialog at all. So the gap had two years of
  * documents and no way to show.
  */
 describe("a table action naming something the set does not define", () => {
@@ -288,7 +288,7 @@ describe("a table action naming something the set does not define", () => {
     const findings = validateTableActions(set.actions, set.forms, tables());
     expect(findings.map((f) => [f.code, f.document, f.path])).toEqual([
       // `/actions/1/` since 2026-10-01: `D06`'s *+ Add* is the client table's
-      // first action now (`jetstore_maintenance_02` `AF.2`).
+      // first action now.
       ["missingAction", "tables", "/client/actions/1/actionName"],
     ]);
   });
@@ -303,7 +303,7 @@ describe("a table action naming something the set does not define", () => {
   });
 
   it("ignores the action kinds that reach neither document", () => {
-    // `toggleCheckboxVisible` is the widget's own (I-19) and `showScreen`
+    // `toggleCheckboxVisible` is the widget's own and `showScreen`
     // navigates — the latter carries a `configForm` on one corpus table
     // (`fmFileMappingTableUF`, `configureMappingPage`) that `requestFor` never
     // reads, so checking it would refuse a document for a field nothing uses.
@@ -336,17 +336,17 @@ describe("a table action naming something the set does not define", () => {
     ) as TableConfigDocument;
     if (execStatus.source !== "query") throw new Error("pipelineExecStatusTable is a query table");
     // **One first-row reference since 2026-10-01**: `jetstore_maintenance_02`'s
-    // *Put Schema Event* (`D01`, task `AD.3`) opens `putSchemaEventDialog`. It is
+    // *Put Schema Event* opens `putSchemaEventDialog`. It is
     // taken off the clone so that what follows is still about the second row
     // alone, which is this case's subject; the first-row walk is the case above.
     //
-    // **Two since 2026-11-05**: *Check Pending* runs `checkPendingTasks`
-    // (jetstore_maintenance JM-062), taken off for the same reason.
+    // **Two since 2026-11-05**: *Check Pending* runs `checkPendingTasks`,
+    // taken off for the same reason.
     expect(
       execStatus.actions!.filter((a) => a.actionName ?? a.configForm).map((a) => a.actionName ?? a.configForm),
     ).toEqual(["putSchemaEventDialog", "checkPendingTasks"]);
     execStatus.actions = execStatus.actions!.filter((a) => !(a.actionName ?? a.configForm));
-    // **And a third row since the same day** (`D04`, `AE.4`, `AE.5`), taken off for
+    // **And a third row since the same day**, taken off for
     // the same reason; `datatable/table.test.ts`'s `thirdRowActions` block is where
     // that row's walk is asserted.
     expect((execStatus.thirdRowActions ?? []).map((a) => a.actionName)).toEqual([

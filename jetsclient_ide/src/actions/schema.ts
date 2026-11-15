@@ -1,5 +1,5 @@
 /**
- * The action grammar. Task S.2a.
+ * The action grammar.
  *
  * A flow's actions, authored as data in a `.ua.json` document beside its
  * `.uf.json`. Authored in Zod and emitting draft 2020-12 JSON Schema, for the
@@ -66,7 +66,7 @@ export const ValueSchema = z
     z.strictObject({ pgArrayFromKey: Identifier }),
     /**
      * `unpackToList(x)?.join(',')` — a selection as a bare comma-separated list.
-     * Task F.2.
+     *
      *
      * **Not `pgArrayFromKey` with the braces left off, and the difference is a
      * server-side type assertion.** `makePgArray` produces `{a,b}` and returns
@@ -127,7 +127,7 @@ export const RowsSchema = z
       omit: z.array(Identifier).optional(),
     }),
     /**
-     * One row per validation group. Task F.1.
+     * One row per validation group.
      *
      * **The Dart spells it `getInternalState()`** (`jets_form_state.dart`), which
      * returns the whole `List<Map<String, dynamic>>` rather than one group's map,
@@ -352,7 +352,7 @@ export const InsertTargetSchema = z
     "pull_workspace",
     "load_workspace_config",
     /**
-     * The two `/userAdmin` writes. Task C.13.
+     * The two `/userAdmin` writes.
      *
      * **These are the only two entries in `sql_stmts.go` carrying
      * `AdminOnly: true`**, and that changes what admitting them costs. Every
@@ -376,7 +376,7 @@ export const InsertTargetSchema = z
     "update/users",
     "delete/users",
     /**
-     * The three `/ruleConfig` writes. Task C.10.
+     * The three `/ruleConfig` writes.
      *
      * All three declare `Capability: "client_config"` in
      * `jets/datatable/sql_stmts.go`, which is the same capability the dialog's
@@ -456,11 +456,11 @@ export const InsertTargetSchema = z
  * sites are in helper functions the grammar does not reproduce.
  *
  * `escape` is the way out, and the count is the useful part: four arms of 58 need
- * it (I-19). A fifth appearing is expected; a fiftieth would mean the grammar is
+ * it. A fifth appearing is expected; a fiftieth would mean the grammar is
  * wrong.
  */
 /**
- * A guard every step may carry. Task F.2.
+ * A guard every step may carry.
  *
  * **The grammar declined a general conditional once, on `require`, and this is
  * the narrower thing that declining bought.** That note says sixteen arms open
@@ -491,7 +491,7 @@ const guard = { when: ConditionSchema.optional() };
 const stepUnion = [
   z.strictObject({ do: z.literal("validate"), ...guard }),
   /**
-   * Stop with a message unless every named key holds a value. Task F.1.
+   * Stop with a message unless every named key holds a value.
    *
    * **A guard, which the grammar had none of, and it is not a one-off.** Sixteen
    * arms across the delegates open with `if (x == null) return "<message>";` —
@@ -545,8 +545,8 @@ const stepUnion = [
     /** Top-level extras beside `data`, e.g. `workspaceName`. Values, not literals. */
     extras: z.record(Identifier, ValueSchema).optional(),
     /**
-     * Which of the Dart's two POST helpers this is. Added by the coverage pass
-     * (I-23): the grammar modelled `postSimpleAction` only, and `postInsertRows`
+     * Which of the Dart's two POST helpers this is. Added by the coverage pass:
+     * the grammar modelled `postSimpleAction` only, and `postInsertRows`
      * (`delegate_helpers.dart:63`) is a different behaviour, not a flag on the
      * same one — on success it pops the screen with a dirty-table result, and on
      * failure it records the message into form state under `serverError` and
@@ -560,7 +560,7 @@ const stepUnion = [
      * `false`: a 200 does not refresh the tables on screen. A refresh clears
      * their selection, and a write that changes no row they show has no reason
      * to — *Resubmit as Pending* on the Session Registry, whose sessions are
-     * often the next to delete (JM-188, 2026-11-12). Absent: refresh.
+     * often the next to delete (2026-11-12). Absent: refresh.
      */
     refresh: z.boolean().optional(),
     data: RowsSchema,
@@ -569,7 +569,7 @@ const stepUnion = [
   /**
    * Read rows from the server into form state.
    *
-   * **The sizing said this primitive had no sites and that was wrong** (I-23).
+   * **The sizing said this primitive had no sites and that was wrong**.
    * It grepped `queryJetsDataModel` across the delegate and helper files and
    * found none; `pcAddPipelineConfigUF` reaches it through
    * `getProcessInputRdfTypes` (`modules/actions/utils/get_process_info.dart:8`),

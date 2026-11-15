@@ -1,5 +1,5 @@
 /**
- * The interpreter. Task S.2a.
+ * The interpreter.
  *
  * Runs an authored action's steps against a host. The host is the seam that
  * keeps this file testable and keeps the grammar honest — everything the Dart
@@ -148,7 +148,7 @@ function toPgArray(raw: unknown): string {
 }
 
 /**
- * `unpackToList(x)?.join(',')`. Task F.2.
+ * `unpackToList(x)?.join(',')`.
  *
  * **Null in, null out, and that is the whole reason this is not `toPgArray`
  * without the braces.** `makePgArray` turns a missing key into the string `'{}'`;
@@ -364,7 +364,7 @@ async function runStep(step: Step, run: ActionRun): Promise<{ done: boolean; out
           if (insertRows) host.close();
           // `invokeCallbacks()`, which is what makes tables on screen re-read
           // after a write. See `FormState.onRefreshRequested`. Not when the
-          // step says the write changes nothing they show (JM-188).
+          // step says the write changes nothing they show.
           if (step.refresh !== false) formState.requestRefresh();
           return carryOn;
         }

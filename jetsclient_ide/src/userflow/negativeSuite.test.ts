@@ -1,5 +1,5 @@
 /**
- * The negative suite, run where the schemas are authored. Task S.6.
+ * The negative suite, run where the schemas are authored.
  *
  * **The same file the Go tests drive** (`jets/userflow/negative_suite_test.go`),
  * for the reason both sides exist: the schema is authored here and enforced

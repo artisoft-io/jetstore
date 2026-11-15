@@ -18,7 +18,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/pipesmodel"
 )
 
-// `BD.3`: a registered operator runs, an unregistered name still produces
+// A registered operator runs, an unregistered name still produces
 // today's error, a site name colliding with a built-in loses to the built-in,
 // and `OperatorEnv` exposes nothing beyond `BD.1`'s list. The last of those
 // lives in pipesmodel, beside the interface it pins.
@@ -226,8 +226,7 @@ func TestRegisteredSiteOperatorRuns(t *testing.T) {
 // A registry that is consulted in `default:` is also the thing most likely to
 // change what an author sees when they mistype an operator, and this is the only
 // diagnosis they get -- `ValidatePipeSpecConfig`'s operator switch has no
-// default, so a bad token reaches a running worker before it is reported
-// (`I-779`).
+// default, so a bad token reaches a running worker before it is reported.
 func TestUnregisteredOperatorProducesTheMessageItAlwaysDid(t *testing.T) {
 	const want = "error: unknown TransformationSpec type: no_such_operator"
 	spec := &TransformationSpec{
@@ -637,7 +636,7 @@ func TestSiteOperatorGetsNoSynthesisedErrorChannel(t *testing.T) {
 // author can still be told. It is the only thing about a site operator that the
 // starter process can check at all: the registry is an argument to
 // CoordinateComputePipes and the starters never call it, so a mistyped site
-// token is reported by the dispatch inside a running worker (`I-779`).
+// token is reported by the dispatch inside a running worker.
 func TestSiteConfigOnABuiltinIsRefused(t *testing.T) {
 	err := validateSiteOperatorSpec(&TransformationSpec{Type: "distinct", SiteConfig: &SiteOperatorSpec{}})
 	if err == nil || !strings.Contains(err.Error(), "distinct") {
@@ -658,7 +657,7 @@ func TestSiteConfigOnABuiltinIsRefused(t *testing.T) {
 // UnmarshalComputePipesConfig, which is a plain json.Unmarshal.
 //
 // Without the SiteConfig field this test is what failure looks like: it decodes
-// cleanly and loses the block, with no error and no log line (`I-777`).
+// cleanly and loses the block, with no error and no log line.
 func TestSiteConfigSurvivesTheDocumentRoundTrip(t *testing.T) {
 	const authored = `{
 	  "cluster_config": {},
@@ -767,7 +766,7 @@ func TestReservedOperatorTypesCoversTheResolvedAway(t *testing.T) {
 	}
 }
 
-// `Q-148`: the error-row helper fills the five columns a site operator cannot
+// The error-row helper fills the five columns a site operator cannot
 // reach, and the test reads them off a real *BuilderContext* rather than a
 // fixture that agrees with the assertion.
 //
@@ -940,7 +939,7 @@ func TestReportErrorIsInterruptedByDone(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// P9-T01: `site_config.output_channels` and OperatorArgs.Outputs.
+// `site_config.output_channels` and OperatorArgs.Outputs.
 //
 // The extension is ErrorChannel's move pluralised, so these tests are the
 // error channel's tests pluralised: resolved at build time, refused when it
@@ -1051,7 +1050,7 @@ func TestSiteOutputChannelsAreResolvedAtBuildTime(t *testing.T) {
 // The refusals, each with the message that names what the author has to fix.
 // The duplicate is the one that is not ErrorChannel's: a name repeated inside
 // the list hands the operator one channel at two indices with nothing to tell
-// them apart (D-208).
+// them apart.
 func TestSiteOutputChannelsRefuseWhatCannotWork(t *testing.T) {
 	rig := newSiteTestRig(t).withChannels(t, "rows.a").
 		withOperators(map[string]SiteOperatorFactory{"site_double": newDoublingOperator})
@@ -1228,8 +1227,8 @@ func TestSiteOutputChannelConfigsReadsTheDocument(t *testing.T) {
 // that do are exactly the ones that already know jetrules writes channels its
 // step's `output_channel` does not name.
 //
-// **The subject is derived from that fact rather than kept as a list here**
-// (P3-I20): every non-test file mentioning `JetrulesConfig.OutputChannels` is a
+// **The subject is derived from that fact rather than kept as a list here**:
+// every non-test file mentioning `JetrulesConfig.OutputChannels` is a
 // file that has to reckon with a plural output-channel declaration, so every one
 // of them has to know about a site step's. A fourth such place added later joins
 // this test by existing.
@@ -1307,7 +1306,7 @@ func TestTheRegistryConstructionReadsTheSiteDeclaration(t *testing.T) {
 }
 
 // The document's two JSON hops, which is where a configuration block that is not
-// a JSON-tagged field is dropped silently (I-777). The pair is
+// a JSON-tagged field is dropped silently. The pair is
 // TestSiteConfigSurvivesTheDocumentRoundTrip's, one field over.
 func TestSiteOutputChannelsSurviveTheDocumentRoundTrip(t *testing.T) {
 	const authored = `{
@@ -1369,9 +1368,9 @@ func TestSiteOutputChannelsSurviveTheDocumentRoundTrip(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// P9-T02: `site_config.lookups` and OperatorArgs.Lookups.
+// `site_config.lookups` and OperatorArgs.Lookups.
 //
-// Built for the contract rather than for this corpus (D-202), so its first
+// Built for the contract rather than for this corpus, so its first
 // consumer is these tests: the corpus operator keeps its own reference-table
 // package and does not use the extension. That makes the tests the only thing
 // standing between the field and P4-I43's class -- a component whose own tests
@@ -1583,7 +1582,7 @@ func TestSelectActiveLookupTableKeepsASiteOperatorsLookups(t *testing.T) {
 }
 
 // The document's two JSON hops, where a block that is not a JSON-tagged field is
-// dropped silently (I-777).
+// dropped silently.
 func TestSiteLookupsSurviveTheDocumentRoundTrip(t *testing.T) {
 	const authored = `{
 	  "cluster_config": {},

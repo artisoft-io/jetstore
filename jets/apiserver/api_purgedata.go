@@ -35,7 +35,7 @@ import (
 // the other way on 2026-08-25, and the capability is no longer the gate.** The
 // interim answer above was workspace_ide, declined from admin-only on the ground
 // that a policy narrowing needed a mandate this change did not have. The mandate
-// arrived: the project asked for the front door locked (ui_refresh I-139).
+// arrived: the project asked for the front door locked.
 //
 // So the gate below is IsAdmin, and this capability is what the endpoint would
 // have required had the answer gone the other way. It is **kept and still
@@ -82,14 +82,14 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 
 	// RBAC check, following DoInferServerAction and DoAgenticAction.
 	//
-	// **This endpoint asked for nothing until 2026-08-25** (ui_refresh I-126). It
+	// **This endpoint asked for nothing until 2026-08-25**. It
 	// was registered behind authh (server.go, the /purgeData POST route), which
 	// validates the token and nothing else, and it used the token only for the
 	// audit line above -- careful about attribution, silent about authorisation,
 	// on the widest blast radius in this package. reset_domain_tables drops every
 	// table named in input_loader_status, runs update_db -drop -migrateDb,
 	// truncates input_registry and session_registry, and archives every
-	// pipeline_execution_status row (JM-090).
+	// pipeline_execution_status row.
 	//
 	// **The gate is here rather than in the two actions, and that is forced rather
 	// than preferred.** ResetDomainTables has two callers in this package that are
@@ -105,7 +105,7 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 	//
 	// **They now differ in status as well, and the pairing is fixed across all four
 	// gates in this package** -- 401 for "cannot get user info", 403 for "user do not
-	// have required capability" (ui_refresh C.17, I-189). The messages already made
+	// have required capability". The messages already made
 	// this distinction; the status makes it machine-readable, which is what a client
 	// needs to refuse in place rather than sign the user out.
 	// TestPurgeDataRefusalIsIndistinguishableFromTheOtherEndpoints asserts the pairing

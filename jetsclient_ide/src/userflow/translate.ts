@@ -1,5 +1,5 @@
 /**
- * The eleven Dart flows, in the new representation. Task S.1.
+ * The eleven Dart flows, in the new representation.
  *
  * **A schema nobody has run the real corpus through is a proposal.** The plan
  * takes that discipline from the cpipes side, where
@@ -133,11 +133,11 @@ export const flowTitles: Record<string, string> = {
   //
   // **`clientRegistryUF` (*Clients & Vendors*), `sourceConfigUF` (*Source
   // Configuration*) and `pipelineConfigUF` (*Pipeline Configuration*) were here
-  // until 2026-10-01**, when they left the fixture to be written by hand
-  // (`jetstore_maintenance_02` `AF.1`, `D06`). Their documents carry the same
+  // until 2026-10-01**, when they left the fixture to be written by hand.
+  // Their documents carry the same
   // titles, which is the rule the paragraph above states for a twelfth flow.
-  // `fileMappingUF` (*Source Mapping*) followed them the same day
-  // (`jetstore_maintenance_02` Phase 2), on the same terms.
+  // `fileMappingUF` (*Source Mapping*) followed them the same day,
+  // on the same terms.
   // Recovered from `jetsclient/lib/modules/user_flows/*/screen_config.dart`.
   homeFiltersUF: "Pipeline Execution Status Filters",
   loadFilesUF: "Load Files",
@@ -192,7 +192,7 @@ export const actionTransitions: Record<string, string[]> = {
   // Historical Data" — that S.1 could not see, and reported as dead states.
   //
   // **Both entries left on 2026-10-01 with `pipelineConfigUF` itself**, which is
-  // written by hand from then on (`jetstore_maintenance_02` `AF.1`, `D06`); the two
+  // written by hand from then on; the two
   // `goToStates` they produced are in that document, unchanged, and this table is
   // empty because no flow left in the fixture has an action-driven jump.
 };

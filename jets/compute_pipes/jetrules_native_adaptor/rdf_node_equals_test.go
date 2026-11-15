@@ -9,7 +9,7 @@ import (
 // RdfNode.Equals is node identity, the same RDF node, which is what Contains and
 // FindSPO use: the same resource, or a literal of the same type and value, with no
 // coercion. TestNativeRdfNode (rdf_node_test.go) checks a node read twice; this is
-// the identity table the Go adaptor's twin checked (rules_unit_test_harness I-11),
+// the identity table the Go adaptor's twin checked,
 // moved onto the C++ engine with the Go engine's retirement (rules_benchmark
 // Phase 6, 2026-10-22). And NodeKey, the identity extraction groups a subject's
 // triples by (rules_benchmark G11), is equal exactly when Equals is true.

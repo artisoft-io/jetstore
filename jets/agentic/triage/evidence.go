@@ -44,7 +44,7 @@ const triageTablesSQL = `SELECT
 // ReadExtent reports what observe.ReadExtent does plus the two tables above.
 // to_regclass returns NULL for an absent relation rather than raising, which is
 // what lets this answer on a database update_db has never touched — the case
-// N.4 found ReadExtent could not report on and fixed (F107).
+// N.4 found ReadExtent could not report on and fixed.
 func ReadExtent(ctx context.Context, db observe.DB) (*Extent, error) {
 	base, err := observe.ReadExtent(ctx, db)
 	if err != nil {
@@ -101,7 +101,7 @@ const headerSQL = `SELECT key, session_id, client, process_name, main_object_typ
 
 // ReadHeader returns the run header, or nil when there is none. Nil is two
 // different things — a run that was never submitted and a run whose header the
-// six-month purge has taken (F54) — and the caller cannot tell them apart,
+// six-month purge has taken — and the caller cannot tell them apart,
 // which is why every predicate that needs the header reports NotEvaluable
 // rather than Absent when it is missing.
 func ReadHeader(ctx context.Context, db observe.DB, sessionId string) (*RunHeader, error) {
@@ -130,7 +130,7 @@ type ErrorSummary struct {
 	Rows      int64
 	Shards    int64
 	// WithInputColumn counts rows whose input_column is set. Only the inference
-	// operator family writes it (F185), so this is the fraction of the run's
+	// operator family writes it, so this is the fraction of the run's
 	// per-record errors that can say which column failed.
 	WithInputColumn int64
 	// WithReteSession counts rows carrying a saved rete session, which is the
@@ -439,7 +439,7 @@ func hasNamedErrorChannel(node any) bool {
 // Evidence is one run's record, and what the read could not see. It is one
 // session by construction: Q-23 settled that an incident's grain is the
 // session, because session_id is the only key all seven evidence-bearing
-// tables carry (F202), and a classifier keyed above that grain would produce
+// tables carry, and a classifier keyed above that grain would produce
 // findings whose evidence sets cannot be assembled by a join.
 type Evidence struct {
 	SessionId string
@@ -457,7 +457,7 @@ type Evidence struct {
 
 	Errors *ErrorSummary
 	// Edges is nil when jetsapi.pipeline_execution_channel_details is not
-	// deployed, which is the ordinary case (I-132).
+	// deployed, which is the ordinary case.
 	Edges []Edge
 
 	// Config is observe's confounder read, reused so that a finding's

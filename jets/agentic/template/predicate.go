@@ -4,7 +4,7 @@ import (
 	"strings"
 )
 
-// A predicate decides whether an element or a span is emitted (§10.4):
+// A predicate decides whether an element or a span is emitted:
 //
 //	pred := term ( ("and"|"or") term )*   with parentheses, `and` binding tighter
 //	term := chain op literal

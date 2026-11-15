@@ -137,8 +137,8 @@ def _walk(
     **The parent is the nearest enclosing model instance**, skipping the lists
     and dicts in between, which is what a caller asking "whose input channel is
     this?" wants. It is carried because one judgement genuinely depends on it:
-    a `merge_files` pipe fixes its input channel's type rather than choosing it
-    (D-224), and the only way to know which pipe an `InputChannelConfig` belongs
+    a `merge_files` pipe fixes its input channel's type rather than choosing it,
+    and the only way to know which pipe an `InputChannelConfig` belongs
     to is to have been told on the way down. Deriving it afterwards from the
     `where` string would be parsing a path this function built, which is two
     spellings of one structure.
@@ -161,7 +161,7 @@ def _fixed_input_channel_type(kind: TokenKind, parent: Any) -> str | None:
     Read off the *pipe's own declaration* — `operators.pipes.Pipe
     .fixed_input_channel_type` — so there is no list of pipe kinds here for an
     edit to widen, and a pipe kind added with a fixed channel type is covered by
-    its class being written (P3-I20). The pipe's token is the parent's `type`,
+    its class being written. The pipe's token is the parent's `type`,
     which is the same string the gate would have classified one iteration
     earlier.
     """
@@ -199,7 +199,7 @@ def check_scope(
         kind = TokenKind(kind_name)
         fixed = _fixed_input_channel_type(kind, parent)
         if fixed is not None:
-            # D-224: this channel's type is fixed by JetStore's own validator
+            # This channel's type is fixed by JetStore's own validator
             # rather than chosen, so it is asserted and no token is classified.
             # Strictly narrower than classifying it — the fixed value is
             # accepted here and nowhere else in the document.

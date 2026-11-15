@@ -159,7 +159,7 @@ type WorkerRow struct {
 	SourcePeriodKey    int
 	ShardId            int
 	JetsPartition      string
-	StepId             string // cpipes_step_id; legitimately empty (F52)
+	StepId             string // cpipes_step_id; legitimately empty
 	Status             string
 	ErrorMessage       string
 
@@ -425,7 +425,7 @@ func StepBaselines(ctx context.Context, db DB, w Window) (*BaselineSet, error) {
 func baselineConfounders(b *StepBaseline, set *BaselineSet) []string {
 	var out []string
 	if b.StepId == "" {
-		// F52: cpipes_step_id is a stage location and ten reducing steps in
+		// cpipes_step_id is a stage location and ten reducing steps in
 		// the corpus carry an empty one, so this baseline may be two steps.
 		out = append(out, ConfounderStepLabelAmbiguous)
 	}

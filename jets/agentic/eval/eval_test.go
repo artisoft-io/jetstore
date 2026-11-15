@@ -241,7 +241,7 @@ func TestCoverage_NamesWhatTheSplitCannotMeasure(t *testing.T) {
 // reason is one somebody eventually edits without reading.
 //
 // **The two literals were doing three jobs and only one of them wanted an
-// equality** (Phase 8 §1.7.1). Each is now served by the thing it actually
+// equality**. Each is now served by the thing it actually
 // needed, and each assertion below says which job it is standing in for, so that
 // a future reader does not "restore" a number:
 //
@@ -267,7 +267,7 @@ func TestCoverage_NamesWhatTheSplitCannotMeasure(t *testing.T) {
 // head-operator skew assertion below are properties rather than counts, predate
 // this phase, and have never gone stale.
 //
-// **The -count=1 hazard is untouched by any of this (F1139).** The corpus lives
+// **The -count=1 hazard is untouched by any of this.** The corpus lives
 // outside the Go module, so nothing in the cache key changes when `workspaces/`
 // moves: an old-corpus `ok` is replayed against a new corpus, and it is
 // indistinguishable from a real pass. That cost three merges in September.

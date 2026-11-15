@@ -3,7 +3,7 @@
 **The `bundles` command is a falsifier and not a check on the authoring.** It walks
 the live corpus and validates each `apply` fragment against its bundle, so it says
 nothing at all about an operator no `.pc.json` uses - which is exactly how `vllm`
-and `embed` sat in no bundle from the day each was built (I-512). `embed` only
+and `embed` sat in no bundle from the day each was built. `embed` only
 became visible on 2026-09-08, when Phase 6's asset install put the JetStore-owned
 `embed_input_parts.pc.json` into all four workspaces and the command started
 reporting `operator 'embed' is in no bundle` four times.

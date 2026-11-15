@@ -1,4 +1,4 @@
-// Package shadow is Phase 4's deployment posture as code (task AC.3): triage
+// Package shadow is Phase 4's deployment posture as code: triage
 // and RCA run over the execution record, their conclusions are written to
 // jetsapi.incident and jetsapi.hypothesis, a supervision screen reads them, and
 // **nothing acts**.
@@ -41,12 +41,12 @@
 //
 // **jetsapi.incident_event has no append-only trigger.** Unlike jetsapi.agent_audit
 // it can be deleted from, and unlike jetsapi.anomaly its subject is mutable. The
-// hash chain covers a transition only when the incident names an AgentRun (AB.4),
+// hash chain covers a transition only when the incident names an AgentRun,
 // and **a deterministic classifier is not an AgentRun** — so every incident this
 // package writes is in the unchained half, which is R-44 and gap 27's accepted
 // cost rather than an oversight. Q-43 asked whether such an incident should be
 // chainable at all and the obvious answer — mint an AgentRun for the triage step
-// — was refused twice (Q-32, Q-43); it is not worked around here.
+// — was refused twice; it is not worked around here.
 //
 // The honest form of the claim is therefore: *the record, as it stands, shows
 // that no incident has ever been moved into an acting status and that no

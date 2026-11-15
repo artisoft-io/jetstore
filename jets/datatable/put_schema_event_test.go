@@ -51,7 +51,7 @@ func putSchemaEventResult(rows ...map[string]any) (*map[string]any, int, error) 
 	}, "")
 }
 
-// defaultName is the shape newSchemaEventFileKey makes (Phase 2, 2026-10-02).
+// defaultName is the shape newSchemaEventFileKey makes (2026-10-02).
 var defaultName = regexp.MustCompile(`^jetstore/schema_triggers/jetstore_ui_event_\d+_[0-9a-f-]{36}\.json$`)
 
 // The criterion-9 case: no file_key writes a default name under the prefix --

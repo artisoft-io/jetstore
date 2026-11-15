@@ -568,7 +568,7 @@ func echoesPrompt(f *FactSet, p *reading, opt Options) Result {
 		})
 	}
 	// (b) an underscored identifier that occurs inside a flag's *value*. The
-	// ratio reaches this entity as `Adherence` (F839), so `Adherence_Ratio` is
+	// ratio reaches this entity as `Adherence`, so `Adherence_Ratio` is
 	// a name the prompt carries only inside the flag sentence - and three
 	// briefings write it out.
 	for _, id := range identifiersIn(f.Flags) {

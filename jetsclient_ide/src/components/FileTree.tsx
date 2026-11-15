@@ -6,7 +6,7 @@ interface Props {
   activeFile: string | null;
   onOpen: (node: WorkspaceNode) => void;
   /**
-   * Whether this section's heading opens a compiled view. Task C.3.
+   * Whether this section's heading opens a compiled view.
    *
    * **The tree does not decide this and must not.** A section carries
    * `compiled_view` from the server, which says whether the section *has* a view;

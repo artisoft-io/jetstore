@@ -1,7 +1,7 @@
 /**
  * The application's routes.
  *
- * Task A.1. Phase 1's `App.tsx` was the editor; it is now the route table, and
+ * Phase 1's `App.tsx` was the editor; it is now the route table, and
  * the editor is `screens/WorkspaceIde.tsx`.
  *
  * **`basename` is the only place the mount prefix appears in this app**, and
@@ -96,23 +96,23 @@ export const NAV: NavEntry[] = [
     time anybody has chosen the order rather than accumulated it.
   */
   { kind: "client-filter" },
-  // **Track C's first screen (C.2b).** Gated on the same capability the Flutter
+  // **Track C's first screen.** Gated on the same capability the Flutter
   // menu entry is and the same one the server enforces on every write it makes —
   // `admin` bypasses both, in `permissionFor` here and in `HasCapability`
   // (`jets/user/user.go`) there.
   { to: "/workspaces", label: "Workspaces", capability: WORKSPACE_IDE },
   { to: "/workspace", label: "Workspace IDE", capability: WORKSPACE_IDE },
-  // agentic_ai's screens (task K.3). The nav entry and the two routes below are
+  // agentic_ai's screens. The nav entry and the two routes below are
   // this file's whole knowledge of them; the screens are in `proposals/`.
   { to: "/proposals", label: "Proposals", capability: AGENT_SUPERVISION },
-  // agentic_ai's screens (task AE.1), gated on the same capability and reached
+  // agentic_ai's screens, gated on the same capability and reached
   // the same way. The entry and the two routes below are this file's whole
   // knowledge of them; the screens are in `incidents/`.
   { to: "/incidents", label: "Incidents", capability: AGENT_SUPERVISION },
   // agentic_ai I-861: whether the detectors ran, and running them now. The
   // screen is in `detection/`.
   { to: "/detection", label: "Detection", capability: AGENT_SUPERVISION },
-  // The `runbooks` project's screens (Phase 1, task AC.4). The entry and the
+  // The `runbooks` project's screens. The entry and the
   // three routes below are this file's whole knowledge of them; the screens are
   // in `runbooks/`, and `/runbook` refuses every action without the capability.
   { to: "/runbooks", label: "Runbooks", capability: RUNBOOK_EXECUTE },
@@ -127,7 +127,7 @@ export const NAV: NavEntry[] = [
   */
   { to: "/query-tool", label: "Query Tool", capability: QUERY_TOOL },
   /*
-    Track C's first ported screen (C.5).
+    Track C's first ported screen.
 
     **The Flutter reachability corpus records this route's access as
     `admin | (infer_server_admin AND workspace_ide)` and this entry names one
@@ -157,21 +157,20 @@ export const NAV: NavEntry[] = [
  * back, so the launcher is a menu on the brand.
  *
  * **The order is the reporter's, and so are the labels** — they are not the flow
- * keys, which is the point: **I-263** is the same problem seen from inside a
+ * keys, which is the point: is the same problem seen from inside a
  * flow, where the key is rendered where a title belongs, and these are the titles
  * it needs.
  *
  * **`/ruleConfig` is not a flow and is in the list**, because it is what the
  * report asked for. It was reported as *"I can't find it in the React version"*
- * and it was routed the whole time, named by no navigation (**I-268**) — so the
+ * and it was routed the whole time, named by no navigation — so the
  * fix for that entry is this line rather than a screen.
  *
  * **No capability is declared on the first five entries.** The four flows run
  * through `FlowRunner`, whose route carries no guard and whose reads the server
  * gates; `/ruleConfig` is likewise gated where it acts. Declaring one there would
  * be a second, client-side answer to a question the server already answers — and
- * `FLOW_RUNNER` is exactly such an answer sitting unused two files away
- * (**I-269**).
+ * `FLOW_RUNNER` is exactly such an answer sitting unused two files away.
  *
  * ***User Administration* is last, and is the one entry that declares a
  * capability** (2026-11-07). Since the Flutter app was retired no menu led to
@@ -200,7 +199,7 @@ export const FLOW_MENU: FlowMenuItem[] = [
  * the shell testable without shimming globals.
  */
 /**
- * `Register`, wired to the api and to the router. Task X.4.
+ * `Register`, wired to the api and to the router.
  *
  * A wrapper rather than props threaded through `App`, so that the component
  * itself takes two callbacks and knows about neither the client nor the router —
@@ -318,7 +317,7 @@ export default function App() {
           {/*
             The route the Flutter app has been handing users to since S.8, and
             which nothing registered until F.0a — so the handoff fell through to
-            `path="*"` below and redirected to the editor (I-50). `reactFlowPath`
+            `path="*"` below and redirected to the editor. `reactFlowPath`
             in `userflow/routing.ts` is the one definition of the shape, and
             `migrated_user_flows.dart` is the Flutter side of the same string.
 
@@ -347,7 +346,7 @@ export default function App() {
             `TableScreen`'s optional prop gets its first consumer.
 
             **Both tables declare no columns**; the server describes the result
-            and `columnsFromResponse` has consumed it since A.4b (F81). C.12's
+            and `columnsFromResponse` has consumed it since A.4b. C.12's
             also names `preview_file`, the `apiAction` C.2a's enum carries and
             no other configuration uses.
 

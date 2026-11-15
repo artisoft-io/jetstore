@@ -126,7 +126,7 @@ func ResolveBucket(bucket, jetStoreBucket string) (string, error) {
 // round: they tested the raw value for the sentinel and substituted
 // afterwards, so a bucket configured as ${X} with X = "jetstore_bucket" reached
 // the sinks as an external bucket of that name, and only the sinks' own
-// re-tests kept the write out of it (JM-057). The sinks still re-test, as
+// re-tests kept the write out of it. The sinks still re-test, as
 // defence in depth; this is where the decision is meant to be made.
 //
 // The unresolved case is refused at startup already (ValidateResolvedBuckets);

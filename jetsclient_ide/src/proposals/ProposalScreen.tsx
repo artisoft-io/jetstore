@@ -21,7 +21,7 @@
  * **It does not say the record is complete.** A verified chain says nothing in
  * these rows was altered, reordered or removed. It does not say the run wrote
  * every event it should have — a dropped append leaves no gap and no trace
- * (I-73) — so the verdict is worded as *tamper-evident* and the screen says so
+ * — so the verdict is worded as *tamper-evident* and the screen says so
  * where a reader will see it, rather than letting a green tick mean more than
  * it can.
  *

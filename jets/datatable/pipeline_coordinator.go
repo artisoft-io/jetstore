@@ -52,7 +52,7 @@ func (ca *StatusUpdate) updatePipelineCoordinator(sessionId string, schemaProvid
 	}
 	// A task whose outputs are not usable fails the map, so the post map pipeline
 	// never starts on a partial output. That is "failed" and, since 2026-10-27,
-	// "interrupted", which counted as a completed task before (I-58).
+	// "interrupted", which counted as a completed task before.
 	switch {
 	case !outputsAreUsable(ca.Status):
 		log.Printf("%s Task %s for request_id %s, updating pipeline_coordinator_map to failed\n", sessionId, ca.Status, schemaProvider.RequestID)

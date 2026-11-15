@@ -9,7 +9,7 @@ half and never the first, which is §12.6's line drawn in Python.
 **What is withheld is the point.** `OperatorEnv` hands over no registry, so an
 operator cannot name a channel its own step did not declare; `OperatorArgs`
 carries the channels the step *did* declare, resolved once by the graph. That is
-the argument `OperatorArgs.Outputs` was added under (P9-T01) and it survives the
+the argument `OperatorArgs.Outputs` was added under and it survives the
 language change unchanged, because it is a property of what is passed rather
 than of how.
 
@@ -538,7 +538,7 @@ class GraphOperatorEnv:
 class BuilderEnv(GraphOperatorEnv):
     """`BuilderContext`: the env a **built-in** transformation is built with.
 
-    **The asymmetry Go already has, restored** (P9-I55, D-226). In Go a built-in
+    **The asymmetry Go already has, restored**. In Go a built-in
     is constructed by a method on `*BuilderContext` and can reach the channel
     registry, the S3 device manager and the node's own identity; a site factory
     is handed `OperatorEnv` and `OperatorArgs` precisely so that it cannot.

@@ -1,8 +1,7 @@
 package compute_pipes
 
 // The `AV` backend benchmark: latency, throughput and cold start, over the
-// evaluation population, through the infer operator's own worker pool
-// (agentic_ai Phase 7 `AV.1` and `AV.2`).
+// evaluation population, through the infer operator's own worker pool.
 //
 // # It drives the operator rather than the server
 //
@@ -18,7 +17,7 @@ package compute_pipes
 // the model, and the sampling `options` that `I-575` added. A benchmark that
 // restated any of them would drift from the pipeline the moment the pipeline
 // changed, which is exactly what the `AT.5` harness did on the day the operator
-// gained `options` (`I-588`).
+// gained `options`.
 //
 // # What it does not do, said plainly
 //

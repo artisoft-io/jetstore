@@ -29,7 +29,7 @@ func registerOne(t *testing.T, ctx *DataTableContext, data map[string]any) (int,
 	return status, err
 }
 
-// JM-037: a schema_provider_json that is not a string is a 400 and registers
+// A schema_provider_json that is not a string is a 400 and registers
 // nothing. It panicked with "interface conversion: interface {} is float64, not
 // string" before. A null one is an absent one and registers.
 func TestRegisterFileKeysSchemaProviderJsonNotAString(t *testing.T) {
@@ -144,7 +144,7 @@ func TestRegisterFileKeysRequestIdIsPerRow(t *testing.T) {
 	}
 }
 
-// JM-084: the file's session is in session_registry before any pipeline start
+// The file's session is in session_registry before any pipeline start
 // begins, so a register-key lambda timing out while a start waits on the state
 // machine lock leaves no input_registry row under an unregistered session.
 func TestRegisterFileKeysRegistersTheSessionBeforeStartingPipelines(t *testing.T) {
@@ -193,7 +193,7 @@ func TestRegisterSchemaEventNilIsAnError(t *testing.T) {
 	}
 }
 
-// JM-089: through the state machine the status-update lambda receives the cpipes
+// Through the state machine the status-update lambda receives the cpipes
 // env decoded from JSON, so $ORIGIN_DOMAIN_KEYS is a []any. Only a []string was
 // read, so a load on the cluster was registered under its object type alone and
 // not under each of the source's domain keys.

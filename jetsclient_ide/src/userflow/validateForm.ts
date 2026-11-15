@@ -58,7 +58,7 @@ export function validateForm(
     for (const rule of field.rules ?? []) {
       if (rule.rule === "required") {
         // Empty means empty whichever shape it arrives in: a cleared text box
-        // stores nothing (A.3), and a table with no selection stores nothing.
+        // stores nothing, and a table with no selection stores nothing.
         const value = scalar(raw);
         if (value === null || value === "") {
           errors.push({ key: field.key, message: rule.message, group });

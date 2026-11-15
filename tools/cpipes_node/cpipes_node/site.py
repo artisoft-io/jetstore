@@ -4,7 +4,7 @@
 three rules that matter are mirrored exactly, because a Python node that
 resolved a token differently from the Go node would make the two engines
 disagree about what a `.pc.json` *means* rather than about how fast it runs —
-which is the one class of divergence the conformance instrument (P9-T22) cannot
+which is the one class of divergence the conformance instrument cannot
 absorb.
 
 1. **A built-in wins.** In Go the eighteen cases are tried first and the
@@ -39,8 +39,8 @@ from typing import Any, Protocol
 log = logging.getLogger(__name__)
 
 #: A factory is handed the operator environment and the authored spec and
-#: returns the runtime object. Both types are the channel graph's to fix
-#: (P9-T04), which is why this is not narrowed yet.
+#: returns the runtime object. Both types are the channel graph's to fix,
+#: which is why this is not narrowed yet.
 SiteOperatorFactory = Callable[[Any, Any], Any]
 
 

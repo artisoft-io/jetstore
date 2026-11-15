@@ -5,7 +5,7 @@
 //
 // Task AD.1 asks what the source proposal's §11.3.1 capability metrics can be
 // computed on, per metric, with denominators and no aggregate. AA.2 counted the
-// labelled population at **zero** (plan §10), so six of the seven metrics are
+// labelled population at **zero**, so six of the seven metrics are
 // not computable and the reasons differ; plan §22 is the per-metric table and
 // this file is what the numbers in it were read off.
 //
@@ -13,7 +13,7 @@
 //
 //   - **A per-locus census** — for each of AC.1's nine loci, how many runs
 //     answered present, absent and not_evaluable. Classify returns all nine
-//     verdicts per run rather than the hits (§13.4), which is what makes the
+//     verdicts per run rather than the hits, which is what makes the
 //     denominator exist at all; this asserts that it does, per locus, over a
 //     population rather than over one fixture.
 //   - **A per-cause-class census** — for each of the imported ten, how many
@@ -30,12 +30,12 @@
 // **What it refuses to produce is Classification Accuracy over the locus
 // taxonomy.** AC.1 is the implementation of the nine predicates, so scoring it
 // against them is a definition against itself and would print 100% in a row
-// whose published target is 90% (I-275). Nothing here computes that number.
+// whose published target is 90%. Nothing here computes that number.
 //
 // # What the population is, and it is not a deployment's
 //
 // The five sessions below were built by this file. **No pipeline ran** — the
-// same sentence criterion 43's fourth clause turns on (I-379) — so every count
+// same sentence criterion 43's fourth clause turns on — so every count
 // here is a property of a fixture and of the code that read it, and none of them
 // is a base rate for how JetStore pipelines fail (R-37). The shapes were chosen
 // to exercise the loci rather than sampled from anything, which is the whole of
@@ -66,7 +66,7 @@ import (
 )
 
 // A configuration whose one reporting operator instance declares an error
-// channel, which is the 9-of-12 jetrules case (F188) and the state in which
+// channel, which is the 9-of-12 jetrules case and the state in which
 // locus per_record_failures_unreportable answers absent rather than present.
 const configWithErrorChannel = `{"pipes_config":[{"type":"fan_out","input_channel":{"name":"input"},
   "apply":[{"type":"jetrules","jetrules_config":{"error_channel":{"name":"process_errors.out"}},
@@ -188,7 +188,7 @@ func TestTheLocusAndClassCensusesCarryTheirDenominators(t *testing.T) {
 	t.Logf("evaluable findings: %d of %d (Report.Evaluable summed over the population)",
 		evaluable, findings)
 
-	// F271: locus written_not_arrived is not answerable from jetsapi at all, so
+	// Locus written_not_arrived is not answerable from jetsapi at all, so
 	// its denominator is a population and its evaluable count is zero, wherever
 	// this runs.
 	if n := locusCensus[triage.LocusWrittenNotArrived][triage.NotEvaluable]; n != len(sessions) {
@@ -207,7 +207,7 @@ func TestTheLocusAndClassCensusesCarryTheirDenominators(t *testing.T) {
 		}
 		// A class the gate attaches to no locus has no evidence position in any
 		// run, so its denominator is structurally zero: the floor cannot emit
-		// one however many runs it reads (F395).
+		// one however many runs it reads.
 		structurallyZero++
 		if classCensus[c.Name] != 0 {
 			t.Errorf("class %s is attached to no locus and the floor emitted %d hypotheses for it",
@@ -234,7 +234,7 @@ func TestTheLocusAndClassCensusesCarryTheirDenominators(t *testing.T) {
 	}
 
 	// The other half of the class denominator: two loci are in no row of §9.5,
-	// so a run exhibiting either produces no hypothesis for it (F394). A census
+	// so a run exhibiting either produces no hypothesis for it. A census
 	// that did not say so would report a zero that looks like a measurement.
 	unmapped := 0
 	for _, l := range triage.Loci {

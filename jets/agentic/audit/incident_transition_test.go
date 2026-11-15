@@ -23,14 +23,14 @@ import (
 // helper that pretended otherwise would be a fixture agreeing with itself.
 //
 // **It names no run**, which is the ordinary case out of a deterministic triage
-// step and is therefore the right default for a fixture (AB.4). Tests about the
+// step and is therefore the right default for a fixture. Tests about the
 // run reference use seedIncidentRaisedBy.
 func seedIncident(t *testing.T, pool *pgxpool.Pool, status, classification string) string {
 	t.Helper()
 	return seedIncidentRaisedBy(t, pool, status, classification, "")
 }
 
-// seedIncidentRaisedBy is seedIncident with an incident_run_ref (AB.4, Q-32).
+// seedIncidentRaisedBy is seedIncident with an incident_run_ref.
 func seedIncidentRaisedBy(t *testing.T, pool *pgxpool.Pool, status, classification, runRef string) string {
 	t.Helper()
 	id := fmt.Sprintf("inc_%d", time.Now().UnixNano())
@@ -297,7 +297,7 @@ func TestTheChainEventIsAppendedOnlyWhenTheTransitionNamesARun(t *testing.T) {
 	}
 }
 
-// A.5: "reclassified returns to triaged with a new classification and a
+// "reclassified returns to triaged with a new classification and a
 // recorded reason." The CHECK is where that sentence is enforced, so both
 // halves of it are exercised here rather than trusted.
 func TestReclassifiedRequiresAClassificationAndAReason(t *testing.T) {
@@ -398,7 +398,7 @@ func TestATransitionWithoutAnActorKindIsRefused(t *testing.T) {
 // An illegal edge is refused by the primitive, not only by a handler — because
 // for Incident there is no handler, and A.5's "an agent may propose a
 // transition; it cannot effect an illegal one" would otherwise be enforced by
-// nothing (I-299).
+// nothing.
 func TestAnIllegalEdgeIsRefusedByThePrimitive(t *testing.T) {
 	err := (&IncidentTransition{
 		IncidentEventId: "ie_y", IncidentRef: "inc_y",
@@ -410,7 +410,7 @@ func TestAnIllegalEdgeIsRefusedByThePrimitive(t *testing.T) {
 	}
 }
 
-// §A.2.9: "reversibility: irreversible is rejected at schema level. No
+// "reversibility: irreversible is rejected at schema level. No
 // irreversible remediation may be persisted at any tier (Section 4.3)." The
 // vocabulary carries the value; the table refuses it.
 func TestRemediationRefusesAnIrreversibleAction(t *testing.T) {

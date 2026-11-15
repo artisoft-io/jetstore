@@ -6,7 +6,7 @@ import "github.com/artisoft-io/jetstore/jets/wsvalidate"
 // row it takes in the save path's per-suffix validator table
 // (`workspaceFileValidators`, `jets/datatable/workspace_file_validators.go:29`).
 //
-// **`AK.1` left this open on purpose and `AK.2` closes it** (I-417): `ParseSchema`
+// **`AK.1` left this open on purpose and `AK.2` closes it**: `ParseSchema`
 // already returned `wsvalidate.Finding`, which is the signature a row takes, so
 // what was missing was not a mechanism but a home. The suffix follows the family
 // already in that table - `.uf.json`, `.ua.json`, `.form.json`, `.tc.json` - and

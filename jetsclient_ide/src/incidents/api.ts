@@ -2,12 +2,12 @@
  * Typed wrappers over the incident half of `/agentic`, the supervision endpoint.
  *
  * **This directory is the agentic_ai project's, inside the ui_refresh project's
- * application** — the third such directory, after `src/cpipes/` (M.5) and
- * `src/proposals/` (K.3), and on exactly the terms the repository `CLAUDE.md`
+ * application** — the third such directory, after `src/cpipes/` and
+ * `src/proposals/`, and on exactly the terms the repository `CLAUDE.md`
  * records for those two: self-contained, its own stylesheet, this project's
  * domain logic needing no pull request from theirs and their wiring needing none
  * from ours. What is theirs here is the nav item and the two route entries in
- * `App.tsx`; everything below this line is ours. Settled as **Q-24** by the user
+ * `App.tsx`; everything below this line is ours. Settled as by the user
  * on 2026-09-04.
  *
  * The wire shapes mirror the Go side one for one:
@@ -24,7 +24,7 @@
  * Phase-4 plan §9.5 found that JetStore's execution record supports a taxonomy of
  * **locus** — where in the record the evidence sits, nine values — and does not
  * support a taxonomy of **cause** below the level of a hypothesis. `AB.1` put both
- * on the row and made `classification` optional for that reason (I-289): a
+ * on the row and made `classification` optional for that reason: a
  * required cause column would force a deterministic triage step to invent one.
  *
  * **R-27 is that a locus gets read as a cause**, and it names this screen as the
@@ -72,8 +72,8 @@ export interface IncidentRow {
   incidentId: string;
   sessionId: string;
   /**
-   * The `AgentRun` that raised the incident, `""` when nothing agentic did
-   * (AB.4, Q-32). **Not decoration**: it is what decides whether a transition on
+   * The `AgentRun` that raised the incident, `""` when nothing agentic did.
+   * **Not decoration**: it is what decides whether a transition on
    * this incident reaches the audit hash chain, so an incident with none is one
    * whose corrections would be durable and not tamper-evident. The detail screen
    * renders it; the list does not.
@@ -103,7 +103,7 @@ export interface Evidence {
   source: string;
   sourceRef: string;
   /**
-   * The statement was **withheld** rather than empty (AE.2, I-311).
+   * The statement was **withheld** rather than empty.
    *
    * `Evidence.statement` is the one property the domain model marks
    * `data_classification = "PHI"`, and the server redacts it unless the caller
@@ -128,7 +128,7 @@ export interface HypothesisRow {
   supportingEvidence: Evidence[];
   contradictingEvidence: Evidence[];
   /**
-   * The `AC.1` locus this hypothesis was raised from (`AC.3`, Q-46).
+   * The `AC.1` locus this hypothesis was raised from.
    *
    * **It is not the incident's locus restated.** The shadow writer files a
    * hypothesis under the incident of its own locus, so today the two agree; a
@@ -174,7 +174,7 @@ export interface IncidentDetail extends IncidentRow {
  * on `triaged -> diagnosed`, which is the only place in the record that holds
  * them. A screen that dropped this column would be dropping the reasoning.
  *
- * **`actorKind` is a column and not a spelling convention** (`AB.2`, I-276):
+ * **`actorKind` is a column and not a spelling convention**:
  * `agent` here means the system reached this verdict about its own work, and a
  * supervision screen that showed the two alike would show half a label.
  */
@@ -217,7 +217,7 @@ export interface IncidentDetailResponse {
    */
   transitions?: IncidentTransitionRow[];
   /**
-   * What may be done to this incident from where it is (`AJ.2`), from
+   * What may be done to this incident from where it is, from
    * `audit.IncidentTransitions` — Appendix A.5's graph, enforced on the server.
    *
    * **The screen renders a button per entry and invents none.** A terminal
@@ -246,7 +246,7 @@ export interface IncidentDetailResponse {
 }
 
 /**
- * What `record_incident_transition` returns (`AJ.2`).
+ * What `record_incident_transition` returns.
  *
  * **`actorKind` comes back rather than being sent**, which is the wire's share
  * of the guarantee: a caller cannot label its own verdict, so the field is worth
@@ -328,7 +328,7 @@ export class IncidentsApi {
   }
 
   /**
-   * Record a supervisor's verdict on an incident (`AJ.2`, Q-52).
+   * Record a supervisor's verdict on an incident.
    *
    * `fromStatus` is sent so the server can refuse a verdict taken against a
    * screen that has gone stale — checked against the row rather than trusted as
@@ -381,7 +381,7 @@ export class IncidentsApi {
 export const AGENT_SUPERVISION = "agent_supervision";
 
 /**
- * The capability that lifts the redaction of PHI-classified fields (AE.2).
+ * The capability that lifts the redaction of PHI-classified fields.
  *
  * **A default, not the answer.** The server names the capability in every
  * `get_incident` response (`phiCapability`), and the screen renders what it was

@@ -1,6 +1,6 @@
 package compute_pipes
 
-// The order of a multi-valued literal column (JM-047). extractLiteralValue
+// The order of a multi-valued literal column. extractLiteralValue
 // collected a subject's values in the order the graph returned them, which is
 // the order of a hash set seeded per process, so the same data gave cells whose
 // values were listed differently from one run to the next. The values are now

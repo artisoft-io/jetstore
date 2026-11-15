@@ -15,7 +15,7 @@ Three gates, in rising order of realism:
 - **Ollama `format` (A2a.3):** with `--ollama-model`, a live request passes
   `schema_for(...)` as the `format` field with no translation step, and the
   response must validate against the projection model — including its enum
-  constraints, which is where guided decoding earns its keep (§5.1).
+  constraints, which is where guided decoding earns its keep.
 
 The reference projection is §5.1's own example: a triage agent setting four
 of `Incident`'s fields.

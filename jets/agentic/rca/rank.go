@@ -322,7 +322,7 @@ func corroborators(in *Input, locus string, c CauseClass) []Evidence {
 	var out []Evidence
 	switch c.Name {
 	case CauseParseFailure:
-		// §9.5: "input_bad_records_count is exactly this and it counts without
+		// "input_bad_records_count is exactly this and it counts without
 		// sampling."
 		var bad, rows int64
 		if ev.Workers != nil {
@@ -342,8 +342,8 @@ func corroborators(in *Input, locus string, c CauseClass) []Evidence {
 			})
 		}
 	case CauseValidationBreach:
-		// §9.5: a jets:exception reaches process_errors, and the jetrules
-		// family is the one that saves a rete session with it (F185).
+		// A jets:exception reaches process_errors, and the jetrules
+		// family is the one that saves a rete session with it.
 		if ev.Errors != nil && ev.Errors.WithReteSession > 0 {
 			out = append(out, Evidence{
 				Statement: fmt.Sprintf("%d of %d process_errors rows carry a saved rete session, which is "+

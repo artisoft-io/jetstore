@@ -1,6 +1,6 @@
 /**
  * The typeahead widget. Task I.2b, and the one widget the flow corpus needed
- * that track A did not build (F21, I-60).
+ * that track A did not build.
  *
  * **One field, in one form, in one state** — `fmMappingFormUF`'s `input_column`
  * (`jetsclient/lib/modules/user_flows/file_mapping/form_config.dart`, the

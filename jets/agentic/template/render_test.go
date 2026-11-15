@@ -67,10 +67,10 @@ func TestTheTenConstructs(t *testing.T) {
 			"xs": []any{"(A1) Alpha", "Beta", "(C3) Gamma"}}, "Alpha, Beta and Gamma"},
 		{"{{xs[]|strip_code|join: ', ', ' and '}}", map[string]any{"xs": []any{"(A1) Alpha"}}, "Alpha"},
 		{"{{xs[]|strip_code|join: ', ', ' and '}}", map[string]any{}, ""},
-		// I-624: the skip is `join`'s here, so an empty value does not leave a
+		// The skip is `join`'s here, so an empty value does not leave a
 		// separator with nothing on one side of it.
 		{"{{xs[]|join: ', ', ' and '}}", map[string]any{"xs": []any{"a", "", "  ", "b"}}, "a and b"},
-		// F1144: a multi-valued property holding one value is a bare scalar.
+		// A multi-valued property holding one value is a bare scalar.
 		{"{{xs[]|join: ', ', ' and '}}", map[string]any{"xs": "alone"}, "alone"},
 
 		{"{{xs[]|count}}", map[string]any{"xs": []any{"a", "b", "c"}}, "3"},
@@ -218,7 +218,7 @@ func TestAGroupWhoseGateIsShutEmitsNothing(t *testing.T) {
 }
 
 // TestBlockForms covers `if`, `with` and `each`, including the two things that
-// make `with` worth its place (F1148): the chain is written once, and a chain
+// make `with` worth its place: the chain is written once, and a chain
 // yielding nothing takes its whole span with it.
 func TestBlockForms(t *testing.T) {
 	doc := map[string]any{

@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * The Detection screen against a scripted `/agentic` (agentic_ai I-861), in the
+ * The Detection screen against a scripted `/agentic`, in the
  * shape of `incidents/incidents.test.tsx`: a real `ApiClient` over a fetch that
  * answers by action name, so what is asserted is what the screen sends and how
  * it renders the answer.

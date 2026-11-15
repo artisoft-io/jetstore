@@ -25,7 +25,7 @@ ENV PATH=$PATH:/usr/local/bin
 # The apiserver compiles the workspace at startup when its version is behind, and
 # on the IDE's compile action; both now run `node jets_validate_workspace.mjs`
 # first and **fail the compile rather than skip** when node is absent
-# (jets/workspace/asset_validation.go). This image had no node until now (F45).
+# (jets/workspace/asset_validation.go). This image had no node until now.
 #
 # The same build as the Docker build's compile uses, copied out of the builder
 # rather than installed from dnf, so the two gates run one interpreter at one

@@ -142,7 +142,7 @@ def test_the_environment_substitutes_and_reads():
 
 
 def test_report_error_fills_the_columns_a_site_cannot_reach():
-    """The five a site cannot reach, **placed by name** (P9-T09).
+    """The five a site cannot reach, **placed by name**.
 
     This test read the row positionally and asserted five values at indices 0-4.
     It went red when P9-T09 replaced the positional row with `write2Chan`'s
@@ -331,7 +331,7 @@ def test_the_lookup_pair_is_the_go_structs_and_is_ordered():
     source = go_source("jets/compute_pipes/pipesmodel/operator.go")
     go_fields = {_snake(f) for f in _go_struct_fields(source, "Lookup")}
     assert go_fields == set(runtime.Lookup.__dataclass_fields__)
-    # D-209: a sequence and never a map, because a map's range order is
+    # A sequence and never a map, because a map's range order is
     # unspecified in Go and an operator that iterated its lookups would do so
     # differently from run to run. Asserted on the field's own type rather than
     # on a value, so a change from tuple to dict fails here.

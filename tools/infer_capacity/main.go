@@ -1,4 +1,4 @@
-// G.2: measure where the KV cache leaves the GPU, on whatever instance is in use.
+// Measure where the KV cache leaves the GPU, on whatever instance is in use.
 //
 // **The failure this exists to catch is silent.** Ollama sizes the KV cache up front
 // from `OLLAMA_CONTEXT_LENGTH`, against total VRAM *plus* total host RAM. When the cache

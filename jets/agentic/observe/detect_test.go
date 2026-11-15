@@ -69,8 +69,7 @@ func header(t *testing.T, pool *pgxpool.Pool, client, process, objectType, sessi
 // workerRow writes one worker row the way a cpipes node does: the 'in progress'
 // insert, then the update that carries the counts and the terminal status. Pass
 // terminal == "" to leave the row as the insert left it, which is what a worker
-// that never came back looks like and is where the six NULL counts come from
-// (F99).
+// that never came back looks like and is where the six NULL counts come from.
 func workerRow(t *testing.T, pool *pgxpool.Pool, execKey int, client, process, session, stepId string,
 	shard int, terminal string, in, out int, start time.Time) int64 {
 	t.Helper()
@@ -189,7 +188,7 @@ func TestVolumeCollapseOverRowsTheCpipesWorkerWrote(t *testing.T) {
 	}
 }
 
-// F99: the six counts are NULL for exactly as long as the worker is running,
+// The six counts are NULL for exactly as long as the worker is running,
 // and that is row 4's observation rather than row 2's. A coalesce written for
 // tidiness would make every stalled worker a total collapse.
 func TestVolumeCollapseIsSilentOnAWorkerStillRunning(t *testing.T) {

@@ -1,6 +1,6 @@
 package compiler
 
-// THE COST ORDER (rules_benchmark Phase 9, BY.2).
+// THE COST ORDER.
 //
 // testdata/cost_order holds a rule set and its statistics, in jetstore's own
 // vocabulary, with three rules whose best order is a property of the data:
@@ -276,7 +276,7 @@ func TestCostOrderIsDeterministic(t *testing.T) {
 
 // The re-validation refuses an order that reads a variable before it is
 // bound, whoever chose it. The hook puts a negation first, as the optimizer
-// before jetstore#2357 could (I-232).
+// before jetstore#2357 could.
 func TestReorderedRuleIsValidatedAgain(t *testing.T) {
 	src := `
 		[NEG_FIRST]:

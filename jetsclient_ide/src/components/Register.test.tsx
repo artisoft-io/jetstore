@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * Registration. Task X.4.
+ * Registration.
  *
  * Three things are worth testing here and only one of them is the form. The
  * rules are the Dart's and are stricter than they look; the status codes decide

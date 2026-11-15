@@ -216,7 +216,7 @@ class AlphaNode {
    *
    * 0 when it queries none (no term bound to the parent row), else 1, 2 or 3, the
    * number of bound terms, naming the parent's beta_row_idx1_, _idx2_ or _idx3_.
-   * ReteMetaStore::initialize numbers each vertex's children by it, once (I-86).
+   * ReteMetaStore::initialize numbers each vertex's children by it, once.
    */
   virtual int
   antecedent_query_index()const=0;

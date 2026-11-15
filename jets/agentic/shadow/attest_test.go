@@ -80,7 +80,7 @@ func TestTheRecordShowsNothingActed(t *testing.T) {
 			t.Skip("no incident reached `diagnosed`, so there is nothing to move")
 		}
 		// Through the ordinary path, which permits it — the ceiling is this
-		// package's and not the audit store's (I-299).
+		// package's and not the audit store's.
 		if _, err := audit.RecordIncidentTransition(ctx, pool, &audit.IncidentTransition{
 			IncidentEventId: "ie_control_acting", IncidentRef: target,
 			FromStatus: audit.IncidentDiagnosed, ToStatus: ActingFrontier,

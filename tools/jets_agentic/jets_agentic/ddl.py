@@ -19,7 +19,7 @@ What the DDL enforces, per §7.2 and §7.3:
   UPDATE, DELETE and TRUNCATE, plus REVOKE of all three from PUBLIC. Today
   the application connects as a superuser, which bypasses GRANT/REVOKE but
   not triggers — so the trigger does the work and the REVOKE starts meaning
-  something the day the application moves off superuser (I-5, §7.3).
+  something the day the application moves off superuser.
 - **The flag and the table agree, per class (F68, added at AB.1):**
   `_assert_tables_agree` runs inside `emit()` and fails the generate when an
   entity carrying `jr_as_table` has no `CREATE TABLE` here, or when a table
@@ -29,7 +29,7 @@ What the DDL enforces, per §7.2 and §7.3:
   than the one that wrote it**: setting `jr_as_table` on `Remediation` and
   `IncidentEvent` failed `generate --check` by name, before either table
   existed here.
-- **The additive half of a migration, per table (AB.4, I-337):** every
+- **The additive half of a migration, per table:** every
   `CREATE TABLE` is followed by one `ALTER TABLE … ADD COLUMN IF NOT EXISTS`
   per **nullable** column. `CREATE TABLE IF NOT EXISTS` does nothing to a table
   that already exists, so before this a column added to the model reached a
@@ -113,7 +113,7 @@ def _pg_type(annotation) -> tuple[str, bool]:
             # of {statement, source, source_ref}. That is I-128's silent
             # widening firing on a composite rather than on a scalar, and it is
             # the failure mode `jr_as_table` on a second entity was always going
-            # to expose (I-287).
+            # to expose.
             return "jsonb", nullable
         inner, _ = _pg_type(inner_annotation)
         return f"{inner}[]", nullable
@@ -203,14 +203,14 @@ def _added_column_alters(entity) -> str:
     to *change* one, and without this the new `incident_run_ref` would reach a
     fresh database and no migrated one — silently, since `InstallSchema` runs
     clean either way and the missing column surfaces as a 42703 in whatever
-    queries it next (**I-337**).
+    queries it next.
 
     **The rule was nullable columns only until AC.3, and it is now every added
     column, with the NOT NULL case emitted as two statements.** `AB.4` wrote the
     boundary as *a NOT NULL column cannot be added to a populated table without a
     default, so it needs a hand-written migration* — true, and it made the first
     NOT NULL widening silent rather than hard. `AC.3` added two required columns
-    to `Hypothesis` (Q-46) and would have had them reach a fresh database and no
+    to `Hypothesis` and would have had them reach a fresh database and no
     migrated one, which is I-337 with the loudness removed.
 
     So the constraint travels on the same statement: a NOT NULL column emits
@@ -225,7 +225,7 @@ def _added_column_alters(entity) -> str:
     **What it does in each of the three states.** On a fresh install the CREATE
     already made the column and the statement is skipped. On a migrated **empty**
     table the column is added with its constraint, which is every deployment of
-    `jetsapi.hypothesis` that exists — the table has never held a row (F288). On
+    `jetsapi.hypothesis` that exists — the table has never held a row. On
     a migrated **populated** table it fails with a not-null violation naming the
     column.
 
@@ -234,7 +234,7 @@ def _added_column_alters(entity) -> str:
     a 42703 in whatever query touches it, in production, far from the cause — into
     a migration that stops and says which column it could not add. What the
     existing rows should say is still a hand-written migration with an author;
-    what changed is that nobody discovers the gap by accident (**I-381**).
+    what changed is that nobody discovers the gap by accident.
 
     **One case is still silent and is named rather than left to be found**: a
     column that already exists as nullable and that the model now marks required
@@ -291,8 +291,7 @@ def _assert_tables_agree(sql: str) -> None:
 
     What it does not check is the columns — that is `_table_columns`, which is
     reflection-driven and cannot drift. The JetRules half is checked separately,
-    by `compile_check`, against `domain_tables` in the compiled workspace
-    (I-129).
+    by `compile_check`, against `domain_tables` in the compiled workspace.
     """
     problems: list[str] = []
     for entity in M.ENTITIES:
@@ -326,7 +325,7 @@ def emit() -> str:
     hypothesis_columns = _table_columns(M.Hypothesis)
     remediation_columns = _table_columns(M.Remediation)
     incident_event_columns = _table_columns(M.IncidentEvent)
-    # AB.4: the additive half of a migration, per table. See
+    # The additive half of a migration, per table. See
     # _added_column_alters for what it covers and what it deliberately does
     # not.
     run_alters = _added_column_alters(M.AgentRun)

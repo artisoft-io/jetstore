@@ -55,7 +55,7 @@ def test_the_contract_model_is_still_not_importable():
     When this goes red, `cpipes_model` became importable: delete the path
     fallback in `contract._load_contract_model` and delete this test. Pinned
     rather than worked around silently, because the consequence reaches the
-    container image (P9-T14) — a wheel of `cpipes_contract` does not carry the
+    container image — a wheel of `cpipes_contract` does not carry the
     file at all.
     """
     with pytest.raises(ImportError):

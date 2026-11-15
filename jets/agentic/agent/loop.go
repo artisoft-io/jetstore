@@ -235,7 +235,7 @@ func (l *Loop) Run(ctx context.Context, task *Task) (*Result, error) {
 	// allowed to start, so this precedes even the intent.
 	//
 	// **There is deliberately no tier check here, and the asymmetry is the
-	// point rather than an omission (AJ.1).** Guard asks whether an identity
+	// point rather than an omission.** Guard asks whether an identity
 	// may act at all, which is answerable with no action in hand. A tier gate
 	// asks whether this run's authority reaches *this* action, and before the
 	// first model call there is no action to ask about — the loop does not yet

@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// JM-088: a DSN given directly must not need JETS_REGION, which is only for
+// A DSN given directly must not need JETS_REGION, which is only for
 // reading the secret from AWS.
 
 func noSecret(t *testing.T) func(string, bool, int) (string, error) {

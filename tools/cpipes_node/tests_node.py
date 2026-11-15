@@ -206,7 +206,7 @@ def test_the_scope_command_prints_the_declaration(capsys):
     its own branch: it asserted `partition_writer` owed by P9-T07 until P9-T07
     built it, and `merge_files` owed by P9-T08 until P9-T08 built it. **The two
     repairs were on branches that could not see each other**, so each passed alone
-    and the merged state failed (P7-I87). A list of who owes what is P3-I20's
+    and the merged state failed. A list of who owes what is P3-I20's
     shape — omission and completion print the same thing — so the subject is now
     the registry's own answer and this test needs no edit when the next token
     lands.
@@ -368,7 +368,7 @@ def test_a_node_with_no_connection_refuses_at_invocation():
         node.handler({"id": 0, "pe": 1})
 
 
-# --- the local driver's bucket map (D-242) ----------------------------------
+# --- the local driver's bucket map ----------------------------------
 
 
 def test_the_bucket_map_reads_name_equals_dir():

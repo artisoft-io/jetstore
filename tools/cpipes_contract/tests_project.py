@@ -37,8 +37,8 @@ def projection(name):
 
 def test_the_triple_validates_against_the_schemas_go_embeds():
   for name in TEMPLATES:
-      """**Three documents, not two** — the loader reads all three and M.4 emitted two
-      (I-84). The action document was added to this check in the same change that
+      """**Three documents, not two** — the loader reads all three and M.4 emitted two.
+      The action document was added to this check in the same change that
       started emitting it, because a document nothing validates is how the pair came to
       look complete."""
       p = projection(name)
@@ -124,7 +124,7 @@ def test_a_refusal_is_visible():
   for name in TEMPLATES:
       """A back edge produces a `label` rather than nothing.
 
-      Silence is the failure mode (I-77): a wizard that simply omits a property tells the
+      Silence is the failure mode: a wizard that simply omits a property tells the
       author nothing about why the config it produces is not the config they meant.
       """
       p = projection(name)

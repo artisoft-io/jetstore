@@ -17,7 +17,7 @@ import (
 
 // The checks are evaluated against a Snapshot: every triple of the RDF session,
 // decoded once into engine-independent Terms after the rules ran. The match is
-// still the join over (s, p, o) the project definition describes (§4.2), with
+// still the join over (s, p, o) the project definition describes, with
 // the bindings so far; it is made over the snapshot rather than over FindSPO,
 // for three reasons measured on the code, two of them since fixed:
 //
@@ -31,8 +31,8 @@ import (
 //     Comparing decoded values does not depend on that.
 //   - RdfNode.Equals could not be used: the Go adaptor's compared EQ's result
 //     to a fresh rdf.TRUE() by pointer and was always false, and the native one
-//     compared wrapper pointers that each call allocates anew. Fixed 2026-10-11
-//     (I-11): Equals is node identity in both, which is the interning above.
+//     compared wrapper pointers that each call allocates anew. Fixed 2026-10-11:
+//     Equals is node identity in both, which is the interning above.
 //
 // And one property the harness needed anyway while compare_engines ran a test on
 // both engines, until the Go engine's retirement: it diffed two runs, which is a
@@ -269,7 +269,7 @@ func ExpectedTerm(o *rulestest.ObjectTerm) (Term, error) {
 		}
 		return Term{Kind: TermInt, Text: strconv.Itoa(i)}, nil
 	case "bool":
-		// As the engines read a bool (I-45): the accepted spellings, empty is
+		// As the engines read a bool: the accepted spellings, empty is
 		// null, anything else makes the test definition invalid.
 		b, err := rdf.ParseBool(v)
 		switch {

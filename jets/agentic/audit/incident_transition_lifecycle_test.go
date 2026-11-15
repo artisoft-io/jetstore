@@ -23,11 +23,11 @@ func TestIncidentTransitionsFollowAppendixA5(t *testing.T) {
 		{IncidentAwaitingApproval, []string{IncidentRemediating}},
 		{IncidentRemediating, []string{IncidentResolved}},
 		// The prose, not the ASCII: "reclassified returns to triaged with a new
-		// classification and a recorded reason" (I-298).
+		// classification and a recorded reason".
 		{IncidentReclassified, []string{IncidentTriaged}},
 		{IncidentResolved, []string{IncidentVerified}},
 		{IncidentVerified, []string{IncidentClosed}},
-		// A.5: "suppressed_as_benign and closed are terminal."
+		// "suppressed_as_benign and closed are terminal."
 		{IncidentClosed, nil},
 		{IncidentSuppressedAsBenign, nil},
 		{"compacted", nil},

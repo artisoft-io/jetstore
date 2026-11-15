@@ -36,7 +36,7 @@ type JetResourceManagerNative struct {
 	js *bridge.JetStore // metadata resources
 	// session-based resources, made through the RDF session: through the rete
 	// session they fell back to js until the first rete session existed, and the
-	// meta graph is locked by then (rules_unit_test_harness I-15)
+	// meta graph is locked by then
 	rdfs *bridge.RDFSession
 }
 

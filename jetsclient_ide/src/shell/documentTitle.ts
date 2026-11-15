@@ -6,7 +6,7 @@
  * `index.html` declared `<title>JetStore Workspace IDE</title>` and nothing in
  * the bundle wrote `document.title`, so the tab of every screen named one screen
  * of an application with twenty-two routes. That is the favicon defect of
- * **I-267** in the element four lines above, and it was raised rather than fixed
+ * in the element four lines above, and it was raised rather than fixed
  * at D.9 because D.9's remit was the icon.
  *
  * **It differs from the favicon in the one way that matters: there is nothing to
@@ -60,7 +60,7 @@ export const PRODUCT = "JetStore";
  *
  * **In `App.tsx`'s order**, which is a readability property rather than a
  * correctness one and is asserted as such. `matchPath` with a string pattern
- * matches to the end, so `/workspaces` does not match `/workspaces/cgt/home` and
+ * matches to the end, so `/workspaces` does not match `/workspaces/<name>/home` and
  * no row can swallow another — a first draft of this comment claimed it could,
  * and the test that would have caught the swallowing passes either way, which is
  * exactly why the order is checked against `App.tsx` instead of argued for.
@@ -80,7 +80,7 @@ export const ROUTE_TITLES: ReadonlyArray<readonly [pattern: string, title: strin
   ["/inferServerAdmin", "Infer Server Admin"],
   ["/proposals", "Proposals"],
   ["/proposals/:proposalId", "Proposal"],
-  // agentic_ai's incident screens (AE.1). Added here rather than left to their
+  // agentic_ai's incident screens. Added here rather than left to their
   // owner because this table's own test refuses a route with no title, and it
   // fails on the route rather than on the screen — the seam rule the repository
   // CLAUDE.md states for a break in the other direction, applied in this one.

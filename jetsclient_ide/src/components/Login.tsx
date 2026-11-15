@@ -6,7 +6,7 @@ interface Props {
   /**
    * Where *Create an account* goes, or absent for a build with no registration.
    *
-   * Optional rather than required (task X.4) because this component is the
+   * Optional rather than required because this component is the
    * session gate and is rendered by `AppShell`, which has a router above it and
    * no reason to know about one. The link is a plain href for the same reason:
    * `/register` is outside the shell's route tree, so a `<Link>` here would be

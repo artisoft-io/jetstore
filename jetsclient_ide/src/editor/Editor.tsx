@@ -7,7 +7,7 @@
  * exception:
  *
  *  - a new `docKey` (a different file) gets a fresh `EditorState`, not a
- *    transaction. **Corrected 2026-10-27** (`jetstore_maintenance_02` `I-65`): it
+ *    transaction. **Corrected 2026-10-27**: it
  *    was a whole-document replace dispatched into the same state, which `history()`
  *    recorded, so one undo after opening a file put the previous file's text in its
  *    tab, ready to be saved over it. A fresh state starts with an empty history and

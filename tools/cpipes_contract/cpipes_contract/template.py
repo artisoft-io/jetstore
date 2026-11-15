@@ -18,7 +18,7 @@ structure a reader is scanning for shape. The body carries `{"$hole": "<name>"}`
 node is missing, and every marker must have a declaration and every declaration a marker.
 
 **A `schema_ref` naming a type the library has no part for is legitimate**, settled
-2026-08-20 (Q-14). Twenty of the contract's types have no exemplar after extraction,
+2026-08-20. Twenty of the contract's types have no exemplar after extraction,
 curation and recovery, and a new operator will always arrive before its corpus does. So
 coverage is *reported* rather than enforced: `check` says which holes have nothing to
 show a model, and an author decides whether that matters for this template. A `Hole`
@@ -192,7 +192,7 @@ def check(
     # `jets/agentic/prompt` makes: the schema is emitted regardless and Task validation
     # is what refuses.
     #
-    # **What is measured is the prompt, not the schema (Q-15).** Until 2026-08-20 this
+    # **What is measured is the prompt, not the schema.** Until 2026-08-20 this
     # sized a hole by its JSON Schema and reported `ConditionalPipeSpec` as 49,008
     # tokens against a 24,576 budget - unauthorable by construction. That number never
     # occupied the context: Ollama compiles `format` into a sampling grammar, and the
@@ -220,7 +220,7 @@ def check(
             # **Reported rather than rounded.** The estimate carries a few per cent of
             # error, and a hole this close to the budget is one the error decides. Saying
             # so is the honest answer; `from_model` will get the exact count from the
-            # server when it runs (I-42).
+            # server when it runs.
             notes.append(
                 f"hole {hole.name!r} fills {hole.schema_ref}, whose prompt is ~{tokens} tokens "
                 f"against a {budget} budget - **too close to call offline**; the estimate's "

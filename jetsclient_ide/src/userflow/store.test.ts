@@ -1,5 +1,5 @@
 /**
- * Tests for the flow store (task S.3).
+ * Tests for the flow store.
  *
  * Driven against a stub `WorkspaceApi` rather than a live server: what S.3 adds
  * is the *store*, and the transport underneath it is the one Phase 1 shipped and
@@ -108,7 +108,7 @@ function stubApi(files: Record<string, string>, warnings: Record<string, SaveFin
  * in front of the reader to assert one thing about one of them. So the default is
  * one spacer-only form per `formConfig`, with the button an end state may have:
  * `ufNext` on a normal state, `ufCompleted` on an end state, which is exactly
- * what `validateDocumentSet` asks (I-57). Cases that are about a real form pass
+ * what `validateDocumentSet` asks. Cases that are about a real form pass
  * the real document.
  */
 function formsFor(flow: unknown): unknown {
@@ -235,7 +235,7 @@ describe("loading", () => {
     expect(error.message).toContain("updateHomeFilters");
 
     // The two clipboard escapes since 2026-10-01: the flow draws Pipeline Status,
-    // whose third row runs them (`jetstore_maintenance_02` `D04`).
+    // whose third row runs them.
     const { store: ok } = storeFor(
       workspace("homeFiltersUF", homeFiltersFlow, homeFiltersActions),
       registryWith(["updateHomeFilters", "fetchStageToClipboard", "copySchemaEvent"]),
@@ -269,7 +269,7 @@ const loadFilesWorkspace = () => ({
 });
 
 /**
- * `homeFiltersUF`'s whole set, against the registry the app ships. Task F.5.
+ * `homeFiltersUF`'s whole set, against the registry the app ships.
  *
  * **This is the assertion the task exists to make**, and it is stronger than any
  * of the per-document ones: four documents, four table configurations and six
@@ -302,8 +302,8 @@ describe("homeFiltersUF against the shipping registry", () => {
       "putSchemaEventDialog",
       "showFailureDetailsDialog",
     ]);
-    // Four tables, and the fourth is the one registered on the non-flow side
-    // (F18). `showFailureDetailsDialog` names no table, so the count is the five
+    // Four tables, and the fourth is the one registered on the non-flow side.
+    // `showFailureDetailsDialog` names no table, so the count is the five
     // states' four distinct ones.
     expect(Object.keys(loaded.tables).sort()).toEqual([
       "hfFileKeyFilterTypeTableUF",
@@ -334,7 +334,7 @@ describe("homeFiltersUF against the shipping registry", () => {
  * `pipelineConfigUF`'s nine tables, which is every table its eleven forms name.
  *
  * **Ten and twelve until 2026-10-01**, when `D06` removed the add-or-edit step,
- * its form and its option table (`jetstore_maintenance_02` `AF.4`): the flow opens
+ * its form and its option table: the flow opens
  * on `pcPipelineConfigTable` and adds from a button on it.
  *
  * **Two of the ten are named by no state's form at all** —
@@ -658,7 +658,7 @@ describe("saving", () => {
 });
 
 /**
- * `fileMappingUF` against the registry this build ships. Task F.8.
+ * `fileMappingUF` against the registry this build ships.
  *
  * **The first set whose escapes are the reason the flow needs a server at all.**
  * `homeFiltersUF`'s escapes compile filters and `pipelineConfigUF`'s registered
@@ -677,7 +677,7 @@ describe("fileMappingUF against the shipping registry", () => {
     const loaded = await store.load("fileMappingUF");
     expect(Object.keys(loaded.flow.states)).toHaveLength(2);
     // Three: the two states' forms and `loadRawRowsDialog`, which
-    // `fmFileMappingTableUF` opens (I-89). The last of the four the flow corpus
+    // `fmFileMappingTableUF` opens. The last of the four the flow corpus
     // calls *unreferenced*.
     expect(Object.keys(loaded.forms.forms).sort()).toEqual([
       "fmFileMappingUF",
@@ -736,7 +736,7 @@ describe("fileMappingUF against the shipping registry", () => {
     // route and the form is rendered by whatever serves it, so checking it
     // against *this* flow's document would demand a copy of a form that already
     // has a home. `validateTableActions` checks `configForm` for `showDialog` and
-    // `doActionShowDialog` only (I-122), and this loads with it absent.
+    // `doActionShowDialog` only, and this loads with it absent.
     const { store } = storeFor(fileMappingWorkspace(), productionRegistry);
     const loaded = await store.load("fileMappingUF");
     expect(Object.keys(loaded.forms.forms)).not.toContain("fmMappingFormUF");
@@ -748,7 +748,7 @@ describe("fileMappingUF against the shipping registry", () => {
  *
  * **Twelve states and four tables, which is the widest load the store has been
  * asked for** — eleven and three since 2026-10-01, when `D06` removed the
- * add-or-edit step and its option table (`jetstore_maintenance_02` `AF.3`) — — and the first whose form document declares a query with `params`,
+ * add-or-edit step and its option table — — and the first whose form document declares a query with `params`,
  * the port's spelling of `stateKeyPredicates`.
  */
 const sourceConfigWorkspace = () => ({
@@ -965,7 +965,7 @@ describe("escape references", () => {
     ]);
     const actions = references.filter((r) => r.kind === "actions");
     // Four `updateHomeFilters` steps, and since 2026-10-01 the two clipboard
-    // escapes of the table's third row (`D04`).
+    // escapes of the table's third row.
     expect(actions).toHaveLength(6);
     expect(actions[0]!.at).toMatch(/^\/actions\/.+\/steps\/\d+$/);
   });

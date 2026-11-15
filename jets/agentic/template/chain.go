@@ -7,7 +7,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/briefing"
 )
 
-// A chain alternates paths and constructs, separated by a vertical bar (§10.4):
+// A chain alternates paths and constructs, separated by a vertical bar:
 // `has_Medical_Events[]|latest_by: Service_Date|Care_Setting` is a chain of
 // three. It carries a *list* of values, and every link either addresses into
 // that list, maps over it, folds it or takes the first of it.
@@ -30,9 +30,9 @@ import (
 // **A map is refused on a single value for the same reason a fold is**, and
 // §10.5 says so in terms: `Condition_Summary[]` then `strip_code` then `join`
 // type-checks and `Condition_Summary[]` then `join` then `strip_code` does not.
-// That is the rule most likely to refuse a template a reader thinks is fine
-// (I-641), and the escape is `[]`, which yields a one-element list over a scalar
-// (F1144) and costs two characters.
+// That is the rule most likely to refuse a template a reader thinks is fine,
+// and the escape is `[]`, which yields a one-element list over a scalar
+// and costs two characters.
 //
 // **What is never refused is an absence of information.** A path says nothing
 // about what it addressed, so it yields `kindUnknown` and every construct
@@ -295,7 +295,7 @@ func (ch *chain) eval(ctx any) []any {
 }
 
 // first is the value a substitution renders: the first the chain yields, and
-// the rest are discarded (F1145).
+// the rest are discarded.
 func (ch *chain) first(ctx any) (any, bool) {
 	vals := ch.eval(ctx)
 	if len(vals) == 0 {

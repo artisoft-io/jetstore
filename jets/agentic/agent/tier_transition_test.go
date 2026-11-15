@@ -73,7 +73,7 @@ func TestATierRaiseUnblocksAGatedRunWithoutRestartingIt(t *testing.T) {
 	}
 
 	// And the record shows both halves in one chain: the refusal's operands are
-	// on the transcript at the loop's call site (AJ.1, F501), and the grant is
+	// on the transcript at the loop's call site, and the grant is
 	// here with its own.
 	ts, err := audit.TierTransitionsFor(ctx, pool, runId)
 	if err != nil {

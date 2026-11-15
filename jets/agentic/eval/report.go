@@ -21,7 +21,7 @@
 //   - **Every figure records which side of the gap-19 transition it came
 //     from**, because templates absorb the fat head and leave the model the
 //     thin tail: a rate from before and a rate from after are two different
-//     populations (Phase 0 plan §5.3.7).
+//     populations.
 //
 // These are enforced here rather than left to whoever writes the summary. A
 // reporting discipline that depends on discipline is not one.
@@ -32,8 +32,8 @@
 // reported as one is the failure to prevent, and plan §4 raised provenance as
 // the design constraint for the golden-case library — but this type could be
 // published saying neither, while ToolReport in toolcall.go has required both
-// since J.2 built it under the same decision. Nothing had called this one
-// (F32), so the asymmetry cost nothing until it did.
+// since J.2 built it under the same decision. Nothing had called this one,
+// so the asymmetry cost nothing until it did.
 package eval
 
 import (
@@ -81,7 +81,7 @@ type OperatorResult struct {
 	// held none out*, which is a fact about the split and nobody's fault. It is
 	// the wrong sentence when the split held out plenty and the harness refused
 	// them — on this contract, because the operator's schema does not fit the
-	// context window (F112). Two different situations rendering in one line is
+	// context window. Two different situations rendering in one line is
 	// how a reader concludes the harness is fine and the split was unlucky.
 	NotRun string
 }
@@ -143,7 +143,7 @@ type Report struct {
 	// produced it or the population it measured, while ToolReport — the sibling
 	// type in this package, written for J.2 under the same decision — has
 	// required both since it was built. The asymmetry was invisible because
-	// nothing called this one (F32).
+	// nothing called this one.
 	Model string
 	// CaseSource says where the cases came from. Mandatory, for the reason the
 	// field exists on ToolReport: a reader who assumes a corpus will over-read

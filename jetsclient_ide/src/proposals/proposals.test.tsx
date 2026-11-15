@@ -133,7 +133,7 @@ describe("the staging list", () => {
   // The default view is what still wants a human, not everything and not every
   // non-terminal state. `approved` and `deployed` are decided; leaving them in
   // the default meant a queue that never shed anything, because `deployed` is
-  // left only by `superseded` (I-249).
+  // left only by `superseded`.
   it("defaults to the states awaiting a decision, and widens on request", async () => {
     const { api, sent } = await clientWith({ list_proposals: { body: { proposals: [] } } });
     renderAt(api, "/proposals");
@@ -337,7 +337,7 @@ describe("the transcript", () => {
     });
     renderAt(api, "/proposals/chg_1");
     await screen.findByText(/Chain verified/);
-    // I-73: tamper-evident is not complete, and the screen must not let a
+    // Tamper-evident is not complete, and the screen must not let a
     // verified chain be read as a complete one.
     await screen.findByText(/does not mean the run wrote every event it should have/);
   });

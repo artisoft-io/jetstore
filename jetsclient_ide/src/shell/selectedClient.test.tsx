@@ -137,7 +137,7 @@ describe("the navigation surface that replaced the left panel", () => {
   });
 
   it("turns the brand into the flow menu when one is given, and leaves it alone when not", async () => {
-    // I-261: the flows lost their entry points when X.1 retired the left panel's
+    // The flows lost their entry points when X.1 retired the left panel's
     // menu tree. The brand is where they came back.
     const { fetchImpl } = stub(ok);
     const api = new ApiClient("", fetchImpl);
@@ -174,7 +174,7 @@ describe("the navigation surface that replaced the left panel", () => {
   });
 
   it("tells a flow it opens where the user was, and tells a screen nothing", async () => {
-    // **D.8, I-265.** The menu is reachable from every screen and launches four
+    // The menu is reachable from every screen and launches four
     // flows (`FLOW_MENU`; "four of the eleven" until 2026-10-27), so without this the four exit to the same place
     // wherever they were started. `/ruleConfig` is a screen and reads nothing.
     const { fetchImpl } = stub(ok);

@@ -71,7 +71,7 @@ func TestConsultReportCountsWhatItSaysItCounts(t *testing.T) {
 				"statement": "no process_errors rows", "source": SourceDqResult}},
 		},
 		// 4. At a locus the classifier could not evaluate at all, which is the
-		// half LociNotPresent used to fold into the one above (AD.1).
+		// half LociNotPresent used to fold into the one above.
 		map[string]any{
 			"cause": "the sink never completed", "cause_category": CauseTransportFailure,
 			"locus": triage.LocusSinkFailedUnderCompletedWorker, "confidence": 0.5,

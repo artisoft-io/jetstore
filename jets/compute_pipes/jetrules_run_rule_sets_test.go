@@ -314,7 +314,7 @@ func TestRunRuleSets(t *testing.T) {
 			if len(o.RuleSets) != 2 || o.RuleSets[0].MaxLooping != 2 || o.RuleSets[1].MaxLooping != 5 {
 				t.Errorf("rule sets = %+v, want two, each with its own $max_looping", o.RuleSets)
 			}
-			// I-8: the exception stays in the session for the second rule set, and only
+			// The exception stays in the session for the second rule set, and only
 			// the first, which raised it, reports it.
 			if !o.Completed || o.Loops != 3 || !slices.Equal(o.Exceptions, []string{"xr exception raised"}) {
 				t.Errorf("outcome = %+v, want completed, the last rule set on loop 3, the exception once", o)
@@ -324,7 +324,7 @@ func TestRunRuleSets(t *testing.T) {
 					o.RuleSets[0].Exceptions, o.RuleSets[1].Exceptions)
 			}
 		})
-		// I-8: two distinct exceptions from two rule sets, once each; the second rule
+		// Two distinct exceptions from two rule sets, once each; the second rule
 		// set raising the first exception again is the same triple and reports nothing.
 		t.Run("two_exceptions_once_each", func(t *testing.T) {
 			o := runRuleSets(t, twoExceptionsSequence, "exception", &compute_pipes.RuleSetsConfig{})
@@ -352,7 +352,7 @@ func TestRunRuleSets(t *testing.T) {
 		})
 		// executeRules creates the engine's JetResources before it opens the rdf
 		// session, because on C++ the first creation after a session exists aborts
-		// the process (I-15). Recorded through a wrapping engine.
+		// the process. Recorded through a wrapping engine.
 		t.Run("executeRules_creates_jet_resources_before_the_rdf_session", func(t *testing.T) {
 			engine, _ := engineSession(t, loopingRuleFile)
 			var calls []string
@@ -371,7 +371,7 @@ func TestRunRuleSets(t *testing.T) {
 				t.Errorf("engine calls = %q, want JetResources before NewRdfSession", calls)
 			}
 		})
-		// I-10: every rete session RunRuleSets creates is released, on the paths that
+		// Every rete session RunRuleSets creates is released, on the paths that
 		// end the rule sets early as on the one that runs them all.
 		t.Run("rete_session_released_on_every_path", func(t *testing.T) {
 			for _, c := range []struct {

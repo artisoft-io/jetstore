@@ -1,6 +1,6 @@
 /**
  * Every dialog in the app, against the stylesheet rule that sizes it.
- * jetstore_maintenance_02 `AB.1` (D08), 2026-10-01.
+ * jetstore_maintenance_02 `AB.1`, 2026-10-01.
  *
  * **Before that date nothing styled a `<dialog>`** (assessment F38), so every
  * dialog was as wide as its content and the failure viewer was a twenty-column

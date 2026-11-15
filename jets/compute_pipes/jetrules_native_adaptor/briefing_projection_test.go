@@ -9,7 +9,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/workspace"
 )
 
-// The end-to-end check for the briefing projection (agentic_ai AK.2), and it lives
+// The end-to-end check for the briefing projection, and it lives
 // here because this is where the real rdf session meets the real encoder.
 //
 // **Nothing between the entity and the guardrail is stubbed.** A projected
@@ -48,7 +48,7 @@ func inScratchTestWs(t *testing.T) bool {
 
 // newSession is a C++ rdf session over the child's scratch test_ws. The session's
 // manager is the one a test may still add resources to: the meta graph is locked
-// once a session exists (rules_unit_test_harness I-15).
+// once a session exists.
 func newSession(t *testing.T) (compute_pipes.JetRdfSession, compute_pipes.JetResourceManager) {
 	t.Helper()
 	if out, err := workspace.CompileWorkspace(nil, "test_ws", "ak2",
@@ -379,7 +379,7 @@ func TestInventedFieldsAreRefused(t *testing.T) {
 }
 
 // The pharmacy list holds one entry, so cintel:Medication serialises as a bare
-// scalar rather than an array (F516). The selector's [] over a scalar is what
+// scalar rather than an array. The selector's [] over a scalar is what
 // keeps the check working for the member a guardrail is least entitled to be
 // wrong about, and this asserts it through the real encoder rather than through
 // a hand-written document.

@@ -1,6 +1,6 @@
 package compute_pipes
 
-// The `render` operator (agentic_ai Phase 8, `AZ.1`): a configured text template
+// The `render` operator: a configured text template
 // applied to a serialised entity column, writing the rendered text to another
 // column of the same record.
 //
@@ -13,7 +13,7 @@ package compute_pipes
 // operator cannot hang there: what crosses a channel is a record -- a `[]any` of
 // column values -- and the RDF session that map was walked from is gone by the
 // time any downstream operator sees anything. So the input is the **serialised
-// entity as a column**, decoded back to a `map[string]any` (plan §1.3, F1127).
+// entity as a column**, decoded back to a `map[string]any`.
 //
 // Decoding costs nothing, because the renderer already accepts decoded
 // documents: `scalar`'s doc block names the shape explicitly -- *"From a decoded
@@ -97,7 +97,7 @@ const (
 	// already taken by gap 20's *configuration* templates
 	// (`tools/cpipes_contract/templates/`), and a reader meeting
 	// `"type": "template"` in a `pipes_config` would have no way to tell which
-	// sense was meant (plan §1.8, F1140/F1141). The operator *renders*; what it
+	// sense was meant. The operator *renders*; what it
 	// applies is a *text template*.
 	RenderOperatorType = "render"
 

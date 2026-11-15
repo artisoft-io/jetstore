@@ -1,5 +1,5 @@
 /**
- * The workspace validator and its Node entry. `jetstore_maintenance_02` AG.2.
+ * The workspace validator and its Node entry.
  *
  * Three groups. The shipping assets pass with the production registry — the
  * claim that matters, since `install_workspace_assets` puts exactly these into
@@ -158,7 +158,7 @@ describe("each check fires at the file an author would edit", () => {
       expect.objectContaining({
         file: "table_configs/client.tc.json",
         // `/actions/1/` since 2026-10-01: `D06`'s *+ Add* is the client table's
-        // first action now (`jetstore_maintenance_02` `AF.2`).
+        // first action now.
         pointer: "/actions/1/actionName",
         message: expect.stringContaining('(in flow "clientRegistryUF")'),
       }),
@@ -247,7 +247,7 @@ describe("each check fires at the file an author would edit", () => {
     expect(found.map((f) => f.message)).toEqual([expect.stringContaining('leaves "rutTestCaseTable"')]);
   });
 
-  // `AM.1` (`I-11`). Both mutations name a predicate that is registered, so the
+  // `AM.1`. Both mutations name a predicate that is registered, so the
   // escape check passes them and only the new rule can refuse them.
   it("an authored isEnabled the runtime would not use, on either side of the derivation", () => {
     const files = shippingTree("homeFiltersUF");

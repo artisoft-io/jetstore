@@ -7,7 +7,7 @@
 //
 //   - It exports nothing. inferBackend, newInferTransformationPipe and the
 //     rest are package-private, and NewOllamaTransformationPipe is a method on
-//     BuilderContext returning an unexported type (F12). That is a one-line
+//     BuilderContext returning an unexported type. That is a one-line
 //     change and not the real reason.
 //   - The shapes differ. That layer is a *record-stream* operator: a worker
 //     pool fed by Apply, an on_error policy routing failed rows to an error
@@ -126,7 +126,7 @@ type Request struct {
 	// Schema is a JSON Schema document. For the narrow tasks of Phase 1 this
 	// is one $defs entry of the cpipes contract — a lone TransformationSpec
 	// rather than the whole config — which is what makes the task narrow at
-	// the wire rather than only in the instruction text (plan §3.3).
+	// the wire rather than only in the instruction text.
 	Schema json.RawMessage
 }
 
@@ -138,7 +138,7 @@ type Response struct {
 	// Value is Content parsed as JSON. Validation has passed by the time a
 	// caller sees this.
 	Value any
-	// PromptTokens and EvalTokens feed AgentRun.token_spend (D.5). Recorded
+	// PromptTokens and EvalTokens feed AgentRun.token_spend. Recorded
 	// per call so a run's spend is a sum rather than an estimate.
 	PromptTokens int
 	EvalTokens   int

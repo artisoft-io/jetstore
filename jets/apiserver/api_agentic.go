@@ -12,7 +12,7 @@ package main
 //
 // **This is a JetStore route serving JetStore's own UI, not MCP over HTTP.**
 // The distinction matters because the agentic project has twice deferred
-// exposing the *tool catalogue* over HTTP (I-69), and that deferral does not
+// exposing the *tool catalogue* over HTTP, and that deferral does not
 // carry here and is not weakened by this file. Nothing below dispatches a tool,
 // runs a loop, or reaches a model: every action is a read of, or a decision
 // about, rows that already exist. A future MCP-over-HTTP adapter would need
@@ -63,7 +63,7 @@ import (
 const AgentSupervisionCapability = "agent_supervision"
 
 // AgentPHIAccessCapability lifts the redaction of PHI-classified fields on this
-// endpoint (task AE.2, I-311).
+// endpoint.
 //
 // **The floor it implements is that a PHI-marked field is not covered by
 // `agent_supervision` alone**, settled by the user on 2026-09-04. The argument
@@ -126,7 +126,7 @@ type AgenticAction struct {
 	ToState   string `json:"toState"`
 	Rationale string `json:"rationale"`
 
-	// record_incident_transition (AJ.2, Q-52). Separate fields from
+	// record_incident_transition. Separate fields from
 	// `FromState`/`ToState` for the reason `Statuses` is separate from
 	// `States`: nine approval states and eleven incident statuses are different
 	// vocabularies, and a value sent under the wrong name would be judged by
@@ -177,22 +177,22 @@ type agenticOps interface {
 	ListIncidents(ctx context.Context, statuses []string, limit int) ([]audit.IncidentSummary, error)
 	// ReadIncident takes the PHI decision rather than making it: the audit
 	// package redacts inside the read, so a handler cannot obtain an
-	// unredacted Evidence without having passed audit.DisclosePHI (AE.2).
+	// unredacted Evidence without having passed audit.DisclosePHI.
 	ReadIncident(ctx context.Context, incidentId string, phi audit.PHIAccess) (*audit.Incident, error)
 	// IncidentTransitionsFor returns how the incident got where it is, added at
 	// `AC.3`. **It is the audit record's visible form and not a detail**: the
 	// classifier's own basis for the locus travels on the `detected -> triaged`
 	// rationale and the ranker's account of the whole ranking on
 	// `triaged -> diagnosed`, neither of which has a column on the rows they are
-	// about (F402, Q-46). Without this the basis reaches the database and stops
+	// about. Without this the basis reaches the database and stops
 	// there, which is criterion 45's last clause met and invisible.
 	IncidentTransitionsFor(ctx context.Context, incidentRef string) ([]audit.IncidentTransition, error)
-	// RecordIncidentTransition is the verdict write (AJ.2). The guard, the
+	// RecordIncidentTransition is the verdict write. The guard, the
 	// lifecycle check, the classification pairing and the chain event are all
 	// on the far side of this call — P4 §12.5 stated that as a fact about the
 	// interface and named the remaining step as "one call", and this is it.
 	RecordIncidentTransition(ctx context.Context, t *audit.IncidentTransition) (int, error)
-	// The Detection screen (I-861): the runs the detection commands recorded,
+	// The Detection screen: the runs the detection commands recorded,
 	// the deployed task those runs come from, and starting it now. The ECS half
 	// is behind the same seam so the dispatch is testable without AWS.
 	ListDetectionRuns(ctx context.Context, limit int) ([]detectrun.Run, error)
@@ -281,7 +281,7 @@ func (server *Server) DoAgenticAction(w http.ResponseWriter, r *http.Request) {
 
 	// The PHI decision is taken here, where the identity is, and travels down
 	// as a value. A handler that could ask the user object would be a handler
-	// that could forget to (AE.2).
+	// that could forget to.
 	phi := audit.RedactPHI
 	if jetsUser.HasCapability(AgentPHIAccessCapability) {
 		phi = audit.DisclosePHI
@@ -527,7 +527,7 @@ func recordApproval(ctx context.Context, ops agenticOps, a *AgenticAction, actor
 // **Both actions carry the locus and the classification together**, which is the
 // endpoint's share of R-27's mitigation. Plan §9.5 found the record supports a
 // taxonomy of *locus* and not of *cause*, so `AB.1` put both on the row with the
-// classification optional (I-289); a response that carried one without the other
+// classification optional; a response that carried one without the other
 // would let a screen render a locus in a column headed with a cause word, which
 // is the risk arriving through the wire rather than through the prose.
 
@@ -598,7 +598,7 @@ func getIncident(ctx context.Context, ops agenticOps, a *AgenticAction, phi audi
 	row := incidentRow(inc.IncidentSummary)
 	row["hypotheses"] = hs
 
-	// How it got here (`AC.3`). **A read failure here is not a failure of the
+	// How it got here. **A read failure here is not a failure of the
 	// screen**: jetsapi.incident_event arrived at AB.2 and jetsapi.incident at
 	// AB.1, so a database migrated between the two has the incident and not its
 	// history — and an incident a supervisor cannot open is worse than one whose
@@ -633,12 +633,12 @@ func getIncident(ctx context.Context, ops agenticOps, a *AgenticAction, phi audi
 	// What was withheld and what would lift it, said once for the screen rather
 	// than inferred from a field being empty. `phiProperties` comes from the
 	// generated manifest, so a second marked property appears here without an
-	// edit (AE.2).
+	// edit.
 	return &map[string]any{
 		"incident":    row,
 		"transitions": transitions,
 		// What may be done to it from here, and what a reclassification may
-		// claim (AJ.2). **Both come from the server for the same reason the
+		// claim. **Both come from the server for the same reason the
 		// loci do**: A.5's graph and the ten causes are enforced by
 		// `IncidentTransitionAllowed` and by a CHECK, and a browser copy of
 		// either is the copy that cannot enforce anything. The screen renders
@@ -684,7 +684,7 @@ func recordIncidentTransition(ctx context.Context, ops agenticOps, a *AgenticAct
 	}
 	// RedactPHI: this read exists to learn the incident's current status, and
 	// nothing here renders evidence. Asking for disclosure would widen what a
-	// write path can see for no reason the write needs (AE.2).
+	// write path can see for no reason the write needs.
 	inc, err := ops.ReadIncident(ctx, a.IncidentId, audit.RedactPHI)
 	if err != nil {
 		var missing *audit.ErrNoIncident
@@ -798,7 +798,7 @@ func incidentRow(i audit.IncidentSummary) map[string]any {
 		"incidentId": i.IncidentId,
 		"sessionId":  i.SessionId,
 		// "" when nothing agentic raised the incident, which is what decides
-		// whether a transition on it reaches the hash chain (AB.4, Q-32).
+		// whether a transition on it reaches the hash chain.
 		"runRef":     i.RunRef,
 		"detectedAt": timeOrEmpty(i.DetectedAt),
 		"locus":      i.Locus,
@@ -824,7 +824,7 @@ func evidenceItems(items []audit.Evidence) []map[string]any {
 			"statement": e.Statement, "source": e.Source, "sourceRef": e.SourceRef,
 			// Withheld is not empty. A screen that could not tell them apart
 			// would render a redacted PHI statement as an agent that cited
-			// nothing (AE.2).
+			// nothing.
 			"statementRedacted": e.StatementRedacted,
 		})
 	}

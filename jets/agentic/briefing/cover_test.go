@@ -161,7 +161,7 @@ func TestSelectorCanonicalIsWhatCoverCompares(t *testing.T) {
 }
 
 // KindDerived cannot express a per-element correspondence, and this measures it
-// rather than asserting it (agentic_ai AK.2, I-436).
+// rather than asserting it.
 //
 // A derived rule resolves its single source against the whole entity and
 // requires exactly one value, so `medications[].adherence_flag` derived from

@@ -1,5 +1,5 @@
 /**
- * The flow engine. Task S.5.
+ * The flow engine.
  *
  * A port of `modules/actions/user_flow_actions.dart` — 187 lines of Dart, and
  * the smallest piece of this whole phase. It is a switch over six action keys
@@ -235,7 +235,7 @@ export interface StepResult {
  * to be the Flutter app** and changing when a flow advances is a behaviour change
  * rather than a translation.
  *
- * **That reasoning expired when the Flutter app did** (track X, 2026-08-26).
+ * **That reasoning expired when the Flutter app did** (2026-08-26).
  * There is nothing left to be faithful to, and what remained was an application
  * that tells a user their work is saved when it is not — now in front of real
  * users, which it was not when the entry was written.

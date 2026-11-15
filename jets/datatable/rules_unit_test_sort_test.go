@@ -1,7 +1,7 @@
 package datatable
 
 // The rules unit test tables sort their integer key as an integer. Project
-// rules_unit_test_harness, Phase 1, found by the browser pass (AG.1).
+// rules_unit_test_harness, Phase 1, found by the browser pass.
 //
 // buildQuery selects every column cast to text ("key"::text, makeSelectColumns)
 // and orders by the bare sort column when no table is named, which PostgreSQL
@@ -67,8 +67,8 @@ func TestRulesUnitTestCheckTableSortsItsKeyAsAnInteger(t *testing.T) {
 	}
 
 	// The same request with the sort column unqualified sorted the text output
-	// column until buildQuery qualified it with the only FROM entry
-	// (jetstore_maintenance_02 AJ.3, I-49). The mechanism itself is asserted in
+	// column until buildQuery qualified it with the only FROM entry.
+	// The mechanism itself is asserted in
 	// numeric_sort_test.go.
 	action, _ = readRequestFor(t, "rutCheckTable", formState)
 	action.SortColumnTable = ""

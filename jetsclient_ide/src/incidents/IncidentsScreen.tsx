@@ -9,7 +9,7 @@
  *
  * Plan §9.5's finding is that the execution record supports a taxonomy of
  * **locus** and not of **cause**. `AB.1` therefore carries both on the row with
- * the cause optional (I-289), and **R-27** — that a locus will be read as a
+ * the cause optional, and **R-27** — that a locus will be read as a
  * cause — names this screen as the place the two are seen together for the first
  * time. So the headings say which is which, and an incident with no cause claimed
  * renders the words *not claimed* rather than an empty cell. **A blank cell reads
@@ -31,7 +31,7 @@
  *
  * Until 2026-11-10 this paragraph said nothing writes `jetsapi.incident` and the
  * list is empty in every deployment. That was true when it was written and stopped
- * being true when the shadow-mode wiring (`AC.3`) landed; the on-screen text had
+ * being true when the shadow-mode wiring landed; the on-screen text had
  * already been corrected.
  *
  * ## The adjudicated view, and why it is not a filter for tidiness
@@ -39,7 +39,7 @@
  * Three of `IncidentStatus`'s eleven values are adjudications rather than
  * progress — `verified`, `reclassified` and `suppressed_as_benign` — and plan
  * §10.7 argues that such a transition **is** a corrected label, the only
- * labelling instrument this programme can build (**I-276**). `AA.2` counted the
+ * labelling instrument this programme can build. `AA.2` counted the
  * labelled population at zero. This view is the read side of that instrument, and
  * what it shows today is that count.
  */
@@ -214,7 +214,7 @@ export function IncidentsScreen({ api }: { api: ApiClient }) {
                     <td>
                       {r.classification === "" ? (
                         // Words rather than a blank. An unclaimed cause is a
-                        // state the schema admits on purpose (I-289), and an
+                        // state the schema admits on purpose, and an
                         // empty cell would read as data that failed to load.
                         <em className="unclaimed">not claimed</em>
                       ) : (

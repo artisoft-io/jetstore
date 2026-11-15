@@ -201,7 +201,7 @@ class BetaRelation {
    *
    * Called at every visit of the relation before it is activated, and only the first
    * call reserves. A later one can come while the first visit is still running: a
-   * filter there re-enters the session (I-90), its insert reaches an activated
+   * filter there re-enters the session, its insert reaches an activated
    * ancestor, and that ancestor's visit walks its whole subtree, this relation and the
    * rows it already holds included. At the first call the set is empty and unscanned
    * (a relation receives rows only from its first visit or once activated); a reserve

@@ -26,7 +26,7 @@ package prose_test
 //
 // Until the Go engine's retirement this file ran on its rdf session, through a ~90-line
 // bridge to `compute_pipes.JetRdfSession` written here because the Go adaptor's
-// session could not be constructed outside its package (I-561). The C++ session is
+// session could not be constructed outside its package. The C++ session is
 // the shipped one and is built through its factory, so the bridge is gone and what the
 // tests assert is unchanged.
 //
@@ -323,7 +323,7 @@ func TestPipelineEntityShape(t *testing.T) {
 // machine, not a guarantee of the engine, so the renderer still inherits the order
 // rather than sorting, and the fix, if one is wanted, still belongs in
 // `extractAsEntity`, where it reaches the toon column the model arm reads as well
-// as this one (I-562). The Go measurement is why `AU.1` and `AV.2` were told not to
+// as this one. The Go measurement is why `AU.1` and `AV.2` were told not to
 // read a difference between two runs as an effect of what they changed.
 //
 // It is a **report** rather than a pass/fail: asserting in-process stability

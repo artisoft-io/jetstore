@@ -669,7 +669,7 @@ def test_records_emitted_from_done_reach_the_next_pipe(tmp_path: Path):
     assert result.pipe_rows == {0: 10, 1: 1}
 
 
-# --- conditional_config (D-219) ---------------------------------------------
+# --- conditional_config ---------------------------------------------
 
 
 def _authored(step: dict) -> dict:
@@ -866,7 +866,7 @@ def test_the_site_config_field_name_is_the_one_the_contract_declares():
 
 
 def test_a_builtin_transformation_wins_over_a_registration(monkeypatch, tmp_path: Path):
-    """Go's order: the built-in cases first, the registry in `default:` (Q-140).
+    """Go's order: the built-in cases first, the registry in `default:`.
 
     A site token cannot shadow a built-in, so a deployment registering
     `map_record` never has its factory called. Asserted by implementing the

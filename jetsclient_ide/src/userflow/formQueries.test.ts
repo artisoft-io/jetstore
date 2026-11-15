@@ -1,5 +1,5 @@
 /**
- * The form-query rules. Task I.2b.
+ * The form-query rules.
  *
  * Every case here is a claim about `jetsclient`'s behaviour, so each names the
  * Dart function it is a port of. The three that are *not* ports — the quoting,
@@ -55,7 +55,7 @@ describe("quoteLiteral", () => {
     // `queryDropdownItems` both do `replaceAll(RegExp('{$key}'), value)`, so a
     // quote in a form-state value ends the literal and the rest is SQL. All four
     // substitution sites in the corpus land inside a single-quoted literal, which
-    // is what makes doubling both correct and sufficient (I-72).
+    // is what makes doubling both correct and sufficient.
     const query = { sql: "SELECT org FROM r WHERE client = '{client}'", params: ["client"] };
     const formState = new FormState();
     formState.setValue(0, "client", "x' OR '1'='1");

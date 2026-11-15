@@ -17,7 +17,7 @@ sync the workspace            not this node's: the workspace files it
 default the partition label   `NodeArgs.jets_partition_label_or_default`
 SELECT the config             `ConfigSource.config_json`
 unmarshal                     `config.parse_config`
-— (the dispatch, much later)  **the scope gate, here (X6)**
+— (the dispatch, much later)  **the scope gate, here**
 find the main_input provider  `_main_input_provider`
 env, $SHARD_ID, $JETS_...     `environment`
 switch on cpipes_mode         `_file_keys`
@@ -175,7 +175,7 @@ def _file_keys(
     alone**. The argument for refusing the rest is unchanged: no document this
     node accepts can reach them, and writing a path no document can take is the
     class this repository has recorded thirty-seven times — a component whose own
-    tests pass and which reaches no working path (P4-I43).
+    tests pass and which reaches no working path.
 
     Where each Go arm goes:
 
@@ -346,7 +346,7 @@ def _refuse_a_partition_this_node_cannot_be_reading(
     `actions_start_reducing_cp.go:190-197` lists the previous step's stage prefix,
     counts the `jets_partition=` labels under it, and returns *last step of type
     'merge_files' requires a single partition, currently has N partitons*. This
-    node is not a starter and **nothing in either repository is** (P9-I136), so
+    node is not a starter and **nothing in either repository is**, so
     a refusal that lives only in a starter is a refusal this node's deployments
     do not have. A build-time refusal is not available either: a partition
     writer cannot know how many partitions the step after it will see, and by
@@ -367,7 +367,7 @@ def _refuse_a_partition_this_node_cannot_be_reading(
     driver rather than a JetStore starter. The outcome without a refusal is an
     **empty merged object**, which is the one result a reader cannot tell from a
     partition that legitimately wrote nothing; that is `_stage_file_keys`' own
-    reason for refusing an unset stage prefix (P9-I66), one condition over.
+    reason for refusing an unset stage prefix, one condition over.
 
     **Nothing is refused when no partition exists at all.** A step whose
     partition wrote nothing writes no directory, so the set is empty, and
@@ -466,7 +466,7 @@ def _writer_results(result: Any) -> tuple[Any, ...]:
     reports on every path.
 
     **Until 2026-09-29 a graph run reported no edge at all**, which this
-    docstring called a hole with an owner (P9-I67) - the writer had not been
+    docstring called a hole with an owner - the writer had not been
     built. The writer was built and the hole stayed: the first completed deployed
     run (2423) wrote four `pipeline_execution_details` rows with
     `output_records_count` 0, so the execution stats screen showed the corpus
@@ -520,7 +520,7 @@ def coordinate(
     """Run one compute pipes node, and record what it did.
 
     Raises before doing any work when the document names an operator outside
-    the declared scope (X6), and again — distinguishably — when it names one
+    the declared scope, and again — distinguishably — when it names one
     this node declares and has not built.
 
     **The side-effect rows bracket the run and the order is Go's.**

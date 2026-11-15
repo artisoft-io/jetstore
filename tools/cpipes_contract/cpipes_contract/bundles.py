@@ -1,6 +1,6 @@
 """The bundle layer: abstract types between a root union and its concrete leaves.
 
-**Why the layer exists — corrected 2026-08-20 (Q-15).** As built, the argument
+**Why the layer exists — corrected 2026-08-20.** As built, the argument
 was fit: a schema addressed at `#/$defs/TransformationSpec` is 41,040 tokens
 against an infer-server context of 32,768. That premise was measured against the
 wrong quantity. The JSON Schema goes to Ollama as `format`, which becomes a

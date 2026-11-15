@@ -1,8 +1,8 @@
 /**
- * The statements a `query` step may run. Task F.6.
+ * The statements a `query` step may run.
  *
  * **One entry, and the corpus has exactly one site.** S.2a's sizing reported the
- * `query` primitive at zero sites and was wrong (I-23): `pcAddPipelineConfigUF`
+ * `query` primitive at zero sites and was wrong: `pcAddPipelineConfigUF`
  * reaches it through `getProcessInputRdfTypes`
  * (`modules/actions/utils/get_process_info.dart`, `getProcessInputRdfTypes`), a
  * directory the grep did not cover. `pipelineConfigUF` is therefore the first and

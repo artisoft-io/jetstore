@@ -22,7 +22,7 @@ What a result means — and does not mean — at config-validation level:
   a requirement enforced by an operator builder at DAG-build time, a prohibition
   (`applicable=no` — the decoder ignores unknown-to-context fields), a
   discriminator/membership key whose removal *re-types* the node instead of
-  invalidating it, or a runtime-injected shape (I-14) that embeds only through
+  invalidating it, or a runtime-injected shape that embeds only through
   applicable=no fields and so can never appear in an authored document.
 - `fail` is reserved for a claim the validator contradicts: `evidence=validator`
   and the removal was accepted. A builder- or comment-evidenced removal that is

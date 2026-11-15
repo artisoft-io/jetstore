@@ -32,14 +32,14 @@
 // **It refuses to run against a database that has not been migrated**, naming
 // the command. jetsapi.incident, hypothesis, incident_event and remediation all
 // arrive on `update_db -migrateDb`, and no production environment measured on
-// 2026-08-25 had them (I-132, I-169). Untreated, the first symptom would be an
+// 2026-08-25 had them. Untreated, the first symptom would be an
 // insert failing on a missing relation, which reads as a defect in the
 // classifier.
 //
 // **It does not reclassify.** A second run over a session it has already raised
 // incidents for adds the loci that are newly present and touches nothing else: a
 // verdict is a dated claim about what the record supported when it was read, and
-// a later read that can see less is not evidence against it (Q-34). What corrects
+// a later read that can see less is not evidence against it. What corrects
 // an incident is a person, through the supervision screen's `reclassified`
 // transition.
 //

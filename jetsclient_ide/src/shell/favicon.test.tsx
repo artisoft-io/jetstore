@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * Tests for the per-route favicon (task D.9, from **I-267**).
+ * Tests for the per-route favicon.
  *
  * **The one worth reading is the last: the static document names the JetStore
  * icon.** Everything else here tests the swap, and the swap is the half that

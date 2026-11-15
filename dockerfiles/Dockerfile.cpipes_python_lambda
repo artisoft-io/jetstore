@@ -23,8 +23,7 @@
 # the container is not a convenience taken to leave headroom, it is the only
 # packaging in which the node fits. Against the container limit the image was 5.7%
 # of 10 GB. The number that decides whether the lambda arm is *usable* is not
-# this one but the per-invocation reference load, which is P9-T16's to measure
-# (P9-I03, P9-R04).
+# this one but the per-invocation reference load, which is P9-T16's to measure.
 #
 # **Re-measured 2026-09-19 at P9-T07: 735.0 MB, and the whole of the 163.0 MB
 # rise is pyarrow.** The install layer goes 46.2 MB -> 208 MB and no other layer
@@ -36,8 +35,8 @@
 # runtime check below was re-run on that image and is unchanged: INIT success, the
 # event accepted, and the first thing missing still the AWS account.
 #
-# **A second measurement the same day, and it is a finding rather than a figure**
-# (P9-I61): this file copies `tools/cpipes_node` **whole**, and the root
+# **A second measurement the same day, and it is a finding rather than a figure**:
+# this file copies `tools/cpipes_node` **whole**, and the root
 # `.dockerignore` did not exclude a virtual environment. On a checkout where
 # anybody had run `uv run`, that COPY layer was **183 MB** of the developer's own
 # wheels -- platform-native extension modules included -- and the image built to
@@ -95,7 +94,7 @@
 # same image. The mitigation here is disclosure rather than a pin: `pip freeze`
 # is written into /VERSION.txt, so a deployed image can be asked what it
 # contains. A constraints file is the repair and it belongs with the packaging
-# rather than with the image (P9-I53).
+# rather than with the image.
 
 FROM public.ecr.aws/lambda/python:3.12
 

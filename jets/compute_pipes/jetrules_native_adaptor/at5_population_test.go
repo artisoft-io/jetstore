@@ -1,7 +1,7 @@
 package jetrules_native_adaptor
 
 // The 22-member evaluation population, driven into a rule session the way the
-// loader would (agentic_ai Phase 7 `AT.5`, issue I-549).
+// loader would.
 //
 // # What this file is
 //
@@ -19,8 +19,8 @@ package jetrules_native_adaptor
 // is what turns one into the other, and **it does more than rename**: it renames,
 // it drops, and on two columns it cleanses. Guessing it produces a load that is
 // wrong in a way nothing downstream reports - the rules run, a briefing is built,
-// and it is missing most of its conditions. That happened on 2026-09-09
-// (agentic_ai F789): asserting `M54.50` verbatim gave an 89% diagnosis-lookup
+// and it is missing most of its conditions. That happened on 2026-09-09:
+// asserting `M54.50` verbatim gave an 89% diagnosis-lookup
 // miss rate and a briefing with almost no conditions in it, which reads as a
 // finding about the pipeline and is a defect in the harness.
 //
@@ -52,7 +52,7 @@ package jetrules_native_adaptor
 // `Patient_Pay_Amount` and `Total_Paid_Amount` in both, plus `Drug_Name`,
 // `Drug_Strength` and `Drug_Type_Code` in the pharmacy one - where the first
 // occurrence is populated and the second is blank throughout. A name-keyed reader
-// cannot address them and silently takes one of the two (agentic_ai I-567). So
+// cannot address them and silently takes one of the two. So
 // the header is read once, the **first** occurrence of each mapped name fixes its
 // position, and every row is read by position after that.
 //
@@ -218,8 +218,8 @@ type at5Population struct {
 //
 // **The first occurrence of a duplicated name wins**, which is not a tie-break
 // but the mapping's own semantics: the loader resolves an input column to a
-// position and the second `Claim_Type` is blank in every row of both files
-// (I-567). A reader taking the last occurrence would map every one of the six to
+// position and the second `Claim_Type` is blank in every row of both files.
+// A reader taking the last occurrence would map every one of the six to
 // an empty string and lose `Drug_Name` and `Days_Supply` silently.
 func at5ReadFile(t *testing.T, path string, cols []at5Column) ([]at5Row, error) {
 	t.Helper()

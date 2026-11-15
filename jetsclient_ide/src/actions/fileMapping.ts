@@ -1,16 +1,16 @@
 /**
  * The `file_mapping/` directory's escapes — two of `mapFileUF`'s and two of
- * `fileMappingUF`'s. Tasks F.1 and F.8.
+ * `fileMappingUF`'s.
  *
  * **The header said "`mapFileUF`'s two escapes" for seven tasks, and the module
- * is named for the *directory*.** `file_mapping/` defines two flows (I-61), and
+ * is named for the *directory*.** `file_mapping/` defines two flows, and
  * both put a body here: F.1's pair are the worksheet's, F.8's pair belong to the
  * flow above it. They share a directory, a table and nothing else — which is
  * exactly the split I-61 was written about, arriving in this file.
  *
  * The file mapping worksheet is the corpus's hardest form and the one Phase 2
  * deliberately kept out of the proof flows: one state, zero declared fields, a
- * row builder, two exotic field types and a 222-line validator (I-61). What is
+ * row builder, two exotic field types and a 222-line validator. What is
  * here is the part of it that does not become data — and the measurement of what
  * that turned out to be is the point of this comment.
  *
@@ -219,7 +219,7 @@ export const mappingFormValidator: ValidatorEscape = (context, key, value) => {
       // whether the argument is required is column 1 of the row naming it.
       const row = (formState.queryRows(MAPPING_FUNCTIONS) ?? []).find((r) => r[0] === functionName);
       // Absent rather than asserting: the Dart asserts, and Dart strips asserts
-      // in release (I-47), so its production behaviour on a missing cache is to
+      // in release, so its production behaviour on a missing cache is to
       // throw inside `firstWhere`. Treating it as "not required" keeps the form
       // usable while the query is in flight.
       if (row === undefined) return null;
@@ -273,14 +273,14 @@ const MAPPING_COLUMNS = [
  * commas between (`downloadMapping`). It does **not** escape an embedded quote,
  * and neither does this: a mapping value containing `"` produces the same
  * malformed row in both apps, which is a divergence not worth introducing — see
- * I-123.
+ *
  */
 function csvRow(cells: readonly (string | null)[]): string {
   return cells.map((cell) => (cell === null ? "" : `"${cell}"`)).join(",");
 }
 
 /**
- * `downloadMapping` — the flow's table button. Task F.8.
+ * `downloadMapping` — the flow's table button.
  *
  * **The one escape of the corpus that is an escape for the reason the mechanism
  * was designed for.** It issues a `read` whose shape no `post` step can express —
@@ -341,7 +341,7 @@ export const downloadMapping: ActionEscape = async (context, host) => {
 };
 
 /**
- * `loadRawRows` — the Save button of `loadRawRowsDialog`. Task F.8.
+ * `loadRawRows` — the Save button of `loadRawRowsDialog`.
  *
  * **This one is an escape on a security ground rather than an expressive one,
  * and the distinction is the whole of I-121.** The arm is four lines: write

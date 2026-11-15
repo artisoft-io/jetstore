@@ -33,7 +33,7 @@ package jetrules_native_adaptor
 // subject, that test fails and criterion 76 stops being satisfiable by
 // inspection. `extractAsEntity` passes `excludeProp` down its own recursion
 // (`extractAsEntity`, `jets/compute_pipes/jetrules_extract_entity.go:82`), which
-// is what makes the two maps comparable at all (agentic_ai F757).
+// is what makes the two maps comparable at all.
 //
 // **The comparison is order-insensitive and that is deliberate.** A multi-valued
 // property becomes a `[]any` in the order the graph container yields it, and two
@@ -98,8 +98,8 @@ const at5BriefingColumn = "cintel:Briefing_Input"
 // `pipes_config/patient_profile.pc.json`. The last four are `AT.1`(ii)'s
 // medication components: the prompt carries one joined `cintel:Medication` value
 // per drug so that a consumer which flattens cannot mispair a drug with another
-// drug's indicator (agentic_ai F735), and the components are on the node beside
-// it because the **template** needs them as four things (F757). Excluding them
+// drug's indicator, and the components are on the node beside
+// it because the **template** needs them as four things. Excluding them
 // from the prompt is what stops the same facts appearing twice in the claim
 // summary.
 var at5PromptExclusions = map[string]bool{
@@ -288,8 +288,8 @@ func TestTheTwoArmsDifferOnlyInTheirExclusionList(t *testing.T) {
 // --- the model arm --------------------------------------------------------
 
 // at5SystemPrompt is the prose system prompt, which is what the pipeline's
-// `patient_briefing` template becomes once the structured response retires
-// (agentic_ai F736). Held here as a literal rather than read out of the
+// `patient_briefing` template becomes once the structured response retires.
+// Held here as a literal rather than read out of the
 // workspace, because the workspace copy is being changed by another task in the
 // same track and a harness that read it would measure whichever version happened
 // to be on disk.
@@ -322,7 +322,7 @@ type at5ChatMessage struct {
 // # The options are read from the config rather than restated here
 //
 // `patient_profile.pc.json` gained `temperature: 0` and `seed: 42` on
-// 2026-09-10 (agentic_ai `I-575`), and this harness sent neither for the first
+// 2026-09-10, and this harness sent neither for the first
 // two runs after that - so it stopped reproducing the operator on the same day
 // the operator changed, silently, in the direction that makes a measurement
 // look noisier than the pipeline is. Two runs over identical data differed in
@@ -431,7 +431,7 @@ type at5ModelArm struct {
 	http  *http.Client
 	// options is what patient_profile.pc.json's infer step sets, read at
 	// construction so that the request this harness sends is the request the
-	// operator sends (agentic_ai I-575).
+	// operator sends.
 	options map[string]any
 }
 

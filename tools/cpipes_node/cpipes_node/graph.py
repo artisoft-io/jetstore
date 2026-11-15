@@ -48,10 +48,10 @@ one this phase is measured on:
 
 What it costs is throughput, which is not what a node of forty is for, and the
 loss of any test of *concurrent* close semantics — stated here rather than
-discovered, because a conformance instrument comparing the two engines (P9-T22)
+discovered, because a conformance instrument comparing the two engines
 will see identical bytes and a different interleaving in the logs.
 
-# `conditional_config` and the two documents (D-219)
+# `conditional_config` and the two documents
 
 `ApplyAllConditionalTransformationSpec` runs in the **starters**, never in the Go
 node: `actions_start_sharding_cp.go` and `actions_start_reducing_cp.go` each call
@@ -451,8 +451,8 @@ def generator_row_count(channel_config: Any, env: dict[str, Any]) -> int:
     Substitution then parse, with **no arithmetic** — which is the measurement
     D-217 rests on: every node of a generator step is told the same row count,
     because no expression a document can carry divides one number by another.
-    The per-node mapping and the drop of the overflow are the site operator's
-    (P9-T05); pushing the rows is this function's caller's.
+    The per-node mapping and the drop of the overflow are the site operator's;
+    pushing the rows is this function's caller's.
 
     A missing or non-positive count is refused rather than run as an empty
     partition: a node that generated nothing would write twelve empty files and
@@ -479,7 +479,7 @@ def generator_node_count(channel_config: Any, env: dict[str, Any]) -> int:
 
     `StartReducingComputePipes` reads it to make one `%04dP` partition per node;
     `CoordinateComputePipes` never looks at it. It is exposed here because the
-    Python node's local driver (P9-T19) has no Go starter in front of it and has
+    Python node's local driver has no Go starter in front of it and has
     to expand the partitions itself, and because a caller that read it as *this
     node's* row count would be reading the wrong field. The default is the
     starter's: `${NBR_PARTITIONS}` when the document names none.
@@ -611,8 +611,8 @@ def build_pipe_transformation_evaluator(
         "shard_id": ctx.args.node_id,
         "step_id": _step_id(ctx.config),
     }
-    # **A built-in is handed the builder context and a site factory is not**
-    # (D-226, P9-I55). The call shape stays one and the receiver differs, which
+    # **A built-in is handed the builder context and a site factory is not**.
+    # The call shape stays one and the receiver differs, which
     # is Go's own asymmetry: a built-in is a `*BuilderContext` method where a
     # site factory takes `(OperatorEnv, OperatorArgs)`.
     env: GraphOperatorEnv = (
@@ -640,12 +640,12 @@ def _transformation_factory(ctx: NodeContext, token: str) -> tuple[Any, bool]:
 
     `BuildPipeTransformationEvaluator` tries its eighteen cases and reaches
     `buildSiteOperator` only in the `default:` branch, which is what makes a site
-    token unable to shadow a built-in (Q-140). Here the declaration registry is
+    token unable to shadow a built-in. Here the declaration registry is
     asked first for the same reason, and `scope.classify` already asks in that
     order at startup, so the gate and the dispatch agree by construction.
 
     **Returns the factory and whether it is a built-in**, because that is what
-    decides which env it is handed (D-226). The call shape is one —
+    decides which env it is handed. The call shape is one —
     `factory(env, args)` for both — and the *receiver* differs: a built-in gets
     `BuilderEnv`, which carries the node context, the channel registry and the
     authored spec, and a site factory gets `GraphOperatorEnv`, which carries
@@ -700,7 +700,7 @@ def _site_operator_args(
     operator one channel at two indices with nothing to tell them apart. Both
     messages are the Go function's.
 
-    **A built-in's own `*_config` block is filled here too** (P9-I55). This
+    **A built-in's own `*_config` block is filled here too**. This
     function used to return before setting anything for a spec carrying no
     `site_config`, so every built-in reached its factory with `args.config`
     `None` whatever its step authored — a `filter` with `max_output_records: 4`
@@ -810,7 +810,7 @@ def _resolve_lookups(ctx: NodeContext, site: Any, token: str) -> tuple[Lookup, .
     """`resolveSiteLookups`' shape, over a loader this node does not have.
 
     P9-T02 built `OperatorArgs.Lookups` **for the contract rather than for this
-    corpus** (D-202): the corpus operator keeps its own reference-table package.
+    corpus**: the corpus operator keeps its own reference-table package.
     So a document declaring `site_config.lookups` is refused by name here rather
     than handed empty tables — the field resolving to nothing is the silent
     failure the whole extension exists to avoid, and the loader is nobody's task
@@ -914,7 +914,7 @@ def _handler(kind: TokenKind, token: str, env: dict[str, Any], spec: Any) -> Any
     `if spec.type == "fan_out"` anywhere in this module: `Operator.build` is what
     makes a token implemented (`scope.Operator.implemented` derives that from the
     method existing), so a channel type or pipe kind this node grows is reached
-    by its class being written and by nothing being remembered here (P3-I20).
+    by its class being written and by nothing being remembered here.
 
     Every refusal below is unreachable through `coordinate`, because
     `config.check_scope` has already judged every token the document names. They
@@ -1020,7 +1020,7 @@ def drives_channel_graph(spec: Any) -> bool:
     are `LoadFiles` and `StartMergeFiles`, chosen in
     `ProcessFilesAndReportStatus` before `StartComputePipes` is entered, and the
     branch below is that choice made from the declaration rather than from an
-    `if` (D-224, P3-I20).
+    `if`.
     """
     declaration = scope.declaration(TokenKind.PIPE, getattr(spec, "type", "") or "")
     if declaration is None:

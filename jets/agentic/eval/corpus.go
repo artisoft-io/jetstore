@@ -279,7 +279,7 @@ type Case struct {
 	// only to whoever still holds the Instance that made the case, which is an
 	// accident of iteration order rather than a property of the case. Four
 	// functions could cut a hole and none could fill one, for as long as
-	// nothing called them (F32).
+	// nothing called them.
 	Hole Instance
 }
 

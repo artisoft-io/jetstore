@@ -4,7 +4,7 @@
 // tested any other way: on a database where a table has never existed, CreateTable
 // ran and UpdateTable did not, and only CreateTable failed to test the flag. Every
 // deployment that has been migrated twice is past it for ever, so a fixture that
-// reuses a database cannot see it -- which is how it survived (I-305).
+// reuses a database cannot see it -- which is how it survived.
 //
 // Needs JETS_TEST_DSN (any throwaway database; the tests create and drop their own
 // jetsapi schema); skipped otherwise. Locally:

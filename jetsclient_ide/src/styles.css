@@ -288,7 +288,7 @@ body {
    is dark and white text still reads. D.11, from the report on the *Start
    Pipeline* button. */
 .btn-primary:hover:not(:disabled) { background: var(--accent); filter: brightness(1.08); }
-/* A table's *+ Add* (jetstore_maintenance_02, D06, 2026-10-01): light green so the
+/* A table's *+ Add* (2026-10-01): light green so the
    one way to create a row stands out at the start of the bar. Hover restates the
    background for the reason given above. */
 .btn-add { background: var(--good-bg); color: var(--good); border-color: var(--good); font-weight: 600; }
@@ -417,7 +417,7 @@ body {
 .tree-caret.is-open { transform: rotate(90deg); }
 
 /* A section heading is two controls: the caret expands its sources, the label
-   opens the compiled view of what those sources became (C.3). They look like one
+   opens the compiled view of what those sources became. They look like one
    row because they are one heading. */
 .tree-dir { padding: 0; }
 .tree-caret-btn,
@@ -433,7 +433,7 @@ body {
 .tree-dir .tree-label { text-align: left; padding-right: 8px; }
 .tree-view-label { text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }
 
-/* ---------- compiled view (C.3) ---------- */
+/* ---------- compiled view ---------- */
 .compiled-view { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
 .compiled-view > [role="tabpanel"] { min-height: 0; overflow: auto; }
 
@@ -495,7 +495,7 @@ body {
 }
 .statusbar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* ---------- build information (D05, jetstore_maintenance_02 AC.3) ----------
+/* ---------- build information ----------
    The shell's footer: the last item of `.app`'s column, pushed to the bottom by
    `margin-top: auto` on screens shorter than the window, text at the left. The
    Workspace IDE draws the same text in its status bar instead, and that bar now
@@ -576,7 +576,7 @@ body {
   * { transition: none !important; animation: none !important; }
 }
 
-/* ---------- form fields (A.3) ---------- */
+/* ---------- form fields ---------- */
 .field { display: flex; flex-direction: column; gap: 3px; margin: 6px 0; }
 .field label { font-size: 12px; color: var(--ink-2); }
 .field input, .field select, .field textarea {
@@ -593,7 +593,7 @@ body {
 .field [aria-invalid="true"] { border-color: var(--danger); }
 .field-error { margin: 0; font-size: 12px; color: var(--danger); }
 
-/* ---------- typeahead (I.2b) ---------- */
+/* ---------- typeahead ---------- */
 /*
   The listbox floats over what follows it, so a suggestion list in a repeating
   form does not push the next row down as the user types. `position: relative` on
@@ -622,7 +622,7 @@ body {
 .typeahead__item { padding: 4px 8px; font-size: 13px; cursor: pointer; }
 .typeahead__item.is-active, .typeahead__item:hover { background: var(--rule); }
 
-/* ---------- the flow runner (F.0a) ---------- */
+/* ---------- the flow runner ---------- */
 /*
   A screen rather than a chrome: the shell owns the top bar, the banners and the
   session, and this owns the space under `<Outlet/>`. `.screen` is new and
@@ -653,18 +653,18 @@ body {
 .uf-form__label { margin: 6px 0 2px; font-size: 13px; color: var(--ink-2); }
 .uf-form__spacer { height: 10px; flex-basis: 100%; }
 /* A table takes the row to itself *unless the field names a `flex`* — which
-   `viewReteTriplesDialogV2` does for all three of its tables (C.9). This comment
+   `viewReteTriplesDialogV2` does for all three of its tables. This comment
    read "it is never a field beside another field" until then, which was true of
    the eleven flows and of the four screens ported before that one. */
 .uf-form__table { flex-basis: 100%; min-width: 0; }
 .uf-form__actions { display: flex; gap: 8px; margin-top: 14px; }
 
-/* ---------- dialogs (jetstore_maintenance_02 AB.1, D08) ---------- */
+/* ---------- dialogs ---------- */
 /*
   **Every dialog in the app, and before 2026-10-01 nothing sized one.** A modal
   `<dialog>` with no rule is as wide as its content, and a text box with no width
   is the browser's twenty columns — so the failure viewer, one twenty-line text
-  box, measured 225 px wide and 453 px tall in Chromium (D08). Every dialog is a
+  box, measured 225 px wide and 453 px tall in Chromium. Every dialog is a
   `.uf-dialog` because every dialog is mounted by `ModalDialog` in
   `userflow/FormDialog.tsx`; that is the one place to keep it true.
 
@@ -709,7 +709,7 @@ body {
 /* The app's own `confirm` and `prompt` (`shell/prompts.tsx`, jetstore_maintenance_02
    `I-39`). `pre-wrap` because a native prompt keeps the message's line breaks. */
 .prompt-dialog__message { margin: 0; white-space: pre-wrap; }
-/* The Session Registry filters (JM-185, 2026-11-12): the process list on the
+/* The Session Registry filters (2026-11-12): the process list on the
    left, beside the three rows of text fields, which the form's rows cannot say
    (a row is horizontal and nothing stacks fields beside a table). Keyed on the
    dialog's title, its aria-label, because a form document has no class of its
@@ -747,7 +747,7 @@ body {
   }
 }
 
-/* ---------- ordinary screens (track C) ---------- */
+/* ---------- ordinary screens ---------- */
 /*
   Three classes the flow runner did not need, shared by the screens that are not
   flows. `.screen` above is still the only thing they have in common structurally;
@@ -762,7 +762,7 @@ body {
    been on the Query Tool's stack since I.1 and had no rule, so the query box
    inherited the 560px measure meant for labelled inputs — a paste target for
    generated SQL, in a third of the window. The measure is right for a form and
-   wrong for a code box; this says which one this is. D.11. */
+   wrong for a code box; this says which one this is. */
 .qt-input { max-width: none; }
 .screen-actions { display: flex; gap: 8px; margin-top: 14px; }
 

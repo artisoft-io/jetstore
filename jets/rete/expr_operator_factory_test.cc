@@ -25,7 +25,7 @@
 // directions. That is the check on the names now. This file held the earlier, narrower
 // one, CorpusOperatorNames, which read the corpus's operator names from a manifest
 // (test_data/corpus_operators.txt) written by a Go test deleted with the Go engine; the
-// frozen manifest and that test were removed in rules_benchmark Phase 7 (I-163), and
+// frozen manifest and that test were removed in rules_benchmark Phase 7, and
 // both are at the tag go-engine-final. What stays is the control: the factory raises on
 // a name it does not register.
 namespace jets::rete {

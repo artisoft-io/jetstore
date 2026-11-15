@@ -1,5 +1,5 @@
 /**
- * The escape registry this build actually ships. Tasks F.0a and I.3b.
+ * The escape registry this build actually ships.
  *
  * `escapes.ts` designed the mechanism and shipped exactly one **value** —
  * `emptyRegistry` — so until now every escape name in every authored document
@@ -154,7 +154,7 @@ export const fileKeyLabel = (value: string | null): string | null => {
 };
 
 /**
- * Strips the prefix a recovered load error carries. Task C.6.
+ * Strips the prefix a recovered load error carries.
  *
  * `text?.replaceFirst('File contains 0 bad rows,recovered error: ', '')`
  * (`jetsclient/lib/modules/data_table_config_impl.dart`, the `error_message`
@@ -178,7 +178,7 @@ export const errorMessageLabel = (value: string | null): string | null =>
  * Whether the data-registry filters are set.
  *
  * `JetsRouterDelegate().dataRegistryFilters != null && …isNotEmpty`, the gate on
- * the three `clearFilters` buttons (I-54). ~~**In this app the answer is always
+ * the three `clearFilters` buttons. ~~**In this app the answer is always
  * false, and the honest thing is to say so here rather than to leave the name
  * unregistered.**~~
  *
@@ -226,7 +226,7 @@ export const hasDataRegistryFilters = (_formState: FormState, _group: number): b
  */
 let activeWorkspace: { name: string; branch: string; uri: string } = { name: "", branch: "", uri: "" };
 
-/** Records the deployment's workspace. Task C.2b. */
+/** Records the deployment's workspace. */
 export function setActiveWorkspace(next: { name: string; branch: string; uri: string }): void {
   activeWorkspace = next;
 }
@@ -280,7 +280,7 @@ const scalar = (value: unknown): string | null => {
  * **Every namespace has an entry as of F.5**, and the last two to fill were the
  * two `escapes.ts` was designed around: `actions`, which stayed empty through four
  * migrated flows because the grammar kept swallowing what the coverage pass had
- * transcribed as escapes (I-74), and `initializers`, which has exactly one member
+ * transcribed as escapes, and `initializers`, which has exactly one member
  * in the whole corpus.
  *
  * **`actions` filling is not evidence the grammar fell short.** F.1's finding was
@@ -294,7 +294,7 @@ const scalar = (value: unknown): string | null => {
  * two-table joined read whose thousand rows become a file the browser saves.
  * `loadRawRows` is an escape although the grammar *can* express it — a `set` and
  * a `post` — because S.7's allowlist refuses the target: `insert_raw_rows`
- * deletes before it authorises (I-121). **So the escape count is an upper bound
+ * deletes before it authorises. **So the escape count is an upper bound
  * on what the grammar cannot say and not on what stays a body**, which is a
  * narrowing of I-74 rather than an instance of it.
  *
@@ -333,7 +333,7 @@ export const productionRegistry: EscapeRegistry = {
     // `ruleConfig.ts` for why a sixth `ValueSchema` member was the alternative and
     // was declined.
     resolveProcessConfigKey,
-    // **Eleven as of 2026-10-01** (jetstore_maintenance_02, `D04`, task AE.3), and
+    // **Eleven as of 2026-10-01**, and
     // the reason is F.8's first one again: the grammar's `post` keeps a status and
     // drops the body, and this escape's whole point is the body — a file out of the
     // S3 stage, onto the clipboard. *Get Run Manifest* and a deployment's custom
@@ -371,7 +371,7 @@ export const productionRegistry: EscapeRegistry = {
   // `hasCellFilter` to `fileKeyLabel`. Five of the six sites agree and the sixth
   // is `inputLoaderStatusTable`'s `error_message`, which would have rendered a
   // load error as a file-key label. `cellFilterEscapeFor` is keyed by table and
-  // column now (**I-219**).
+  // column now.
   cellFilters: { fileKeyLabel, errorMessageLabel },
   // **Seven as of C.5, and they no longer divide by consumer.** Five arrived with
   // C.2b, two of them read by a *form field* rather than by a table action —

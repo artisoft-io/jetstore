@@ -122,7 +122,7 @@ RUN go build -ldflags="-w -s" -o update_db            ${JETS_SOURCE_DIR}/jets/up
 RUN go build -ldflags="-w -s" -o anomaly_detect       ${JETS_SOURCE_DIR}/jets/cmds/anomaly_detect
 RUN go build -ldflags="-w -s" -o shadow_triage        ${JETS_SOURCE_DIR}/jets/cmds/shadow_triage
 
-# The workspace document validator -- jetstore_maintenance_02 AG.3 (R12).
+# The workspace document validator -- jetstore_maintenance_02 AG.3.
 #
 # `CompileWorkspace` runs `node jets_validate_workspace.mjs <workspace>` over the
 # workspace's user_flows/ and table_configs/ before compiling, and fails when it

@@ -1,5 +1,5 @@
 /**
- * The per-column display filters a table document names, resolved. Task D.10.
+ * The per-column display filters a table document names, resolved.
  *
  * **Extracted at the third copy rather than at the second.** `Home` and
  * `FlowRunner` each carried this loop, which was defensible while it was two

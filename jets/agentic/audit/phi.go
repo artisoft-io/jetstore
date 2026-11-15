@@ -40,7 +40,7 @@ import "fmt"
 //     disclosure a decision somebody took rather than a side effect of holding
 //     a supervision role.
 //
-// **Who holds that capability was decided by the user on 2026-09-04** (**Q-42**):
+// **Who holds that capability was decided by the user on 2026-09-04**:
 // `knowledge_engineer`, and no other role. It is a policy about client data in a
 // healthcare deployment, which I-311 itself says is the user's.
 // ~~`jets_init_db.sql` grants it to no role, so the default is redacted for

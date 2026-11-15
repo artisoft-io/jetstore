@@ -3,7 +3,7 @@
 //
 // **It imports only the standard library, pipesmodel and wsvalidate, and that is
 // a constraint rather than a preference.** The workspace compile records every
-// test definition it finds (rules_unit_test_harness AD.1), so the compile must
+// test definition it finds, so the compile must
 // import this package's validator, and compute_pipes imports jets/workspace
 // (actions_start_common.go, actions_coordinate_cp.go). A validator that imported
 // compute_pipes would close the cycle. The code that runs a test — the engine,
@@ -55,8 +55,8 @@ type TestDefinition struct {
 // and the C++ engine kept one retraction behaviour, the one these switches turned
 // on by setting them false (docs/src/content/docs/developer/engine/rule-engine/). The object is still decoded, so
 // that validation can refuse a switch set true, naming the change; one whose every
-// present switch is false names the behaviour that remains and selects nothing
-// (rules_benchmark Q-102). The names are the project definition's (§8.5.1).
+// present switch is false names the behaviour that remains and selects nothing.
+// The names are the project definition's.
 type LegacyConfig struct {
 	// Defect 1: a consequent that reads the graph was recomputed on retraction.
 	RecomputeOnRetraction *bool `json:"recompute_on_retraction,omitempty"`

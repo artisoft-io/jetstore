@@ -68,10 +68,10 @@ func TestProofFlowActionsValidate(t *testing.T) {
 	// have lost — nothing else runs the Go validator over a generated .ua.json.
 	//
 	// **13 since 2026-10-01**: registerFileKeyUF was retired by
-	// jetstore_maintenance_02 (Q-6, task AD.4), and ten ported flows remain.
+	// jetstore_maintenance_02, and ten ported flows remain.
 	//
 	// **14 since 2026-10-11**: rulesUnitTestUF, written for
-	// rules_unit_test_harness (task AD.4) rather than ported.
+	// rules_unit_test_harness rather than ported.
 	const flowDocuments = 14
 	if len(names) != flowDocuments {
 		t.Fatalf("expected %d flow action documents, found %d: %v", flowDocuments, len(names), names)

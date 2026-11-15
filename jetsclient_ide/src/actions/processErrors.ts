@@ -1,5 +1,5 @@
 /**
- * The two escapes `/processErrors/:session_id` needs. Task C.9.
+ * The two escapes `/processErrors/:session_id` needs.
  *
  * ## One of the Dart's three arms is here and two are not, which is the useful count
  *
@@ -134,7 +134,7 @@ export async function loadReteSession(
 }
 
 /**
- * Seeds one repeated row of the input-records dialog. Task C.9.
+ * Seeds one repeated row of the input-records dialog.
  *
  * `viewInputRecords`'s `inputFieldRowBuilder`
  * (`jetsclient/lib/modules/form_config_impl.dart`, `FormKeys.viewInputRecords`),

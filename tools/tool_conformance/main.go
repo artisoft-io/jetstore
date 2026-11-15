@@ -1,4 +1,4 @@
-// J.2: measure whether the local model can drive the tool catalogue.
+// Measure whether the local model can drive the tool catalogue.
 //
 // **What A§10 asks for is "drivable by both Claude and the local model", and
 // only half of that has ever been true.** Claude drives the catalogue over
@@ -6,9 +6,9 @@
 // population. Nothing in jets/agentic has ever asked the local model to select
 // a tool: jets/agentic/infer is an /api/chat client with a JSON Schema in
 // `format`, which is structured generation. The Phase-1 loop does not close the
-// gap either — it dispatches task.Verifier, a field set in Go (I-63). So this
+// gap either — it dispatches task.Verifier, a field set in Go. So this
 // tool builds the path that did not exist rather than instrumenting one that
-// did (I-64).
+// did.
 //
 // **The catalogue comes from the registry and the schemas from the adapter.**
 // tools.DefaultRegistry is the inventory an MCP client is served, and

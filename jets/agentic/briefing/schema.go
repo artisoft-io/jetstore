@@ -161,7 +161,7 @@ func ParseSchema(content string) (*Schema, []wsvalidate.Finding) {
 	}
 	// Confine runs after Cover and for the same reason: it is a check on the
 	// document, and it reads the leaf set Cover has just established is
-	// walkable. `AK.3`.
+	// walkable.
 	findings = append(findings, s.Confine()...)
 	for _, f := range findings {
 		if f.Severity == wsvalidate.Error {

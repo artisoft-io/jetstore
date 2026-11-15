@@ -1,4 +1,4 @@
-// A manual load registers its origin session (JM-083).
+// A manual load registers its origin session.
 //
 // RegisterFileInputSource writes the loaded file's input_registry row under
 // $ORIGIN_SESSIONID, the load request's own session id. Until JM-083 nothing
@@ -179,7 +179,7 @@ func TestALoadRegistersItsOriginSession(t *testing.T) {
 			// A second registration is harmless: the session_registry row is
 			// neither duplicated nor rewritten. It is called directly because a
 			// second RegisterFileInputSource stops earlier, as it did before
-			// JM-083: its input_registry insert meets input_registry's unique
+			// Its input_registry insert meets input_registry's unique
 			// constraint.
 			env := ca.CpipesEnv
 			if err := registerOriginSession(pool, env["$CLIENT"], env["$ORIGIN_SESSIONID"],

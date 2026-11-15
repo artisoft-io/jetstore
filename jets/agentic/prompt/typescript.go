@@ -18,8 +18,8 @@ package prompt
 // taste.** I-41 measured `ColumnMapping` at 5,252 tokens as JSON Schema and
 // 1,086 as TypeScript, `PartitionWriterPipe` at 11,747 against 2,173 — 18 to
 // 20%. A discriminated union is one line per variant instead of a `oneOf` and a
-// mapping. What goes in `format` costs 2 to 3 prompt tokens whatever its size
-// (Q-15, F113); what goes in the prompt costs its own rendering, so the
+// mapping. What goes in `format` costs 2 to 3 prompt tokens whatever its size;
+// what goes in the prompt costs its own rendering, so the
 // difference between the two encodings is the difference between an arm that
 // fits and one that does not.
 //

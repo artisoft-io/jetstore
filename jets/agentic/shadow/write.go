@@ -16,13 +16,13 @@ import (
 // Writer runs triage and RCA over one session and writes what they concluded.
 //
 // It is the first thing in JetStore that writes jetsapi.incident — until this
-// task the two INSERT sites in the tree were both test fixtures (F288) — and it
+// task the two INSERT sites in the tree were both test fixtures — and it
 // is deliberately the only one.
 type Writer struct {
 	// Classifier is AC.1's nine predicates.
 	Classifier triage.Classifier
 	// Ranker is AC.2's deterministic floor. **The model arm is not wired**:
-	// rca.Consult is a measurement rather than a step (§19.6), it needs a model
+	// rca.Consult is a measurement rather than a step, it needs a model
 	// name from the environment, and a run that silently consulted one would
 	// make every hypothesis's provenance depend on a variable nothing records
 	// on the row.
@@ -34,7 +34,7 @@ type Writer struct {
 	Actor string
 
 	// Severity is written on every incident, and **it is a posture rather than
-	// a measurement** (I-306).
+	// a measurement**.
 	//
 	// jetsapi.incident.severity is NOT NULL over five values and no locus
 	// determines any of them: §9.4's nine rows say where evidence sits and none
@@ -59,7 +59,7 @@ type Writer struct {
 	// list by detection time rather than by severity is now moot as well as
 	// right. And a constant is the *least bad* option rather than a good one:
 	// the vocabulary has no `not_assessed` member and the column is NOT NULL, so
-	// there is no way to say *this was not judged*. **Q-48** asks whether the
+	// there is no way to say *this was not judged*. asks whether the
 	// column should be nullable or the vocabulary widened, on I-289's argument
 	// one column over.
 	Severity string
@@ -70,7 +70,7 @@ type Writer struct {
 
 	// Baseline is how far back the step history reaches. Zero reads none, which
 	// makes locus step_never_started NotEvaluable rather than Absent — a
-	// legitimate answer and not a degraded one (§13.4).
+	// legitimate answer and not a degraded one.
 	Baseline time.Duration
 
 	// DryRun classifies, ranks and reports, and writes nothing.
@@ -110,7 +110,7 @@ type IncidentWritten struct {
 	Hypotheses int
 	// ChainSeq is the audit chain seq the last transition produced, and it is
 	// **0 for everything this writer creates**. RecordIncidentTransition appends
-	// a chain event only when the incident names an AgentRun (AB.4), and a
+	// a chain event only when the incident names an AgentRun, and a
 	// deterministic classifier is not one — so these transitions are durable and
 	// attributable and are not tamper-evident (R-44, gap 27). It is reported
 	// rather than dropped so that the zero is visible in the output instead of
@@ -124,7 +124,7 @@ type SessionResult struct {
 	// Report is all nine verdicts, kept whole. A caller counting per class
 	// iterates this and not Written: the loci that did *not* fire are the
 	// denominator, and a result that carried only the hits would supply
-	// numerators alone (§13.4).
+	// numerators alone.
 	Report  *triage.Report
 	Ranking *rca.Ranking
 
@@ -134,7 +134,7 @@ type SessionResult struct {
 	AlreadyRaised []string
 	// UnmappedLoci are the fired loci §9.5's table maps to no cause class, so
 	// the incident is written and carries no hypothesis. Two of the nine are
-	// permanently in this state (F393).
+	// permanently in this state.
 	UnmappedLoci []string
 	// Anomalies is how many of N.4's detector rows were available to the ranker.
 	// Zero is the ordinary case: jetsapi.anomaly is deployed nowhere that has
@@ -155,10 +155,10 @@ type SessionResult struct {
 // than the convenient one.
 //
 //   - **A verdict is dated.** An incident records what the record supported when
-//     it was read. A later read that can see *less* — a purged worker record
-//     (F273), a table dropped, a retention clock that moved — is not evidence
+//     it was read. A later read that can see *less* — a purged worker record,
+//     a table dropped, a retention clock that moved — is not evidence
 //     against the earlier verdict; it is the absence of evidence, which is the
-//     distinction the whole three-valued design exists to keep (§13.4).
+//     distinction the whole three-valued design exists to keep.
 //   - **Retraction would make the retention clock a redactor.** RETENTION_DAYS
 //     has no default (P3 F54) and is set by a deployment rather than by this
 //     repository. A writer that withdrew incidents when their evidence aged out
@@ -293,7 +293,7 @@ func (w *Writer) Run(ctx context.Context, db DB, sessionId string) (*SessionResu
 // # Where criterion 45's last clause goes
 //
 // jetsapi.hypothesis has eight columns and **neither a basis nor a locus is one
-// of them** (F402), which §19.7 grades as *met for what AC.2 emits and not
+// of them**, which §19.7 grades as *met for what AC.2 emits and not
 // surviving the write*. Two of the three losses are repaired here and the third
 // is not:
 //
@@ -362,7 +362,7 @@ func (w *Writer) writeOne(ctx context.Context, db DB, f *triage.Finding, hyps []
 	// claim with none — which deletes exactly the calibration
 	// contradicting_evidence exists for. What sets classification is a human
 	// `reclassified` transition, which is plan §10.7's instrument and carries
-	// who said so (I-372).
+	// who said so.
 
 	if err := w.moveTo(ctx, db, written, audit.IncidentDetected, audit.IncidentTriaged,
 		detectedAt, f.Basis); err != nil {
@@ -441,7 +441,7 @@ func insertHypothesis(ctx context.Context, db DB, h *rca.Hypothesis) error {
 	if err != nil {
 		return fmt.Errorf("hypothesis %s: contradicting_evidence: %w", h.HypothesisId, err)
 	}
-	// The basis, as counts (Q-46). **The two numbers are taken from the slices
+	// The basis, as counts. **The two numbers are taken from the slices
 	// that are being written in the same statement**, not from anything the
 	// ranker reported about them, so the column cannot disagree with the arrays
 	// it describes — which is the whole of what makes a count checkable where a

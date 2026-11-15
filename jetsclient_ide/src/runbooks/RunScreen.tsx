@@ -533,7 +533,7 @@ function StepCard({
  * *Accept* and *Deny*, with what is being accepted.
  *
  * For a `ddl` step that is the statement, every bound value, the file hash and
- * the preview: the project's safety rule (`Q-3`) is that the person sees the
+ * the preview: the project's safety rule is that the person sees the
  * statement before it runs as them.
  */
 function Confirmation({

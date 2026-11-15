@@ -314,7 +314,7 @@ func (f *uaFixture) capabilities(t *testing.T, role string) []string {
 	return out
 }
 
-// B.1: the seeded designated_admin holds knowledge_engineer's nine capabilities plus
+// The seeded designated_admin holds knowledge_engineer's nine capabilities plus
 // delete_session and user_admin, eleven in all, and knowledge_engineer holds neither.
 func TestUserAdminDBSeededRoles(t *testing.T) {
 	f := newUAFixture(t)

@@ -8,7 +8,7 @@
 namespace jets::rete {
 namespace {
 
-// I-162: the four ISO getters returned c_str() of a temporary, which the caller
+// The four ISO getters returned c_str() of a temporary, which the caller
 // read after it was freed. A datetime's text is longer than the small-string
 // buffer, so the read was of freed heap; under AddressSanitizer each of these
 // reports heap-use-after-free at the base.

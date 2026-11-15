@@ -27,7 +27,7 @@
 // The suite builds two databases: one with every table the classifier reads and
 // one with only the two the execution record needs. The second is not a
 // convenience — it is the state all four production environments measured on
-// 2026-08-25 were in (I-132), and it is the only way to test that a locus whose
+// 2026-08-25 were in, and it is the only way to test that a locus whose
 // table is absent reports not_evaluable rather than absent.
 //
 // Needs JETS_TEST_DSN; skipped otherwise. Locally:
@@ -38,7 +38,7 @@
 // Use `go test -p 1` when running this beside jets/agentic/observe or
 // jets/agentic/audit against one DSN: all three call audit.InstallSchema and two
 // sessions issuing the same CREATE TABLE / CREATE TRIGGER sequence deadlock on
-// catalogue locks (I-175). The separate databases below remove that for this
+// catalogue locks. The separate databases below remove that for this
 // package's own tests and not across packages.
 package triage
 
@@ -309,7 +309,7 @@ func TestFreshInstallCanWriteTheRunConfiguration(t *testing.T) {
 
 // Two configurations in the shape cpipes_config_json holds: a list of PipeSpec.
 // The first is the corpus's ordinary state — a map_record with no error channel,
-// which is 243 of 243 instances across the four workspaces (F188). The second is
+// which is 243 of 243 instances across the four workspaces. The second is
 // the 9-of-12 jetrules case that does declare one.
 const configNoErrorChannel = `[{"type":"fan_out","input_channel":{"name":"input"},
   "apply":[{"type":"map_record","map_record_config":{},"output_channel":{"name":"mapped"}},
@@ -382,7 +382,7 @@ func TestPredicatesOnAMigratedDeployment(t *testing.T) {
 
 	t.Run("run_not_started is not evaluable when the run predates the worker record", func(t *testing.T) {
 		// A header older than the oldest worker row anywhere: the purge takes
-		// the two on independent clocks (F54), so a run whose workers have been
+		// the two on independent clocks, so a run whose workers have been
 		// purged is indistinguishable from one that never started.
 		header(t, pool, "client2", "loader", "claims", "s-purged", "completed", now.Add(-200*24*time.Hour))
 		r := classify(t, pool, "s-purged", 0)
@@ -408,7 +408,7 @@ func TestPredicatesOnAMigratedDeployment(t *testing.T) {
 		// And to no step, ever. cpipes_step_id is written only by
 		// UpdatePipelineExecutionStatus, and a worker that never terminated is
 		// exactly one the update never reached — so this locus cannot localise
-		// to a step by construction, whatever the configuration says (I-302).
+		// to a step by construction, whatever the configuration says.
 		// The worker was created with MainInputStepId "reducing01" and the row
 		// still carries an empty label.
 		if f.StepRef != "" {
@@ -592,7 +592,7 @@ func TestPredicatesOnAMigratedDeployment(t *testing.T) {
 			}
 		}
 		// But the loci that need no header still answer, which is the point of
-		// the worker row being self-keying (F98).
+		// the worker row being self-keying.
 		wantVerdict(t, r, LocusWorkerFailed, Absent)
 	})
 }
@@ -600,8 +600,8 @@ func TestPredicatesOnAMigratedDeployment(t *testing.T) {
 // --- the same nine, on a deployment that has not been migrated ---------------
 
 // This is the test the three-valued verdict exists for. All four production
-// environments measured on 2026-08-25 lacked pipeline_execution_channel_details
-// (I-132), and a boolean classifier would report "no sink failed" and "nothing
+// environments measured on 2026-08-25 lacked pipeline_execution_channel_details,
+// and a boolean classifier would report "no sink failed" and "nothing
 // was written and lost" on every one of them.
 func TestUnmigratedDeploymentReportsNotEvaluableRatherThanAbsent(t *testing.T) {
 	pool := freshDB(t, "triage_unmigrated", unmigratedTables)

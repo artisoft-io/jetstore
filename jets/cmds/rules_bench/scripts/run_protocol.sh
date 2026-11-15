@@ -10,7 +10,7 @@
 #     power unless --allow-battery is given;
 #   - it pins every run with taskset: cores 0-5 by default, the performance
 #     cores of the Core Ultra 7 265H; --production-shape pins to 0-3 with
-#     GOMAXPROCS=4 and a pool of 10, the ECS task's 4 vCPU (F52);
+#     GOMAXPROCS=4 and a pool of 10, the ECS task's 4 vCPU;
 #   - it interleaves the engines, A B A B, over N repetitions, one fresh process
 #     per run by default, so that drift falls on both and each run loads its
 #     engine as a pipeline does;

@@ -53,7 +53,7 @@ import { createCpipesTemplateApply, configPath, applyPlanPath, type ApplyPlan } 
 /**
  * The generator's committed output, read rather than imported so tsc keeps its size out.
  *
- * **It moved on 2026-08-25 (task U.2)** from `tools/cpipes_contract/projections/` to
+ * **It moved on 2026-08-25** from `tools/cpipes_contract/projections/` to
  * `jets/workspace_assets/user_flows/`, where `//go:embed` can reach it and the installer
  * writes it into every workspace. Reading it from the asset directory rather than from a
  * copy is what makes this file a check on the bytes a workspace receives.

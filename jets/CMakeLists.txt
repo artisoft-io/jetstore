@@ -14,7 +14,7 @@ set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -fPIC -fmessage-length=0
 
 set(C_LIBRARY_NAME jets)
 
-# The sanitizer build (rules_benchmark Phase 7, I-69), off by default:
+# The sanitizer build, off by default:
 #   -DJETS_SANITIZE=ON  compiles and links everything here, abseil included when
 #                       it is built here, with AddressSanitizer (leak detection on)
 #                       and UndefinedBehaviorSanitizer, every report fatal. Three

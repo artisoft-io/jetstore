@@ -59,7 +59,7 @@ import (
 // both carry a transition table because Appendix A.5 draws one. A.5 draws no
 // machine over AutonomyTier, and the vocabulary is an ordered scale rather than
 // a graph — `Reaches` is the whole of its structure. So T1 -> T4 in one act is
-// permitted, and whether it should be is asked as **Q-71** rather than answered
+// permitted, and whether it should be is asked as rather than answered
 // by this file. Inventing a one-step-at-a-time rule here would be gap 2b's
 // unreviewed extraction with an audit trail attached.
 //

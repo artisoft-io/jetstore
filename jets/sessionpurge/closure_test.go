@@ -150,7 +150,7 @@ func TestExecuteReasonsLeavesRetentionQueued(t *testing.T) {
 	}
 }
 
-// I-26: two executors deleting the last two sessions of one coordinator request
+// Two executors deleting the last two sessions of one coordinator request
 // at the same time leave no map row. The second waits on the map row the first
 // locked, and finds the first one's item gone when it gets it.
 func TestTwoExecutorsLeaveNoMapRow(t *testing.T) {

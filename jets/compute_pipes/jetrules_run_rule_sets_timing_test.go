@@ -1,7 +1,7 @@
 package compute_pipes_test
 
 // Tests of what the rules_bench command (jets/cmds/rules_bench) adds to the
-// rule loop and its neighbours (rules_benchmark Phase 1, AB.1 and AB.2): the
+// rule loop and its neighbours: the
 // timing sink of RunRuleSets, CastTextRow with
 // AssertCastRow, and SessionExtractor. The sink is nil in every pipeline,
 // so the first test pins that setting it changes no outcome. They run like the

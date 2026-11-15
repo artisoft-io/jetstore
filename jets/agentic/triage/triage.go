@@ -39,7 +39,7 @@
 // the reason this package is shaped the way it is. Two of the nine loci cannot
 // be evaluated on an ordinary deployment: sink_failed_under_completed_worker
 // reads jetsapi.pipeline_execution_channel_details, which no production
-// environment measured on 2026-08-25 had (I-132), and written_not_arrived is a
+// environment measured on 2026-08-25 had, and written_not_arrived is a
 // check against S3 or a database rather than a query, so it is NotEvaluable
 // everywhere and always here. A boolean predicate would report both as *no
 // failure of that kind*, which is a claim the record does not support. This is
@@ -60,7 +60,7 @@
 //
 // It does not write jetsapi.incident. AC.3 is the shadow-mode wiring and this
 // is deliberately upstream of it: an Incident carries a severity that is
-// NOT NULL and that no locus determines (I-306), and its classification
+// NOT NULL and that no locus determines, and its classification
 // transitions want an actor that AB.2 is adding.
 package triage
 
@@ -144,7 +144,7 @@ var verdicts = []Verdict{Present, Absent, NotEvaluable}
 //
 // It deliberately has no severity and no classification. Severity is an
 // Incident property that no locus determines and that the record carries no
-// signal for (I-306); classification is the cause taxonomy and is AC.2's.
+// signal for; classification is the cause taxonomy and is AC.2's.
 type Finding struct {
 	SessionId string
 	Locus     string

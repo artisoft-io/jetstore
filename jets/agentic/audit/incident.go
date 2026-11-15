@@ -27,7 +27,7 @@ import (
 // Phase-4 plan §9.5 found that JetStore's execution record supports a taxonomy of
 // **locus** — where in the record the evidence sits — and does not support a
 // taxonomy of **cause** below the level of a hypothesis. `AB.1` therefore put both
-// on the row: `incident_locus` is required, `classification` is optional (I-289),
+// on the row: `incident_locus` is required, `classification` is optional,
 // and reading one without the other is R-27 arriving in a query. So neither
 // function here returns a locus without its classification, exactly as
 // ReadTranscript does not return events without their verdict — the reasons are
@@ -87,8 +87,8 @@ var IncidentStatuses = []string{
 // order the CHECK carries them.
 //
 // **It exists because a screen that offers a reclassification has to offer the
-// vocabulary to reclassify *into*** (task AJ.2). Until then nothing needed the
-// list in Go: the column is optional (I-289) and every reader rendered whatever
+// vocabulary to reclassify *into***. Until then nothing needed the
+// list in Go: the column is optional and every reader rendered whatever
 // value it found. It travels to the browser with the incident on the same
 // argument as `IncidentLoci` and the transition sets — a client's copy of a
 // controlled vocabulary is the copy that cannot be enforced —
@@ -185,7 +185,7 @@ type HypothesisBasis struct {
 	// is the ranker's **primary** sort key rather than a gloss: a class the
 	// substrate cannot speak to outranks nothing, whatever its counts. That
 	// inversion is what a ratio over evidence positions got wrong on its first
-	// run (I-361), which is why the tier is persisted and not recomputed.
+	// run, which is why the tier is persisted and not recomputed.
 	Evidenceability string `json:"evidenceability"`
 }
 
@@ -203,7 +203,7 @@ type Hypothesis struct {
 	Cause        string
 	// CauseCategory is "" when the hypothesis names no class from the imported
 	// ten. Nullable for the same reason `Incident.Classification` is: the record
-	// evidences a locus and not a cause (plan §9.5).
+	// evidences a locus and not a cause.
 	CauseCategory         string
 	Confidence            float64
 	Rank                  int64
@@ -218,7 +218,7 @@ type Hypothesis struct {
 	// the incident of its own locus, so today the two agree by construction —
 	// but a ranker that proposed a cause at a locus triage did **not** find
 	// present would produce a row where they do not, and `AC.2` measured that as
-	// 20 of 29 on its model arm (plan §19.6). Without the column such a row is
+	// 20 of 29 on its model arm. Without the column such a row is
 	// indistinguishable from a sound one once written.
 	Locus string
 	// Basis is the `basis` column: criterion 45's last clause, persisted.
@@ -236,7 +236,7 @@ type IncidentSummary struct {
 	IncidentId string
 	SessionId  string
 	// RunRef is the AgentRun that raised the incident, "" when nothing agentic
-	// did (AB.4, Q-32) — which is what decides whether a transition on this
+	// did — which is what decides whether a transition on this
 	// incident reaches the hash chain.
 	//
 	// It sits on the summary because `Incident` embeds this struct, so the
@@ -453,7 +453,7 @@ func HypothesesFor(ctx context.Context, db Querier, incidentRef string, phi PHIA
 		}
 		// The PHI decision is applied here rather than by the caller, so a
 		// caller cannot hold an unredacted Evidence without having said
-		// DisclosePHI (AE.2, I-311). See phi.go for why it is a parameter.
+		// DisclosePHI. See phi.go for why it is a parameter.
 		applyPHIPolicy(phi, h.SupportingEvidence, h.ContradictingEvidence)
 		out = append(out, h)
 	}

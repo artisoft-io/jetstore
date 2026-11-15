@@ -182,7 +182,7 @@ func TestBudget_ZeroWallClockIsUnbounded(t *testing.T) {
 	}
 }
 
-// E.7: a task whose schema cannot fit the serving context is refused before a
+// A task whose schema cannot fit the serving context is refused before a
 // token is spent. Discovering it at the server means either a silent truncation
 // — which changes what constrains generation without saying so — or a rejection
 // after the request has been paid for.

@@ -10,7 +10,7 @@
  * that substituted the selected row's values into a stage path, fetched it,
  * optionally replaced one string with another, and wrote the clipboard
  * (`jetsclient/lib/button_config.dart`, `buttonConfigActions`, at `c38483b` in
- * `repo_infra_jetstore_platform`). Cedargate's *Analysis Report* is one, and it
+ * `repo_infra_jetstore_platform`). A deployment's *Analysis Report* is one, and it
  * disappeared with the Flutter app. *Get Run Manifest* is the same mechanism with a
  * fixed path, which is why it is built once here and both are instances of it.
  *

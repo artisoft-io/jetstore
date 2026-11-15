@@ -91,7 +91,7 @@ func instance(t *testing.T, path string) any {
 // configuration that fails means the schema is wrong, not the configuration.
 // The ported flows were converted from a corpus generated out of the running
 // Flutter app rather than transcribed: eleven when they were converted, ten since
-// 2026-10-01. The Flutter app itself was deleted on 2026-08-26 (X.1).
+// 2026-10-01. The Flutter app itself was deleted on 2026-08-26.
 func TestShippingFlowsValidate(t *testing.T) {
 	schema := compileSchema(t)
 	files := flowFiles(t)
@@ -100,8 +100,8 @@ func TestShippingFlowsValidate(t *testing.T) {
 	// same schema; the count is of documents, not of migrations.
 	//
 	// Ten since 2026-10-01, when registerFileKeyUF was retired by
-	// jetstore_maintenance_02 (Q-6, task AD.4). Fourteen since 2026-10-11, with
-	// rulesUnitTestUF (rules_unit_test_harness, task AD.4), written rather than
+	// jetstore_maintenance_02. Fourteen since 2026-10-11, with
+	// rulesUnitTestUF, written rather than
 	// ported.
 	if len(files) != 14 {
 		t.Fatalf("expected the app's ten remaining flows, rulesUnitTestUF and three projections, found %d", len(files))

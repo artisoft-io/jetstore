@@ -172,7 +172,7 @@ export class WorkspaceApi {
    * `FlowStore.readText` was constructing `{ label, key } as never` and passing
    * it in — a shape with no `type` — so every load through it would have thrown
    * *"…is not a file"* against the real API. Nothing said so because the store's
-   * tests stub `WorkspaceApi` and their stub keys off `node.key` (I-65).
+   * tests stub `WorkspaceApi` and their stub keys off `node.key`.
    *
    * A flow's documents are addressed by path and not by browsing, so the honest
    * fix is this method rather than a synthetic node. The tree is still how the
@@ -198,7 +198,7 @@ export class WorkspaceApi {
    * **Same content as `readWorkspaceFile`, a different capability, and that is
    * the whole reason it exists.** `get_workspace_file_content` gates on
    * `workspace_ide`, which `jets_init_db.sql` grants to `knowledge_engineer`
-   * alone. Once the eleven flows became workspace assets (X.5, 2026-08-26), the runner read its
+   * alone. Once the eleven flows became workspace assets (2026-08-26), the runner read its
    * documents at run time — so opening a flow required the IDE's capability, and
    * `ops_user` and `client_advocate`, the roles the flows are *for*, were refused.
    *

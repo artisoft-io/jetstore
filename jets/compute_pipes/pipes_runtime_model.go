@@ -335,7 +335,7 @@ func (ctx *BuilderContext) BuildPipeTransformationEvaluator(source *InputChannel
 	default:
 		// A site-supplied operator is reached here and only here, which is what
 		// makes a site token unable to shadow a built-in: the eighteen cases
-		// above are tried first (Q-140). An unregistered token falls through to
+		// above are tried first. An unregistered token falls through to
 		// the message it has always produced.
 		if pipe, registered, err := ctx.buildSiteOperator(source, outCh, spec); registered {
 			return pipe, err

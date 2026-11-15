@@ -81,7 +81,7 @@ var inlineGatedActions = map[string]string{
 	// (2026-11-05, the Pipeline Status screen's Check Pending button).
 	"start_pending_tasks": "CapabilityRunPipelines",
 	// Copies the selected sessions' runs into pending ones and starts nothing
-	// (JM-185, 2026-11-12). It inserts what resubmit_pipeline inserts, so it asks
+	// (2026-11-12). It inserts what resubmit_pipeline inserts, so it asks
 	// for the same authority; the work is a DataTableContext method, gated here.
 	"resubmit_sessions_as_pending": "CapabilityRunPipelines",
 	// Read the closure of the selected sessions, and queue it for deletion and
@@ -397,8 +397,7 @@ func TestStartPendingTasksArmOnlyStartsPendingTasks(t *testing.T) {
 	if !ok {
 		t.Fatal("no start_pending_tasks arm in DoDataTableAction; this test is stale")
 	}
-	// Source rather than ast.Fprint's dump, so that "server.dbpool" can match
-	// (JM-091).
+	// Source rather than ast.Fprint's dump, so that "server.dbpool" can match.
 	var body strings.Builder
 	for _, stmt := range clause.Body {
 		body.WriteString(sourceOf(t, fset, stmt))
@@ -490,7 +489,7 @@ func TestPurgeDataCapabilityIsSeeded(t *testing.T) {
 // widening rather than a second test.** The two messages already separated "we
 // cannot say who is asking" from "we know and the answer is no"; what they could
 // not do was let a client act on the difference, so every client treated both as a
-// dead session and signed the user out on a capability refusal (I-189). The pairing
+// dead session and signed the user out on a capability refusal. The pairing
 // -- 401 with the first message, 403 with the second -- is what makes that
 // distinction machine-readable.
 //

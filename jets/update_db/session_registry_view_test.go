@@ -280,7 +280,7 @@ func TestSessionRegistryView(t *testing.T) {
 		t.Errorf("session_num between 2000 and 3003 for client c1: %d rows, want 2 (2002 and the tombstone 3003)", n)
 	}
 
-	// file_key_date (JM-185): the period as a date, NULL for a tombstone.
+	// file_key_date: the period as a date, NULL for a tombstone.
 	dates := map[string]string{}
 	drows, err := pool.Query(ctx, `SELECT session_id, coalesce(file_key_date::text, '<nil>')
 		FROM jetsapi.session_registry_view`)
@@ -298,7 +298,7 @@ func TestSessionRegistryView(t *testing.T) {
 	check("1001", "file_key_date", dates["1001"], "2026-02-03")
 	check("3003", "file_key_date", dates["3003"], "<nil>")
 
-	// A period whose day is 0, as an unparseable day is recorded (JM-170): the
+	// A period whose day is 0, as an unparseable day is recorded: the
 	// view still reads, with no date, rather than raising on make_date.
 	purgetest.Exec(t, pool, `INSERT INTO jetsapi.source_period (key, year, month, day, month_period, week_period, day_period)
 		VALUES (3, 2026, 2, 0, 313, 1357, 9496) ON CONFLICT (key) DO UPDATE SET day = 0`)

@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * Tests for the application shell (task A.1).
+ * Tests for the application shell.
  *
  * The one worth reading is the last: **routes resolve under the mount prefix.**
  * Vite bakes `base` into asset urls at build time and the router's `basename`

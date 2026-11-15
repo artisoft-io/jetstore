@@ -2,7 +2,7 @@ package audit
 
 import "fmt"
 
-// The shape a recorded act of responsibility takes (task AJ.2, Q-52).
+// The shape a recorded act of responsibility takes.
 //
 // **Two things in this package are the same act and the claim was only ever in
 // prose.** Q-52 was resolved on the argument that a human verdict on an

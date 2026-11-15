@@ -278,7 +278,7 @@ func TestTopLevelFieldsMisplaced(t *testing.T) {
 	}
 }
 
-// The Go engine is retired (rules_benchmark Q-77): a test asking for it fails
+// The Go engine is retired: a test asking for it fails
 // validation with a message naming the retirement, rather than run on C++.
 func TestGoEngineIsRefused(t *testing.T) {
 	_, findings := parse(t, mutate(t, func(d map[string]any) { obj(d, "jetrules_config")["use_jet_rules_go"] = true }))
@@ -443,7 +443,7 @@ func TestValidateContentIsAValidator(t *testing.T) {
 	}
 }
 
-// The LEGACY retraction mode is deleted (rules_benchmark Q-102): a legacy object
+// The LEGACY retraction mode is deleted: a legacy object
 // whose every present switch is false names the one behaviour and is accepted; a
 // switch set true is refused, naming the deletion. Every definition's legacy_mode
 // is fixed.

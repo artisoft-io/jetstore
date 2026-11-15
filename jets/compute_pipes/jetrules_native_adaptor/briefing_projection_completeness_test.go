@@ -1,6 +1,6 @@
 package jetrules_native_adaptor
 
-// Completeness of the briefing projection (agentic_ai `AT.2`), and it is here
+// Completeness of the briefing projection, and it is here
 // because this is the only place in the repository where the real rules meet the
 // real encoder in one process.
 //
@@ -13,8 +13,8 @@ package jetrules_native_adaptor
 // carries values belonging in it.
 //
 // **The guardrail is not where the defect lives any more.** A guardrail checks a
-// model's structured answer, and the briefing's structured answer is retiring
-// (agentic_ai F736, F738): the counts and the dates moved into
+// model's structured answer, and the briefing's structured answer is retiring:
+// the counts and the dates moved into
 // `briefing_projection.jr` at `AT.1`, and the rendering call's output is prose.
 // What can drop a condition after that is the **projection**, and a projection is
 // a total function of the rule session - so the check is a containment test over
@@ -72,7 +72,7 @@ const cintelMainRuleFile = "jet_rules/clinical_intel/cintel_main.jr"
 // session and runs `cintel_main.jr` over it with the C++ engine.
 //
 // **The C++ engine, which is the one production runs.** These tests ran on the Go
-// engine until its retirement (rules_benchmark Phase 6, 2026-10-22), on the
+// engine until its retirement (2026-10-22), on the
 // argument that `patient_profile.pc.json` sets `use_jet_rules_go: false` and one
 // deployment's default factory was Go's. They moved to the C++ engine with it, so
 // what they check is now checked on the engine every pipeline runs; the compiled
@@ -98,7 +98,7 @@ func ruleSessionOver(t *testing.T, fixture func(*testing.T, compute_pipes.JetRdf
 	}
 	t.Cleanup(func() { s.Release() })
 	// The session's manager is the one a test may still add resources to: the meta
-	// graph is locked once a session exists (rules_unit_test_harness I-15).
+	// graph is locked once a session exists.
 	rm := s.GetResourceManager()
 	fixture(t, s, rm)
 
@@ -147,10 +147,10 @@ func requireCompiledWorkspace(t *testing.T) {
 // Two shapes are deliberate rather than incidental. **One medical claim carries
 // two diagnosis codes**, because a multi-valued property with one value
 // serialises unwrapped and a check written against that case works for the member
-// a guardrail is least entitled to be wrong about and no other (F516). And
+// a guardrail is least entitled to be wrong about and no other. And
 // **three pharmacy claims share one NDC**, because `AM_PCreateEvent20` indexes
 // events by NDC: three fills of one drug are one pharmacy event, so a count of
-// events is not a count of fills (agentic_ai F732).
+// events is not a count of fills.
 func assertTheClaimFixture(t *testing.T, s compute_pipes.JetRdfSession, rm compute_pipes.JetResourceManager) {
 	t.Helper()
 	c := claims(t, s, rm)
@@ -266,7 +266,7 @@ func readProjection(t *testing.T, s compute_pipes.JetRdfSession, rm compute_pipe
 		// medication is the drug name concatenated with the indicator, the ratio,
 		// the count and the fill dates, so a containment test over it would be a
 		// substring match - which is what I-415 rejected one property over. The
-		// component is on the node for exactly this reason (F757), so the
+		// component is on the node for exactly this reason, so the
 		// containment stays an identity and `TestTheMedicationIsOneValuePerDrug`
 		// below is what ties the component to the joined value.
 		p.briefingRx[ev.String()] = values(s, rm, ev, "hc:Drug_Name")
@@ -671,8 +671,8 @@ func nodeText(n compute_pipes.RdfNode) string {
 // of `AT.1`(ii) is that a medication's facts travel together: the briefing's
 // `medications[]` is a flatten across every pharmacy event, so a drug name and a
 // maintenance indicator carried as two multi-valued properties could be zipped
-// wrong by any consumer and pass every check that looked at them separately
-// (agentic_ai I-528, F735). A test that asserted "the value contains the drug
+// wrong by any consumer and pass every check that looked at them separately.
+// A test that asserted "the value contains the drug
 // name" and "the value contains the indicator" would have exactly that defect,
 // one layer up. **The pairing is the claim, so the whole string is the
 // assertion.**
@@ -687,13 +687,13 @@ func TestTheMedicationIsOneValuePerDrug(t *testing.T) {
 	want := map[string]string{
 		"traMADol HCl": "traMADol HCl (maintenance N, 1 fill: 2025-07-02)",
 		// **`adherence 0.89`, 90 days supply over a 101-day span.** This read
-		// `0.00` until 2026-10-22, the measurement of agentic_ai I-557 (F794): the
+		// `0.00` until 2026-10-22, the measurement of agentic_ai I-557: the
 		// Go engine's `sum_values` seeded its accumulator with an int, so a sum
 		// over a double property came back an int and two ints divided to zero.
 		// The literal was left as the measurement, to change to `0.89` "when I-557
 		// lands". By 2026-10-22 both engines gave 0.89, and this test failed on
 		// the Go engine at the commit it was moved from; it moved here with the Go
-		// engine's retirement (rules_benchmark Phase 6) and asserts the C++
+		// engine's retirement and asserts the C++
 		// engine's 0.89.
 		"Lisinopril-hydroCHLOROthiazide": "Lisinopril-hydroCHLOROthiazide " +
 			"(maintenance Y, adherence 0.89, 3 fills: 2025-06-15, 2025-07-20, 2025-08-24)",
@@ -720,7 +720,7 @@ func TestTheMedicationIsOneValuePerDrug(t *testing.T) {
 
 // The four components stay on the node beside the joined value, because the
 // template arm needs them and parsing them back out of the string would encode
-// `join_values`' separator in a second place (agentic_ai F757, I-544).
+// `join_values`' separator in a second place.
 //
 // **This asserts that they are present and agree with the joined value**, which
 // is the property that makes them safe to read: two representations of one fact
@@ -765,7 +765,7 @@ func TestTheMedicationComponentsAreOnTheNodeAndAgree(t *testing.T) {
 }
 
 // **The fill dates inside the joined value are chronological, and the property
-// they are joined from is not.** `join_values` sorts (agentic_ai `AT.6`), and
+// they are joined from is not.** `join_values` sorts, and
 // that is the whole reason the prompt is reproducible over identical data: an rdf
 // multi-valued property is a set with no order of its own, so the raw
 // `cintel:Fill_Date` list comes out in whatever order the graph container yields
@@ -806,7 +806,7 @@ func TestTheJoinedFillDatesAreChronological(t *testing.T) {
 // recorded at two encounters is one value on each of two briefing medical events
 // and appears twice in the `has_Briefing_Medical_Events[].Diagnosis[]` flatten.
 // `cintel:Condition_Summary` is the union asserted onto the briefing, where the
-// set semantics deduplicate it (agentic_ai F758, I-543).
+// set semantics deduplicate it.
 //
 // **The fixture is what makes this a test rather than a restatement.** The
 // projection's main fixture has no repeated diagnosis, so it would pass a
@@ -866,7 +866,7 @@ func TestTheConditionSummaryIsTheDistinctUnion(t *testing.T) {
 // the Elixhauser rollup, both built by `analysis_medical_rules_v2` from the same
 // claim - so they are two vocabularies for overlapping facts and a set cannot
 // deduplicate two names for one condition. Over this fixture the union of both is
-// five values for three conditions (agentic_ai F796).
+// five values for three conditions.
 //
 // The rollup is still on every briefing medical event, so nothing is lost from
 // the entity; what it does not have is a deduplicated briefing-level property,

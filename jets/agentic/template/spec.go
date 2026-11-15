@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-// Spec is a template document (§10.2).
+// Spec is a template document.
 //
 // **The body is a structured document rather than one string**, and that is the
 // notation's one consequential choice. Order is a quarter of what this phase
@@ -18,7 +18,7 @@ import (
 // split is **structure above the paragraph, text inside it**: order, grouping
 // and the fallback are data, and the sentence is markup.
 //
-// `Key` is `PromptTemplateSpec`'s move repeated (F1129): a named document at
+// `Key` is `PromptTemplateSpec`'s move repeated: a named document at
 // the configuration root, referenced by a step, so that a template can be
 // shared and a name that is not there fails at build time.
 type Spec struct {

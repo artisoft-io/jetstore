@@ -10,7 +10,7 @@ import (
 )
 
 // Every function reachable from the /dataTable dispatch that reads data, and the
-// capability it must require. I-2.
+// capability it must require.
 //
 // **A source-level test rather than a behavioural one, deliberately.** Exercising
 // these through HTTP needs a database, a token and a seeded role, which is why

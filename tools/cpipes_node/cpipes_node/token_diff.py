@@ -11,7 +11,7 @@ is affordable today, before either engine is deployed anywhere.
 and this node does not is what a `use_python_node_when` expression must never
 route to Python: the step would reach `scope.classify`, be refused as out of
 scope, and abort the run at startup. That is the loud direction and it is by
-design (X6), but it is loud *at run time* and this instrument is what makes it
+design, but it is loud *at run time* and this instrument is what makes it
 visible at review time.
 
 **The posture is baseline-pinned, and neither of the two obvious postures would

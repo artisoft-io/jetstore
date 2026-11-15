@@ -260,7 +260,7 @@ func castToRdfTypeFromTxt(inValue string, rdfType string, isArray *bool) (any, e
 
 	case "bool":
 		// Empty returned nil above. A value outside the accepted spellings is
-		// an error, which each caller turns into its own policy (I-45):
+		// an error, which each caller turns into its own policy:
 		// map_record's on_error for client data, a failed read for a typed file.
 		b, err := rdf.ParseBool(inValue)
 		if err != nil {

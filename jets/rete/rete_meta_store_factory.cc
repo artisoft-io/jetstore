@@ -254,7 +254,7 @@ ReteMetaStoreFactory::read_resources_cb(int argc, char **argv, char **colnm)
   
   if( strcmp(type, "bool") == 0) {
     // A rule-file bool literal: empty is null, anything outside the accepted
-    // spellings refuses to load (I-45). The compiler refuses it first, naming
+    // spellings refuses to load. The compiler refuses it first, naming
     // the file and line; this is the backstop.
     switch(rdf::parse_bool(std::string_view(value))) {
     case rdf::ParsedBool::True:  this->r_map_.insert({key, this->rmgr_->create_literal(true)}); return SQLITE_OK;

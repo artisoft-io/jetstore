@@ -298,7 +298,7 @@ def test_the_one_difference_is_the_null_and_it_is_the_normalisation_x3_allows():
 
 
 def test_neither_writer_derives_a_column_list_of_its_own():
-    """Asserted structurally, because a correct docstring stopped nobody (P7-I88).
+    """Asserted structurally, because a correct docstring stopped nobody.
 
     The module holds no tuple of column names, so a writer cannot disagree with
     its caller about the columns: both take the argument. The check is over the

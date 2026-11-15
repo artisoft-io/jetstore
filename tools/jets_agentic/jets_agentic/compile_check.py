@@ -148,7 +148,7 @@ def run(args: argparse.Namespace) -> int:
                     f"got {got_literals.get(name)!r}"
                 )
 
-        # AB.1 (I-129): $as_table took effect, per class and both ways. The
+        # $as_table took effect, per class and both ways. The
         # `jetsa:` filter is what keeps this about our model — the platform base
         # model this workspace also compiles declares tables of its own.
         got_tables = {

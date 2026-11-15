@@ -126,7 +126,7 @@ namespace jets::rete {
     VLOG(30)<<"LOOKUP "<<this->lookup_name_<<" | KEY | "<<key;
 
     // Get the db connection and bind it to the key
-    // Every return gives the connection back: one kept is one nothing closes (I-180)
+    // Every return gives the connection back: one kept is one nothing closes
     auto lc = this->db_pool_.get_connection();
     int err = sqlite3_reset(lc.stmt1);
     if( err != SQLITE_OK ) {

@@ -1,4 +1,4 @@
-"""The cpipes contract - THE SOURCE OF TRUTH for the contract claims (B.10).
+"""The cpipes contract - THE SOURCE OF TRUTH for the contract claims.
 
 Since the B.10 flip, this Pydantic v2 model is where the contract is edited:
 which fields exist per operator token, which are required, their value ranges,
@@ -9,7 +9,7 @@ audit/Go-binding record, regenerated FROM this file:
     python -m cpipes_contract reflect --check  # the divergence guard (CI)
 
 The `generate` command is the bootstrap projection that first produced this
-file from the reviewed matrix (B.9) - running it again OVERWRITES edits made
+file from the reviewed matrix - running it again OVERWRITES edits made
 here. Engine-applied defaults are noted in the descriptions and deliberately
 NOT materialised as Pydantic defaults, so a dumped document stays minimal and
 the wire format unchanged.
@@ -1834,7 +1834,7 @@ for _m in _MODELS:
 
 
 # ---------------------------------------------------------------------------
-# The runtime document (AD.1, jetstore_maintenance_01 Phase 1)
+# The runtime document
 # ---------------------------------------------------------------------------
 #
 # `ComputePipesConfig` above is the **authored** document: the shape an author

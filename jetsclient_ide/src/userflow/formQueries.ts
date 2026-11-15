@@ -1,11 +1,11 @@
 /**
- * A form's named queries: substitution, readiness, and one request. Task I.2b.
+ * A form's named queries: substitution, readiness, and one request.
  *
  * This is the half of I-11 that is not a widget. `Dropdown.tsx` was written in
  * A.3 to take `items` as a prop "so a static list and a query result reach it the
  * same way", and I.2a authored the static list; what was still missing was the
  * thing that turns a declaration into a result. Both of `fmMappingFormUF`'s exotic
- * fields want it and so do five of the eleven dropdowns (F21, I-60).
+ * fields want it and so do five of the eleven dropdowns.
  *
  * ## One request, not one per field
  *

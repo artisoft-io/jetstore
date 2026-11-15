@@ -1,5 +1,5 @@
 /**
- * The Detection screen (agentic_ai I-861): whether the detectors ran, when, on
+ * The Detection screen: whether the detectors ran, when, on
  * whose request and with what result -- and a button to run them now rather
  * than at the scheduled hour.
  *

@@ -29,7 +29,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// E.4: two triggers while a run is going make one more run, after it, never
+// Two triggers while a run is going make one more run, after it, never
 // beside it; a trigger when idle starts a run of its own.
 func TestSingleFlightRunsOnceMoreNeverConcurrently(t *testing.T) {
 	var sf singleFlight
@@ -197,7 +197,7 @@ func (f *deleteFixture) post(t *testing.T, email string, body map[string]any) (i
 	return rec.Code, out
 }
 
-// E.3: a knowledge_engineer is refused both actions, and nothing is queued; a
+// A knowledge_engineer is refused both actions, and nothing is queued; a
 // designated_admin previews the closure, confirms it, and the runner the answer
 // started deletes it.
 func TestDeletionActionsNeedDeleteSession(t *testing.T) {

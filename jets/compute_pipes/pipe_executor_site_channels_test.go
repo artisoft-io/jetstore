@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// P9-I13: a channel declared in `site_config.output_channels` is registered by
+// A channel declared in `site_config.output_channels` is registered by
 // StartComputePipes and resolved onto OperatorArgs.Outputs, and until P9-T04 it
 // was closed by nothing.
 //
