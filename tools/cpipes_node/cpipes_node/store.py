@@ -34,10 +34,10 @@ is bound to one bucket**, as Go's `S3DeviceWriter` is bound to one
 `externalBucket`, so the resolution happens once where the destination is
 computed and the writer holds a store that already points at the right place.
 
-The sentinel is Go's and it is spelled twice there — once in the builder's
-`spec.OutputChannel.Bucket != "jetstore_bucket"` guard and once at the upload in
-`awsi.UploadToS3FromReader` / `s3_device_worker.go:63` — so an empty value and
-the literal `jetstore_bucket` both mean *the node's own bucket*. Both spellings
+The sentinel is Go's, `awsi.JetStoreBucketSentinel`, and Go tests for it in one
+function, `awsi.IsJetStoreBucket`, which the partition writer, the upload in
+`awsi.UploadToS3FromReader` and the S3 device worker all call — so an empty
+value and the literal `jetstore_bucket` both mean *the node's own bucket*. Both spellings
 are honoured here, in `is_own_bucket`, because a document may carry either and a
 node that honoured one of them would write to a bucket named `jetstore_bucket`.
 """
@@ -52,10 +52,10 @@ from typing import IO, Any, Protocol, cast, runtime_checkable
 
 from .errors import ObjectNotFound, ObjectStoreError
 
-#: Go's literal for "the JetStore bucket", checked at two sites on both write
-#: paths (`pipe_transformation_partition_writer.go:486`, `awsi.go:598`,
-#: `s3_device_worker.go:63`). A document may spell the node's own bucket as the
-#: empty value or as this, and the two mean the same thing.
+#: Go's literal for "the JetStore bucket", `awsi.JetStoreBucketSentinel`,
+#: tested by `awsi.IsJetStoreBucket` on both write paths. A document may spell
+#: the node's own bucket as the empty value or as this, and the two mean the
+#: same thing.
 JETSTORE_BUCKET = "jetstore_bucket"
 
 

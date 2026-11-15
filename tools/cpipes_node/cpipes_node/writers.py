@@ -92,13 +92,10 @@ class WriterUnsupported(WriterError):
 
 #: `time.Time`'s two layouts in `encodeRdfTypeToTxt`, verbatim from
 #: `jetrules_rdf.go`: a value whose clock is exactly midnight prints as a date
-#: and everything else prints with its time. **The Go test for this function is
-#: one of the eight pre-existing failures on `jets_ai`** — `jetrules_rdf_test.go`
-#: line 39 expects `2006-01-02T00:00:00` where the function returns
-#: `2006-01-02` — so the *test* is stale about the *function*. The function is
-#: what the engine runs and is therefore what is mirrored here; an encoder
-#: written from that test would disagree with every byte the Go engine writes
-#: (P9-I58).
+#: and everything else prints with its time. The Go test for this function,
+#: `TestEncodeRdfTypeToTxt`, once expected `2006-01-02T00:00:00` for a date and
+#: has since been brought in line with the function, which is what the engine
+#: runs and is therefore what is mirrored here.
 DATE_FORMAT = "%Y-%m-%d"
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 

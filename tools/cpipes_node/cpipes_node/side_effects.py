@@ -54,13 +54,14 @@ unconditionally would be the race the brief warns about. Asserted rather than
 argued: `tests_side_effects.py` reads both conditions out of the Go source and
 holds them against `node._file_keys`' refusals. Recorded as **P9-I63**.
 
-**The error path writes nothing, and it is left writing nothing.**
-`CoordinateComputePipes`' `gotError:` label logs and returns, carrying
-`//*TODO insert error in pipeline_execution_details`
-(`actions_coordinate_cp.go:275`). A node that filled that in would diverge in
-the direction that looks like an improvement, which is the hardest kind to argue
-back out. **Conform first; propose second** — the proposal is **P9-I64** and the
-code here does not anticipate it.
+**Go's error path records a `failed` row, and this node's does not yet.**
+`CoordinateComputePipes`' `gotError:` label calls `RegisterNodeError`
+(`actions_process_file.go`) since 2026-10-05, which inserts the `in progress`
+row and updates it to `failed` with the error's text, so that an error raised
+before the files are processed reaches the pipeline status. This node resolves
+its file keys before `begin()`, so a refusal at startup leaves no row. That is a
+known divergence, asserted in `tests_side_effects.py` so that closing it is a
+deliberate change on one side or the other.
 
 # The shape of the seam
 

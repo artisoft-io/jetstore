@@ -377,18 +377,36 @@ def test_the_execution_status_update_is_behind_two_conditions_this_node_refuses(
         _file_keys(sharding, NodeArgs(id=0, pe=1))
 
 
-def test_the_error_path_writes_nothing_and_this_node_adds_nothing(monkeypatch):
-    """**P9-I64.** The `gotError:` label logs and returns, carrying a TODO.
+def test_the_go_error_path_records_a_failed_row_and_this_node_does_not():
+    """Go's `gotError:` label records a `failed` row; this node's startup does not.
 
-    Filling it in would diverge in the direction that looks like an improvement,
-    which is the hardest kind to argue back out — so the TODO's presence is
-    asserted, and so is the fact that this node's failure path writes the
-    *status* row and no error row of its own.
+    The label used to log and return, carrying a TODO, and this test asserted
+    that. Since 2026-10-05 it calls `RegisterNodeError`, which inserts the
+    `in progress` row and updates it to `failed` with the error's text, so that
+    an error raised before the files are processed reaches the pipeline status
+    when the node runs as an ECS task.
+
+    This node does not mirror it: `coordinate` resolves its file keys before
+    `effects.begin()`, so a startup refusal leaves no row. That divergence is
+    asserted in both directions, so the day either side changes, this goes red
+    and says which.
     """
+    import inspect
+
+    from cpipes_node import node
+
     source = go_source("jets/compute_pipes/actions_coordinate_cp.go")
-    assert "//*TODO insert error in pipeline_execution_details" in source
     tail = source[source.index("gotError:") :]
-    assert "INSERT" not in tail and "UPDATE" not in tail
+    assert "args.RegisterNodeError(" in tail
+    process = go_source("jets/compute_pipes/actions_process_file.go")
+    register = process.split(
+        "func (args *ComputePipesNodeArgs) RegisterNodeError(", 1
+    )[1].split("\n}\n", 1)[0]
+    assert "InsertPipelineExecutionStatus(" in register
+    assert '"failed", nodeErr.Error()' in register
+
+    coordinate = inspect.getsource(node.coordinate)
+    assert coordinate.index("_file_keys(") < coordinate.index("effects.begin()")
 
 
 # --- the two rows -----------------------------------------------------------

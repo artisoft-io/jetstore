@@ -59,25 +59,25 @@ def test_the_encoder_answers_what_the_go_function_answers(value: object, text: s
     assert writers.encode_rdf_type_to_txt(value) == text
 
 
-def test_the_midnight_date_rule_mirrors_the_function_and_not_its_stale_test():
-    """**P9-I58**: the Go *test* for this function is one of the eight red ones.
+def test_the_midnight_date_rule_mirrors_the_function_and_its_test():
+    """`encodeRdfTypeToTxt`'s `time.Time` arm prints a midnight value as a date.
 
-    `jetrules_rdf_test.go` line 39 asserts `2006-01-02T00:00:00` for a
-    `rdf.ParseDate` value, and `encodeRdfTypeToTxt`'s `time.Time` arm returns
-    `2006-01-02` for any value whose clock is exactly midnight. The function is
-    what the engine runs and is therefore what is mirrored; an encoder written
-    from that expectation would disagree with every byte the Go engine writes.
+    The Go test for that function used to expect `2006-01-02T00:00:00` for an
+    `rdf.ParseDate` value, which disagreed with the function, and this test
+    asserted the disagreement so that its repair would be noticed. It was
+    repaired on the Go test's side: `TestEncodeRdfTypeToTxt` now expects
+    `2006-01-02`, which is what the function returns and what is mirrored here.
 
-    Asserted against the Go source in both directions, so the day somebody
-    repairs the disagreement — in either file — this goes red and says which way
-    it was repaired.
+    Asserted against both Go files, so a change to either goes red here.
     """
     source = go_source("jets/compute_pipes/jetrules_rdf.go")
     arm = source.split("case time.Time:", 1)[1].split("case uint:", 1)[0]
     assert '"2006-01-02"' in arm
     assert '"2006-01-02T15:04:05"' in arm
     test_source = go_source("jets/compute_pipes/jetrules_rdf_test.go")
-    assert '!= "2006-01-02T00:00:00"' in test_source
+    date_case = test_source.split("rdf.ParseDate(", 1)[1].split("rdf.ParseDatetime(", 1)[0]
+    assert 'encodeRdfTypeToTxt(*d) != "2006-01-02"' in date_case
+    assert "00:00:00" not in test_source
 
     assert writers.encode_rdf_type_to_txt(dt.datetime(2006, 1, 2)) == "2006-01-02"
 
