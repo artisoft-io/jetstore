@@ -155,9 +155,9 @@ export const NAV: NavEntry[] = [
  * back, so the launcher is a menu on the brand.
  *
  * **The order is the reporter's, and so are the labels** — they are not the flow
- * keys, which is the point: is the same problem seen from inside a
- * flow, where the key is rendered where a title belongs, and these are the titles
- * it needs.
+ * keys, which is the point: a flow that shows its key where a title belongs is
+ * the same problem seen from inside the flow, and these are the titles it
+ * needs.
  *
  * **`/ruleConfig` is not a flow and is in the list**, because it is what the
  * report asked for. It was reported as *"I can't find it in the React version"*

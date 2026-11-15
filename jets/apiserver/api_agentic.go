@@ -1,7 +1,8 @@
 package main
 
-// The agentic supervision endpoint — proposal staging,
-// approval decisions and run transcripts, for the Workspace IDE.
+// The agentic supervision endpoint — proposal staging, approval decisions, run
+// transcripts, incident verdicts and detection runs, for the Proposals,
+// Incidents and Detection screens.
 //
 // **This route was deliberately not registered when `audit.ReadTranscript`
 // was built.** The reasoning is worth keeping where the
@@ -14,8 +15,9 @@ package main
 // The distinction matters because the agentic project has twice deferred
 // exposing the *tool catalogue* over HTTP, and that deferral does not
 // carry here and is not weakened by this file. Nothing below dispatches a tool,
-// runs a loop, or reaches a model: every action is a read of, or a decision
-// about, rows that already exist. A future MCP-over-HTTP adapter would need
+// runs a loop, or reaches a model: every action but one is a read of, or a
+// decision about, rows that already exist, and the one, `run_detection`, starts
+// the deployed detection task early (`api_agentic_detection.go`). A future MCP-over-HTTP adapter would need
 // identity, per-request workspace resolution and capability enforcement in the
 // adapter rather than in the loop; this endpoint needs only the last of those,
 // and gets it from the same `authh` + capability pattern every other route here
@@ -95,7 +97,7 @@ const AgentPHIAccessCapability = "agent_phi_access"
 
 // AgenticAction is the request envelope. Fields are read per action and ignored
 // otherwise; the alternative, a `json.RawMessage` per action, buys nothing at
-// six actions and costs a second unmarshal in each.
+// nine actions and costs a second unmarshal in each.
 type AgenticAction struct {
 	Action string `json:"action"`
 
@@ -522,7 +524,8 @@ func recordApproval(ctx context.Context, ops agenticOps, a *AgenticAction, actor
 	}, http.StatusOK, nil
 }
 
-// The incident half — two reads and no write.
+// The incident half — two reads, `list_incidents` and `get_incident`, and one
+// write, `record_incident_transition` below.
 //
 // **Both actions carry the locus and the classification together**, which is the
 // endpoint's share of a risk's mitigation. The record supports a

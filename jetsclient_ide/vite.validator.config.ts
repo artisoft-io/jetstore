@@ -15,8 +15,12 @@ import { defineConfig } from "vite";
 // `ssr` targets Node — `node:fs` stays a built-in import — and `noExternal: true`
 // is what turns "a server build that requires its node_modules" into "one file".
 //
-// **Not part of `npm run build`**, which is the browser app and is served as
-// static files; the validator is never served. The Docker build runs both.
+// **A second build, and the last step of `npm run build`** (`package.json`), so a
+// workstation gets the script beside the browser app without a second command;
+// `npm run build:validator` builds it alone. It is a separate configuration
+// because the browser app is served as static files and the validator is never
+// served. `Dockerfile.cpipes_builder` runs `build:validator` alone and copies
+// the script beside the binaries.
 export default defineConfig({
   // The app's favicons are for the browser build; nothing here is served.
   publicDir: false,
