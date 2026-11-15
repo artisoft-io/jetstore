@@ -10,10 +10,10 @@ import { defineConfig } from "vite";
 // there is no package to resolve against.
 //
 // **Vite's SSR build rather than a new bundler.** Vite is already the package's
-// build and ships Rollup and esbuild, so this is a second configuration of the
-// tool that is there, not a dependency. `ssr` targets Node — `node:fs` stays a
-// built-in import — and `noExternal: true` is what turns "a server build that
-// requires its node_modules" into "one file".
+// build and ships its bundler (Rolldown since vite 8, Rollup and esbuild before),
+// so this is a second configuration of the tool that is there, not a dependency.
+// `ssr` targets Node — `node:fs` stays a built-in import — and `noExternal: true`
+// is what turns "a server build that requires its node_modules" into "one file".
 //
 // **Not part of `npm run build`**, which is the browser app and is served as
 // static files; the validator is never served. The Docker build runs both.
@@ -27,12 +27,14 @@ export default defineConfig({
     target: "node22",
     sourcemap: false,
     minify: false,
-    rollupOptions: {
+    // `rolldownOptions` and `codeSplitting: false` are vite 8's names for what were
+    // `rollupOptions` and `inlineDynamicImports: true`; the old ones still work, with a warning.
+    rolldownOptions: {
       output: {
         format: "es",
         entryFileNames: "jets_validate_workspace.mjs",
         // One file: anything that would be a shared chunk is inlined.
-        inlineDynamicImports: true,
+        codeSplitting: false,
       },
     },
   },
