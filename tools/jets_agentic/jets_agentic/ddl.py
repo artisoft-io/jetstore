@@ -1,6 +1,6 @@
-"""The audit-store DDL emitter (A8.1) — `jetsapi.agent_audit`, generated.
+"""The audit-store DDL emitter — `jetsapi.agent_audit`, generated.
 
-The §7.2 sketch, derived from the item-1 entities rather than hand-written:
+The audit-store sketch, derived from the domain entities rather than hand-written:
 the run-correlation column takes its name and type from `AgentRun`'s key
 field, the `tier` CHECK enumerates `AutonomyTier`, and the `event_type`
 CHECK enumerates `AuditEventType` — change the model and the DDL follows on
@@ -13,19 +13,19 @@ package directories and the installer is Go. Statements are separated by
 naive `;`-splitter that executes `jets_init_db.sql` cannot carry this file,
 and the audit package's InstallSchema splits on the marker instead.
 
-What the DDL enforces, per §7.2 and §7.3:
+What the DDL enforces, per the audit-store design:
 
 - **Append-only by construction:** one statement-level trigger raises on
   UPDATE, DELETE and TRUNCATE, plus REVOKE of all three from PUBLIC. Today
   the application connects as a superuser, which bypasses GRANT/REVOKE but
   not triggers — so the trigger does the work and the REVOKE starts meaning
   something the day the application moves off superuser.
-- **The flag and the table agree, per class (F68, added at AB.1):**
+- **The flag and the table agree, per class (added later):**
   `_assert_tables_agree` runs inside `emit()` and fails the generate when an
   entity carrying `jr_as_table` has no `CREATE TABLE` here, or when a table
   here belongs to an entity the domain model does not make a table. The file
   now writes **eight** of them, which is where naming them one at a time
-  stopped being a method. **AB.2 is the first task the guard caught rather
+  stopped being a method. **The next change was the first the guard caught rather
   than the one that wrote it**: setting `jr_as_table` on `Remediation` and
   `IncidentEvent` failed `generate --check` by name, before either table
   existed here.
@@ -37,7 +37,7 @@ What the DDL enforces, per §7.2 and §7.3:
   way. The boundary is deliberate and is stated on `_added_column_alters`:
   NOT NULL columns, drops, renames and type changes each need a migration with
   an author, and this covers none of them.
-- **The hash chain (A8.5):** a BEFORE INSERT trigger assigns `seq`
+- **The hash chain:** a BEFORE INSERT trigger assigns `seq`
   (monotonic per run), links `prev_hash` to the previous row's `row_hash`,
   and computes `row_hash` as SHA-256 over the row's fields joined by the
   0x1F unit separator — recomputable by any client, which is what makes the
@@ -67,7 +67,7 @@ def _key_field(entity) -> tuple[str, object]:
 # entities use six, and a general mapper would invite emitting tables for
 # entities that have no business being tables.
 #
-# `float` was missing until N.2 (2026-08-24) and the fall-through below is
+# `float` was missing until 2026-08-24 and the fall-through below is
 # `text`, so a float field would have become a text column silently. Nothing
 # had caught it because no *tabled* entity carried a float: Hypothesis.confidence
 # is the only other one and Hypothesis has no table. Anomaly's deviation
@@ -107,10 +107,10 @@ def _pg_type(annotation) -> tuple[str, bool]:
         if isinstance(inner_annotation, type) and issubclass(inner_annotation, BaseModel):
             # A list of value objects is **one** jsonb array, not an array of
             # jsonb. Hypothesis.supporting_evidence is the first of these and
-            # AB.1 is where it arrived: before this entity was a table the
+            # arrived when Hypothesis was tabled: before this entity was a table the
             # branch below fell through to `text`, so the column would have been
             # `text[]` — a list of opaque strings where the model declares a list
-            # of {statement, source, source_ref}. That is I-128's silent
+            # of {statement, source, source_ref}. That is the silent `text`
             # widening firing on a composite rather than on a scalar, and it is
             # the failure mode `jr_as_table` on a second entity was always going
             # to expose.
@@ -134,8 +134,8 @@ def _pg_type(annotation) -> tuple[str, bool]:
     # text column and the DDL still compiles. Raising instead would be the
     # stricter choice and is *not* taken here, because this emitter runs over
     # every field of every tabled entity and a hard failure on an unmapped type
-    # would make adding a field to the model a two-file change. Recorded as
-    # I-128 with the trade stated; the guard that actually matters is that a
+    # would make adding a field to the model a two-file change. Recorded as an
+    # issue with the trade stated; the guard that actually matters is that a
     # column's type is read in review.
     return _PG_TYPES.get(annotation, "text"), nullable
 
@@ -199,19 +199,19 @@ def _added_column_alters(entity) -> str:
 
     **`CREATE TABLE IF NOT EXISTS` does nothing to a table that already exists,
     which is fine while a generator only ever creates and stops being fine at the
-    second version.** AB.1 and AB.2 created these tables; AB.4 is the first task
-    to *change* one, and without this the new `incident_run_ref` would reach a
+    second version.** Earlier changes created these tables; adding `incident_run_ref`
+    was the first to *change* one, and without this the new `incident_run_ref` would reach a
     fresh database and no migrated one — silently, since `InstallSchema` runs
     clean either way and the missing column surfaces as a 42703 in whatever
     queries it next.
 
-    **The rule was nullable columns only until AC.3, and it is now every added
-    column, with the NOT NULL case emitted as two statements.** `AB.4` wrote the
-    boundary as *a NOT NULL column cannot be added to a populated table without a
+    **The rule was nullable columns only at first, and it is now every added
+    column, with the NOT NULL case emitted as two statements.** It was first
+    written with the boundary as *a NOT NULL column cannot be added to a populated table without a
     default, so it needs a hand-written migration* — true, and it made the first
-    NOT NULL widening silent rather than hard. `AC.3` added two required columns
-    to `Hypothesis` and would have had them reach a fresh database and no
-    migrated one, which is I-337 with the loudness removed.
+    NOT NULL widening silent rather than hard. Two required columns added later
+    to `Hypothesis` would have reached a fresh database and no
+    migrated one, which is the missing-column failure with the loudness removed.
 
     So the constraint travels on the same statement: a NOT NULL column emits
     `ADD COLUMN IF NOT EXISTS <col> <type> NOT NULL`. **One statement rather than
@@ -269,23 +269,23 @@ def _added_column_alters(entity) -> str:
 
 
 def _assert_tables_agree(sql: str) -> None:
-    """**F68's guard, and the reason it is here rather than in a check script.**
+    """**The flag-and-table guard, and the reason it is here rather than in a check script.**
 
-    F68 is that this emitter names its tabled entities one at a time while the
+    The defect is that this emitter names its tabled entities one at a time while the
     rest of the toolchain — the .jr, the sidecar, the schema projection, the
     compile check — iterates `ENTITIES` on `jr_as_table`. So the flag and the
     Postgres table are set in two files with nothing connecting them, and
     setting one is a complete-looking change: every check in the chain reports
-    clean, because they all read the .jr side. I-24 recorded the confusion in
-    Phase 1 after `agent_run` and `change_proposal` were left modelled and
-    unwritable; N.2 avoided it for `Anomaly` by hand; AB.1 tables two more at
-    once, which is when *by hand* stops being a method.
+    clean, because they all read the .jr side. The confusion was recorded early
+    on, after `agent_run` and `change_proposal` were left modelled and
+    unwritable; it was avoided for `Anomaly` by hand; tabling two more at
+    once is when *by hand* stops being a method.
 
     The assertion runs inside `emit()`, so it fires on `jets-agentic generate`
     **and** on `generate --check` — a stale or missing table is a nonzero exit
     rather than something a reader has to notice. It is deliberately checked in
     **both directions and per class**: a flagged entity with no CREATE TABLE is
-    the failure I-24 recorded, and an unflagged entity *with* one is a table
+    the failure recorded early on, and an unflagged entity *with* one is a table
     nothing in the domain model asks for, which is the same defect arriving from
     the other side and would otherwise be invisible.
 
@@ -350,7 +350,7 @@ def emit() -> str:
     severities = ", ".join(f"'{m.value}'" for m in M.Severity)
     incident_statuses = ", ".join(f"'{m.value}'" for m in M.IncidentStatus)
     actor_kinds = ", ".join(f"'{m.value}'" for m in M.ActorKind)
-    # §A.2.9's validator rule, expressed as the complement of one member rather
+    # The proposal's validator rule, expressed as the complement of one member rather
     # than as a hand-written pair: the vocabulary carries all three values
     # because the rule is *about* the third, and the DDL admits the other two.
     # Read off the enum for the same reason `step_ambiguous` below is — a rename

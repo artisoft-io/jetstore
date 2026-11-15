@@ -1,7 +1,7 @@
 """Checks on the template model. `python -m pytest tests_template.py` or run directly.
 
 The negative cases matter more than the positive one: every finding `check` claims to
-make is a rule that will be leaned on by F.4's expander, and a rule nothing tests is a
+make is a rule that will be leaned on by the expander, and a rule nothing tests is a
 comment.
 """
 
@@ -118,7 +118,7 @@ def test_a_repeating_hole_must_sit_in_a_list():
 
 
 def test_nested_holes_are_found_through_a_body():
-    """The §5.3.9 case: the inner hole is inside the outer hole's `$body`."""
+    """The nested case: the inner hole is inside the outer hole's `$body`."""
     tpl = Template.model_validate(copy.deepcopy(BASE))
     paths = dict(tpl.markers())
     assert "$body" in paths["metric_columns"], paths
@@ -132,7 +132,7 @@ def test_nested_holes_are_found_through_a_body():
 
 
 
-# --- F.4: expansion -------------------------------------------------------------
+# --- Expansion -------------------------------------------------------------------
 
 from cpipes_contract.expand import ExpansionError, expand, from_library  # noqa: E402
 
@@ -174,7 +174,7 @@ def test_the_output_carries_no_marker_of_being_generated():
 
 
 def test_both_levels_repeat_independently():
-    """The §5.3.9 case: outer over metrics, inner over columns, neither inferred."""
+    """The nested case: outer over metrics, inner over columns, neither inferred."""
     cfg, _ = expanded()
     ops = cfg["conditional_pipes_config"][0]["pipes_config"][0]["apply"]
     assert len(ops) == len(CTX["metrics"])
@@ -214,7 +214,7 @@ def test_a_bad_fragment_is_reported_and_still_spliced():
 
 
 
-# --- F.5: criterion 21 ----------------------------------------------------------
+# --- Placement from the target -------------------------------------------------
 
 from cpipes_contract.expand import from_target  # noqa: E402
 
@@ -273,7 +273,7 @@ def test_criterion_21_the_expansion_regenerates_its_target_exactly():
 
 
 def test_the_fit_check_measures_the_prompt_not_the_schema():
-    """`ConditionalPipeSpec` is the case that settled Q-15.
+    """`ConditionalPipeSpec` is the case that settled what the fit check measures.
 
     Its JSON Schema is ~49,008 tokens and its prompt ~11,800, against a 24,576 budget.
     The old check sized the schema and refused the hole as unauthorable; the schema
@@ -324,7 +324,7 @@ def test_the_examples_are_counted_because_they_are_sent():
 def test_every_bundle_is_authorable():
     """The bundle layer's promise, restated against what actually occupies the window.
 
-    F.8 sized the bundles by JSON Schema and reported the worst at 15,513 of 24,576.
+    The bundles were first sized by JSON Schema, with the worst at 15,513 of 24,576.
     Measured as prompts with their examples, the worst is `AnalyzePipe` at ~11,818 - so
     the promise holds under the corrected measure as well, which was not guaranteed:
     the examples could have eaten the headroom the TypeScript freed.
@@ -351,7 +351,7 @@ def test_every_bundle_is_authorable():
     assert over == [], f"over budget: {over}"
 
 
-# --- F.7: criterion 23 ----------------------------------------------------------
+# --- Bindings read off the live qc_* configs ------------------------------------
 
 from cpipes_contract.qc_bindings import QcShapeError, derive, status_column  # noqa: E402
 
@@ -375,20 +375,20 @@ def test_the_qc_template_is_clean():
 
 
 def test_criterion_23_two_of_the_five_non_exact_reproduce_exactly():
-    """§5.3.9 left five `qc_*` configs short of byte-for-byte. Two of them now are.
+    """An earlier experiment left five `qc_*` configs short of byte-for-byte. Two now are.
 
-    Criterion 23 asks for one. `qc_participation` (14 diffs in Phase 0) and
+    The test asks for one. `qc_participation` (14 diffs at first) and
     `qc_eligibility` (54) both reproduce exactly from `qc_TEMPLATE` plus the hole set,
-    and the three Phase 0 already had stay exact - which is the check that matters, since
+    and the three that were already exact stay exact - which is the check that matters, since
     a hole added for one config can easily break another.
 
-    **This proves placement, not authoring** - §5.3.9's third qualification, unchanged.
+    **This proves placement, not authoring** - unchanged.
     `derive` reads the target.
 
     **`qc_eligibility` is the arm that carries the status filters (2026-09-17).** Of the
     five, it is the only one whose `case_expr` is eight legs rather than four, so it is
     what says the `status_filter_clauses` hole reproduces a filter *and* that the other
-    four reproduce when it repeats zero times - the two halves of `AH.6`, in one
+    four reproduce when it repeats zero times - the two halves of the status-filter hole, in one
     assertion each way round.
     """
     for name in QC_EXACT:
@@ -400,7 +400,7 @@ def test_criterion_23_two_of_the_five_non_exact_reproduce_exactly():
 def test_no_fragment_comes_from_a_model_or_the_library():
     """Every hole is filled by its own `$body`; the `fill` seam is never reached.
 
-    That is stronger than F.5's round trip, which recovered whole operators with
+    That is stronger than the placement round trip, which recovered whole operators with
     `from_target`. Here the skeleton supplies the shape and the bindings supply only
     values, so a `fill` callable that returns nonsense changes nothing.
     """
@@ -415,7 +415,7 @@ def test_no_fragment_comes_from_a_model_or_the_library():
 
 
 def test_the_three_that_do_not_reproduce_are_recorded_as_bounded():
-    """The honest half of criterion 23: what is left, and that it is not the mechanism.
+    """The honest half of the reproduction test: what is left, and that it is not the mechanism.
 
     Nine, ten and thirty-three leaves respectively, in four categories that are all
     per-config payload the template does not yet name - `format`/`compression` on an
@@ -501,14 +501,14 @@ def test_a_report_pipe_without_one_status_column_is_refused_by_name():
 
 
 def test_a_repeating_hole_bound_to_no_items_leaves_its_list_as_written():
-    """Q-19, tested rather than argued: a hole can repeat zero times.
+    """Tested rather than argued: a hole can repeat zero times.
 
-    `AH.6` turned the status filters into one repeating hole, and five of the eight
+    The status filters became one repeating hole, and five of the eight
     reports carry no filter — so the whole repair rests on an empty binding splicing
     away and leaving the surrounding list untouched rather than, say, leaving a null in
     it. **Bound to `[]`, not omitted**: an omitted name raises, which
     `test_an_unbound_repeat_over_raises` holds for the other template. The two
-    together are the answer to Q-19 in both directions.
+    together are the answer in both directions.
     """
     target, cfg, bad = _qc("qc_participation")
     assert bad == []
@@ -519,7 +519,7 @@ def test_a_repeating_hole_bound_to_no_items_leaves_its_list_as_written():
 
 
 def test_the_status_filter_carries_its_substring_rather_than_deriving_it():
-    """F21's trap, pinned against a hand-written binding rather than against the corpus.
+    """The shared-substring trap, pinned against a hand-written binding rather than against the corpus.
 
     Two of the four filters test `contains 'HCC'` from *different* environment
     variables, because `${calculateCMSHCC}` and `${calculateHHSHCC}` are two
@@ -553,7 +553,7 @@ def test_the_status_filter_carries_its_substring_rather_than_deriving_it():
     assert legs[2:] == _status_case(target)
 
 
-# --- F.2b: A§6.1 source 2, measured -----------------------------------------------
+# --- The test fixtures as a library source, measured -----------------------------
 
 from cpipes_contract.fixtures import coverage, load, validate as validate_fixtures  # noqa: E402
 
@@ -566,12 +566,12 @@ LIBRARY = [
 
 
 def test_the_resolver_reaches_the_tail_i35_said_it_could_not():
-    """I-35's point was that a static parse misses exactly the types worth having.
+    """A static parse misses exactly the types worth having.
 
     `GroupBySpec` was 0 of 5 self-contained and `MergeSpec` 0 of 4, because their
     fixtures read locals like `mergeColumn := []string{"key1"}`. Resolving the enclosing
-    function's literal bindings gets them, which is why F.2b is a resolver rather than
-    the test-time capture I-35 left open as the alternative.
+    function's literal bindings gets them, which is why the harvester is a resolver rather than
+    the test-time capture left open as the alternative.
     """
     got = {}
     for fixture in load(FIXTURES):
@@ -583,7 +583,7 @@ def test_the_resolver_reaches_the_tail_i35_said_it_could_not():
 def test_a_harvested_fixture_is_not_the_same_as_a_valid_fragment():
     """The finding that decides what source 2 is worth.
 
-    A§6.1 calls the fixtures "correct by construction". They are correct *for their
+    The proposal calls the fixtures "correct by construction". They are correct *for their
     test*: partial where the test only needs part, deliberately wrong where the test is
     negative, and sentinel-valued where the test only round-trips a field. Fewer than
     half validate, and the gap is the point rather than a defect in the harvester.
@@ -601,29 +601,29 @@ def test_a_harvested_fixture_is_not_the_same_as_a_valid_fragment():
 def test_the_fixtures_fill_two_of_the_twenty_five_empty_types():
     """The measure source 2's argument actually rests on.
 
-    A§6.1's case is that the fixtures concentrate where the corpus is thin, so a count of
+    The proposal's case is that the fixtures concentrate where the corpus is thin, so a count of
     fixtures is the wrong number and a count of types the corpus cannot illustrate is the
     right one. Twenty-five contract types have no library part; the fixtures supply two.
     """
     good, _ = validate_fixtures(load(FIXTURES), SCHEMA)
     cov = coverage(good, LIBRARY, HERE / "matrix")
-    # **25 when F.2b pinned it, 27 on 2026-08-31, 36 on 2026-09-11.** The contract
+    # **25 when first pinned, 27 on 2026-08-31, 36 on 2026-09-11.** The contract
     # gained types the library cannot illustrate; the fixtures still fill exactly the
     # same two. Re-pinned rather than loosened, because the number is the population
-    # and the claim is the pair: what A§6.1 rests on is that the fixtures concentrate
+    # and the claim is the pair: what the proposal rests on is that the fixtures concentrate
     # where the corpus is thin, and a growing `empty` makes that claim *stronger*
     # rather than stale. The reason this went unnoticed for eleven days is the runner —
     # see the note at the foot of this file.
     #
-    # **Of the nine added since 2026-08-31, five are BB.1's and four were already
-    # here when it arrived** — `ElementParagraph`, `ElementGroup`, `RenderSpec`,
+    # **Of the nine added since 2026-08-31, five are the render operator's and four
+    # were already here when it arrived** — `ElementParagraph`, `ElementGroup`, `RenderSpec`,
     # `TextTemplateSpec` and `TransformationSpecRender` are the render operator's,
     # and the assertion was already failing at 31 against a pin of 27 before this
     # task touched the matrix. Recorded rather than absorbed silently: re-pinning is
     # what this comment asks for, and it is also how a number drifts four types at a
     # time with nobody named.
     #
-    # **38 on 2026-09-13**, the two being gap 2b's `TransformationSpecSite` and
+    # **38 on 2026-09-13**, the two being the site operator's `TransformationSpecSite` and
     # `SiteOperatorSpec`. Neither can ever have a library part, and that is a
     # property of the type rather than a gap in the library: a site operator's
     # shape belongs to whichever deployment wrote it, so there is no exemplar
@@ -648,7 +648,7 @@ def test_nothing_here_writes_into_the_library():
     assert ".write_text(" not in source and "open(" not in source.replace("open(matrix", "")
 
 
-# --- I-42: the estimate, and what it was wrong about --------------------------------
+# --- The estimate, and what it was wrong about ------------------------------------
 
 from cpipes_contract.authoring import (  # noqa: E402
     CHARS_PER_TOKEN, estimate_tokens, fits, instruction_for, segments,
@@ -679,7 +679,7 @@ def test_the_estimate_is_within_five_per_cent_of_the_server():
     """
     # **`ConditionalPipeSpec` drifted to +6.9% by 2026-08-31 and this test is not
     # the place to absorb that.** MEASURED holds `prompt_eval_count` from
-    # granite4.1:3b at I-42; the prompt has grown since (W.1 moved matrix rows, so
+    # granite4.1:3b at the time; the prompt has grown since (matrix rows moved, so
     # the examples and the token list changed) while the constants did not. Two
     # repairs are available and both are wrong here: loosening the tolerance hides
     # the drift the test exists to show, and re-measuring against the only model on
@@ -739,7 +739,7 @@ def test_segments_reads_the_prompts_own_shape():
     assert {"typescript", "json", "prose"} <= kinds
 
 
-# --- T.3: the three candidate-selection arms ------------------------------------
+# --- The three candidate-selection arms -----------------------------------------
 
 from cpipes_contract import retrieval as R  # noqa: E402
 from cpipes_contract.authoring import examples_for  # noqa: E402
@@ -755,7 +755,7 @@ def _picks(method, schema_ref="ColumnAggregation", query="", limit=4):
 def test_cited_is_what_examples_for_always_did():
     """The baseline arm must be the shipped behaviour, or the comparison has no zero.
 
-    `examples_for` was refactored at T.3 onto a pluggable ranker; if `cited` had
+    `examples_for` was refactored onto a pluggable ranker; if `cited` had
     drifted while doing it, every arm would be measured against a method nothing
     ships and the run would answer a question nobody asked.
     """
@@ -773,7 +773,7 @@ def test_cited_is_what_examples_for_always_did():
 
 
 def test_every_arm_keeps_the_shape_diversity_rule():
-    """I-96's stated caution: the swap is *within* a member type.
+    """The stated caution: the swap is *within* a member type.
 
     `examples_for` picks one part per member type before any second of a type,
     because three `select` examples teach less than one each of select, value and
@@ -826,7 +826,7 @@ def test_a_semantic_arm_without_an_embedder_refuses():
 
 
 def test_the_selection_method_is_the_only_thing_that_changes_in_the_prompt():
-    """T.3 attributes a difference in compile-pass to the examples. That is only
+    """The run attributes a difference in compile-pass to the examples. That is only
     sound if the rest of the instruction is byte-identical across arms."""
     from cpipes_contract.template import Hole
 
@@ -846,7 +846,7 @@ def test_the_selection_method_is_the_only_thing_that_changes_in_the_prompt():
 # **It sat at line 221 with 420 lines of tests after it, so 22 of this file's 39
 # tests had never run under `python tests_template.py`** - Python defines a module
 # top to bottom, so `sorted(globals().items())` at line 221 sees only what is above
-# it. Found 2026-08-31 at T.3, by appending tests and watching them not appear.
+# it. Found 2026-08-31, by appending tests and watching them not appear.
 #
 # They were reachable under pytest, which is why nothing was obviously broken; the
 # sibling `tests_project.py` records that no pytest is installed against this

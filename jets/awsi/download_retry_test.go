@@ -45,7 +45,7 @@ func TestIsNoSuchKey(t *testing.T) {
 	}
 }
 
-// The I-23 fix: a missing object costs one attempt and no sleep, where it used to
+// The fix: a missing object costs one attempt and no sleep, where it used to
 // cost seven attempts and 10.5 s, and the error that comes back still says what it
 // was.
 func TestDownloadWithRetryReturnsAMissingObjectAtOnce(t *testing.T) {

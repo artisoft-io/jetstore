@@ -18,7 +18,7 @@ import (
 // Tool 4 — compile_rule_file: the real compiler, on a throwaway workspace.
 // ---------------------------------------------------------------------------
 //
-// The second of gap 6's two verifiers. validate_cpipes_config covers .pc.json;
+// The second of the two verifiers. validate_cpipes_config covers .pc.json;
 // this covers .jr, and it is the one that could not be written until the
 // compiler reported diagnostics as data — before that, a failing compile
 // returned the constant string "compilation failed with errors" and a repair
@@ -38,7 +38,7 @@ import (
 //     rule. The throwaway carries the workspace's rule sources for that reason,
 //     and copying only .jr files keeps it cheap.
 //   - **Diagnostics name the authored file.** Which is the whole point, and is
-//     what E.1-E.5 built.
+//     what the compiler's diagnostics work built.
 
 // CompileReport is what the tool returns. It mirrors ValidationReport's shape
 // deliberately — the loop treats verifiers alike, and two report shapes for the
@@ -65,8 +65,8 @@ type RuleDiagnostic struct {
 
 type compileArgs struct {
 	RuleText string `json:"rule_text"`
-	// RulePath is I-94's remedy: name a workspace file instead of carrying its
-	// text. J.2 measured the model reproducing a rule file correctly 9
+	// RulePath is the path remedy: name a workspace file instead of carrying its
+	// text. The tool-conformance run measured the model reproducing a rule file correctly 9
 	// times in 18, deterministically, with a verbatim-copy instruction making
 	// it worse — and `rule_text` is `{"type":"string"}`, so no schema anywhere
 	// can see a dropped import line. A path removes the failure rather than
@@ -75,12 +75,12 @@ type compileArgs struct {
 	// **Exactly one of the two, not a precedence rule.** A caller sending both
 	// has two different intentions and the tool cannot know which, so it says
 	// so instead of quietly preferring one. Silently ignoring `rule_text`
-	// beside a path would reproduce I-68's own defect — a call that looks
+	// beside a path would reproduce the defect it fixes — a call that looks
 	// answered and compiled something else.
 	RulePath string `json:"rule_path"`
-	// Rules is I-250's arm: the rules as a symbolic document
+	// Rules is the symbolic arm: the rules as a symbolic document
 	// (jets/compilerv2/symbolic), rendered to JetRules source by the tool.
-	// F176 measured the model carrying a cpipes config through this tool
+	// A measurement found the model carrying a cpipes config through this tool
 	// family intact 17 and 16 times in 18 and a rule file 6 and 4 times, with
 	// every dropped fragment a JetRules construct — a label, an import line.
 	// In this arm the model writes none of them: the renderer does. It serves

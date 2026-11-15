@@ -91,7 +91,7 @@ ON CONFLICT (role) DO UPDATE SET (details, last_update) = (EXCLUDED.details, DEF
 --	                     property is the exception, client data inside a governance record.
 --	                     Which role holds it is a policy decision about client data rather than
 --	                     an engineering one. It was granted to no role until that decision was
---	                     made; knowledge_engineer holds it (agentic_ai project, Q-42), and
+--	                     made; knowledge_engineer holds it, and
 --	                     designated_admin holds it because it holds every knowledge_engineer
 --	                     capability (2026-11-07).
 --	- runbook_execute:   List, start and control the active workspace's runbooks, accept or deny a
@@ -101,7 +101,7 @@ ON CONFLICT (role) DO UPDATE SET (details, last_update) = (EXCLUDED.details, DEF
 --	                     started or resumed the run, or who accepted the step -- jetstore_read for a
 --	                     query or wait, workspace_ide for a ddl or a compile, run_pipelines for the
 --	                     pipeline steps. Its own capability so it can be granted without the rest.
---	                     Granted to knowledge_engineer (runbooks project, Q-5, 2026-11-06).
+--	                     Granted to knowledge_engineer (2026-11-06).
 --	- delete_session:    Delete a session completely: its rows in every table, its registry row
 --	                     last, and its pipeline execution status rows moved to the archive.
 --	                     Granted to designated_admin only (2026-11-07).

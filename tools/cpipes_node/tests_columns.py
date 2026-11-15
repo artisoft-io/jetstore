@@ -90,7 +90,7 @@ def test_the_lookup_refusal_names_the_graph_s_own_refusal():
     """The two have to give the same account, or a reader repairs the wrong one.
 
     `graph._resolve_lookups` refuses a document declaring `site_config.lookups`
-    and this refuses the column type that would read one. Both cite D-202.
+    and this refuses the column type that would read one. Both cite the same decision.
     """
     with pytest.raises(ColumnUnsupported) as exc:
         build(expr(type="lookup", name="x", lookup_name="t"))
@@ -495,14 +495,14 @@ def test_sum_adds_the_pairs_go_s_add_states(values: list, total: object):
 
 
 def test_sum_over_a_text_column_fails_on_the_second_record_as_it_does_in_go():
-    """**P9-I60, and it is a fact about the Go engine rather than about this one.**
+    """**This is a fact about the Go engine rather than about this one.**
 
     `add`'s switch has cases for `int`, `int64` and `float64` on the *left* and
     none for `string`. A null running total takes the first value verbatim — and
     uncast, when the spec states no `as_rdf_type` — so summing a column of
     numeric *text* leaves a string on the left and the second record errors.
 
-    Every cell read out of a CSV is text, so this reaches P9-T12 directly: a QC
+    Every cell read out of a CSV is text, so this reaches the authored QC pipelines directly: a QC
     pipeline summing a money column off a stage file must state
     `as_rdf_type: double`, and `as_rdf_type` is refused by this node's subset. It
     is asserted here rather than left to be met inside a pipeline, because the

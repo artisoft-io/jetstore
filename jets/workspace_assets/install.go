@@ -167,8 +167,8 @@ type AssetGroup struct {
 // evidence the guard has.
 //
 // Three as of 2026-08-25, and the third is the first whose assets are written
-// by a generator rather than by a person. That is the condition I-61
-// named as the moment its second asymmetry would matter: `jets-agentic generate
+// by a generator rather than by a person. That is the condition named
+// as the moment a second asymmetry would matter: `jets-agentic generate
 // --check` accounts for data_model alone, and there is now a second generator
 // writing into a second asset directory with nothing checking that what is
 // committed is what the generator would emit. The check is owed to
@@ -282,14 +282,14 @@ type RetiredAsset struct {
 // A name here must not also be embedded — Install refuses to run if it is,
 // because it would install the file and then delete it.
 var RetiredAssets = []RetiredAsset{
-	// jetstore_maintenance_02, Q-6 and task AD.4. The flow submitted a schema
+	// Retired 2026-10-01. The flow submitted a schema
 	// event with a file key the user typed; the Pipeline Status table's *Put
 	// Schema Event* dialog does it now, with the key decided by the server.
 	{Dir: "user_flows", Name: "registerFileKeyUF.uf.json", Why: "2026-10-01, D01: Put Schema Event on Pipeline Status"},
 	{Dir: "user_flows", Name: "registerFileKeyUF.ua.json", Why: "2026-10-01, D01: Put Schema Event on Pipeline Status"},
 	{Dir: "user_flows", Name: "registerFileKeyUF.form.json", Why: "2026-10-01, D01: Put Schema Event on Pipeline Status"},
-	// jetstore_maintenance_02, tasks AF.2 to AF.4. The three option tables of the
-	// add-or-edit steps D06 removed: Clients & Vendors, Source Configuration and
+	// Retired 2026-10-01. The three option tables of the
+	// add-or-edit steps a UI change removed: Clients & Vendors, Source Configuration and
 	// Pipeline Configuration open on their table now, with a + Add button on it.
 	{Dir: "table_configs", Name: "ufClientOrVendorOption.tc.json", Why: "2026-10-01, D06: Clients & Vendors opens on the client table"},
 	{Dir: "table_configs", Name: "scAddOrEditSourceConfigOption.tc.json", Why: "2026-10-01, D06: Source Configuration opens on its table"},

@@ -17,7 +17,7 @@ type LookupTableManager struct {
 	isVerbose      bool
 }
 
-// LookupTable moved to `pipesmodel` with Phase 9's P9-T02, because it is what
+// LookupTable moved to `pipesmodel`, because it is what
 // OperatorArgs.Lookups hands to a site operator: the contract package has to be
 // able to name the type it carries. The alias keeps this package's spelling, so
 // LookupTableS3, LookupTableSql and every built-in that holds one are unchanged

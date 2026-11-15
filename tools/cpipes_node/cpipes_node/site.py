@@ -21,10 +21,10 @@ absorb.
 **What is deliberately *not* mirrored is where the refusal happens.** Go cannot
 check a site token at startup at all: the registry is an argument to
 `CoordinateComputePipes`, which runs in `cp_node`, while the starters that see
-the document run elsewhere — `validateSiteOperatorSpec` says so in terms and
-cites I-779. In this node the registry and the document are in one process at
-startup, so X6's abort is available and is taken. The consequence for P9-T22 is
-that a document naming an unregistered operator fails in *both* engines and at
+the document run elsewhere — `validateSiteOperatorSpec` says so in terms.
+In this node the registry and the document are in one process at
+startup, so the startup abort is available and is taken. The consequence for
+conformance testing is that a document naming an unregistered operator fails in *both* engines and at
 *different moments*; a conformance instrument comparing output bytes sees both
 fail, and one comparing the moment of failure would report a divergence that is
 an improvement.

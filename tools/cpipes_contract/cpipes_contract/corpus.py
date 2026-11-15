@@ -4,7 +4,7 @@
 `workspaces/*/data/` are notes and reference material for developers — JetStore never
 loads them — and they preserve config shapes that have since been retired. Counting them
 does not merely add noise, it manufactures contradictions: every apparent disagreement
-between the validator and the corpus in the B.1 seed came from that directory.
+between the validator and the corpus in the initial seed came from that directory.
 
 The rule that follows is the one the plan already implies but never states: **the
 validator wins.** It runs on every execution, so a shape it rejects cannot be in service.
@@ -16,7 +16,7 @@ Counting is driven by the matrix rather than by a hand-written traversal: a fiel
 with a `ref_struct` says where a child of that type is found, and the child's own
 discriminator says which row it is. So the matrix measures itself, and the reach of the
 walk is exactly the coverage of the matrix — `unreachable` in the report below is the
-worklist for B.2-B.6, not a bug.
+worklist for the matrix extraction, not a bug.
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ LIVE_PARENT = "pipes_config"
 # Within the live corpus, a `test/` directory holds configs that exercise a feature
 # rather than run a client's data. They are real configs and they must validate, so they
 # stay in the corpus - but a field attested only there is weaker evidence than one a
-# production pipeline depends on, and the review is ordered by evidence strength (R-1).
+# production pipeline depends on, and the review is ordered by evidence strength.
 TEST_PARENT = "test"
 
 
@@ -80,7 +80,7 @@ class Measurement:
     # until a production occurrence turns up.
     exemplar_is_prod: dict[TypeKey, bool] = field(default_factory=dict)
     # Keys seen on a typed node that no field row accounts for: candidates for a missing
-    # row, or - once the matrix is complete - dead keys, which is the B.14 audit.
+    # row, or - once the matrix is complete - dead keys, which is the dead-key audit.
     unknown_keys: dict[TypeKey, Counter[str]] = field(
         default_factory=lambda: defaultdict(Counter)
     )

@@ -1,4 +1,4 @@
-// Package shadow is Phase 4's deployment posture as code: triage
+// Package shadow is the incident agent's shadow-mode deployment posture as code: triage
 // and RCA run over the execution record, their conclusions are written to
 // jetsapi.incident and jetsapi.hypothesis, a supervision screen reads them, and
 // **nothing acts**.
@@ -9,7 +9,7 @@
 // record shows it."* The first clause is cheap — this repository contains no
 // executor, so nothing could have executed — and the second is not. *No
 // remediation ran* and *the record demonstrates that no remediation ran* are
-// different claims, and a phase that satisfies the first by writing no code has
+// different claims, and work that satisfies the first by writing no code has
 // satisfied nothing a reader can check.
 //
 // So this package builds the demonstration rather than the absence, in four
@@ -18,7 +18,7 @@
 //   - **The ceiling is derived, not declared.** ActingStatuses is asserted to be
 //     exactly the set of IncidentStatus values that no path from `detected`
 //     reaches without passing through `remediation_proposed` — a property of
-//     Appendix A.5's own machine, computed from audit.IncidentTransitions rather
+//     the incident lifecycle's own machine, computed from audit.IncidentTransitions rather
 //     than from an opinion held here. TestActingStatusesAreTheUnreachableHalf is
 //     what recomputes it.
 //   - **The writer refuses to cross it.** Writer.Run writes only the three
@@ -26,8 +26,8 @@
 //     else. That is a guard on a code path rather than a discipline, and a
 //     negative control watches it fire.
 //   - **No writer for jetsapi.remediation exists in the tree**, asserted over
-//     the source by TestNothingWritesTheRemediationTable. AB.2 tabled the entity
-//     with no executor *so that Phase 5 has something to gate*; that absence is
+//     the source by TestNothingWritesTheRemediationTable. The entity was tabled
+//     with no executor *so that a later autonomy gate has something to gate*; that absence is
 //     therefore a property worth asserting rather than a fact about what nobody
 //     got round to.
 //   - **The record answers for itself.** Attest reads the incident record back
@@ -43,8 +43,8 @@
 // it can be deleted from, and unlike jetsapi.anomaly its subject is mutable. The
 // hash chain covers a transition only when the incident names an AgentRun,
 // and **a deterministic classifier is not an AgentRun** — so every incident this
-// package writes is in the unchained half, which is R-44 and gap 27's accepted
-// cost rather than an oversight. Q-43 asked whether such an incident should be
+// package writes is in the unchained half, which is an accepted
+// cost rather than an oversight. A design question asked whether such an incident should be
 // chainable at all and the obvious answer — mint an AgentRun for the triage step
 // — was refused twice; it is not worked around here.
 //
@@ -56,10 +56,10 @@
 //
 // # What this package does not do
 //
-// It does not decide a cause. AC.2's ranker attaches hypotheses and its
+// It does not decide a cause. The rca ranker attaches hypotheses and its
 // contradicting evidence is what makes them advisory; nothing here reads a model.
 // It does not adjudicate: `reclassified`, `verified` and `suppressed_as_benign`
-// are human verdicts and plan §10.7's whole argument is that a label the measured
+// are human verdicts and the supervision design's whole argument is that a label the measured
 // system wrote is not a label, so this writer is refused those three by the same
 // guard that refuses it the acting half.
 package shadow
@@ -91,21 +91,21 @@ type DB interface {
 // **`detected` is written and then left immediately**, rather than the incident
 // being inserted at `triaged`. The transition is the record of the classifier
 // having run, and an incident that arrived already triaged would have a verdict
-// and no event saying who reached it — which is exactly the gap I-276 was raised
-// for, reintroduced by the first writer.
+// and no event saying who reached it — which is exactly the gap incident transitions were
+// added to close, reintroduced by the first writer.
 var ShadowStatuses = []string{
 	audit.IncidentDetected, audit.IncidentTriaged, audit.IncidentDiagnosed,
 }
 
 // ActingStatuses are the six statuses on the far side of the ceiling.
 //
-// **They are not chosen here.** Appendix A.5's Incident machine makes
+// **They are not chosen here.** The lifecycle's Incident machine makes
 // `remediation_proposed` an articulation point: every one of these is reachable
 // from `detected` only through it, and none of `triaged`, `diagnosed`,
 // `reclassified` or `suppressed_as_benign` is. That is what *acting* means in
 // this phase — the point at which a corrective action has a subject — and
 // TestActingStatusesAreTheUnreachableHalf recomputes the set from
-// audit.IncidentTransitions on every run, so an edge added to A.5 moves this
+// audit.IncidentTransitions on every run, so an edge added to the lifecycle moves this
 // list or fails the suite.
 var ActingStatuses = []string{
 	audit.IncidentRemediationProposed,
@@ -122,7 +122,7 @@ const ActingFrontier = audit.IncidentRemediationProposed
 
 // AdjudicationStatuses are the three verdicts a *person* reaches, which this
 // writer is refused for a different reason than the acting six: they are labels,
-// and plan §10.7's argument is that a label the measured system may have written
+// and the supervision design's argument is that a label the measured system may have written
 // is not a label. They are the population HumanVerdicts counts.
 var AdjudicationStatuses = []string{
 	audit.IncidentVerified, audit.IncidentReclassified, audit.IncidentSuppressedAsBenign,
@@ -171,7 +171,7 @@ var Severities = []string{SeverityInfo, SeverityLow, SeverityMedium, SeverityHig
 // MODEL_VERSION in tools/jets_agentic/jets_agentic/model.py and reaches the .jr,
 // the sidecar, the JSON Schema and the DDL header from there; **no Go constant
 // is generated for it**, so every Go caller that needs one types the string —
-// four test files do today. That is F68's two-files-and-nothing-compares-them
+// four test files do today. That is the two-files-and-nothing-compares-them
 // shape at the granularity of a version string, and it is recorded rather than
 // fixed here: generating it belongs with the generator that already emits
 // DataClassifiedProperties, not with the first caller to want it.
@@ -182,10 +182,10 @@ const ModelVersion = "0.1.0"
 //
 // **It is separate from triage.Extent on purpose.** That type answers *what can
 // be read about a run*; this answers *is there anywhere to put a conclusion*,
-// and the two go wrong independently: jetsapi.incident arrived at AB.1 and
-// jetsapi.anomaly at N.2, so a deployment migrated between them has one and not
+// and the two go wrong independently: jetsapi.incident and jetsapi.anomaly
+// arrived at different times, so a deployment migrated between them has one and not
 // the other. Both ride audit.InstallSchema on `update_db -migrateDb`
-// (jets/update_db/main.go:71), which is the precondition I-169 recorded for one
+// (jets/update_db/main.go:71), which is the precondition recorded earlier for one
 // table and which now covers four.
 type Targets struct {
 	Incident      bool
@@ -228,8 +228,8 @@ const targetsSQL = `SELECT
 
 // ReadTargets reports which of the four tables exist.
 //
-// to_regclass returns NULL rather than raising, which is the property F107
-// established is required of any report about a deployment: a precondition check
+// to_regclass returns NULL rather than raising, which is the property
+// established as required of any report about a deployment: a precondition check
 // that fails on the missing relation it is checking for reports nothing at all.
 func ReadTargets(ctx context.Context, db observe.DB) (*Targets, error) {
 	var t Targets

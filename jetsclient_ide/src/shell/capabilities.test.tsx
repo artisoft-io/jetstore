@@ -5,8 +5,8 @@
  *
  * Two things are being pinned. The **policy** — what an absent, held, missing or
  * empty capability means — and the **treatment**, which is that a control the
- * user cannot use is disabled and still visible. The treatment is the part A.1
- * got wrong, so it is asserted rather than left to inspection.
+ * user cannot use is disabled and still visible. The treatment is the part the
+ * first shell got wrong, so it is asserted rather than left to inspection.
  */
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";

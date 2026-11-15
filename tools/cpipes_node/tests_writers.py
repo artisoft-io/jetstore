@@ -1,4 +1,4 @@
-"""The device writers, and X3's own property: one column list, two containers.
+"""The device writers, and the cell-for-cell property: one column list, two containers.
 
 **The file worth reading first is the Go one.** Three tests here take
 `jets/csv/writer.go`, `jets/compute_pipes/jetrules_rdf.go` and
@@ -6,7 +6,7 @@
 what they say into an assertion, so a change on the other side of the seam is
 caught here rather than at a deployment.
 
-**The X3 test is `test_the_two_writers_agree_cell_for_cell`.** It is the whole
+**The cell-for-cell test is `test_the_two_writers_agree_cell_for_cell`.** It is the whole
 criterion at the writer level: the same columns and the same rows through both
 encoders, read back, compared. It is written over a table containing every value
 shape the encoder distinguishes rather than over a plausible one, because a
@@ -209,7 +209,7 @@ def read_parquet(data: bytes):
 def test_the_parquet_schema_is_the_column_list_all_string_and_nullable():
     """`BuildParquetSchemaInfo` makes every field a nullable string.
 
-    Read off the Go source as well as asserted here, because it is the fact X3
+    Read off the Go source as well as asserted here, because it is the fact the cell comparison
     rests on: the two writers cannot disagree about a *type* if there is only one
     type.
     """
@@ -235,7 +235,7 @@ def test_the_batch_size_defaults_to_the_go_writer_s():
     assert "nrowsInRec = 1024" in source
 
 
-# --- X3 ---------------------------------------------------------------------
+# --- Cell-for-cell agreement ------------------------------------------------
 
 #: A table containing every shape the encoder distinguishes, so that comparing
 #: the two writers compares something. The columns are the same tuple for both,
@@ -257,7 +257,7 @@ X3_ROWS = (
 
 
 def test_the_two_writers_agree_cell_for_cell():
-    """**X3 at the writer level.** One column list, two containers, same cells.
+    """**Cell-for-cell agreement at the writer level.** One column list, two containers, same cells.
 
     The CSV side is parsed back with Python's own reader rather than compared as
     text, because what the criterion asks about is cells. The one documented
@@ -363,7 +363,7 @@ def test_an_unknown_device_writer_names_the_two_that_exist():
 
 
 def test_snappy_is_refused_and_the_refusal_names_the_authored_consequence():
-    """**P9-I59**: the framing format, and what a stage channel defaults to."""
+    """The framing format, and what a stage channel defaults to."""
     writers.check_compression("none")
     with pytest.raises(WriterUnsupported) as exc:
         writers.check_compression("snappy")

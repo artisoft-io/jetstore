@@ -14,7 +14,7 @@ import (
 //
 // # The cardinality and the kind are compile-time facts, and C9 is both of them
 //
-// Walking §10.5's `Shape` and `Takes` columns over the links gives two
+// Walking the construct table's `Shape` and `Takes` columns over the links gives two
 // judgements at every point: how many values the chain carries (`one` or
 // `many`) and what kind they are. **Neither needs a record**, which is what
 // makes C9 a compile failure rather than a run-time surprise.
@@ -28,7 +28,7 @@ import (
 //   - `with` or `each` over a chain that does not yield nodes.
 //
 // **A map is refused on a single value for the same reason a fold is**, and
-// §10.5 says so in terms: `Condition_Summary[]` then `strip_code` then `join`
+// the construct table says so in terms: `Condition_Summary[]` then `strip_code` then `join`
 // type-checks and `Condition_Summary[]` then `join` then `strip_code` does not.
 // That is the rule most likely to refuse a template a reader thinks is fine,
 // and the escape is `[]`, which yields a one-element list over a scalar
@@ -96,10 +96,10 @@ func parseChain(src string, p position) (*chain, error) {
 			return nil, compileErr(p, "chain %q has an empty link; '|' separates a path or a construct from the next", raw)
 		}
 		// **Which links may be paths is what makes C6 possible at all**, and
-		// §10.4 leaves it to be worked out: if any name can be a path then no
+		// the notation leaves it to be worked out: if any name can be a path then no
 		// name is unknown, and "an unknown construct name" has nothing to
 		// refuse. Two rules settle it, and neither costs the notation anything
-		// §10.9 uses.
+		// its worked example uses.
 		//
 		// The first link is a path, because there is no value before it but
 		// the context node and no construct takes a node from nowhere.
@@ -109,12 +109,12 @@ func parseChain(src string, p position) (*chain, error) {
 		// nothing. So an unrecognised name there is C6 rather than a property
 		// nobody will ever find. After a *construct* the rule relaxes - a
 		// known name is the construct and anything else is a path - which is
-		// what lets a chain address into the node `latest_by` yields (§10.4's
+		// what lets a chain address into the node `latest_by` yields (the notation's
 		// three-link example).
 		//
-		// The cost is I-642: a property spelled like a construct is reached by
+		// The cost: a property spelled like a construct is reached by
 		// writing it as a path no construct could be - with `[]`, or dotted -
-		// and F1144 makes `[]` over a scalar free.
+		// and `[]` over a scalar is free.
 		name := constructNameOf(link)
 		c, isConstruct := constructs[name]
 		switch {
@@ -326,11 +326,11 @@ func (ch *chain) requireNodes(form string, p position) error {
 
 // unquote reads a single-quoted literal.
 //
-// **Literals are single-quoted and there is no escape for a quote inside one**
-// (R-119). The body of a template lives in a JSON string, so double quotes
+// **Literals are single-quoted and there is no escape for a quote inside
+// one**. The body of a template lives in a JSON string, so double quotes
 // would need escaping on every `join`, every `plural` and every equality;
-// R-110 is taken deliberately and there is no case for paying it twice. A
-// literal that must contain an apostrophe is the case this cannot express.
+// that cost is taken once deliberately and there is no case for paying it
+// twice. A literal that must contain an apostrophe is the case this cannot express.
 func unquote(s string) (string, bool) {
 	if len(s) >= 2 && s[0] == '\'' && s[len(s)-1] == '\'' {
 		return s[1 : len(s)-1], true

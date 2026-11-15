@@ -3,7 +3,7 @@
 // interface. The fixture is a real compiled workspace: test_ws plus
 // the installed jets_agentic assets, compiled offline by compile_workspace
 // (no database — Postgres is only for the upload), so build/classes.json is
-// the genuine F5 view, not a hand-made stand-in.
+// the genuine compiled view, not a hand-made stand-in.
 package tools
 
 import (
@@ -141,15 +141,15 @@ func TestSignaturesAndHandlersAgree(t *testing.T) {
 	}
 	// The set rather than the count: a count says a tool was added and not
 	// which, and the interesting failure is a handler bound to a name no
-	// signature declares. compile_rule_file joined the three Phase-0 tools at
-	// E.6 as gap 6's second verifier.
+	// signature declares. compile_rule_file joined the three original tools
+	// as the second verifier.
 	want := map[string]bool{
 		"list_domain_classes":    true,
 		"describe_domain_class":  true,
 		"validate_cpipes_config": true,
 		"compile_rule_file":      true,
-		// The two workspace reads J.1 decided in Phase 2 and T.1 built
-		// (2026-08-31). Six of J.1's seven; the seventh is the write tool.
+		// The two workspace reads, built
+		// 2026-08-31. Six of the catalogue's seven; the seventh is the write tool.
 		"list_workspace_files": true,
 		"read_workspace_file":  true,
 	}
@@ -171,7 +171,7 @@ func TestSignaturesAndHandlersAgree(t *testing.T) {
 	for _, sig := range sigs {
 		// Still true of all six, and still worth asserting rather than
 		// assuming: the first tool that changes anything arrives with the
-		// Phase-2 write catalogue, and this line is where that shows up.
+		// write catalogue, and this line is where that shows up.
 		if sig.Reversibility != "na" {
 			t.Errorf("%s: every tool so far is read-only and carries reversibility 'na', got %q",
 				sig.Name, sig.Reversibility)

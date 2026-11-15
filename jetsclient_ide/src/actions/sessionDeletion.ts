@@ -1,7 +1,6 @@
 /**
  * The Session Registry tab's *Delete*: the escape that lists what a deletion
- * reaches, and the predicate that gates the button. `session_registry` Phase 2,
- * JM-081, task G.3, 2026-11-08.
+ * reaches, and the predicate that gates the button. Added 2026-11-08.
  *
  * ## Why an escape, and only for the first step
  *
@@ -97,7 +96,7 @@ export function previewRequest(sessionIds: string[]): EndpointRequest {
  * One response row, read by name.
  *
  * The response is `{rows: [<Dependent as JSON>...]}`. A row is read by its
- * snake_case names, the plan's; Go's untagged field names are accepted too, so
+ * snake_case names; Go's untagged field names are accepted too, so
  * that a `Dependent` serialised without tags does not show the user a list of
  * blanks. A row with no session id is dropped — it names nothing to delete — and
  * a positional row (an array) is not a shape this action answers with.

@@ -55,7 +55,7 @@ describe("the negative suite", () => {
     // A suite that gets smaller is a deletion, not a pass.
     expect(cases.length).toBeGreaterThanOrEqual(20);
     // **Six valid cases now, and the count alone stopped saying what it meant.**
-    // It was five and it meant "the five bases are all here"; C.4 added a
+    // It was five and it meant "the five bases are all here"; the Query Tool added a
     // *positive* case — a query table with no columns, which the server describes
     // — because a schema relaxation is a hole unless something asserts the thing
     // it now admits. So the bases are named rather than counted, and the count is

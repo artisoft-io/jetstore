@@ -378,8 +378,7 @@ func loadEngine(name string, factory compute_pipes.JetRulesFactory, cfg *ruleste
 	st.load.ConfigNs = time.Since(t1).Nanoseconds()
 	st.legacyMode = rulestest.LegacyModeFixed
 	// The check, on a session no run uses. Contains rather than an iterator: the
-	// native adaptor's iterators need a rete session to exist (rules_benchmark
-	// I-13).
+	// native adaptor's iterators need a rete session to exist.
 	rdfSession, err := re.NewRdfSession()
 	if err != nil {
 		re.Release()

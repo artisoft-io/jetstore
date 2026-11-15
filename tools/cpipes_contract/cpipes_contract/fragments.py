@@ -2,11 +2,10 @@
 
 **What a part is.** A JSON value that binds to exactly one `$defs` entry and can be
 authored and validated standing alone — a channel spec, a mapping expression, an
-evaluator subtree, a per-operator config body. Decision 9 calls this the parts library
-and gives it a second consumer in the analysis's §6.1(3) compositional synthesis;
-decision 14 puts it here, keyed by `defs_name`, and says it must be *curated* rather
-than proportional. **This module does the extraction. It does not curate** - that is
-F.2, and the distinction matters because the two answer different questions: what does
+evaluator subtree, a per-operator config body. This is the parts library, with a
+second consumer in compositional synthesis; it lives here, keyed by `defs_name`, and
+must be *curated* rather than proportional. **This module does the extraction. It does
+not curate** - that is the curation step, and the distinction matters because the two answer different questions: what does
 the corpus contain, and what belongs in front of a model.
 
 **Why the walk is schema-guided rather than structural.** A part's identity is the
@@ -14,12 +13,12 @@ the corpus contain, and what belongs in front of a model.
 object shape means different things in different positions, and a discriminated union
 is resolved by a sibling field. So the walk descends the schema and the value together,
 resolving `$ref`, nullable `anyOf`, and `oneOf` + `discriminator` as it goes. A
-structural walk would have to guess, and I-31 and I-32 are two records of what guessing
+structural walk would have to guess, and two earlier wrong walks record what guessing
 at corpus structure costs.
 
 **Identical values collapse; provenance does not.** A part appearing in forty configs is
 one part with forty citations, because the library is a catalogue of *distinct*
-material. The count is what F.2 curates on - decision 14's rule is that every operator
+material. The count is what curation works on - the rule is that every operator
 with four or fewer instances contributes all of them - so losing it would remove the
 only property that made the approach worth taking.
 """
@@ -206,11 +205,11 @@ class Extractor:
 
 
 def describe(part: Part, defs: dict) -> str:
-    """A mechanical first description, to be replaced by an authored one at F.2.
+    """A mechanical first description, to be replaced by an authored one at curation.
 
     Deliberately not clever. It names the type and the value's distinguishing fields,
     which is enough to tell two parts of the same type apart in a listing and **not**
-    enough to satisfy criterion 22 - that asks for fragments authored from an English
+    enough to satisfy the authoring test - that asks for fragments authored from an English
     description of what a part *accomplishes*, which is a claim about intent that
     nothing here can recover from a value. `description_source` records which kind a
     part currently carries so the two are never confused.
@@ -247,7 +246,7 @@ def to_jsonl(parts: list[Part]) -> str:
 
     A single indented document would be 8 MB and would rewrite wholesale whenever any
     part moved; one compact object per line keeps a re-extraction's diff to the parts
-    that actually changed, which is what makes F.2's curation reviewable.
+    that actually changed, which is what makes the curation reviewable.
     """
     lines = []
     for p in parts:
@@ -272,7 +271,7 @@ def to_jsonl(parts: list[Part]) -> str:
 def check_against_matrix(parts: list[Part], types_csv: Path) -> list[str]:
     """Every recorded `corpus_instances` must equal what the extraction found.
 
-    This is the guard I-31 and I-32 both argue for, at the grain each of them missed.
+    This is the guard two earlier wrong walks both argue for, at the grain each of them missed.
     A corpus walk cannot be validated by reading the code that produced it - both wrong
     walks were plausible, and one would have shipped - so it is checked against a
     figure measured independently and earlier, by `cpipes-contract corpus` over the
@@ -304,7 +303,7 @@ def check_against_matrix(parts: list[Part], types_csv: Path) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# F.2 - curation
+# Curation
 # ---------------------------------------------------------------------------
 
 # `ComputePipesConfig` holds three fields that can carry pipes, and which one is
@@ -320,11 +319,11 @@ DEPRECATED = "reducing_pipes_config"
 # field of the same name holding the authored steps of one stage, and 88 parts carry it
 # legitimately. Scoping this to the root is the difference between a guard and a bug.
 #
-# In fact the guard cannot fire today: B.13 removed `pipes_config` from
-# `ComputePipesConfig`'s properties when I-14 was raised, so the schema-guided walk has
+# In fact the guard cannot fire today: `pipes_config` was removed from
+# `ComputePipesConfig`'s properties as a runtime-only field, so the schema-guided walk has
 # no path to it and the library could not contain one if the corpus did. It is kept as
 # a backstop that fails loudly if that upstream decision is ever reversed, which is
-# cheaper than rediscovering I-14 from a model that has learnt to emit the runtime
+# cheaper than rediscovering the runtime shape from a model that has learnt to emit the runtime
 # shape.
 
 
@@ -359,12 +358,12 @@ def shape(value: object) -> str:
 
 
 def curate(parts: list[Part], thin_at: int = 4, per_shape: int = 2) -> tuple[list[Part], dict]:
-    """Decision 14's rule: curated, not proportional.
+    """The library rule: curated, not proportional.
 
     Three things happen, in order, and only the third is a judgement.
 
     **Excluded outright**: any part containing a deprecated field at any depth, and any
-    root-type part carrying the runtime-only shape. Criterion 24 admits no exceptions.
+    root-type part carrying the runtime-only shape. The curation rule admits no exceptions.
 
     **Kept whole**: every part of a type with `thin_at` or fewer distinct parts. This is
     the rule the criterion names, and it is the reason the library is not proportional -
@@ -401,7 +400,7 @@ def curate(parts: list[Part], thin_at: int = 4, per_shape: int = 2) -> tuple[lis
         by_name[part.defs_name].append(part)
 
     for name, group in sorted(by_name.items()):
-        # Thin by **corpus instances**, which is what criterion 24 says and is not the
+        # Thin by **corpus instances**, which is what the curation rule says and is not the
         # same as thin by distinct parts: a type can have three instances that are
         # three different parts, or ten that are two. The criterion is about how little
         # the corpus has to teach, so citations are the measure.
@@ -428,7 +427,7 @@ def criterion_24(before: list[Part], after: list[Part], types_csv: Path) -> list
     """Every type with four or fewer corpus instances kept every part it had.
 
     The criterion in one function, checked rather than argued. It is the half of
-    decision 14 that a plausible-looking curation quietly breaks: trimming by count
+    the library rule that a plausible-looking curation quietly breaks: trimming by count
     looks reasonable everywhere and is wrong exactly where the corpus is thinnest,
     which is where the differentiator lives.
     """

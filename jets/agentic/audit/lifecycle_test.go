@@ -43,7 +43,7 @@ func TestApprovalStatesMatchTheGeneratedCheck(t *testing.T) {
 	}
 }
 
-// A.5's ChangeProposal machine, edge by edge, restricted to the modelled
+// The design's ChangeProposal machine, edge by edge, restricted to the modelled
 // vocabulary. Written out rather than derived from `forward`, so that the test
 // disagrees with the table when one of them changes.
 func TestTransitionsFollowAppendixA5(t *testing.T) {
@@ -73,7 +73,7 @@ func TestTransitionsFollowAppendixA5(t *testing.T) {
 	}
 }
 
-// The two states A.5 marks as ends of the line admit nothing, including
+// The two states the design marks as ends of the line admit nothing, including
 // `superseded`. Superseding a rejected proposal would rewrite a decision.
 func TestTerminalStatesOfferNothing(t *testing.T) {
 	for _, s := range []string{StateRejected, StateSuperseded} {
@@ -109,7 +109,7 @@ func TestTheEdgesThatMustNotExist(t *testing.T) {
 	}
 }
 
-// `superseded` is reachable from every non-terminal state — A.5's own sentence,
+// `superseded` is reachable from every non-terminal state — the design's own sentence,
 // and the one rule Transitions synthesises rather than reads off `forward`.
 func TestSupersededIsReachableFromEveryNonTerminalState(t *testing.T) {
 	for _, s := range ApprovalStates {

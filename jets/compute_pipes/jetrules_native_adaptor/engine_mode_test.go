@@ -4,7 +4,7 @@ package jetrules_native_adaptor
 // REACHES GO WITH ITS REASON.
 //
 // The switch was deleted in October 2026 with the LEGACY retraction mode, which this
-// file tested until then (rules_unit_test_harness AF.5: the mode reached the C++ engine
+// file tested until then (the mode reached the C++ engine
 // through the factory). ReteSession::initialize refuses a configuration that still turns
 // it on, and bridge.NewReteSession returns the session's message rather than a bare
 // return code. The rule_config triples are in the meta graph, inserted before the first
@@ -87,12 +87,12 @@ func TestNativeEngineRefusesNoTruthMainOnExist(t *testing.T) {
 
 // testVertexCap is the vertex visit cap withVertexCap sets: 10,000 visits, the Go
 // engine's default, which the tests moved here from the Go adaptor ran under, and
-// C++'s own default since rules_benchmark Q-83.
+// now C++'s own default as well.
 const testVertexCap = 10000
 
 // withVertexCap asserts (jets:iState jets:max_vertex_visits testVertexCap) into the
 // engine's meta graph, before its first rdf session, as a pipeline's rule_config
-// is. C++ had no cap without it until Q-83, when a rule that stopped terminating
+// is. C++ once had no cap without it, and a rule that stopped terminating
 // hung the test to its timeout; the cap is kept explicit, so the tests do not
 // depend on the default.
 func withVertexCap(t *testing.T, engine compute_pipes.JetRuleEngine) {

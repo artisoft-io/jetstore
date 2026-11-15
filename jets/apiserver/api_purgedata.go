@@ -116,7 +116,7 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 		ERROR(w, http.StatusUnauthorized, errors.New("error: unauthorized, cannot get user info"))
 		return
 	}
-	// **The admin account, not a capability** -- ui_refresh I-139, settled
+	// **The admin account, not a capability** -- settled
 	// 2026-08-25. IsAdmin is a single configured account (jets/user/user.go,
 	// IsAdmin, comparing against AdminEmail), so this is the narrowest gate the
 	// package has and it is deliberately narrower than the defect required.
@@ -215,7 +215,7 @@ func (server *Server) ResetDomainTables(purgeDataAction *PurgeDataAction) (*map[
 // with its details (sessionpurge.ArchiveAllRuns), and session_registry is
 // truncated last, as a session's deletion deletes its registration last.
 //
-// **The status rows were left behind until JM-090.** The reset truncated the two
+// **The status rows used to be left behind.** The reset truncated the two
 // registries and nothing else, so every run of a reset stack named a session that
 // no longer existed, until the purge's orphan sweep reached it past retention: at
 // one deployment 450 of 559 status rows were orphaned this way. They are archived

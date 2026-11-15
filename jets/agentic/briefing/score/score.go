@@ -1,18 +1,19 @@
 // Package score measures a prose briefing against the fact set it was made
 // from, and declares for every category how sound that measurement is.
 //
-// It is the instrument `AU.1` needs. `AT.5` measured the model arm against the
-// fact set over 22 members and produced the phase's headline counts - 17 of 18
+// It is the instrument the encoding experiment needs. A side-by-side run measured
+// the model arm against the fact set over 22 members and produced the headline
+// counts - 17 of 18
 // member-runs misstating a maintenance indicator, 19 of 92 condition values
 // omitted, 10 of 22 briefings carrying a statement untrue of the fact set - with
-// a 47-line script in a session scratchpad that was never committed. `AU.1` is
-// that same measurement run twice with one variable changed, so the scorer has
+// a 47-line script in a session scratchpad that was never committed. The encoding
+// experiment is that same measurement run twice with one variable changed, so the scorer has
 // to be a package rather than a script, and it has to be one whose numbers can
 // be argued with.
 //
 // # The design rule: every category declares how sound it is
 //
-// `AT.5`'s own report says of its omission count that it *"is an instrument, not
+// The side-by-side report says of its omission count that it *"is an instrument, not
 // a measurement"*. The script asked whether half a condition's content words
 // appear anywhere in the prose, and that rule passed a missing *rheumatoid
 // arthritis* because *arthritis* is a substring of *osteoarthritis*, and flagged
@@ -40,18 +41,18 @@
 //
 // # Why the maintenance category is the one made exact
 //
-// `I-579` says the model's maintenance error is *"systematic, one-directional
-// and unguarded"* and then says it is checkable: *the drug name appears in the
+// The model's maintenance error is recorded as *"systematic, one-directional
+// and unguarded"*, and it is checkable: *the drug name appears in the
 // prose within N words of the word "maintenance"* is a containment test over a
-// **closed list**, which is `I-515`'s tractable half one property over. It is
-// also the phase's headline result, so it is the number most worth being able to
+// **closed list**, which makes it tractable. It is
+// also the headline result, so it is the number most worth being able to
 // defend. Two checks carry it and they have different strengths:
 //
 //   - [CatMaintenanceAbsent] needs no window at all. When the fact set holds no
 //     maintenance drug, *any* unnegated mention of maintenance is a
 //     misstatement, because the briefing's only subject is this member's
 //     medications. That is a containment test with no free parameter, and it is
-//     the check behind `AT.5`'s *5 of 6*.
+//     the check behind the side-by-side run's *5 of 6*.
 //   - [CatMaintenanceDrug] attributes a maintenance claim to named drugs and is
 //     the drug-level count. It has one parameter, the window, and [Options]
 //     records how it was chosen.
@@ -78,7 +79,7 @@
 //
 // # The template arm is a negative control and this package is built to be shown
 //
-// Every `AT.5` artefact carries both arms and the template scores zero in every
+// Every side-by-side artefact carries both arms and the template scores zero in every
 // category in all three runs. **A scorer that flags anything in the template arm
 // has a false positive it can be shown**, which is a stronger check than any
 // test written from the same head as the code. Three things in this package
@@ -98,10 +99,10 @@
 // The fact set is read with `briefing.Selector`, the same path language the
 // prose renderer reads the entity with, so the rule that a single-valued
 // multi-valued property arrives as a bare scalar is held in one place. Advisory
-// language is `briefing.AdvisoryMarker`, `AK.3`'s own lexicon, rather than a
+// language is `briefing.AdvisoryMarker`, the advisory guardrail's own lexicon, rather than a
 // second copy - with a supplement this package owns and reports separately,
 // because that lexicon was built for record fields and misses two of the three
-// sentences `AT.5` hand-counted. Both facts are recorded in [CatAdvisory]'s
+// sentences the side-by-side run hand-counted. Both facts are recorded in [CatAdvisory]'s
 // residue rather than hidden in a merged number.
 package score
 
@@ -139,7 +140,7 @@ const (
 	BothWays Direction = "wrong in both directions"
 )
 
-// Category names of this package. They are `AT.5`'s categories, because those
+// Category names of this package. They are the side-by-side report's categories, because those
 // are the ones validated against a hand count.
 const (
 	CatMaintenanceAbsent    = "maintenance_absent"
@@ -344,7 +345,7 @@ type Rate struct {
 	// Flagged and Denominator are the rate, in the category's own Unit.
 	Flagged, Denominator int
 	// Members is how many briefings carry at least one finding, which is the
-	// denominator `AT.5` reports several categories in.
+	// denominator the side-by-side report gives several categories in.
 	Members int
 	// Briefings is how many briefings the category applied to.
 	Briefings int

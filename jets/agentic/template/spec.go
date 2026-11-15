@@ -31,7 +31,7 @@ type Spec struct {
 	// (`PromptTemplateSpec`, `jets/compute_pipes/pipes_model.go:1207`) - so a
 	// `.pc.json` that comments every other object and cannot comment this one
 	// would be an inconsistency a reader reads as a mistake, and `wen` for
-	// `when` is caught either way. Added at `AY.3`, whose own document could
+	// `when` is caught either way. Added for the first real template, whose own document could
 	// not otherwise say why its predicates are shaped as they are.
 	Comment string `json:"comment,omitempty"`
 	// Key names the document within the configuration's `text_templates`.
@@ -50,7 +50,7 @@ type Spec struct {
 // Element is a paragraph or a group, and **nothing distinguishes them but which
 // field is present** - `text` for a paragraph, `elements` for a group. An
 // object carrying both or neither is a compile failure. Whether the cpipes
-// contract wants an explicit discriminator instead is Q-106, settled where the
+// contract wants an explicit discriminator instead is settled where the
 // matrix rows are written rather than here.
 type Element struct {
 	// Comment is free text for the reader; ignored by JetStore. See [Spec].

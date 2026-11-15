@@ -1,6 +1,6 @@
 package jetrules_native_adaptor
 
-// Does TOON cost accuracy against JSON? (agentic_ai Phase 7 track AU)
+// Does TOON cost accuracy against JSON?
 //
 // # The design is paired per member, and that is what makes it one variable
 //
@@ -11,7 +11,7 @@ package jetrules_native_adaptor
 // fact set, not in the rule session, not in the member, and not in the scorer's
 // idea of the truth.
 //
-// **That is a stronger control than `AT.5` needed.** There the arms differed in
+// **That is a stronger control than the side-by-side run needed.** There the arms differed in
 // the renderer; here they differ in the serialisation of one identical map, and
 // the fact set the scorer uses is the same object for both.
 //
@@ -19,7 +19,7 @@ package jetrules_native_adaptor
 //
 // **TOON is not one encoding.** `detectTabular` emits a table when every element
 // of a list has the same key set and every field is primitive, and the expanded
-// form otherwise (agentic_ai §1.25.2, reproduced on 40 of 40 lists). **JSON has
+// form otherwise (reproduced on 40 of 40 lists). **JSON has
 // no such split**, so a pooled TOON-against-JSON comparison sets one encoding
 // against a blend of two, in a proportion fixed by this population's regimen mix.
 //
@@ -69,8 +69,8 @@ func TestAU1EncodingAgainstAccuracy(t *testing.T) {
 	if os.Getenv("JETS_AU_MODEL_URL") == "" {
 		t.Skip("JETS_AU_MODEL_URL is not set; see the header of this file")
 	}
-	// The model arm reads JETS_AT5_MODEL_URL; AU uses its own name so a stray
-	// AT.5 environment cannot start a 44-call run by accident.
+	// The model arm reads JETS_AT5_MODEL_URL; this test uses its own name so a stray
+	// side-by-side environment cannot start a 44-call run by accident.
 	t.Setenv("JETS_AT5_MODEL_URL", os.Getenv("JETS_AU_MODEL_URL"))
 	if v := os.Getenv("JETS_AU_MODEL"); v != "" {
 		t.Setenv("JETS_AT5_MODEL", v)

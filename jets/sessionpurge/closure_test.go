@@ -1,6 +1,6 @@
 package sessionpurge
 
-// Phase 2's executor tests (session_registry E.1, E.2, E.3, E.4), against a real
+// The executor's tests, against a real
 // PostgreSQL as the rest of this package's; see jets/sessionpurge/purgetest.
 
 import (
@@ -212,7 +212,7 @@ func TestTwoExecutorsLeaveNoMapRow(t *testing.T) {
 	}
 }
 
-// E.1, the executor's half: a start holding the session lock makes the executor
+// The executor's half of the start guard: a start holding the session lock makes the executor
 // wait for it, before its claim, and then refuse the session for the run the
 // start committed. The
 // start is played here by its two statements, LockSession and the insert, in one

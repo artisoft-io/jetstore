@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// Where the pipeline route keeps the statistics (rules_benchmark Phase 9, CC). A
+// Where the pipeline route keeps the statistics. A
 // jetrules step with optimizer_statistics on writes one partial file per node
 // under its session's stage folder, and the run_reports function
 // merge_optimizer_statistics merges them into the process's own file in the

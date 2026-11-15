@@ -1,6 +1,6 @@
 // Package tools is the agentic tool layer: one Go registry with two
-// exposures (plan section 6, settled Q-4). The Phase-1 loop calls the
-// registry in-process — "dispatch to a Go function" — and the stdio MCP
+// exposures. The agent loop calls the registry in-process — "dispatch to a
+// Go function" — and the stdio MCP
 // adapter (jets/agentic/mcp) is a client of this package, not the calling
 // convention. The signatures are GENERATED into jets_agentic_tools.json by
 // `jets-agentic generate` and embedded here; Go binds behaviour to the
@@ -21,7 +21,7 @@ var signaturesJSON []byte
 
 // Signature is one generated tool signature. Reversibility ("na",
 // "reversible", "irreversible" — proposal section 6.3) and the minimum
-// autonomy tier ride along from day one; retrofitting them across a Phase-2
+// autonomy tier ride along from day one; retrofitting them across a later write
 // catalogue is worse than carrying them with three tools.
 type Signature struct {
 	Name          string          `json:"name"`
@@ -76,15 +76,15 @@ func NewRegistry(handlers map[string]Handler) (*Registry, error) {
 	return reg, nil
 }
 
-// DefaultRegistry is the registry as it stands: the three Phase-0 read-only
-// tools, compile_rule_file, which Phase 1 adds as gap 6's second verifier, and
-// the two workspace reads J.1 decided in Phase 2 and T.1 built (2026-08-31).
+// DefaultRegistry is the registry as it stands: the three original read-only
+// tools, compile_rule_file as the second verifier, and
+// the two workspace reads built 2026-08-31.
 //
-// **Six of J.1's seven. All six are read-only and carry reversibility "na".**
+// **Six of the catalogue's seven. All six are read-only and carry reversibility "na".**
 // The seventh is propose_workspace_edit, the first tool that changes anything
-// and the first that will need a class other than "na"; J.1 sequenced it behind
-// K.1's approval record, K.1 is done, and it is still deliberately not here —
-// plan §7 declines to take it merely because it became available.
+// and the first that will need a class other than "na"; it was sequenced behind
+// the approval record, which is done, and it is still deliberately not here —
+// the design declines to take it merely because it became available.
 func DefaultRegistry() (*Registry, error) {
 	return NewRegistry(map[string]Handler{
 		"list_domain_classes":    ListDomainClasses,
@@ -119,10 +119,10 @@ func (r *Registry) Unbound() []string {
 }
 
 // MinTierOf returns the minimum autonomy tier the named tool requires, as
-// generated into its signature (task AJ.1, gap 7b).
+// generated into its signature.
 //
 // **It is the first reader of MinTier that is not a test or a display.** The
-// field has ridden along since Phase 1 — "the minimum autonomy tier ride along
+// field has ridden along from the start — "the minimum autonomy tier ride along
 // from day one" — and until this method its only consumers were the MCP
 // adapter, which passes it to a client, and a test asserting all six tools are
 // T0. Carrying it was the right call and nothing compared it.
@@ -141,7 +141,7 @@ func (r *Registry) MinTierOf(name string) (string, error) {
 	return tool.MinTier, nil
 }
 
-// Call dispatches by name — this, not MCP, is how the Phase-1 loop reaches
+// Call dispatches by name — this, not MCP, is how the agent loop reaches
 // a tool.
 func (r *Registry) Call(ctx context.Context, ws *Workspace, name string, args json.RawMessage) (any, error) {
 	tool, ok := r.tools[name]

@@ -79,8 +79,8 @@ func TestIntegerLiteralWidth(t *testing.T) {
 	}
 
 	// The meta graph's manager before any session opens: a meta literal made
-	// after one has opened is not made at all, whatever its width (I-15's
-	// territory, and not this test's).
+	// after one has opened is not made at all, whatever its width (another
+	// test's territory, not this one's).
 	meta := engine.GetMetaResourceManager()
 	check("meta", meta)
 	// And into the meta graph, as rule_config writes there, to be found from a

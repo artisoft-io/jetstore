@@ -536,7 +536,7 @@ type RuleSetOutcome struct {
 	// MaxLoopReached is true when the loop ran out of iterations: every loop
 	// MaxLooping allows ran, and none set jets:completed or returned an
 	// ExecuteRules error. Completion or an error on the last allowed loop is not
-	// the maximum reached (rules_unit_test_harness I-7, fixed by AA.3).
+	// the maximum reached.
 	MaxLoopReached bool
 	// ExecuteErr is the error ExecuteRules returned, which ends the rule set's
 	// loop; the max vertex visit limit is one.
@@ -545,7 +545,7 @@ type RuleSetOutcome struct {
 	// rule set raised: in the rdf session once it has run, and not there when it
 	// started. An exception stays in the session for the later rule sets, whose
 	// rules may read it, but only the rule set that raised it reports it
-	// (rules_unit_test_harness I-8, Michel 2026-10-11: report each exception
+	// (decided 2026-10-11: report each exception
 	// once). See exceptionKey for what makes two exceptions the same.
 	Exceptions []string
 }
@@ -600,8 +600,8 @@ func (o *RuleSetsOutcome) Failed() bool {
 // adaptors create the JetResources on first use, through the meta graph's
 // resource manager, and the meta graph locks when the first rdf session opens:
 // after that a new meta resource is refused, a nil node on Go and an error on
-// C++. (On C++ it aborted the process until 2026-10-11, rules_unit_test_harness
-// I-15.) A pipeline meets it because
+// C++. (On C++ it aborted the process until 2026-10-11.) A pipeline meets it
+// because
 // AssertSourcePeriodInfo, at pipe construction, and executeRules both call it
 // first; the harness must call it before NewRdfSession. RunRuleSets cannot do it
 // for the caller, since the session is already open when it is called. The
@@ -908,7 +908,7 @@ type PredicateKeyer interface {
 
 // columnReader reads the columns of an output channel that come from the graph,
 // for one subject at a time, in one pass over the subject's triples grouped by
-// predicate, rather than with one FindSP per column (rules_benchmark G11).
+// predicate, rather than with one FindSP per column.
 //
 // Each column's predicate is the node FindSP read, rm.NewResource(column), looked
 // up once per session rather than once per subject, and a triple is put in the

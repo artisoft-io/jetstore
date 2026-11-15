@@ -9,8 +9,8 @@ import (
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 )
 
-// Extraction reads a subject's columns in one pass over its triples (rules_benchmark
-// G11). This runs that pass and the extraction it replaced, one FindSP per column, on
+// Extraction reads a subject's columns in one pass over its triples.
+// This runs that pass and the extraction it replaced, one FindSP per column, on
 // the same session and requires the same rows, cell for cell. A multi-valued
 // cell is compared as a multiset: the graph's maps are ranged in a new order on
 // every read, so two reads of one session can list a subject's values in different

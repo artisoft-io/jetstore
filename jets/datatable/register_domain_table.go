@@ -222,7 +222,7 @@ func originDomainKeysOf(originDomainKeys, objType any) ([]string, error) {
 			domainKeys = append(domainKeys, s)
 		}
 	default:
-		// Any other type fell back to the object type before JM-089, and still
+		// Any other type fell back to the object type before the domain keys fix, and still
 		// does: only the JSON-decoded list was a known producer's value.
 		log.Printf("Warning: $ORIGIN_DOMAIN_KEYS is a %T, expecting a list of strings; using $OBJECT_TYPE", originDomainKeys)
 	}

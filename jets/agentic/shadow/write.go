@@ -19,9 +19,9 @@ import (
 // task the two INSERT sites in the tree were both test fixtures — and it
 // is deliberately the only one.
 type Writer struct {
-	// Classifier is AC.1's nine predicates.
+	// Classifier is triage's nine predicates.
 	Classifier triage.Classifier
-	// Ranker is AC.2's deterministic floor. **The model arm is not wired**:
+	// Ranker is rca's deterministic floor. **The model arm is not wired**:
 	// rca.Consult is a measurement rather than a step, it needs a model
 	// name from the environment, and a run that silently consulted one would
 	// make every hypothesis's provenance depend on a variable nothing records
@@ -37,10 +37,10 @@ type Writer struct {
 	// a measurement**.
 	//
 	// jetsapi.incident.severity is NOT NULL over five values and no locus
-	// determines any of them: §9.4's nine rows say where evidence sits and none
-	// says how much it matters, and F201 establishes that the record carries no
+	// determines any of them: the nine loci say where evidence sits and none
+	// says how much it matters, and the record carries no
 	// cost, no memory, no CPU and no duration finer than one wall clock per
-	// worker — so there is no impact signal to derive one from either. AC.1
+	// worker — so there is no impact signal to derive one from either. Triage
 	// therefore gives Finding no severity field, and the first writer has to
 	// supply what the classifier refuses to invent.
 	//
@@ -55,13 +55,13 @@ type Writer struct {
 	//
 	// **Two consequences, stated rather than left to be found.** The column is
 	// constant across every row this writer produces, so it sorts nothing and
-	// filters nothing — which is why AE.1's decision to order the supervision
+	// filters nothing — which is why the decision to order the supervision
 	// list by detection time rather than by severity is now moot as well as
 	// right. And a constant is the *least bad* option rather than a good one:
 	// the vocabulary has no `not_assessed` member and the column is NOT NULL, so
-	// there is no way to say *this was not judged*. asks whether the
-	// column should be nullable or the vocabulary widened, on I-289's argument
-	// one column over.
+	// there is no way to say *this was not judged*. Whether the
+	// column should be nullable or the vocabulary widened is open, on the argument
+	// made one column over.
 	Severity string
 
 	// ModelVersion is written to incident_model_version. See the package
@@ -112,7 +112,7 @@ type IncidentWritten struct {
 	// **0 for everything this writer creates**. RecordIncidentTransition appends
 	// a chain event only when the incident names an AgentRun, and a
 	// deterministic classifier is not one — so these transitions are durable and
-	// attributable and are not tamper-evident (R-44, gap 27). It is reported
+	// attributable and are not tamper-evident. It is reported
 	// rather than dropped so that the zero is visible in the output instead of
 	// being a property somebody has to know.
 	ChainSeq int
@@ -130,22 +130,22 @@ type SessionResult struct {
 
 	Written []IncidentWritten
 	// AlreadyRaised are the fired loci this session already had an incident for.
-	// **This is Q-34's answer in one field** — see Run.
+	// **This is the add-never-retract rule in one field** — see Run.
 	AlreadyRaised []string
-	// UnmappedLoci are the fired loci §9.5's table maps to no cause class, so
+	// UnmappedLoci are the fired loci the gate's table maps to no cause class, so
 	// the incident is written and carries no hypothesis. Two of the nine are
 	// permanently in this state.
 	UnmappedLoci []string
-	// Anomalies is how many of N.4's detector rows were available to the ranker.
+	// Anomalies is how many detector rows were available to the ranker.
 	// Zero is the ordinary case: jetsapi.anomaly is deployed nowhere that has
-	// not migrated since N.2, and no detector runs on a schedule.
+	// not migrated since it was added, and no detector runs on a schedule.
 	Anomalies int
 }
 
 // Run classifies one session, ranks what it found, and writes one incident per
 // present locus with that locus's hypotheses under it.
 //
-// # Q-34 — a re-classification that can see less
+// # A re-classification that can see less
 //
 // Asked: what does a later run that answers `not_evaluable` where an earlier one
 // answered `present` mean for an incident already written?
@@ -160,15 +160,15 @@ type SessionResult struct {
 //     against the earlier verdict; it is the absence of evidence, which is the
 //     distinction the whole three-valued design exists to keep.
 //   - **Retraction would make the retention clock a redactor.** RETENTION_DAYS
-//     has no default (P3 F54) and is set by a deployment rather than by this
+//     has no default and is set by a deployment rather than by this
 //     repository. A writer that withdrew incidents when their evidence aged out
 //     would let an environment variable delete a governance record, silently and
 //     on a schedule nobody here controls.
 //   - **The correction path already exists and is a person's.** An incident
 //     raised on a verdict that was wrong is corrected by a human `reclassified`
-//     transition, which is the instrument plan §10.7 built and which records who
+//     transition, which is the supervision design's instrument and which records who
 //     said so. Letting the classifier revise itself would produce exactly the
-//     row that section calls not a label: one the measured system wrote.
+//     row that design calls not a label: one the measured system wrote.
 //
 // The asymmetric case is deliberately *not* symmetric. A locus that was
 // `not_evaluable` or `absent` and is now `present` is **new information** — a
@@ -177,7 +177,7 @@ type SessionResult struct {
 // grows and never shrinks, and the only thing that removes a claim is a person.
 //
 // The bound on that: an incident raised from a *defective* verdict stays until
-// somebody adjudicates it, and F273's partial-purge hole is a known way to
+// somebody adjudicates it, and the partial-purge hole is a known way to
 // produce one. That is stated rather than guarded, because the guard would be
 // the retraction this paragraph argues against.
 func (w *Writer) Run(ctx context.Context, db DB, sessionId string) (*SessionResult, error) {
@@ -293,7 +293,7 @@ func (w *Writer) Run(ctx context.Context, db DB, sessionId string) (*SessionResu
 // # Where criterion 45's last clause goes
 //
 // jetsapi.hypothesis has eight columns and **neither a basis nor a locus is one
-// of them**, which §19.7 grades as *met for what AC.2 emits and not
+// of them**, which an assessment graded as *met for what the ranker emits and not
 // surviving the write*. Two of the three losses are repaired here and the third
 // is not:
 //
@@ -308,16 +308,16 @@ func (w *Writer) Run(ctx context.Context, db DB, sessionId string) (*SessionResu
 //     documented as *why, in the actor's words*, which is exactly what that
 //     string is. Criterion 45's last clause says *the ranking's basis*, and
 //     after this it is in the database.
-//   - **The locus and the basis are also columns as of Q-46**, answered by the
+//   - **The locus and the basis are also columns**, decided by the
 //     user on 2026-09-04 while this task was running and applied before the first
 //     row was written rather than as a migration afterwards. `hypothesis_locus`
-//     carries the `AC.1` verdict against the same CHECK `incident_locus` uses;
-//     `basis` carries the two evidence counts and §9.5's evidenceability tier, as
+//     carries the triage verdict against the same CHECK `incident_locus` uses;
+//     `basis` carries the two evidence counts and the gate table's evidenceability tier, as
 //     numbers, because a count can be checked against the arrays beside it and a
 //     sentence cannot.
 //   - **What still does not survive is the per-hypothesis basis *prose* and the
 //     session-wide rank**: ranks are renumbered dense within the incident because
-//     §A.2.8 nests hypotheses inside one, so *ranked 4 of 13 across the session*
+//     the model nests hypotheses inside one, so *ranked 4 of 13 across the session*
 //     is gone. The counts are what the sentence was computed from, so the
 //     arithmetic survives and the wording does not.
 func (w *Writer) writeOne(ctx context.Context, db DB, f *triage.Finding, hyps []rca.Hypothesis,
@@ -344,7 +344,7 @@ func (w *Writer) writeOne(ctx context.Context, db DB, f *triage.Finding, hyps []
 	if tag.RowsAffected() == 0 {
 		// A concurrent writer got there first. The id is deterministic per
 		// (session, locus) precisely so this is a no-op rather than a duplicate,
-		// and Q-34's rule — add, never retract — makes leaving the other
+		// and this writer's rule — add, never retract — makes leaving the other
 		// writer's row alone the correct outcome rather than a compromise.
 		written.Status = ""
 		return nil
@@ -354,14 +354,14 @@ func (w *Writer) writeOne(ctx context.Context, db DB, f *triage.Finding, hyps []
 	// in the write path that could have gone the other way.** The ranker's
 	// top-ranked hypothesis names a class in the imported ten, and promoting it
 	// to the incident's own classification would fill the screen's *Cause*
-	// column for every incident. It is refused: §9.5's finding is that the record
-	// evidences a locus and never a cause, I-289 made the column optional so a
+	// column for every incident. It is refused: the gate's finding is that the record
+	// evidences a locus and never a cause, the column is optional so a
 	// deterministic step need not invent one, and a floor whose confidence is a
-	// ratio of counted evidence items is not a settled verdict (R-48). Thirteen
+	// ratio of counted evidence items is not a settled verdict. Thirteen
 	// ranked claims, each with its own case against it, would become one asserted
 	// claim with none — which deletes exactly the calibration
 	// contradicting_evidence exists for. What sets classification is a human
-	// `reclassified` transition, which is plan §10.7's instrument and carries
+	// `reclassified` transition, which is the supervision design's instrument and carries
 	// who said so.
 
 	if err := w.moveTo(ctx, db, written, audit.IncidentDetected, audit.IncidentTriaged,
@@ -375,7 +375,7 @@ func (w *Writer) writeOne(ctx context.Context, db DB, f *triage.Finding, hyps []
 		h := hyps[i]
 		h.IncidentRef = written.IncidentId
 		h.HypothesisId = HypothesisIdFor(written.IncidentId, h.CauseCategory)
-		// Dense within the incident: §A.2.8 nests hypotheses inside one, so a
+		// Dense within the incident: the model nests hypotheses inside one, so a
 		// rank is a position among *this incident's* claims.
 		h.Rank = i + 1
 		if err := h.Validate(); err != nil {
@@ -445,7 +445,7 @@ func insertHypothesis(ctx context.Context, db DB, h *rca.Hypothesis) error {
 	// that are being written in the same statement**, not from anything the
 	// ranker reported about them, so the column cannot disagree with the arrays
 	// it describes — which is the whole of what makes a count checkable where a
-	// sentence is not. The tier is read from §9.5's table by cause class, and a
+	// sentence is not. The tier is read from the gate's table by cause class, and a
 	// hypothesis naming no class gets `none`, the tier that ranks last.
 	basis, err := json.Marshal(audit.HypothesisBasis{
 		SupportingCount:    len(h.SupportingEvidence),
@@ -521,7 +521,7 @@ func raisedLoci(ctx context.Context, db DB, sessionId string) (map[string]string
 // with a consequence: locus `run_not_started` is a terminal header with no worker
 // row at all, so a selector keyed on worker rows could never reach the one run
 // shape the first locus exists for. The cost is that a header whose worker rows
-// have been purged is selected too, which is F273's ambiguity — and the
+// have been purged is selected too, which is the partial-purge ambiguity — and the
 // classifier answers `not_evaluable` there rather than `present`, so the cost is
 // a wasted read rather than a wrong incident.
 func RecentSessions(ctx context.Context, db DB, since time.Time, client, process string, limit int) ([]string, error) {

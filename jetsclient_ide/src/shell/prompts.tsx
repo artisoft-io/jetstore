@@ -1,5 +1,5 @@
 /**
- * The app's own `confirm` and `prompt`. jetstore_maintenance_02 `I-39`,
+ * The app's own `confirm` and `prompt`, since
  * 2026-10-02.
  *
  * **The browser's native ones are not a dialog everywhere this app runs.** The
@@ -19,8 +19,8 @@
  *    `null` on *Cancel* or Escape.
  *
  * **Built on `ModalDialog`, the one `<dialog>` element in the app**
- * (`userflow/FormDialog.tsx`, `AB.2`), so it is `.uf-dialog` and has the width
- * rule `D08` gave every dialog; `dialogStyles.test.ts` would refuse a second
+ * (`userflow/FormDialog.tsx`), so it is `.uf-dialog` and has the width
+ * rule every dialog has; `dialogStyles.test.ts` would refuse a second
  * `<dialog>`. No backdrop dismissal: neither native prompt has one, and a stray
  * click that cancelled a typed id would lose what was typed.
  *
@@ -50,7 +50,7 @@ export interface Prompts {
    * `detail`, when given, is shown under the message as written, line breaks
    * kept — the one thing the native dialog could not do and the reason it is
    * here: the Session Registry's *Delete* lists the sessions a deletion reaches,
-   * one per line, before the user answers (`session_registry` Phase 2,
+   * one per line, before the user answers (added
    * 2026-11-08). The dialog's accessible name stays the message.
    */
   confirm(message: string, detail?: string): Promise<boolean>;

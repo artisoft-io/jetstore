@@ -35,7 +35,7 @@ else across twelve instances, while `apply_map` holds distinct_count, sum and
 count.
 
 **Why this is a projection over the emitted `$defs` rather than classes in the
-model.** Since the B.10 flip, `cpipes_model.py` is the source of truth for the
+model.** Since the source-of-truth flip, `cpipes_model.py` is the source of truth for the
 contract *claims* - which fields exist per token, required, values, defaults.
 Bundles claim nothing new about any of that; they restrict what an existing
 field admits, for one addressable entry point. Emitting them here keeps

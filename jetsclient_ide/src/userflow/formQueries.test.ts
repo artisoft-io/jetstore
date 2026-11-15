@@ -80,7 +80,7 @@ describe("resolveQuery", () => {
 
   it("treats an empty value as missing", () => {
     // `form.dart` tests `value == null`; a cleared widget stores nothing at all
-    // (A.3, `useFormField`), so undefined and "" are the same state here.
+    // (`useFormField`), so undefined and "" are the same state here.
     const formState = new FormState();
     formState.setValue(0, "table_name", "");
     expect(resolveQuery(mappingForm.queries!["inputColumns"]!, formState)).toBeNull();

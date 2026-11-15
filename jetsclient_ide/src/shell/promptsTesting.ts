@@ -1,6 +1,6 @@
 /**
  * Test helpers for the app's own `confirm` and `prompt` (`prompts.tsx`,
- * jetstore_maintenance_02 `I-39`, 2026-10-02).
+ * 2026-10-02).
  *
  * Before that date a screen test stubbed `window.confirm` or `window.prompt` and
  * read back what it was called with. These drive the dialog instead, which is

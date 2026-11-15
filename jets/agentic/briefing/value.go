@@ -13,7 +13,7 @@ import (
 //
 // # Why they are here rather than in each reader
 //
-// `I-563` recorded the second copy and `I-643` the third: `scalar`, `asInt`,
+// A second copy and then a third were recorded: `scalar`, `asInt`,
 // `asDate` and `dateLayouts` were written out in `jets/agentic/briefing`,
 // `jets/agentic/briefing/prose` and `jets/agentic/template`, each time because
 // the package that needed them could not import the package that had them. The
@@ -28,7 +28,7 @@ import (
 // says less than the entity does with nothing reporting it. **No briefing is
 // known to have carried one** - the projection writes `time.Time` - so this is
 // the divergence rather than an incident, and it was in the tree before anybody
-// edited a copy, which is what `I-643` said the copies would do.
+// edited a copy, which is what the copies were predicted to do.
 //
 // **The union is what is exported, not the intersection.** Narrowing the
 // checker to the renderers' five would refuse an input it accepts today, which
@@ -187,7 +187,7 @@ var dateLayouts = []string{
 // A blank string is refused before the layouts are tried rather than by them.
 // The loop would reach the same answer; saying it here is what makes *a
 // property that is there and says nothing is not a property that is there*
-// - `I-645`'s rule for `require` - one line of code rather than a convention.
+// - the rule for `require` - one line of code rather than a convention.
 func AsDate(v any) (time.Time, bool) {
 	switch x := v.(type) {
 	case time.Time:

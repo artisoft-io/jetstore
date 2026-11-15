@@ -1,7 +1,7 @@
 /**
  * The banner region, shared by every screen.
  *
- * Phase 1's editor kept `error` and `status` in its own state and
+ * The original editor kept `error` and `status` in its own state and
  * rendered its own banners; with more than one screen that becomes one banner
  * implementation per screen, each free to disagree about where messages appear
  * and how they are dismissed. So the shell owns the region and screens raise

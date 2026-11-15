@@ -1,6 +1,6 @@
 package datatable
 
-// A user's Delete of a session (session_registry, JM-081, Phase 2 E): the two
+// A user's Delete of a session: the two
 // server actions, and the guard a pipeline start passes before it reads a
 // session.
 //

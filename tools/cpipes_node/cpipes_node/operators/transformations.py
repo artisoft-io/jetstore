@@ -1,10 +1,9 @@
 """Transformation tokens this node declares, and the three that are built.
 
 Three of JetStore's nineteen. The other sixteen are out of scope and abort by
-name, which is X6, and **whether that subset is ever permanent is not decided
-here**: the charter's §1.3 says in terms that parity with the built-ins is not
-this phase's to answer, the question is P9-I04, and the number reserved for the
-ruling is D-206. What this module does is make the subset a fact a reader can
+name, which is the scope rule, and **whether that subset is ever permanent is not
+decided here**: the charter says in terms that parity with the built-ins is not
+its to answer, and the question is open with a ruling reserved for it. What this module does is make the subset a fact a reader can
 check rather than a sentence in a plan.
 
 The site operator is not one of these. See `operators/__init__.py`.
@@ -14,7 +13,7 @@ The site operator is not one of these. See `operators/__init__.py`.
 `map_record` and `filter` are here entire. `partition_writer` is here as far as
 the *policy* goes — partition rollover, sampling, the record's shape — and its
 two device encoders are `writers.py`, because CSV and Parquet are one subject
-and X3 is a statement about them: one column list, two containers. The authored
+and the cell-for-cell criterion is a statement about them: one column list, two containers. The authored
 column vocabulary is `columns.py`, for the same reason: it is shared by all
 three of these operators and by `OperatorEnv.column_evaluator`, which a site
 operator reaches.
@@ -46,7 +45,7 @@ no `site_config`:
    `ctx.s3DeviceManager`, reached from the `BuilderContext`. Nothing on
    `OperatorEnv` or `OperatorArgs` reached `NodeContext.store`, and adding it to
    `OperatorEnv` would hand **every site operator** the node's store, which is
-   the one thing §12.6 is about withholding. So `partition_writer` could not be
+   the one thing the site contract is about withholding. So `partition_writer` could not be
    reached from a `.pc.json` at all.
 
 **The repair is the Go asymmetry restored, in the type of `env` rather than in
@@ -109,7 +108,7 @@ class SeamNotWired(StartupError):
     authored document: a caller that could not tell it from `ConfigInvalid`
     would send the reader to the `.pc.json`.
 
-    Two subjects since P9-I55's repair, and both are about how the operator was
+    Two subjects since the builder-context repair, and both are about how the operator was
     *built* rather than about what it was asked to do: an env that is not a
     `BuilderEnv`, and a node with no object store.
     """
@@ -349,7 +348,7 @@ class PartitionWriterPipe:
     for a partition writer's output channel, because nothing is ever sent to it.
     The volume this operator moved is `total_rows` and `parts` on this object,
     which is the pair the Go engine reports through `ComputePipesResult`'s
-    `CopyRowCount` and `PartsCount` — a different path, and P9-T09's.
+    `CopyRowCount` and `PartsCount` — a different path, and the side effects'.
 
     **`store` is already bound to the destination bucket**. The Go
     writer holds an `externalBucket` string and names it on every upload; here
@@ -383,7 +382,7 @@ class PartitionWriterPipe:
     batch_size: int = 0
     file_name: str = ""
     #: `put_headers_on_first_partition` resolved against this node's id; see
-    #: `headers_on_this_node` and P9-I117. `True` is the ordinary case — every
+    #: `headers_on_this_node`. `True` is the ordinary case — every
     #: part carries its own header — and is the Go writer's default too.
     headers_on_this_node: bool = True
     #: What Go's `Finally()` reports this writer as, in its `ComputePipesResult`
@@ -530,7 +529,7 @@ class PartitionWriterPipe:
 class PartitionWriter(Transformation):
     """Write the input channel's records to partition files.
 
-    The `device_writer_type` enum is where §7's *Parquet and CSV writers* is
+    The `device_writer_type` enum is where the charter's *Parquet and CSV writers* is
     answered by something that already exists; this node has to honour the
     value, not invent an encoder.
     """
@@ -543,7 +542,7 @@ class PartitionWriter(Transformation):
     def build(cls, env: Any, args: Any) -> Any:
         """`NewPartitionWriterTransformationPipe`, through the builder env.
 
-        **Reachable from a `.pc.json` since P9-I55's repair.** The two things it
+        **Reachable from a `.pc.json` since the builder-context repair.** The two things it
         needs beyond `OperatorEnv` are the ones Go reads off `BuilderContext`:
         `config` — now `args.config`, filled by `graph._builtin_config` from the
         step's own `partition_writer_config` — and the object store, which is
@@ -626,7 +625,7 @@ class PartitionWriter(Transformation):
         ChannelConfig` fills `format`, `compression` and `delimiter` only where
         they are empty, and a document that came from a starter has them filled
         already — so the same code is right for the local driver, which has no
-        starter in front of it (D-219's shape one field over).
+        starter in front of it (the node-as-starter shape one field over).
         """
         source = _source(args, "partition_writer")
         out = _output(args, "partition_writer")
@@ -788,7 +787,7 @@ def partition_label(builder: Any, config: Any) -> str:
     the **53** authored `.pc.json` in `workspaces/` on 2026-09-19 there are 121
     partition writers; 44 sit under a splitter and take the split key, 63 author
     a key, and the **14** that are keyless and not under a splitter are all in
-    `healthcare_corpus.pc.json` — twelve writing to `output` channels whose key
+    one corpus-generator document — twelve writing to `output` channels whose key
     prefix never references `$CURRENT_PARTITION_LABEL`, so the label reaches no
     key at all. Refusing would therefore refuse a document Go runs and runs
     **correctly**, which is the one thing this package's divergences are not
@@ -866,8 +865,8 @@ def _partition_destination(
     every row correct.
 
     **This node refuses that rather than reproducing the silence.** The refusal
-    is narrower than Go and is the same judgement D-224 already made one pipe
-    kind over: a document Go runs is refused here, at startup, by name. Measured
+    is narrower than Go and is the same judgement the merge-pipe decision made one
+    pipe kind over: a document Go runs is refused here, at startup, by name. Measured
     over the 51 authored `.pc.json` in `workspaces/` on 2026-09-19, **no
     partition writer authors a bucket on a `stage` channel**, so the refusal
     costs nothing today and fires on the first document that makes the mistake.
@@ -1206,7 +1205,7 @@ def _evaluators(
     method still refuses by name: it is `runtime.py`'s and this wave does not
     own that file. The delegation is one line — `return columns.build(...)` —
     and until it lands a **site** operator honouring its own authored `columns`
-    cannot get an evaluator, which is the other half of P9-I57.
+    cannot get an evaluator, which is the other half of the recorded duplication.
     """
     source = _source(args, token)
     output = _output(args, token)

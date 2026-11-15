@@ -7,17 +7,17 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// The kill switch (plan §3.5, task D.6, criterion 18).
+// The kill switch.
 //
 // Two different things wear this name and only one of them is new. Per-run
-// cancellation is a context and D.5 built it: the caller cancels, the run ends
+// cancellation is a context and already exists: the caller cancels, the run ends
 // as interrupted. **A durable global stop is the one that matters**, because it
 // must survive a process restart and must not be defeatable by the agent — and
 // it already exists as the capability model. An agent identity is a user with a
 // capability set, so revoking that capability stops it from outside, with an
 // existing screen and an existing audit trail.
 //
-// What Phase 1 adds is only the check. That is the whole of the task and it is
+// What this file adds is only the check. That is the whole of the change and it is
 // the right size: two lines of policy over machinery that exists, rather than a
 // new switch with a new table and a new way to get it wrong.
 //
@@ -32,11 +32,11 @@ import (
 //
 //   - It stops an *identity*, not a run, and takes effect at the next check
 //     rather than immediately. A per-run stop an operator can hit from a screen
-//     is gap 11's IDE work in Phase 2.
+//     is later IDE work.
 //   - user.HasCapability returns true unconditionally for the admin identity
 //     (user.go:70, via IsAdmin). An agent running as admin therefore cannot be
 //     stopped this way. Agent identities must not be admin, which is a
-//     deployment rule this code cannot enforce and gap 7 should.
+//     deployment rule this code cannot enforce and the tier machinery should.
 
 // Guard answers whether an identity may still act. It is consulted before the
 // first model call and before every tool call that writes, so an implementation
@@ -63,8 +63,8 @@ type PgGuard struct {
 	DB QueryRower
 	// Email identifies the agent, as a row in jetsapi.users.
 	Email string
-	// Capability is what the agent must hold to act. Phase 1 does not seed a
-	// role or fix a name — agent identities and their tiers are gap 7's — so
+	// Capability is what the agent must hold to act. This package does not seed a
+	// role or fix a name — agent identities and their tiers are decided elsewhere — so
 	// this is configuration rather than a constant, and a loop with no Guard
 	// runs unguarded and says so by having none.
 	Capability string

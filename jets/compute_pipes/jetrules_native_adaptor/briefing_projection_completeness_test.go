@@ -7,7 +7,7 @@ package jetrules_native_adaptor
 // # What it asserts, and why it is a test rather than a guardrail rule
 //
 // **Every `cintel:Diagnosis` and every `hc:Drug_Name` on a source event reaches
-// the briefing.** That is I-515 - *a briefing that silently drops a condition* -
+// the briefing.** That is a known defect - *a briefing that silently drops a condition* -
 // and until 2026-09-09 it was going to be a sixth rule kind in
 // `jets/agentic/briefing`: a rule failing a field that is empty while the entity
 // carries values belonging in it.
@@ -15,7 +15,7 @@ package jetrules_native_adaptor
 // **The guardrail is not where the defect lives any more.** A guardrail checks a
 // model's structured answer, and the briefing's structured answer is retiring:
 // the counts and the dates moved into
-// `briefing_projection.jr` at `AT.1`, and the rendering call's output is prose.
+// `briefing_projection.jr`, and the rendering call's output is prose.
 // What can drop a condition after that is the **projection**, and a projection is
 // a total function of the rule session - so the check is a containment test over
 // two sets rather than a rule about a JSON path. Deterministic, complete, and it
@@ -27,7 +27,7 @@ package jetrules_native_adaptor
 // produces and says in its own header what it does not cover: *"What it does not
 // exercise is the rules that build the projection."* A completeness test that
 // hand-asserted the briefing would agree with the hand that wrote it, which is
-// the failure that file records as I-147. So this one asserts **claims** -
+// the failure that file records. So this one asserts **claims** -
 // `hc:MedicalClaim` and `hc:PharmacyClaim` rows, with real codes and a real NDC -
 // and reads the briefing that `cintel_main.jr` produces from them. Nothing
 // between the claim and the encoded prompt is stubbed.
@@ -262,10 +262,10 @@ func readProjection(t *testing.T, s compute_pipes.JetRdfSession, rm compute_pipe
 		p.fromSource[ev.String()] = object(t, s, rm, ev, "_0:fromSourceEvent").String()
 	}
 	for _, ev := range objects(s, rm, p.briefing, "cintel:has_Briefing_Pharmacy_Events") {
-		// **hc:Drug_Name and not cintel:Medication, as of `AT.1`(ii).** The
+		// **hc:Drug_Name and not cintel:Medication.** The
 		// medication is the drug name concatenated with the indicator, the ratio,
 		// the count and the fill dates, so a containment test over it would be a
-		// substring match - which is what I-415 rejected one property over. The
+		// substring match - which was rejected one property over. The
 		// component is on the node for exactly this reason, so the
 		// containment stays an identity and `TestTheMedicationIsOneValuePerDrug`
 		// below is what ties the component to the joined value.
@@ -277,7 +277,7 @@ func readProjection(t *testing.T, s compute_pipes.JetRdfSession, rm compute_pipe
 
 // --- the completeness assertions -----------------------------------------
 
-// I-515's defect, caught deterministically. **Per source event rather than over
+// The dropped-condition defect, caught deterministically. **Per source event rather than over
 // the union**, and the difference is the whole strength of the test: a union
 // check passes a projection that copies every value onto one briefing event and
 // leaves the others empty, which is a briefing that has lost the pairing between
@@ -311,8 +311,8 @@ func TestTheProjectionCarriesEveryDiagnosisOfEverySourceEvent(t *testing.T) {
 	}
 }
 
-// The same property one property over, and F735 is why it is a separate test
-// rather than a second loop. `AM_PCreateEvent20` indexes pharmacy events by NDC,
+// The same property one property over, and it is a separate test rather
+// than a second loop because `AM_PCreateEvent20` indexes pharmacy events by NDC,
 // so **one pharmacy event is one drug by construction**: the projection has one
 // name to carry per event and losing it is losing the event.
 func TestTheProjectionCarriesEveryDrugNameOfEverySourceEvent(t *testing.T) {
@@ -336,7 +336,7 @@ func TestTheProjectionCarriesEveryDrugNameOfEverySourceEvent(t *testing.T) {
 // separated here rather than assumed to be the same claim. The entity is walked
 // by `EncodeColumnData` under the channel's `exclude_properties`, so a value on
 // the briefing that the encoder does not emit is a value the renderer never sees
-// - which is the same failure I-515 names, one layer out, and it is the layer a
+// - which is the same dropped-condition failure, one layer out, and it is the layer a
 // projection test would otherwise stop short of.
 func TestEveryProjectedValueReachesThePrompt(t *testing.T) {
 	s, rm := ruleSessionOverTheFixture(t)
@@ -357,7 +357,7 @@ func TestEveryProjectedValueReachesThePrompt(t *testing.T) {
 	}
 }
 
-// `AT.1`(i): the two counts and the two dates are the rule session's, not a
+// The two counts and the two dates are the rule session's, not a
 // model's.
 //
 // **Three shapes of member rather than one, and the two extra shapes each found a
@@ -503,7 +503,7 @@ func medicalOnlyFixture(t *testing.T, s compute_pipes.JetRdfSession, rm compute_
 // over a projection that is currently complete is green whether it is checking
 // anything or not, which is the shape this repository records as a guardrail that
 // has stopped firing and says nothing about having stopped. Retracting one
-// `cintel:Diagnosis` from one briefing event is exactly I-515's defect - a
+// `cintel:Diagnosis` from one briefing event is exactly the dropped-condition defect - a
 // briefing that silently drops a condition - and the report has to name it.
 func TestTheCompletenessCheckReportsADroppedCondition(t *testing.T) {
 	s, rm := ruleSessionOverTheFixture(t)
@@ -662,13 +662,13 @@ func nodeText(n compute_pipes.RdfNode) string {
 	return n.String()
 }
 
-// --- `AT.1`(ii): one medication is one value -----------------------------
+// --- one medication is one value -----------------------------------------
 
 // The concatenated medication, asserted as the exact strings the rules produce
 // rather than as a description of them.
 //
 // **Why an exact string rather than a set of substring checks.** The whole point
-// of `AT.1`(ii) is that a medication's facts travel together: the briefing's
+// of the joined medication is that a medication's facts travel together: the briefing's
 // `medications[]` is a flatten across every pharmacy event, so a drug name and a
 // maintenance indicator carried as two multi-valued properties could be zipped
 // wrong by any consumer and pass every check that looked at them separately.
@@ -677,7 +677,7 @@ func nodeText(n compute_pipes.RdfNode) string {
 // one layer up. **The pairing is the claim, so the whole string is the
 // assertion.**
 //
-// The fixture is §1.7.2a's member: one non-maintenance drug with a single fill,
+// The fixture is the specified member: one non-maintenance drug with a single fill,
 // and one maintenance drug with three, which is what exercises both arms of the
 // rule and both the singular and the plural.
 func TestTheMedicationIsOneValuePerDrug(t *testing.T) {
@@ -687,10 +687,10 @@ func TestTheMedicationIsOneValuePerDrug(t *testing.T) {
 	want := map[string]string{
 		"traMADol HCl": "traMADol HCl (maintenance N, 1 fill: 2025-07-02)",
 		// **`adherence 0.89`, 90 days supply over a 101-day span.** This read
-		// `0.00` until 2026-10-22, the measurement of agentic_ai I-557: the
+		// `0.00` until 2026-10-22, the measurement of a known defect: the
 		// Go engine's `sum_values` seeded its accumulator with an int, so a sum
 		// over a double property came back an int and two ints divided to zero.
-		// The literal was left as the measurement, to change to `0.89` "when I-557
+		// The literal was left as the measurement, to change to `0.89` "when the fix
 		// lands". By 2026-10-22 both engines gave 0.89, and this test failed on
 		// the Go engine at the commit it was moved from; it moved here with the Go
 		// engine's retirement and asserts the C++
@@ -800,7 +800,7 @@ func TestTheJoinedFillDatesAreChronological(t *testing.T) {
 	}
 }
 
-// --- F758: the condition union is deduplicated ---------------------------
+// --- the condition union is deduplicated ---------------------------------
 
 // **A multi-valued property is a set and a set is per subject**, so a diagnosis
 // recorded at two encounters is one value on each of two briefing medical events
@@ -870,7 +870,7 @@ func TestTheConditionSummaryIsTheDistinctUnion(t *testing.T) {
 //
 // The rollup is still on every briefing medical event, so nothing is lost from
 // the entity; what it does not have is a deduplicated briefing-level property,
-// which is I-556.
+// which is a known gap.
 func TestTheConditionSummaryDoesNotCarryTheElixhauserRollup(t *testing.T) {
 	s, rm := ruleSessionOverTheFixture(t)
 	p := readProjection(t, s, rm)

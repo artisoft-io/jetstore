@@ -1,4 +1,4 @@
-"""`R10`: the token diff, and the baseline that makes it able to go red.
+"""The token diff, and the baseline that makes it able to go red.
 
 **The mutation tests are the point of this file.** A baseline check that has
 never been seen to fail is a claim about what it would detect, and this
@@ -60,7 +60,7 @@ def test_the_difference_is_where_the_baseline_says_it_is():
 def test_the_transformation_baseline_is_the_one_the_plan_declares():
     """16 / 0 / 3, re-derived rather than copied.
 
-    `F37` measured this on 2026-09-22 against a tree that has since moved, so
+    This was measured on 2026-09-22 against a tree that has since moved, so
     this asserts the plan's declared number against the checkout rather than
     restating it. The other two kinds are asserted by the baseline file; this
     one is spelled out because it is the number three documents carry.
@@ -93,7 +93,7 @@ def test_the_virtual_tokens_are_not_part_of_the_universe():
 
 
 def test_every_run_states_what_it_does_not_cover(capsys):
-    """`AG.2`, asserted as output rather than as documentation.
+    """The coverage statement, asserted as output rather than as documentation.
 
     The clause names the two claims a reader would otherwise take this
     instrument to have settled: that two implementations of one token agree,

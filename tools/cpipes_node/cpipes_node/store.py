@@ -1,6 +1,6 @@
 """The object store, behind one seam, with a local implementation and an S3 one.
 
-**The local store is not a test double.** X2, X3, X5 and X7 each need an
+**The local store is not a test double.** The corpus comparisons each need an
 executable oracle, this repository has no docker-compose, and a node that can
 only be run inside AWS is a node whose byte-for-byte comparisons are run by
 hand. So the local path is the same code with a different store, and `Local` is
@@ -12,7 +12,7 @@ operator hold a stream across the node's lifetime, and the second is meaningless
 for a local directory — having it would make the local path the degenerate one
 rather than the ordinary one.
 
-`put_stream` is the one thing the first paragraph used to rule out, and D-243 is
+`put_stream` is the one thing the first paragraph used to rule out, and this is
 why it is here: `stream_data_out` is a flag a document sets and the Go engine
 honours (`s3_device_writter.go:40`), and a flag this node accepted and ignored is
 this repository's standing class. It is deliberately **push**-shaped — the caller

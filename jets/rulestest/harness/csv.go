@@ -17,7 +17,7 @@ import (
 
 // InputTable is one CSV of an input session: a header naming data properties
 // of the workspace, in any order, and rows of text cells. It is an entity-table
-// export rather than a pipeline's input file (definition F26), so it is read by
+// export rather than a pipeline's input file, so it is read by
 // header and each row is asserted through compute_pipes.AssertTextRow, which
 // casts every cell by the property's type in build/properties.json.
 //
@@ -69,7 +69,7 @@ func parseLocalColumn(file string, index int, header string) (LocalColumn, error
 
 // ReadInputTable reads a CSV and checks its header against the workspace's
 // data properties: a column that is not one is an error naming the file, the
-// column and the closest property name (definition §3.3). Blank lines are
+// column and the closest property name. Blank lines are
 // skipped; every row must have one cell per column.
 func ReadInputTable(path, name string) (*InputTable, error) {
 	f, err := os.Open(path)

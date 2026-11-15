@@ -561,8 +561,8 @@ func TestDefaultErrorMaxCountIgnoresWhatItCannotUse(t *testing.T) {
 
 // The cap is silent when unset: an operator that names no max_error_count keeps the
 // zero its builder reads as "use my default" (20 for map_record and jetrules, 50 for
-// the inference operators). This is what makes the default arm of AM.2 identical to
-// what AM.1 shipped.
+// the inference operators). This is what makes the default arm of the cap identical to
+// what shipped before it.
 func TestNoCapLeavesTheOperatorDefaults(t *testing.T) {
 	pipeConfig := []PipeSpec{{Apply: []TransformationSpec{{Type: "map_record"}}}}
 	SynthesizeDefaultErrorChannels(&ComputePipesConfig{}, pipeConfig)

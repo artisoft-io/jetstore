@@ -1,7 +1,7 @@
 // Command rules_unit_test runs one rules unit test (a .tst.json under a
 // workspace's jet_rules/unit_tests/) and writes its result file.
 //
-// It is the harness process of the rules_unit_test_harness project: the
+// It is the harness process of the rules unit tests: the
 // apiserver launches it once per test, from a pool, and records the result file
 // it writes; a rule author runs the same binary from a shell against a
 // checked-out workspace. **It opens no database connection**: the workspace is

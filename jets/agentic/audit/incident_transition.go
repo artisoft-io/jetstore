@@ -11,11 +11,11 @@ import (
 )
 
 // Who moved an incident, and from what to what — the
-// labelling instrument plan §10.7 argues for, built now so that Phase 5 can
+// labelling instrument the supervision design argues for, built now so that later work can
 // accumulate a population it cannot accumulate retrospectively.
 //
 // **This is RecordApproval a second time and the differences are the
-// interesting part.** K.1's function writes the typed row, appends the chain
+// interesting part.** RecordApproval writes the typed row, appends the chain
 // event and moves the subject's state in one transaction, and this one does the
 // same three things. What differs:
 //
@@ -30,28 +30,28 @@ import (
 //
 //   - **The lifecycle is enforced here rather than in a handler.** For
 //     ChangeProposal the policy arrived two tasks after the primitive, and by
-//     then `jets/apiserver/api_agentic.go` existed to hold it — K.1
+//     then `jets/apiserver/api_agentic.go` existed to hold it — RecordApproval
 //     deliberately left it out on the argument that a record of decisions
 //     should not encode a workflow it was not asked about. **For Incident the
 //     policy and the primitive land together and there is no handler at all**,
-//     so leaving the edge unchecked would mean nothing enforces A.5's "an agent
+//     so leaving the edge unchecked would mean nothing enforces the lifecycle's rule, "an agent
 //     may propose a transition; it cannot effect an illegal one". A handler may
 //     still pre-check with IncidentTransitionAllowed to tell a bad request
 //     apart from a lost race; it will not be enforcing something this function
-//     leaves open. Recorded as **I-299**.
+//     leaves open.
 //
-//   - **The chain event is conditional, and AB.4 changed what it is conditional
+//   - **The chain event is conditional, and a later change moved what it is conditional
 //     on.** `agent_audit.run_id` is an AgentRun's key. A ChangeProposal knows
 //     its run — `trigger_ref` — and an Incident did not, so the chain event was
 //     appended only when the *caller* named a run: an agent's own
 //     reclassification was tamper-evident and a person's correction of it was
-//     not, which inverts the property a governance record is for (**R-34**,
-//     **I-297**). **Q-32 was settled by the user on 2026-09-04 in favour of
+//     not, which inverts the property a governance record is for. **The
+//     question was settled by the user on 2026-09-04 in favour of
 //     giving `Incident` a run reference**, and this function now reads
 //     `incident_run_ref` off the row and uses it when the caller supplies none.
 //     What remains conditional is the *incident* naming a run rather than the
 //     transition — so an incident nothing agentic raised still chains nothing,
-//     for every actor alike rather than for humans alone (**R-44**).
+//     for every actor alike rather than for humans alone.
 //
 // **The event type is `decision` rather than `approval`.** An approval is a
 // verdict on a proposed *action*; a reclassification is a verdict on a *claim*,
@@ -95,11 +95,12 @@ type IncidentTransition struct {
 	// FromStatus is the status the incident is expected to be in. The
 	// transition is refused if it is not.
 	FromStatus string
-	// ToStatus is the status it moves to. Must be an A.5 edge from FromStatus.
+	// ToStatus is the status it moves to. Must be a lifecycle edge from FromStatus.
 	ToStatus string
 	// Actor is a user_email or an agent identity.
 	Actor string
-	// ActorKind is ActorHuman or ActorAgent — the column I-276 asks for.
+	// ActorKind is ActorHuman or ActorAgent — the column that tells a person's
+	// label from the system's own call.
 	ActorKind string
 	// RunRef is the AgentRun this transition belongs to, or "" to take the
 	// incident's own `incident_run_ref`. It is therefore an input *and*
@@ -150,7 +151,7 @@ func (t *IncidentTransition) validate() error {
 	return validateAttribution(fmt.Sprintf("transition %s", t.IncidentEventId), t.Actor, t.ActorKind)
 }
 
-// `ErrNoIncident` is `incident.go`'s, landed hours earlier by `AE.1` for the
+// `ErrNoIncident` is `incident.go`'s, landed hours earlier for the
 // read path, and it is reused here rather than shadowed: *no such incident* is
 // one answer whether the caller was reading or writing, and two error types
 // meaning it would make `errors.As` depend on which function was called.
@@ -216,7 +217,7 @@ func RecordIncidentTransition(ctx context.Context, db Beginner, t *IncidentTrans
 	}
 	t.ClassificationBefore = before
 
-	// AB.4, Q-32. The caller's run wins where it has one — an agent
+	// The caller's run wins where it has one — an agent
 	// transitioning an incident inside its own run belongs in *its* transcript,
 	// not in the transcript of whatever raised the incident. Where it has none,
 	// the incident's run is used, which is the whole of what the new column
@@ -323,7 +324,7 @@ func IncidentTransitionsFor(ctx context.Context, db Querier, incidentRef string)
 // HumanVerdicts returns the adjudications a person made since `since`, oldest
 // first — **the labelled population, as a query**.
 //
-// Plan §10.7's argument is that the supervision screen is the only instrument
+// The supervision design's argument is that the supervision screen is the only instrument
 // that produces labels and that three of its four parts were already built. This
 // is the fourth read back: `reclassified`, `verified` and `suppressed_as_benign`
 // are the three IncidentStatus values that are adjudications rather than
@@ -331,8 +332,8 @@ func IncidentTransitionsFor(ctx context.Context, db Querier, incidentRef string)
 // label rather than the system agreeing with itself.
 //
 // It exists now, with a partial index behind it and nothing to count, for the
-// reason K.2 recorded: a write path with no read path is a store nobody can
-// check. What it will return in this phase is zero rows, and plan §10.7 says
+// reason recorded earlier: a write path with no read path is a store nobody can
+// check. What it will return in this phase is zero rows, and the supervision design says
 // why that is a schedule rather than a defect.
 func HumanVerdicts(ctx context.Context, db Querier, since time.Time) ([]IncidentTransition, error) {
 	rows, err := db.Query(ctx,

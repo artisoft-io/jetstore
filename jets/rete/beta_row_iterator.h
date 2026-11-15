@@ -75,7 +75,7 @@ class BetaRowIndex {
 
   // Removes `row` from under `key`, the other rows there keeping their order, and
   // returns how many it removed (0 or 1: a row is indexed once under a key). The key
-  // goes once it holds no row. Before I-85 the whole key was erased, the other rows
+  // goes once it holds no row. Before a fix the whole key was erased, the other rows
   // under it with it, so they could no longer be joined.
   inline std::size_t
   erase(K const& key, BetaRow const* row)

@@ -1,19 +1,19 @@
 /**
- * `sourceConfigUF`'s escapes. Task F.7, the last of the nine flows.
+ * `sourceConfigUF`'s escapes, the last of the nine flows.
  *
- * ## Two transcribed escapes, two answers, and neither is F.8's
+ * ## Two transcribed escapes, two answers, and neither is the file mapping's
  *
- * I-121 narrowed I-74's rule to two questions — *can the grammar say it* and *may
- * an authored document be allowed to* — and F.8 answered them for `downloadMapping`
+ * The escape rule comes down to two questions — *can the grammar say it* and *may
+ * an authored document be allowed to* — and `fileMapping.ts` answers them for `downloadMapping`
  * (no, and so it stays a body) and `loadRawRows` (yes, and it stays a body anyway,
- * because S.7's allowlist declines the target). This flow's two transcribed escapes
+ * because the schema's allowlist declines the target). This flow's two transcribed escapes
  * land on a third answer each.
  *
  * **`loadSourceConfigWithFileTypeInference` is gone, and most of it became steps.**
- * F.2 predicted it: `scSelectSourceConfigUF`
+ * This was predicted: `scSelectSourceConfigUF`
  * (`jetsclient/lib/modules/user_flows/configure_files/form_action_delegates.dart`,
  * `configureFilesFormActions`) is "six conditional `set`s in a row", and the `when`
- * guard F.2 added for one arm of `workspacePullUF` expresses all of them —
+ * guard added for one arm of `workspacePullUF` expresses all of them —
  * the twelve `unpack` assignments, the two-way `is_part_files` mapping and the
  * five-way backward-compatibility inference are twenty-one `set` steps in
  * `flows/sourceConfigUF.ua.json` and no code. **What is left is one thing the
@@ -37,7 +37,7 @@
  *    button a second time posts a different record.
  *
  * Adding `when` to `normalise` and `omit` would fix it and has one consumer in the
- * corpus, which is the test I-62 states and this fails. So it is a body.
+ * corpus, which is the test a new primitive must pass and this fails. So it is a body.
  */
 
 import type { FormState } from "../datatable/formState";
@@ -69,7 +69,7 @@ function scalar(raw: unknown): string | null {
  *
  * **The message is the Dart's, mislabelled, and is reproduced rather than fixed.**
  * `"Input column names is not a valid json"` is a copy-paste from the arm above it;
- * what failed to parse is the spreadsheet options. See I-133.
+ * what failed to parse is the spreadsheet options.
  */
 export const readXlsxSheetOption: ActionEscape = async (context) => {
   const { formState, group } = context;
@@ -185,15 +185,15 @@ function cumulativeOf(raw: unknown): number {
 /**
  * Saves the file configuration, projecting the payload by its file type.
  *
- * **The target is chosen by whether a record was selected**, which is I-115's shape
- * one flow later: `key` is set only on the edit path, where `scSelectSourceConfigUF`
+ * **The target is chosen by whether a record was selected**, which is an earlier
+ * flow's shape: `key` is set only on the edit path, where `scSelectSourceConfigUF`
  * unpacked it out of the table's selection, so `null` means *add*.
  *
  * **Two divergences from `postSimpleAction`, both stated.** The Dart shows a
  * snackbar on success and this does not — the flow ends on this button and the
  * screen changes underneath it. And on 409 the Dart shows *two* alert dialogs,
  * because the branch that reports the conflict has no `return` after it; that one is
- * reproduced, as a notification each, and recorded in I-133 rather than quietly
+ * reproduced, as a notification each, and recorded rather than quietly
  * repaired.
  */
 export const saveSourceConfigForFileType: ActionEscape = async (context, host) => {
@@ -236,7 +236,7 @@ export const saveSourceConfigForFileType: ActionEscape = async (context, host) =
  * The three rules of `configureFilesFormValidator` that are not field properties.
  *
  * The other nine cases are `required` and `json` rules on the fields themselves
- * (`../userflow/forms/sourceConfigUF.form.json`), which is the split F.1 established
+ * (`../userflow/forms/sourceConfigUF.form.json`), which is the split the file mapping flow established
  * and `validateForm` enforces by running the rules first and this second.
  *
  * **`client` is here rather than a `required` rule because the Dart's test is
@@ -247,7 +247,7 @@ export const saveSourceConfigForFileType: ActionEscape = async (context, host) =
  * **`org`'s rule is not here, and it is the one this port cannot reproduce.** The
  * Dart refuses `null` and accepts `''`, which are the two items of that dropdown —
  * a valueless prompt and an explicit *No Organization*. `DropdownItemSchema.value`
- * is a required string, so both would be `""`; see I-131.
+ * is a required string, so both would be `""`.
  */
 export const sourceConfigFormValidator: ValidatorEscape = (context, key, value) => {
   const { formState } = context;

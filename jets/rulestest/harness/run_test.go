@@ -2,7 +2,7 @@ package harness
 
 // harness.Run end to end on the C++ engine: a scratch workspace with test
 // definitions and CSVs, compiled in a child process (the rete, workspace and
-// compute_pipes packages bind the workspace in init, definition F16), then each
+// compute_pipes packages bind the workspace in init), then each
 // test run through Run as the rules_unit_test command runs it.
 //
 // These ran on the Go engine, which kept them buildable without libjets.so, until
@@ -138,7 +138,7 @@ p3,lp:Person,
 `
 
 // vertexCap is 10,000 visits, given to the fixtures through rule_config: the Go
-// engine's default, and C++'s since rules_benchmark Q-83, set explicitly so a rule
+// engine's default, and C++'s since 2026-10, set explicitly so a rule
 // that stopped terminating fails the test instead of hanging it, whatever the default.
 func vertexCap() []any {
 	return []any{map[string]any{"jets:key": "jets:iState",
@@ -383,7 +383,7 @@ func runOnTestWsChild(t *testing.T) {
 
 // TestRunOnJetsWsEligibility asserts the input document's own example row,
 // an hc:Eligibility export with the properties in alphabetical order and no
-// jets:source_period_sequence (definition F26), through Run on jets_ws.
+// jets:source_period_sequence, through Run on jets_ws.
 func TestRunOnJetsWsEligibility(t *testing.T) {
 	if os.Getenv("RULESTEST_HARNESS_CHILD") == "1" {
 		jetsWsChild(t)
@@ -399,8 +399,8 @@ func TestRunOnJetsWsEligibility(t *testing.T) {
 	u := "jet_rules/unit_tests/elig/"
 	files := map[string]string{
 		u + "elig.jr": "import \"data_model/jets_model.jr\"\nimport \"data_model/hc_model.jr\"\n",
-		// The input document's row has 30 cells for 31 columns (rules_unit_test_harness
-		// F98). Verbatim, it is refused; with the missing cell restored as a trailing
+		// The input document's row has 30 cells for 31 columns. Verbatim, it
+		// is refused; with the missing cell restored as a trailing
 		// blank, CI is jets:client and jets:org is blank.
 		u + "eligibility_verbatim.csv": `jets:key,rdf:type,hc:Effective_Date,hc:Group_Number,hc:Medicare_Indicator,hc:Member_Address_Line_1,hc:Member_Address_Line_2,hc:Member_City,hc:Member_DOB,hc:Member_First_Name,hc:Member_Gender,hc:Member_ID,hc:Member_Last_Name,hc:Member_Relationship,hc:Member_State_Code,hc:Member_Zip,hc:Plan_Name,hc:Plan_Type,hc:Subscriber_Address_Line_1,hc:Subscriber_Address_Line_2,hc:Subscriber_City,hc:Subscriber_DOB,hc:Subscriber_First_Name,hc:Subscriber_Gender,hc:Subscriber_ID,hc:Subscriber_Last_Name,hc:Subscriber_State_Code,hc:Subscriber_Zip,hc:Termination_Date,jets:client,jets:org
 b10305943c9a5e5e,"{""hc:Eligibility""}",2024-01-01T00:00:00,G01,,,,,1953-04-14T00:00:00,Patient5,F,M005,Last_Name,self,,10023,,,,,,,,,,,,,,CI

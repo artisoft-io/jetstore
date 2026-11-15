@@ -2,31 +2,31 @@
 
 **`compute_pipes` learns nothing about templates.** Expansion runs when a config is
 authored, and its output is a config the runtime cannot distinguish from a hand-written
-one. Anything else puts an expander on the hot path of every run and breaks item 2b's
+one. Anything else puts an expander on the hot path of every run and breaks the
 criterion that every live config validates as it stands (45 when this was written). Nothing in this module is
 imported by the engine, and the output carries no marker that it was generated.
 
 **The fill seam is a callable, and that is deliberate.** `expand` does not know where a
-fragment comes from - the library, a model, or a person - because F.5 proves the
-*mechanism* and F.6 proves the *authoring*, and §5.3.9's third qualification is that a
-harness which recovers payload from the target proves placement rather than authoring.
-Keeping the source behind a callable is what stops F.5's demonstration from being
-mistaken for F.6's.
+fragment comes from - the library, a model, or a person - because the placement test
+proves the *mechanism* and the authoring test proves the *authoring*, and a harness
+which recovers payload from the target proves placement rather than authoring.
+Keeping the source behind a callable is what stops the placement demonstration from
+being mistaken for the authoring one.
 
 **Two kinds of hole, and the difference is structural.** A hole with a `$body` has its
 shape given and only its nested holes filled; a hole without one is filled whole. Both
-are validated against `schema_ref` **alone** before being spliced - the Phase 0 sketch's
+are validated against `schema_ref` **alone** before being spliced - the original design's
 "validate fragment alone against schema_ref", which is what makes a hole typed rather
 than textual.
 
 **`$item` is a variable reference, not a macro.** A `$body` may read a field of the
 current iteration item, and that is all: no conditionals, no arithmetic, no expression
-of any kind, and no expansion of the result. §5.3.2's warning is about macro languages
+of any kind, and no expansion of the result. The design's warning is about macro languages
 acquiring conditionals and arithmetic within about two releases, and the guard against
 that is that there is nowhere here to put them. If a template needs a computed value, it
 needs a hole.
 
-**Q-14 holds one layer down.** A hole whose type the library cannot illustrate expands
+**Coverage is reported, not enforced, one layer down too.** A hole whose type the library cannot illustrate expands
 normally; the expander never consults the library and so cannot come to depend on
 coverage. Reversing that decision here, where it is hard to see, is the failure this
 paragraph exists to prevent.
@@ -174,9 +174,9 @@ def expand(
 def from_library(library: list[dict], matrix: Path | None = None) -> Fill:
     """A `Fill` that returns the most-cited library part for a hole's type.
 
-    **This proves placement, not authoring** - §5.3.9's third qualification, and the
-    reason criterion 21 does not discharge criterion 22. It exists so F.5 can exercise
-    the mechanism end to end without a model, and it is named so that using it in F.6
+    **This proves placement, not authoring** - the reason the placement test does not
+    discharge the authoring test. It exists so the placement test can exercise the
+    mechanism end to end without a model, and it is named so that using it for authoring
     would be an obvious error rather than a subtle one.
 
     A `schema_ref` names a *bundle*, and the library is keyed by `defs_name`, so the
@@ -213,10 +213,10 @@ def from_library(library: list[dict], matrix: Path | None = None) -> Fill:
 def from_target(target: dict, key: str = "write_step_id") -> Fill:
     """A `Fill` that recovers each fragment from an existing config.
 
-    **Criterion 21 permits this and criterion 22 does not**, which is the whole reason
-    it is a separate function with a separate name. §5.3.9's third qualification: a
-    harness that recovers payload from the target proves *placement*, not authoring. F.5
-    is allowed to prove placement; F.6 is the one that must not.
+    **The placement test permits this and the authoring test does not**, which is the
+    whole reason it is a separate function with a separate name. A harness that recovers
+    payload from the target proves *placement*, not authoring. The placement test is
+    allowed to read the target; the authoring test is the one that must not.
 
     The current iteration item names which fragment to recover, by `key`. Every operator
     in the target is indexed by that field, so a template derived from a config expands

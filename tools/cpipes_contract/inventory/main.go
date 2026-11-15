@@ -1,4 +1,4 @@
-// The B.18 field-inventory reflector: walks the compute_pipes struct graph
+// The field-inventory reflector: walks the compute_pipes struct graph
 // from ComputePipesConfig and emits every struct's field inventory - Go name,
 // json key, type string - as JSON on stdout. The python side
 // (`python -m cpipes_contract drift`) compares it against the matrix's

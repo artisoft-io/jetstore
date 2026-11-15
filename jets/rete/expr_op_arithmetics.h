@@ -151,7 +151,7 @@ get_aggregate_operands(char const* op, rdf::RManager * rmgr,
 // operand's type with boost::numeric_cast, which throws when it does not fit (int32 plus
 // a large int64, uint32 plus -1). The exception failed the session; the operation is null
 // instead, and the rule's consequent sees no value (2026-10-23), as an
-// integer division by zero has been since Q-69. Each of the four operators below is its
+// integer division by zero already was. Each of the four operators below is its
 // Impl wrapped in this, and so is to_int, whose number out of int32's range threw the
 // same way; the Impl's overloads are unchanged.
 template<class Op>
@@ -172,14 +172,14 @@ struct NullWhenOutOfRange: public Op
 // number with text, a named resource, a blank node or null, either way round, or two
 // operands neither of which they take (2026-10-24). Each catch-all below says so.
 // Until then a catch-all gave null only with no beta row, as the shared tables call a
-// visitor, and threw in a session's rule, which failed the session; Q-85 and
-// BL.1b had made a few of those mixes null one overload at a time. Text first in + is
+// visitor, and threw in a session's rule, which failed the session; earlier
+// changes had made a few of those mixes null one overload at a time. Text first in + is
 // not a mismatch: it concatenates, by design.
 
 // An integer quotient. Division by zero is null, and so is the minimum signed
 // integer divided by -1, whose quotient does not fit its type: it raised SIGFPE, which
-// killed the process, for int32 and int64 and through the mixed integer types (Q-85,
-// I-126, 2026-10-23).
+// killed the process, for int32 and int64 and through the mixed integer types
+// (2026-10-23).
 template<class L, class T>
 inline RDFTTYPE
 integer_quotient(T lhs, T rhs)

@@ -2,16 +2,16 @@
  * One proposal: what it says, who has decided on it, what may happen to it
  * next, and the transcript of the run that produced it.
  *
- * Task K.3, gap 11 — the "approvable" half of criterion 31.
+ * The "approvable" half of the supervision screens.
  *
  * ## Three things this screen refuses to do
  *
  * **It does not decide which buttons to show.** The permitted transitions
- * arrive with the proposal, from `audit.Transitions` — Appendix A.5's state
+ * arrive with the proposal, from `audit.Transitions` — the change proposal's state
  * machine. A table in this file would be a second source of truth, and the copy
  * in the browser is the one that cannot enforce anything.
  *
- * **It does not render the transcript without the verdict.** K.2's design
+ * **It does not render the transcript without the verdict.** The design
  * decision is that `ReadTranscript` returns the defects beside the events,
  * because a viewer that renders a tamper-evident log without checking the
  * evidence offers the *appearance* of the property. So the verdict leads, above

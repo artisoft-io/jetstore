@@ -1,8 +1,8 @@
 package briefingtmpl_test
 
-// **The drift guard.** `BA.2` inlines `patient_profile_briefing.json` into
-// `patient_profile_template.pc.json`'s `text_templates` array, because Q-104
-// keeps the template body inline in the pipeline configuration by the user's
+// **The drift guard.** The pipeline inlines `patient_profile_briefing.json` into
+// `patient_profile_template.pc.json`'s `text_templates` array, because the
+// template body is kept inline in the pipeline configuration by the user's
 // instruction. That is a second copy of these bytes, and this file is what
 // keeps the two equal.
 //
@@ -24,10 +24,10 @@ package briefingtmpl_test
 //
 // # The polarity is deliberate
 //
-// A missing `patient_profile_template.pc.json` **skips**, because `BA.2` has not
-// run yet and a guard that fails before its subject exists teaches nothing. A
+// A missing `patient_profile_template.pc.json` **skips**, because the pipeline has not
+// been written yet and a guard that fails before its subject exists teaches nothing. A
 // file that exists and does not carry the document, or carries a different one,
-// **fails**. So this test goes from inert to load-bearing on the day `BA.2`
+// **fails**. So this test goes from inert to load-bearing on the day that file
 // lands, with no edit.
 
 import (
@@ -41,7 +41,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/template"
 )
 
-// pipelineFile is what `BA.2` writes. It is named rather than searched for by
+// pipelineFile is the pipeline configuration that carries the copy. It is named rather than searched for by
 // key, so that a run against a corpus that does not carry it says *this file is
 // not here* rather than *no template anywhere matches*.
 const pipelineFile = "patient_profile_template.pc.json"
@@ -53,7 +53,7 @@ func TestTheShippedPipelineCarriesThisDocument(t *testing.T) {
 	}
 	path := findPipeline(t, dir)
 	if path == "" {
-		t.Skipf("no %s under %s; BA.2 is the task that writes it", pipelineFile, dir)
+		t.Skipf("no %s under %s; the template is not inlined in this corpus yet", pipelineFile, dir)
 	}
 	raw, err := os.ReadFile(path)
 	if err != nil {

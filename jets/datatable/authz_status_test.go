@@ -8,10 +8,10 @@ import (
 	"testing"
 )
 
-// The guard for ui_refresh C.17 / I-189: a capability refusal and a dead session
+// The guard for the refusal status split: a capability refusal and a dead session
 // are two answers and 401 could only carry one of them.
 //
-// **They were three, and the third is ui_refresh I-241, fixed at D.2 on 2026-08-27.**
+// **They were three, and the third was fixed on 2026-08-27.**
 // A SqlInsertDefinition that names no capability is a server misconfiguration rather
 // than an answer about the caller, and it answered 401 -- signing a user out for a
 // mistake no request of theirs could cause or repair. It now answers 500 and carries
@@ -24,7 +24,7 @@ import (
 // that the classification exists, that it is applied at every gate rather than at the
 // one somebody remembered, and that no refusal's message moved while its status did.
 //
-// **For I-241 a unit test on the function is the honest level and not a shortcut.**
+// **For the third a unit test on the function is the honest level and not a shortcut.**
 // The path is unreachable from every caller in this package -- see
 // ErrCapabilityNotConfigured's docblock for the measurement -- so there is no request
 // that reaches it and no integration test that could. What can be pinned is the
@@ -50,7 +50,7 @@ func TestAuthzStatusSeparatesIdentityFromPolicy(t *testing.T) {
 	}
 }
 
-// TestAConfigurationErrorIsNotARefusal is I-241's guard, and it is the pair of the
+// TestAConfigurationErrorIsNotARefusal is the third's guard, and it is the pair of the
 // test above rather than a case inside it: the split there is identity against
 // policy, and this one is not on either side of it.
 //
@@ -63,7 +63,7 @@ func TestAuthzStatusSeparatesIdentityFromPolicy(t *testing.T) {
 // leaves the caller signed in and says the failure was not theirs.
 func TestAConfigurationErrorIsNotARefusal(t *testing.T) {
 	if got := AuthzStatusFor(ErrCapabilityNotConfigured); got != http.StatusInternalServerError {
-		t.Errorf("AuthzStatusFor(ErrCapabilityNotConfigured) = %d, want %d (I-241: a "+
+		t.Errorf("AuthzStatusFor(ErrCapabilityNotConfigured) = %d, want %d (a "+
 			"SqlInsertDefinition with no capability is a defect in the server, and 401 "+
 			"signs the user out for it)", got, http.StatusInternalServerError)
 	}
@@ -85,14 +85,14 @@ type errString string
 func (e errString) Error() string { return string(e) }
 
 // TestRefusalKeepsTheMessageCollapsed is the other half, and it is the half that
-// keeps I-124's fix intact. That fix turns on the two gates on the insert_raw_rows
+// keeps an earlier fix intact. That fix turns on the two gates on the insert_raw_rows
 // path being byte-identical so neither becomes an oracle for whether a mapping
 // exists; a status that varies is fine there, because both gates on that path
 // demand the same capability and therefore refuse with the same status.
 //
 // **The wire message must not gain the distinction the status now carries.**
 //
-// **ErrCapabilityNotConfigured is out of this loop as of D.2, and its absence is the
+// **ErrCapabilityNotConfigured is out of this loop as of 2026-08-27, and its absence is the
 // point rather than an exemption.** The collapse exists so that two refusals cannot
 // be told apart; a configuration error is not a refusal, and TestAConfigurationErrorIsNotARefusal
 // above pins what it returns instead. The three that remain are every refusal there is.
@@ -110,13 +110,13 @@ func TestRefusalKeepsTheMessageCollapsed(t *testing.T) {
 	}
 }
 
-// TestTheFourRefusalTextsAreUnchanged pins what C.17 promised not to move. The
+// TestTheFourRefusalTextsAreUnchanged pins what the status split promised not to move. The
 // argument for the change was that the status is the only thing that moves; a
 // reworded message would make that claim false silently, and jets/apiserver's
 // TestPurgeDataRefusalIsIndistinguishableFromTheOtherEndpoints greps for two of
 // these literals one package over.
 //
-// **D.2 moved which error a gate returns and not what any of them say**, so this
+// **The 2026-08-27 fix moved which error a gate returns and not what any of them say**, so this
 // test is unchanged and still covers all four. ErrCapabilityNotConfigured keeps its
 // "unauthorized" prefix for that reason: the clause after the comma is what an
 // operator needs, and rewording the rest would spend this guard on a word.
@@ -151,7 +151,7 @@ func TestTheFourRefusalTextsAreUnchanged(t *testing.T) {
 // ast.Fprint follows the Obj back-links on identifiers, so printing a function body
 // that calls RefusalFor also prints RefusalFor's body, AuthzStatusFor's body, and
 // the http.StatusUnauthorized inside it. The first version of this test failed on
-// five functions that name no status at all. See I-243.
+// five functions that name no status at all.
 func TestNoGateHardCodesTheUnauthorizedStatus(t *testing.T) {
 	fset := token.NewFileSet()
 	for _, src := range writePathSources {
@@ -175,7 +175,7 @@ func TestNoGateHardCodesTheUnauthorizedStatus(t *testing.T) {
 				}
 				t.Errorf("%s (%s) names http.StatusUnauthorized directly; a gate's status comes "+
 					"from RefusalFor, so that a capability refusal is a 403 and a client can "+
-					"refuse in place rather than signing the user out (I-189)", fn.Name.Name, src)
+					"refuse in place rather than signing the user out", fn.Name.Name, src)
 				return true
 			})
 		}
@@ -186,7 +186,7 @@ func TestNoGateHardCodesTheUnauthorizedStatus(t *testing.T) {
 // negative one passes vacuously if somebody deletes a gate; this one counts.
 //
 // **The number is a lower bound written as an equality on purpose.** Fourteen is
-// what C.17 converted, and a fifteenth gate is a change worth reading this file
+// what the status split converted, and a fifteenth gate is a change worth reading this file
 // over -- either it went through RefusalFor, in which case raise the number, or it
 // did not, in which case the test above has already failed.
 func TestEveryGateGoesThroughRefusalFor(t *testing.T) {
@@ -216,7 +216,7 @@ func TestEveryGateGoesThroughRefusalFor(t *testing.T) {
 		}
 	}
 	if got != want {
-		t.Errorf("%d gates go through RefusalFor; C.17 converted %d. If a gate was added, "+
+		t.Errorf("%d gates go through RefusalFor; the status split converted %d. If a gate was added, "+
 			"check it classifies its refusal and raise this number; if one was removed, lower it",
 			got, want)
 	}

@@ -21,7 +21,7 @@ func TestDetectionCommandsAreAllowed(t *testing.T) {
 	}
 }
 
-// The commands that were allowed before I-861 keep their behaviour: every one but
+// The commands that were allowed before the detection commands keep their behaviour: every one but
 // infer_server stages a workspace, as it did when the test was `cmd != "infer_server"`.
 func TestNeedsWorkspace(t *testing.T) {
 	want := map[string]bool{

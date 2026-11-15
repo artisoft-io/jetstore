@@ -338,7 +338,7 @@ func TestTermKey(t *testing.T) {
 	}
 }
 
-// THE CASES THE FIXTURE DOES NOT REACH (BY.2's review, 2026-10-24), each with
+// THE CASES THE FIXTURE DOES NOT REACH (a review, 2026-10-24), each with
 // statistics built here rather than read from a file.
 
 // compileWithStatistics compiles src with st as its rule set's statistics.
@@ -388,7 +388,7 @@ func firstEstimates(c *Compiler, rule *rete.JetruleNode) map[string]float64 {
 
 // A constant whose pair the file does not have is estimated from its
 // predicate's averages, N/DS for a constant subject and N/DO for a constant
-// object (BX.1 rule 7), not as 0 and not as N. With the pairs, each rule's
+// object, not as 0 and not as N. With the pairs, each rule's
 // constant term is dearer than (?a acme:wide ?b), 500 rows a session; with the
 // averages it is cheaper, and goes first.
 func TestCostEstimateTakesTheAveragesForAMissingPair(t *testing.T) {

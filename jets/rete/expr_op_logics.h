@@ -25,7 +25,7 @@ using RDFTTYPE = rdf::RdfAstType;
 
 // EqVisitor
 // --------------------------------------------------------------------------------------
-// Comparing numbers (Q-68, 2026-10): integers with integers by value (std::cmp_*); any
+// Comparing numbers (2026-10): integers with integers by value (std::cmp_*); any
 // double operand compares as two doubles, by rdf::is_eq, is_lt, ... (15 significant
 // digits), so a NaN or an infinity is never equal or ordered. Until 2026-10 == cast the
 // double to the integer's type (5 == 5.5 was true, a double out of the type's range

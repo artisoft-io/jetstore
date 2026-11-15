@@ -12,17 +12,17 @@ writes `ctx.outputCh.Config.Columns` as its header and
 nullable*, and `ConvertToSchemaV2`'s string arm is `encodeRdfTypeToTxt(v)`. So
 the two writers differ in container and in nothing else.
 
-**That is what makes X3 provable.** The criterion is *every table written in CSV
+**That is what makes the cell-for-cell criterion provable.** The criterion is *every table written in CSV
 and in Parquet from the same run by changing `device_writer_type` alone, and the
 two agreeing cell for cell after type normalisation*. Here
 :func:`write_csv` and :func:`write_parquet` take `columns` and `rows` and
 neither derives a column list of its own; a test asserts the two agree over a
 table containing every value shape the encoder distinguishes. If the two writers
-could disagree about columns, X3 would be unprovable rather than false.
+could disagree about columns, the criterion would be unprovable rather than false.
 
 # Where the column list comes from, and what this package can and cannot say
 
-The charter asks for *the list derived from Phase 8's output data dictionary
+The charter asks for *the list derived from the corpus's output data dictionary
 rather than restated*. The derivation this package can make is the whole of the
 chain it can see: a writer takes `OperatorArgs.output.config.columns`, which is
 the `ResolvedChannelSpec` the graph built from the `.pc.json`'s own `channels`
@@ -31,15 +31,15 @@ entry. **There is no column list anywhere in this module, and none in
 writers are a function of their `columns` argument.
 
 **The other half of the chain is not this package's and must not be faked here.**
-`healthcare_corpus.generate.dictionary` holds the 511-column declaration, and
+The corpus generator's dictionary holds the 511-column declaration, and
 this package may not import the corpus. So the `.pc.json`'s twelve
 channel specs have to be *generated from* that dictionary rather than typed by
 hand, and nothing in this repository can check that they were: a hand-typed
 column list that happens to be right validates, resolves and writes. That is
-**P9-I56**, it belongs to P9-T18 which authors the document, and the instrument
+recorded as an issue, it belongs to whoever authors the document, and the instrument
 it needs is a generator plus a test on the corpus side — stated here rather than
-worked around, because a restated list is D-58's defect and it is exactly what
-X3 cannot see.
+worked around, because a restated list is a known defect and it is exactly what
+the cell comparison cannot see.
 
 # Two divergences from the Go writer, both deliberate and both named
 
@@ -49,17 +49,17 @@ fork of Go's `encoding/csv` with `QuoteAll` and `NoQuotes` added, and its
 LF, **or begins with a unicode space, or is exactly `\\.`**. `pyarrow.csv`'s
 `QuoteStyle.NEEDED` covers the first group and neither of the last two, and
 Python's own `csv` module covers the first group and neither of the last two
-either. Since X7 compares the two engines **byte for byte**, a writer built on
+either. Since the cross-engine comparison is **byte for byte**, a writer built on
 either library could not be byte-identical to the engine it is measured against,
 so the rule is transcribed from that file and asserted against it. That is
-**D-222**.
+a recorded decision.
 
 **Parquet bytes are not comparable and cell values are.** Go writes through
 `pqarrow` with `created_by: "jetstore"` and its own row-group layout; pyarrow
-writes its own. X3 asks for cell-for-cell agreement and X7 for byte identity,
-and **X7's subject is the CSV path**: a parquet file's bytes are a property of
-the arrow implementation, not of the corpus. Said here so that P9-T22 does not
-discover it as a failure.
+writes its own. One criterion asks for cell-for-cell agreement and the other for
+byte identity, and **the byte comparison's subject is the CSV path**: a parquet file's bytes are a property of
+the arrow implementation, not of the corpus. Said here so that conformance
+testing does not discover it as a failure.
 """
 
 from __future__ import annotations
@@ -166,7 +166,7 @@ POSTGRES_TERMINATOR = "\\."
 
 
 def field_needs_quotes(field: str, delimiter: str) -> bool:
-    """`Writer.fieldNeedsQuotes`, transcribed. See D-222 and the module docstring.
+    """`Writer.fieldNeedsQuotes`, transcribed. See the module docstring.
 
     Four clauses and the last two are the ones no library reproduces: a field
     beginning with a unicode space, and the Postgres data terminator.
@@ -241,7 +241,7 @@ def write_csv_to(
     `write_csv` is this over a `BytesIO`, so there is **one** csv encoder and
     `stream_data_out` selects where the bytes land rather than how they are
     made. Two encoders would be two chances to disagree about the quoting rule
-    X7 compares bytes against.
+    the byte comparison checks against.
     """
     if len(delimiter) != 1:
         raise WriterError(f"the csv delimiter must be one character, not {delimiter!r}")
@@ -299,7 +299,7 @@ def write_parquet(
 
     `None` is the one place the two writers do not agree as bytes and cannot:
     CSV has no null, so a null and an empty string are both an empty field,
-    where parquet keeps them apart. That is the *type normalisation* X3's
+    where parquet keeps them apart. That is the *type normalisation* the criterion's
     wording allows for, and it is asserted in that direction rather than left
     to be discovered.
 
@@ -360,7 +360,7 @@ PARQUET_DEFAULT_BATCH_SIZE = 1024
 def _pyarrow() -> tuple[Any, Any]:
     """pyarrow, imported at the call rather than at module scope.
 
-    **It is a dependency and not an extra**, deliberately: X3 is an exit
+    **It is a dependency and not an extra**, deliberately: the cell-for-cell criterion is an exit
     criterion about writing every table in both formats, and a format that works
     only where somebody remembered an extra is a criterion that depends on an
     install. What the lazy import buys is cold-start time in a lambda whose
@@ -421,7 +421,7 @@ REFUSED_DEVICE_WRITERS: Mapping[str, str] = {
 #: The compressions the csv writer implements. The Go writer wraps its output in
 #: `snappy.NewBufferedWriter`, which is the snappy **framing** format; nothing in
 #: this package can produce that stream, and raw snappy would be a file the Go
-#: reader cannot open — worse than a refusal. Recorded as **P9-I59**, with the
+#: reader cannot open — worse than a refusal. Recorded as an issue, with the
 #: consequence for the authored document: a **stage** channel's compression
 #: defaults to `snappy`, so the corpus `.pc.json` must set `"compression":
 #: "none"` explicitly or be refused while the graph is built.
@@ -489,7 +489,7 @@ def write_partition(
     exactly `csv`, so `headerless_csv` has none and `parquet` carries its schema
     instead — **and** when `headers_on_this_node`, which is
     `put_headers_on_first_partition` resolved against the node id by the caller,
-    because only the caller has it. See `write_partition_to` and P9-I117.
+    because only the caller has it. See `write_partition_to`.
     """
     sink = io.BytesIO()
     write_partition_to(
@@ -527,7 +527,7 @@ def write_partition_to(
     `write_partition` is this over a `BytesIO`, so the dispatch is not duplicated
     and `stream_data_out` cannot select a different encoder by accident — which
     is the failure mode a second copy of this switch would have, silently, in
-    the one place X7 compares bytes.
+    the one place the byte comparison compares bytes.
 
     `headers_on_this_node` is the second half of Go's header condition —
     `Format == "csv" && (!PutHeadersOnFirstPartition || nodeId == 0)`
@@ -562,7 +562,7 @@ def partition_file_name(
     """`part%04d-%07d.%s`, the name a partition takes when none is authored.
 
     Transcribed because it is a value two engines must agree on: a merge step
-    and Phase 8's harness both find these files by listing a prefix,
+    and the comparison harness both find these files by listing a prefix,
     and a node that named them differently would write a corpus nothing reads.
     """
     extension = FILE_EXTENSIONS.get(device_writer_type, "")

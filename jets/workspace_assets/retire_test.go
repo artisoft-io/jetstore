@@ -1,8 +1,8 @@
 package workspace_assets
 
-// Retirement, jetstore_maintenance_02 task AD.5 (2026-10-01): an install deletes
+// Retirement (2026-10-01): an install deletes
 // a retired asset's unedited copy, refuses an edited one, and ignores an absent
-// one. The three cases are the plan's; the rest pin the edges the evidence for
+// one. The three cases are the design's; the rest pin the edges the evidence for
 // "unedited" has, which is the manifest and nothing else.
 
 import (

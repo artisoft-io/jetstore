@@ -1,9 +1,9 @@
 /**
  * Tests for the flow store.
  *
- * Driven against a stub `WorkspaceApi` rather than a live server: what S.3 adds
- * is the *store*, and the transport underneath it is the one Phase 1 shipped and
- * A.4a verified against `localhost:8080`. What is worth asserting here is the
+ * Driven against a stub `WorkspaceApi` rather than a live server: what is new
+ * is the *store*, and the transport underneath it is the one the editor shipped
+ * with, verified against `localhost:8080`. What is worth asserting here is the
  * part that is new — that a flow which does not validate does not load, and that
  * the reason it did not load is usable.
  */
@@ -70,8 +70,8 @@ import { strictPolicy } from "./validate";
 /**
  * A workspace as a map from path to text.
  *
- * **The stub answers `readWorkspaceDocument`, and the change is the point of
- * I-65 — with the method renamed on 2026-08-26 when the runtime read moved to
+ * **The stub answers `readWorkspaceDocument`, and that change is the
+ * point — with the method renamed on 2026-08-26 when the runtime read moved to
  * its own, lower, capability.** It used to answer `readFile(ws, node)` and key off `node.key`, which
  * the real `WorkspaceApi` never does: `readFile` takes a tree node and asks
  * `fileNameOf` for the path, and that returns null unless `node.type === "file"`.
@@ -184,7 +184,7 @@ describe("loading", () => {
 
   it("refuses a document the schema rejects, and points at the field", async () => {
     const broken = structuredClone(loadFilesFlow) as { states: Record<string, object> };
-    // An end state that also transitions — the rule S.1 made structural.
+    // An end state that also transitions — the rule the schema makes structural.
     (broken.states["select_file_keys"] as { defaultNextState?: string }).defaultNextState = "x";
     const { store } = storeFor(workspace("x", broken, loadFilesActions));
 
@@ -194,8 +194,8 @@ describe("loading", () => {
   });
 
   it("escapes a pointer segment that contains a slash or a tilde", async () => {
-    // **Reachable and unexercised by anything realistic**, which is I-24's
-    // lesson: the `Identifier` pattern forbids `/` and `~` in a state key, so a
+    // **Reachable and unexercised by anything realistic**, which is an
+    // earlier lesson: the `Identifier` pattern forbids `/` and `~` in a state key, so a
     // *valid* document never produces such a segment — but an invalid one is
     // exactly what this code path is for, and a key of `a/b` would otherwise
     // emit a pointer that reads as two segments. RFC 6901 §3: `~` then `/`.
@@ -245,7 +245,7 @@ describe("loading", () => {
 
   it("reports a reachability warning without refusing the flow", async () => {
     // Warnings do not block a load; only errors do. Under the strict policy the
-    // same finding would — which is I-17's switch, and it is the server's call.
+    // same finding would — which is the policy switch, and it is the server's call.
     const flow = structuredClone(loadFilesFlow) as { states: Record<string, unknown> };
     flow.states["orphan"] = { description: "d", formConfig: "f", isEnd: true };
     const { api } = stubApi(workspace("x", flow, loadFilesActions));
@@ -297,7 +297,7 @@ describe("homeFiltersUF against the shipping registry", () => {
       "hfSelectTimeWindowUF",
       "hfViewStatusTableUF",
       // `pipelineExecStatusTable`'s *Put Schema Event* opens it, so every set
-      // that draws the table carries it (`jetstore_maintenance_02` `AD.3`,
+      // that draws the table carries it (since
       // 2026-10-01). Like `showFailureDetailsDialog`, no state names it.
       "putSchemaEventDialog",
       "showFailureDetailsDialog",
@@ -316,7 +316,7 @@ describe("homeFiltersUF against the shipping registry", () => {
   it("refuses the set when the dialog form is missing, through the second row", async () => {
     // `showFailureDetailsDialog` is named by no *state* — it is
     // `pipelineExecStatusTable`'s `viewFailureDetails` `configForm`, on the second
-    // action row. I-89 and F.5's widening of `validateTableActions` together.
+    // action row. Dialog forms in the form document and the widened `validateTableActions` together.
     const files = homeFiltersWorkspace();
     const forms = structuredClone(homeFiltersForms) as { forms: Record<string, unknown> };
     delete forms.forms["showFailureDetailsDialog"];
@@ -333,7 +333,7 @@ describe("homeFiltersUF against the shipping registry", () => {
 /**
  * `pipelineConfigUF`'s nine tables, which is every table its eleven forms name.
  *
- * **Ten and twelve until 2026-10-01**, when `D06` removed the add-or-edit step,
+ * **Ten and twelve until 2026-10-01**, when the add-or-edit step was removed with
  * its form and its option table: the flow opens
  * on `pcPipelineConfigTable` and adds from a button on it.
  *
@@ -341,7 +341,7 @@ describe("homeFiltersUF against the shipping registry", () => {
  * `pcProcessInputRegistry` and `pcProcessInputRegistry4MI` are inside the two
  * dialogs, which are reached from a table's `doActionShowDialog`. So the table
  * set of this flow is not derivable from the flow document *or* from the states'
- * forms; it needs the dialog forms, which need I-89's rule that they are part of
+ * forms; it needs the dialog forms, which need the rule that they are part of
  * the form document.
  */
 const pipelineConfigWorkspace = () => ({
@@ -361,12 +361,12 @@ describe("pipelineConfigUF against the shipping registry", () => {
   it("loads eleven forms and nine tables, and resolves its registered query", async () => {
     const { store } = storeFor(pipelineConfigWorkspace(), productionRegistry);
     const loaded = await store.load("pipelineConfigUF");
-    // Ten states and twelve forms: I-89's two dialogs are the difference, and
+    // Ten states and twelve forms: the two dialogs are the difference, and
     // "one form per state" would have been short by exactly them.
     expect(Object.keys(loaded.flow.states)).toHaveLength(9);
     expect(Object.keys(loaded.forms.forms)).toHaveLength(11);
     expect(Object.keys(loaded.tables)).toHaveLength(9);
-    // F.6's seventh escape namespace, resolved through the same pass as the other
+    // The seventh escape namespace, resolved through the same pass as the other
     // six: `pcAddPipelineConfigUF` names `processInputRdfTypes` and this build
     // registers it (`actions/queries.ts`).
     expect(
@@ -396,12 +396,12 @@ describe("pipelineConfigUF against the shipping registry", () => {
     );
   });
 
-  it("catches both halves of I-88's check at once, which no earlier flow could", async () => {
+  it("catches both halves of the table-action check at once, which no earlier flow could", async () => {
     // **The first set where a table names an action *and* a form on the same
     // button.** All three `doActionShowDialog` actions run
     // `pcSetProcessInputRegistryKey` and open one of the two dialogs
     // (`pipeline_config/data_table_config.dart`), so removing either definition
-    // must fail the load — and before F.3 built `validateTableActions` neither
+    // must fail the load — and before `validateTableActions` existed neither
     // would have.
     const drop = async (mutate: (files: Record<string, string>) => void) => {
       const files = pipelineConfigWorkspace();
@@ -433,7 +433,7 @@ describe("pipelineConfigUF against the shipping registry", () => {
 });
 
 describe("the form and table documents", () => {
-  it("loads all four kinds, which is what I-51 said nothing did", async () => {
+  it("loads all four kinds, which nothing did before", async () => {
     const { store } = storeFor(loadFilesWorkspace(), productionRegistry);
     const loaded = await store.load("loadFilesUF");
 
@@ -457,7 +457,7 @@ describe("the form and table documents", () => {
     expect(JSON.stringify(loadFilesFlow)).not.toContain("lfSourceConfigTable");
   });
 
-  it("hands the widget a runtime configuration, through I.3a's inverse", async () => {
+  it("hands the widget a runtime configuration, through the table document's inverse", async () => {
     const { store } = storeFor(loadFilesWorkspace(), productionRegistry);
     const loaded = await store.load("loadFilesUF");
     const config = tableConfigOf(loaded, "lfSourceConfigTable");
@@ -487,10 +487,10 @@ describe("the form and table documents", () => {
     expect(error.message).toContain("user_flows/loadFilesUF.form.json");
   });
 
-  it("refuses a set whose end state offers a button that advances (I-57)", async () => {
+  it("refuses a set whose end state offers a button that advances", async () => {
     // The check no schema can make: `isEnd` is in one document and the button set
     // in the other, and both documents are valid. Nothing ran it at load until
-    // F.0a wired it here.
+    // the flow runner wired it here.
     const forms = structuredClone(loadFilesForms) as {
       forms: Record<string, { actions: { action: string; label: string }[] }>;
     };
@@ -528,10 +528,10 @@ describe("the form and table documents", () => {
 });
 
 describe("a table document that names both escapes", () => {
-  // `inputRegistryTable` is one of the three configurations carrying both of
-  // I-54's names — `cellFilter: fileKeyLabel` on a column and
+  // `inputRegistryTable` is one of the three configurations carrying both
+  // escape names — `cellFilter: fileKeyLabel` on a column and
   // `isEnabled: hasDataRegistryFilters` on its `clearFilters` action. No flow
-  // this project has migrated uses it, so this is a synthetic set: a one-state
+  // the port has migrated uses it, so this is a synthetic set: a one-state
   // flow whose form names that table. **The point is the resolution, not the
   // flow** — until `actions/registry.ts` existed both names failed, and the two
   // sites that could have said so are here and in `registry.test.ts`.
@@ -699,7 +699,7 @@ describe("fileMappingUF against the shipping registry", () => {
   });
 
   it("refuses the set when the table's doAction names an action nothing defines", async () => {
-    // I-88's first half, on the flow F.3 endorsed for it. `downloadMappingRows`
+    // The table-action check's first half, on the flow chosen for it. `downloadMappingRows`
     // is a `doAction` naming `downloadMapping`, and no state and no form button
     // names it — so before `validateTableActions` this was the one reference a
     // per-document check could not see.
@@ -744,11 +744,11 @@ describe("fileMappingUF against the shipping registry", () => {
 });
 
 /**
- * `sourceConfigUF` against the registry this build ships. Task F.7, and the last.
+ * `sourceConfigUF` against the registry this build ships. The last flow migrated.
  *
  * **Twelve states and four tables, which is the widest load the store has been
- * asked for** — eleven and three since 2026-10-01, when `D06` removed the
- * add-or-edit step and its option table — — and the first whose form document declares a query with `params`,
+ * asked for** — eleven and three since 2026-10-01, when the add-or-edit step
+ * and its option table were removed — and the first whose form document declares a query with `params`,
  * the port's spelling of `stateKeyPredicates`.
  */
 const sourceConfigWorkspace = () => ({
@@ -780,7 +780,7 @@ describe("sourceConfigUF against the shipping registry", () => {
   });
 
   it("refuses the set when the table's Delete names an action nothing defines", async () => {
-    // I-88 on this flow's one query table: `scSourceConfigKey` carries both of
+    // The table-action check on this flow's one query table: `scSourceConfigKey` carries both of
     // the arms no state and no form button names — `dropTable` and
     // `deleteSourceConfig` (`configure_files/data_table_config.dart`).
     const files = sourceConfigWorkspace();
@@ -796,7 +796,7 @@ describe("sourceConfigUF against the shipping registry", () => {
   });
 
   it("refuses the set when a dropdown names a query its form does not declare", async () => {
-    // `stateKeyPredicates`' half of I-11, checked where it lives: `orgs` is
+    // The `stateKeyPredicates` half of dropdown queries, checked where it lives: `orgs` is
     // declared on `scAddSourceConfigUF` with `params: ["client"]`, and
     // `checkItemSources` is the only thing that can say `itemsFrom` resolves.
     const files = sourceConfigWorkspace();
@@ -813,7 +813,7 @@ describe("sourceConfigUF against the shipping registry", () => {
     expect(error.findings.map((f) => f.message).join("\n")).toContain('query "orgs"');
   });
 
-  it("refuses the set when + Add no longer clears the key that decides insert or update (AM.4)", async () => {
+  it("refuses the set when + Add no longer clears the key that decides insert or update", async () => {
     // `checkFlowSet`'s `validateAddClearsState`, at load. `key` is published by
     // the table's selection, and `saveSourceConfigForFileType` updates whenever
     // it is set, so an add after an edit would update the edited record.

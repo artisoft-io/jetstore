@@ -112,7 +112,7 @@ func TestRunRuleSetsTiming(t *testing.T) {
 			}
 		})
 		t.Run("rete_release_timed_after_each_rule_set", func(t *testing.T) {
-			// rules_benchmark I-35: the release of each rule set's rete session is
+			// The release of each rule set's rete session is
 			// its own phase, reported after RuleSetDone and outside Total.
 			timer := &recordingTimer{}
 			o := runRuleSets(t, executeRulesSequence, "exception", &compute_pipes.RuleSetsConfig{Timing: timer})

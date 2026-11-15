@@ -1,18 +1,18 @@
 /**
  * Typed wrappers over `/agentic`, the supervision endpoint.
  *
- * **This directory is the agentic_ai project's, inside the ui_refresh
- * project's application** — the arrangement `src/cpipes/` established at M.5 and
- * the repository `CLAUDE.md` records: this project's domain logic should not
- * need a pull request from theirs, and their wiring should not need one from
- * ours. What is theirs here is the route table entry, the nav item and the
- * `ApiClient.agentic` helper; everything below this line is ours.
+ * **This directory belongs to the agentic layer, inside the IDE
+ * application** — the arrangement `src/cpipes/` established: the agentic
+ * domain logic should not need a change to the IDE, and the IDE's wiring
+ * should not need one to it. What is the IDE's here is the route table entry,
+ * the nav item and the `ApiClient.agentic` helper; everything below this line
+ * is the agentic layer's.
  *
  * The wire shapes are not invented. They mirror the Go side one for one:
  *   - the envelope and every action name are `AgenticAction` in
  *     `jets/apiserver/api_agentic.go`;
  *   - `transitions` comes from `audit.Transitions` in
- *     `jets/agentic/audit/lifecycle.go`, which is Appendix A.5's ChangeProposal
+ *     `jets/agentic/audit/lifecycle.go`, which is the ChangeProposal
  *     machine restricted to the nine modelled states;
  *   - `verified` and `defects` come back with the events and never separately,
  *     because `audit.ReadTranscript` has no call that yields one without the
@@ -187,7 +187,7 @@ export const AGENT_SUPERVISION = "agent_supervision";
  * domain model, and it is rendered rather than translated: `approved_with_
  * modification` becomes "Approved with modification" and nothing more. A
  * lookup table of prettier words would be a second vocabulary to keep in step
- * with A.4, and the one thing worse than an ugly label is a label that no
+ * with the server's, and the one thing worse than an ugly label is a label that no
  * longer names the state it sets.
  */
 export function stateLabel(state: string): string {

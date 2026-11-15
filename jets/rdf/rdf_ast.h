@@ -555,7 +555,7 @@ enum class ParsedBool { False, True, Null, Invalid };
 // parse_bool reads text as a bool: trimmed, in any case, exactly true, t, yes, y,
 // 1 and false, f, no, n, 0; empty is null; anything else is Invalid. It decides
 // nothing about what Invalid means: each caller does, which is the specification
-// of rules_unit_test_harness I-45 (2026-10-11). The Go counterpart is
+// of bool parsing (2026-10-11). The Go counterpart is
 // rdf.ParseBool (jets/jetrules/rdf/ast.go), on the same sets; until then this
 // engine read any text but a few spellings of false as true, and Go read any text
 // but a few spellings of true as false.

@@ -80,7 +80,7 @@ func (s *singleFlight) trigger(fn func()) {
 func (s *singleFlight) wait() { s.wg.Wait() }
 
 // userDeletionsTimeout is how long one run of the executor started by the
-// apiserver may go on starting sessions (session_registry Q-18): it stops
+// apiserver may go on starting sessions: it stops
 // starting new ones after it, and leaves the rest queued for the next trigger.
 const userDeletionsTimeout = 10 * time.Minute
 
@@ -297,7 +297,7 @@ func (server *Server) checkSystemTablesVersion() error {
 
 // sweepInterruptedWork runs datatable.SweepInterruptedWork with this start taken
 // from the database's clock, the clock every last_update it compares is written
-// by. Rules unit tests project, AC.7 and I-5.
+// by.
 func (server *Server) sweepInterruptedWork() {
 	var startedAt time.Time
 	if err := server.dbpool.QueryRow(context.Background(), "SELECT now()").Scan(&startedAt); err != nil {
@@ -675,7 +675,7 @@ func listenAndServe() error {
 	server.sweepInterruptedWork()
 
 	// One rules unit test executor pool for this process, installed after the
-	// sweep so nothing it starts can be swept. Rules unit tests project, AC.3.
+	// sweep so nothing it starts can be swept.
 	datatable.SetRulesUnitTestExecutor(datatable.NewRulesUnitTestPool(datatable.RulesUnitTestPoolConfigFromEnv()))
 
 	// The workspace runbook executor (runbooks project, AB), installed after its
@@ -743,7 +743,7 @@ func listenAndServe() error {
 	// server.Router.HandleFunc("/", audit(jsonh(server.Home))).Methods("GET")
 
 	// The web app is served last, after every api route — see the tail of this
-	// function. Task X.1 moved it there; the reason is written where it now sits.
+	// function. It was moved there; the reason is written where it now sits.
 
 	// Health Check
 	healthCheckOptions := OptionConfig{Origin: "",
@@ -798,7 +798,7 @@ func listenAndServe() error {
 	server.Router.HandleFunc("/inferServer", jsonh(corsh(authh(server.DoInferServerAction)))).Methods("POST")
 
 	// Agentic supervision route — proposal staging, approval decisions and run
-	// transcripts for the Workspace IDE (task K.3, gap 11).
+	// transcripts for the Workspace IDE.
 	// Note: authh validates the token only; the agent_supervision capability is
 	// checked inside DoAgenticAction, following the InferServer route above.
 	agenticOptions := OptionConfig{Origin: "",

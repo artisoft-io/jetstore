@@ -383,7 +383,7 @@ func TestPruneIgnoredFileKeys(t *testing.T) {
 			wantKeys: []string{sentinel, property, part1, part2},
 		},
 		{
-			name:     "entries padded with whitespace are trimmed, not matched as written (JM-036)",
+			name:     "entries padded with whitespace are trimmed, not matched as written",
 			ignore:   " test_harness_filters.txt | _COMPLETE\t",
 			wantKeys: []string{part1, part2},
 		},

@@ -1,9 +1,9 @@
 package datatable
 
-// PutSchemaEventToS3, jetstore_maintenance_02 D01 and task AD.1, 2026-10-01.
+// PutSchemaEventToS3, 2026-10-01.
 //
 // Until that date a request without a file_key returned 200 and wrote nothing
-// (that project's F3), which is what the React *Put Schema Event* dialog sends by
+// which is what the React *Put Schema Event* dialog sends by
 // design. These tests need no database and no S3: the upload is observed through
 // putSchemaEventUpload, and the prefix is set on the package variable the
 // function reads, which is what JETS_s3_SCHEMA_TRIGGERS populates at start-up.

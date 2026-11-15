@@ -110,7 +110,7 @@ var jetsS3SchemaTriggers string = os.Getenv("JETS_s3_SCHEMA_TRIGGERS")
 // SchemaEventFileKeyStem names the objects PutSchemaEventToS3 writes under
 // JETS_s3_SCHEMA_TRIGGERS when a request names no file_key: the stem, the time
 // in milliseconds and a UUID, e.g. jetstore_ui_event_1790905252288_<uuid>.json.
-// jetstore_maintenance_02, D01 (2026-10-01) and Phase 2 (2026-10-02).
+// Added 2026-10-01, made unique 2026-10-02.
 //
 // **Unique per row, and it was one fixed name until 2026-10-02.** Nothing
 // downstream keys on the name -- the register-keys lambda registers what the
@@ -141,8 +141,8 @@ type schemaEventUpload struct {
 // Submit Schema Event to S3 (which will call RegisterFileKEys as side effect)
 //
 // **Until 2026-10-01 a row without both an event and a file_key was skipped and
-// the action returned 200 having written nothing** (jetstore_maintenance_02 F3,
-// I-5). The React *Put Schema Event* dialog sends no file key, by design, so that
+// the action returned 200 having written nothing**. The React *Put Schema Event*
+// dialog sends no file key, by design, so that
 // silence would have been the dialog's normal outcome. Now:
 //
 //   - a missing, null or empty file_key means a new name, newSchemaEventFileKey;
@@ -243,7 +243,7 @@ var registerFileKeysReads = map[string]bool{
 
 // RegisterFileKeysReads reports whether RegisterFileKeys reads key from a row of
 // its request. A row's other keys are dropped without a word, so a caller adding
-// a key can check that it will be read (JM-096: the register-key lambda warns of
+// a key can check that it will be read (the register-key lambda warns of
 // a key its site hook adds that is not).
 func RegisterFileKeysReads(key string) bool {
 	return registerFileKeysReads[key]
@@ -287,7 +287,7 @@ func readRegisterFileKeyRow(irow int, data map[string]any) (*registerFileKeyRow,
 		case "year", "month", "day":
 			// A request decoded from JSON carries numbers as float64, which had
 			// no case here and was silently replaced by the 1970-01-01 default
-			// (JM-035 review). Nil keeps the default; anything ToInt cannot
+			// before a review. Nil keeps the default; anything ToInt cannot
 			// read is a 400, as a non-numeric string already was.
 			if v == nil {
 				continue
@@ -299,7 +299,7 @@ func readRegisterFileKeyRow(irow int, data map[string]any) (*registerFileKeyRow,
 		case "size", "file_size":
 			// size is the S3 object's, from the event that named it; file_size is
 			// a schema event's, SchemaProviderSpec.FileSize. file_size had no case
-			// and was dropped until JM-096.
+			// and was dropped until a fix.
 			n, ok, err := sizeOf(v)
 			if err != nil {
 				return nil, fmt.Errorf("while converting %s (%v) to int64: %v", k, v, err)
@@ -321,7 +321,7 @@ func readRegisterFileKeyRow(irow int, data map[string]any) (*registerFileKeyRow,
 			}
 		case "request_id":
 			// Per row: a row with no request_id must not inherit the previous
-			// row's (JM-035 review).
+			// row's.
 			r.requestId = v
 			fileKeyObject[k] = v
 		}
@@ -450,8 +450,8 @@ NextKey:
 		allOk = true
 		err = ctx.Dbpool.QueryRow(context.Background(), stmt, client, org, objectType).Scan(&tableName, &isPartFile, &domainKeys)
 		// No row is a file JetStore has no source_config for, which is staged and
-		// registers nothing; any other error is the database's (JM-096: the
-		// error was not checked, so it was treated as no row).
+		// registers nothing; any other error is the database's (the
+		// error was not checked once, so it was treated as no row).
 		hasSourceConfig := err == nil
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return nil, http.StatusInternalServerError, fmt.Errorf("while reading source_config: %v", err)

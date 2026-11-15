@@ -1,7 +1,6 @@
 package main
 
-// preview_session_deletion, delete_sessions and the runner that executes them
-// (session_registry Phase 2, E.3 and E.4).
+// preview_session_deletion, delete_sessions and the runner that executes them.
 //
 // The database tests need JETS_TEST_DSN and are skipped otherwise; each rebuilds
 // the database srg_delete_apiserver. Locally:

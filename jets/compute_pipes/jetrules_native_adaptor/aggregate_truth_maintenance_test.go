@@ -16,12 +16,12 @@ package jetrules_native_adaptor
 // session starts, so the aggregate is computed against however many claims
 // happened to be linked at the moment it first fired.
 //
-// **These tests failed until agentic_ai I-535 was fixed.** That was deliberate:
+// **These tests failed until the aggregate defect was fixed.** That was deliberate:
 // they assert what the rules mean, not what the engine did. Inverting them to
 // assert 30-where-90-is-right would have made the suite green and locked in the
 // defect. They pass on the C++ engine as of 2026-10-22, when they moved here from
-// the Go adaptor's package with the Go engine's retirement (rules_benchmark
-// Phase 6); they passed on the Go engine at that date too.
+// the Go adaptor's package with the Go engine's retirement; they passed on
+// the Go engine at that date too.
 //
 // Run them the way the sibling completeness tests are run, with the cgo
 // environment of engine_mode_test.go:
@@ -93,7 +93,7 @@ func TestSumValuesSeesEveryLinkedClaim(t *testing.T) {
 	if v, ok := compute_pipes.GetRdfNodeValue(got[0]).(float64); !ok || v != 90 {
 		t.Errorf("cintel:Total_Days_Supply = %v (%s), want 90 (three fills of 30). "+
 			"sum_values registered no callback on hasPharmacyClaim, so claims "+
-			"linked after the first did not recompute it — agentic_ai I-535", got[0], got[0].Type())
+			"linked after the first did not recompute it", got[0], got[0].Type())
 	}
 }
 
@@ -114,7 +114,7 @@ func TestMinOfAndMaxOfSpanEveryLinkedClaim(t *testing.T) {
 	if from[0] == to[0] {
 		t.Errorf("cintel:Date_From == cintel:Date_To == %s, but the event has three "+
 			"claims with distinct service dates. min_of and max_of aggregated a "+
-			"subset — agentic_ai I-535", from[0])
+			"subset", from[0])
 	}
 	if from[0] != "2025-06-15" {
 		t.Errorf("cintel:Date_From = %s, want 2025-06-15 (min_of)", from[0])

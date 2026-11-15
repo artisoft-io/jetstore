@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// TestRawQueryToolIsGatedMoreTightlyThanRawQuery pins the split I-2 introduced.
+// TestRawQueryToolIsGatedMoreTightlyThanRawQuery pins the split between the two.
 //
 // The two shared a case and required nothing. `raw_query` carries a query the
 // application composed; `raw_query_tool` carries whatever the user typed into

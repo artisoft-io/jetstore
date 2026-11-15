@@ -1,11 +1,10 @@
 package datatable
 
 // The JetStore step types of a runbook, through the functions the UI's buttons
-// call (assessment §4.2: "a step calls the same Go function as the UI button
-// it replaces"), so a runbook can do nothing the person could not do by hand,
+// call (a step calls the same Go function as the UI button it
+// replaces), so a runbook can do nothing the person could not do by hand,
 // and the existing gates still apply: InsertRows' permission check and
 // throttling, claimCompile's exclusion of a compile and rules unit tests.
-// Project runbooks, Phase 1, track AB.
 //
 // **InsertRows takes a token, and the executor has none of its own.** A token
 // for the step's person is minted in-process (user.CreateToken) and handed to

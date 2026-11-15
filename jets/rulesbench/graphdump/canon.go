@@ -18,7 +18,7 @@ const (
 	// cachePredicate is how a cache triple's predicate is written into colours.
 	cachePredicate = "jets:lookup_cache"
 	// GoCachePrefix is the name every lookup table's cache resource is written
-	// under: the Go engine's name for it until rules_benchmark I-15 (2026-10-22).
+	// under: the Go engine's name for it until 2026-10-22.
 	// Both engines now use the table's own resource, which is renamed to it, so
 	// that dumps made before and after the change compare equal.
 	GoCachePrefix = "jets:cache:"

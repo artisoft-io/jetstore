@@ -183,7 +183,7 @@ func TestFreshInstallOmitsDeletedIndexes(t *testing.T) {
 	t.Logf("checked %d deleted indexes across the shipped schema", checked)
 }
 
-// TestFreshInstallAcceptsTheRunConfigurationInsert is I-305 stated as the symptom
+// TestFreshInstallAcceptsTheRunConfigurationInsert is the defect stated as the symptom
 // rather than as the mechanism, and it is the reason the fix is worth making: the
 // sharding start names six columns and neither of the two deleted ones, so a
 // freshly created cpipes_execution_status used to reject its own writer's insert.

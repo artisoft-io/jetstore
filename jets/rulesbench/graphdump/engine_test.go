@@ -191,7 +191,7 @@ func TestSessionDump(t *testing.T) {
 	}
 	defer engine.Release()
 	// 10,000 visits, set explicitly: the Go engine's default, and C++'s since
-	// rules_benchmark Q-83, which had none before, so that a rule that stopped
+	// 2026-10, which had none before, so that a rule that stopped
 	// terminating fails the test instead of hanging it.
 	jr := engine.JetResources()
 	if err := engine.Insert(jr.Jets__istate, jr.Jets__max_vertex_visits, engine.GetMetaResourceManager().NewIntLiteral(10000)); err != nil {

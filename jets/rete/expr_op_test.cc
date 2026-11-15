@@ -1166,7 +1166,7 @@ TEST(ArithmeticTypes, ADoubleOperandMakesADouble) {
 
 // A beta row, so that a visitor is evaluated as in a session's rule. With no row an
 // operator's catch-all gives null for operands it does not take; with one, it threw, and
-// the session failed. Since Q-93 the catch-alls of + - * /, abs, to_int, to_double,
+// the session failed. Since 2026-10-24 the catch-alls of + - * /, abs, to_int, to_double,
 // lookup and multi_lookup give null either way; other operators' still differ. The rows
 // below that name `in_session`, and the tables that take a SessionRow, are about that
 // difference.
@@ -1194,7 +1194,7 @@ RDFTTYPE or_threw(V & op, RDFTTYPE a, RDFTTYPE b)
 // types. It was shared with the Go engine, since retired, whose int and uint were
 // 64-bit, hence int64 and uint64 here. "uint + negative int" and "int + uint past int"
 // gave no result on Go and threw in numeric_cast here, a recorded difference, until
-// Q-85 (2026-10-23): a mixed-integer operation whose right operand does not fit the left
+// 2026-10-23: a mixed-integer operation whose right operand does not fit the left
 // operand's type is null, and so is text plus a named resource, which
 // threw in a session. Each failed the session, and now the rule's consequent sees null.
 TEST(ArithmeticTypes, TheSharedTypingTable) {

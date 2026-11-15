@@ -26,8 +26,8 @@ import (
 // are structural predicates with no threshold at all, and the ninth is
 // observe.VolumeCollapse.
 type Classifier struct {
-	// Volume is locus rows_lost_silently. It is N.4's detector run rather than
-	// reimplemented, so its two unsourced thresholds (R-21) are one number to
+	// Volume is locus rows_lost_silently. It is the volume detector run rather than
+	// reimplemented, so its two unsourced thresholds are one number to
 	// source rather than two, and a change to the detector moves the locus with
 	// it.
 	Volume observe.VolumeCollapse
@@ -93,7 +93,7 @@ func notEvaluable(locus, why string, confounders ...string) Finding {
 
 // recordUnavailable is the answer to all nine when the execution record itself
 // is not deployed. It is nine NotEvaluable verdicts rather than nine absent
-// ones, which is F107's lesson at the level of a classifier: a report about the
+// ones, which is the precondition lesson at the level of a classifier: a report about the
 // world that cannot fail on a missing relation is the only kind worth asking.
 func (c Classifier) recordUnavailable(locus string) Finding {
 	return notEvaluable(locus,
@@ -180,15 +180,15 @@ func (c Classifier) runNotStarted(ev *Evidence) Finding {
 //
 // Row 2's *cannot see* is that this is indistinguishable from three other
 // things — a conditional step skipped by its `when`, a step not in this version
-// of the config, and a step whose label collides with another's — and that F196
-// makes the second uncheckable because no run names a workspace version.
+// of the config, and a step whose label collides with another's — and that the
+// record makes the second uncheckable because no run names a workspace version.
 //
 // **The confounder vocabulary has no member for that**. Its fourteen
 // members were derived for detection, step_label_ambiguous covers the third of
 // the three and nothing covers the second, so the basis carries in prose what
 // would otherwise be a qualifier. A member is proposed rather than added: the
 // vocabulary is a generated CHECK on two tables and widening it on this task's
-// authority is the unreviewed extraction gap 2b exists to prevent.
+// authority is the unreviewed extraction the gate exists to prevent.
 func (c Classifier) stepNeverStarted(ev *Evidence) Finding {
 	const locus = LocusStepNeverStarted
 	if ev.Extent == nil || !ev.Extent.ExecutionRecord {
@@ -257,7 +257,7 @@ func (c Classifier) stepNeverStarted(ev *Evidence) Finding {
 		subjects = append(subjects, "step "+label)
 	}
 	// A step named in a finding drags step_label_ambiguous in unconditionally,
-	// which is jetsapi.incident's incident_step_confounder_ck and F52's reason:
+	// which is jetsapi.incident's incident_step_confounder_ck and its reason:
 	// cpipes_step_id is a stage location rather than a step identity.
 	if !slices.Contains(conf, observe.ConfounderStepLabelAmbiguous) {
 		conf = append(conf, observe.ConfounderStepLabelAmbiguous)
@@ -534,7 +534,7 @@ func (c Classifier) sinkFailedUnderCompletedWorker(ev *Evidence) Finding {
 // **This is the one locus of the nine that is a detector rather than a
 // predicate**, and the one that carries a threshold. It runs
 // observe.VolumeCollapse rather than restating its rule, so the two unsourced
-// numbers (R-21) stay one thing to source, and the confounders on the finding
+// numbers stay one thing to source, and the confounders on the finding
 // are the ones the detector would have written on the anomaly — including the
 // four it reads from the run's configuration, which no structural predicate
 // here needs.
@@ -675,12 +675,12 @@ func (c Classifier) perRecordFailuresReported(ev *Evidence) Finding {
 // report per-record errors is configured without an error channel, so its
 // failures have nowhere to go.
 //
-// **Section 9.5 says eight of the nine loci are computable in SQL of the shape
-// N.3 decided, and this row is the reason that is narrower than it reads.** Row
+// **The gate's analysis says eight of the nine loci are computable in SQL of the shape
+// the detectors use, and this row is the reason that is narrower than it reads.** Row
 // 8's predicate is not over the execution record at all: it is over the run's
 // stored *configuration*, a JSON document in a jetsapi column, and it is
 // answered by walking that document in Go rather than by a GROUP BY. The count
-// that survives is **seven** predicates in N.3's shape, this one in Go over a
+// that survives is **seven** predicates in the detectors' shape, this one in Go over a
 // jetsapi column, and one — locus written_not_arrived — outside the database
 // entirely.
 //

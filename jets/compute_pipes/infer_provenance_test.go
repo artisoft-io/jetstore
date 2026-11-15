@@ -141,7 +141,7 @@ func TestTheSchemaSuppliesTheResponseFormatWhenTheOperatorHasNone(t *testing.T) 
 	if check == nil {
 		t.Fatal("expecting a check")
 	}
-	// The point of I-438: one document, and the operator reads it.
+	// The point: one document, and the operator reads it.
 	same, err := sameJSONDocument(common.ResponseFormat, json.RawMessage(briefingResponseFormat))
 	if err != nil {
 		t.Fatal(err)
@@ -173,7 +173,7 @@ func TestTwoResponseFormatsThatAgreeAreAccepted(t *testing.T) {
 
 func TestTwoResponseFormatsThatDifferAreRefused(t *testing.T) {
 	writeTestWorkspace(t, map[string]string{"briefing": testProvenanceSchema("briefing")})
-	// One extra field on the operator's copy: exactly the drift I-438 records,
+	// One extra field on the operator's copy: exactly the drift the one-copy rule prevents,
 	// a field the model may produce and no rule covers.
 	drifted := `{"type":"object","additionalProperties":false,` +
 		`"required":["conditions","event_count"],` +
@@ -433,7 +433,7 @@ func TestAnUngroundedBriefingIsReportedAndTheRecordIsDelivered(t *testing.T) {
 		[][]any{{"m-1", briefingTestEntity, nil, nil}})
 
 	// pass_through: the briefing is delivered with its findings attached rather
-	// than withheld. That is Q-59's answer and the reason it is a sequencing
+	// than withheld. That is the settled answer and the reason it is a sequencing
 	// decision - it is the only disposition that produces a rate.
 	if len(result.outputRecords) != 1 {
 		t.Fatalf("expecting the record to be delivered, got %d", len(result.outputRecords))
@@ -462,7 +462,7 @@ func TestAnUngroundedBriefingIsReportedAndTheRecordIsDelivered(t *testing.T) {
 func TestAProvenanceFindingDoesNotInheritOnErrorFail(t *testing.T) {
 	// The distinction failedRecord's own comment draws, one field over: on_error
 	// is about a record whose *call* failed. A briefing that was answered and is
-	// ungrounded is a different population, and Q-59 answered pass_through for
+	// ungrounded is a different population, and pass_through was settled for
 	// it - so an operator set to fail must not stop the pipeline on a finding.
 	writeTestWorkspace(t, map[string]string{"briefing": testProvenanceSchema("briefing")})
 	server, _ := ollamaTestServer(t, []ollamaTestResponse{
@@ -562,9 +562,9 @@ func briefingWorkspaceRoot(t *testing.T) string {
 }
 
 // TestTheLiveBriefingOperatorResolvesItsSchema opens the workspace documents
-// themselves rather than copies beside them, which is P3 I-147's lesson: a stub
+// themselves rather than copies beside them, because a stub
 // shaped like the caller agrees with the caller by construction. What it asserts
-// is the whole of I-438 - that the briefing's shape is now in one document, and
+// is the whole of the one-copy rule - that the briefing's shape is now in one document, and
 // that the operator reads it.
 func TestTheLiveBriefingOperatorResolvesItsSchema(t *testing.T) {
 	root := briefingWorkspaceRoot(t)
@@ -577,7 +577,7 @@ func TestTheLiveBriefingOperatorResolvesItsSchema(t *testing.T) {
 	if err := json.Unmarshal(content, &cpConfig); err != nil {
 		t.Fatal(err)
 	}
-	// A floor rather than an equality, and the reason is BB.3's: this is a count
+	// A floor rather than an equality, and the reason is that this is a count
 	// measured from `workspaces/jets_ws`, a living workspace, and a second
 	// prompt template added there is a legitimate change rather than a
 	// regression. What the test needs is that there is one to index; the number
@@ -591,13 +591,13 @@ func TestTheLiveBriefingOperatorResolvesItsSchema(t *testing.T) {
 	// change that removes the prompt template's copy of the response_format. A
 	// test that demanded the copy be gone would be red on a jetstore head built
 	// against the older jets_ws, which is a merge-order failure rather than a
-	// defect - the shape AK.3 met. So what is asserted is the invariant the
+	// defect - a shape met before. So what is asserted is the invariant the
 	// operator enforces rather than the state of one file: a second copy is
 	// allowed to exist and is not allowed to disagree. The one-copy state is
 	// reported rather than required.
 	secondCopy := cpConfig.PromptTemplates[0].ResponseFormat
 	if len(secondCopy) == 0 {
-		t.Log("the prompt template carries no response_format: the provenance schema is the one copy (I-438 closed)")
+		t.Log("the prompt template carries no response_format: the provenance schema is the one copy")
 	} else {
 		t.Log("the prompt template still carries a response_format: this checkout's jets_ws predates its removal")
 	}

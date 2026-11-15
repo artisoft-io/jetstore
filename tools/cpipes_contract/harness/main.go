@@ -1,4 +1,4 @@
-// The Go side of the B.7 harness: feed synthesized configs through the real
+// The Go side of the validation harness: feed synthesized configs through the real
 // ValidatePipeSpecConfig, exactly the way the startup actions do.
 //
 // The Python side (cpipes_contract/harness.py) synthesizes a minimal config per

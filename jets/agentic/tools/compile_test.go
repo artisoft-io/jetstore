@@ -11,7 +11,7 @@ import (
 )
 
 // The happy path, through the registry rather than by calling the handler —
-// the registry is the interface the Phase-1 loop uses, so that is what should
+// the registry is the interface the agent loop uses, so that is what should
 // be exercised.
 func TestCompileRuleFile_ValidRuleCompiles(t *testing.T) {
 	ws := fixture(t)
@@ -71,7 +71,7 @@ func TestCompileRuleFile_InvalidRuleReportsWhereItBroke(t *testing.T) {
 }
 
 // The tool must be inert. A validator that mutates the workspace it validates
-// is worse than no validator, and the specific hazard is Phase 0's F4: a full
+// is worse than no validator, and the specific hazard is that a full
 // compile deletes workspace.db before writing it. Running with saveJson false
 // is what avoids that, and this asserts the outcome rather than the setting.
 func TestCompileRuleFile_LeavesTheWorkspaceUntouched(t *testing.T) {

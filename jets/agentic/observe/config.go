@@ -38,7 +38,7 @@ import (
 // confounders the execution record cannot supply. It is deliberately a report
 // rather than a list: an empty Found under Read == false and an empty Found
 // under Read == true are different claims, and collapsing them is exactly the
-// silent omission I-168 says a detector must not make.
+// silent omission a detector must not make.
 type ConfigConfounders struct {
 	SessionId string
 	// Read is true when a cpipes_execution_status row was found and its config
@@ -168,7 +168,7 @@ func scanConfigConfounders(doc any) []string {
 					}
 				case "format":
 					// The reader's inputFormat switch (actions_load_main_input.go:142);
-					// its parquet arm is what F49 measured.
+					// its parquet arm is what was measured.
 					if s, ok := v.(string); ok && (s == "parquet" || s == "parquet_select") {
 						found[ConfounderParquetInput] = true
 					}

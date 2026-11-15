@@ -71,14 +71,14 @@ def test_the_runtime_fields_come_from_the_contract_and_not_from_here():
     and required the difference to be the two runtime fields — and that
     difference is identical whether `PipesConfig` is a subclass declared in
     `contract.py` or an alias for the contract's `ComputePipesRuntimeConfig`.
-    So when `AD.1` moved the runtime projection upstream, which is exactly the
+    So when the runtime projection moved upstream, which is exactly the
     event the guard existed to announce, it stayed green.
 
     The lesson is narrow and transferable: **a guard written against a symptom
     the repair preserves on purpose cannot fire.** The widening's symptom was
     a two-field difference, and the repair keeps that difference deliberately —
     the authored model must go on refusing a runtime document
-    (`negative_suite.json`'s *root pipes_config (I-14 runtime shape)*). What
+    (`negative_suite.json`'s *root pipes_config* runtime-shape case). What
     the repair changed was *who owns the class*, so that is what the last two
     assertions read.
     """
@@ -250,15 +250,15 @@ def test_the_authored_corpus_validates_through_both_models():
     the move is explained, never widened to a `>=`.
 
     **48 -> 50 on 2026-09-19**, and the cause is worth recording because it is not
-    this repository's: `healthcare_corpus`'s Phase 9 authored `qc_denial_share.pc.json`
-    and `qc_succession.pc.json` into `jets_ws` (its P9-T12, D-203's two population
+    this repository's: another project authored `qc_denial_share.pc.json`
+    and `qc_succession.pc.json` into `jets_ws` (two population
     checks becoming authored QC pipelines). **So a merge in one repository turned a
-    test red in another**, on a branch that did not cause it — which is P9-I10's
-    shape at the level of a count, recorded there as **P9-I71**.
+    test red in another**, on a branch that did not cause it — a cross-repository
+    drift at the level of a count, recorded there as an issue.
 
-    **50 -> 51 the same day, and the second move is the interesting one: P9-I71
-    predicted its own recurrence and nothing prevented it.** `healthcare_corpus`'s
-    P9-T18 authored `healthcare_corpus.pc.json` into `jets_ws`, and merging it
+    **50 -> 51 the same day, and the second move is the interesting one: that issue
+    predicted its own recurrence and nothing prevented it.** The same project
+    authored a third `.pc.json` into `jets_ws`, and merging it
     turned this red again -- found by an agent whose branch did not cause it, on
     a baseline it measured before editing anything. **Two merges, two repositories,
     one direction, and no instrument connects them**: nothing in `jets_ws` runs
@@ -312,14 +312,14 @@ def test_the_gate_reports_all_three_kinds(declared_and_unbuilt):
     }
     assert kinds == set(TokenKind)
     # The site operator is accepted, and so are `fan_out` and `generator` since
-    # P9-T04 gave both a `build`; the fixture's token is declared and not built.
+    # both were given a `build`; the fixture's token is declared and not built.
     # The order is the model's field order and not the JSON's — `PipeSpecFanOut`
     # declares `apply` before `input_channel` — which is stable and is what
     # "deterministic" has to mean here; it is asserted rather than described so
     # that a walk that started yielding in set order would be caught.
     #
     # **The unimplemented list read `["fan_out", "map_record", "generator"]`
-    # until P9-T04 and `["map_record"]` until P9-T06.** Tokens keep moving from
+    # at first and `["map_record"]` after that.** Tokens keep moving from
     # that list to the accepted one, and the ordering claim is what survives
     # every move: the transformation still precedes `generator`, wherever each
     # one lands. The unimplemented exemplar is now a declaration the fixture

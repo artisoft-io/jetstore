@@ -1,7 +1,6 @@
 package main
 
-// ONE RETRACTION BEHAVIOUR AND THE VERTEX VISIT LIMIT (rules_unit_test_harness Phase 1,
-// task AF.6; rules_benchmark Phase 8, BQ.2).
+// ONE RETRACTION BEHAVIOUR AND THE VERTEX VISIT LIMIT.
 //
 // harness.Run with the C++ adaptor, as this command runs it, over a scratch copy of
 // jets/jetrules/test_ws with three fixtures added:

@@ -1,21 +1,21 @@
 /**
  * @vitest-environment jsdom
  *
- * **Criterion 32's second half: a projected flow, in the application, from the bytes a
- * workspace receives.** Tasks U.2 and U.3 of the `agentic_ai` project, 2026-08-25.
+ * **A projected flow, in the application, from the bytes a
+ * workspace receives.** Added 2026-08-25.
  *
  * `templateApply.test.ts` beside this file already walked the `qc_metrics` projection with
  * the shipped engine, interpreter and `validateForm` — 24 steps, a config out the other
  * end — and said plainly what it could not show: *"There is no flow runner in this
- * application yet"*. That sentence is false since `ui_refresh`'s F.0a, and two things this
- * project owned stood between the projection and the runner:
+ * application yet"*. That sentence is false since the flow runner landed, and two things
+ * stood between the projection and the runner:
  *
  * * `FlowStore` reads `user_flows/` **in the workspace**, and the projections were
- *   committed under `tools/cpipes_contract/`. U.2 made them the third `AssetGroup`, so
+ *   committed under `tools/cpipes_contract/`. They are now the third `AssetGroup`, so
  *   `install_workspace_assets` writes them into every workspace.
  * * `productionRegistry.actions` did not carry `cpipesTemplateApply`, so
  *   `FlowStore.load` refused the set at `resolveEscapes` — before any button existed to
- *   press. U.3 registered it.
+ *   press. It is registered now.
  *
  * ## What this file demonstrates, and what it still cannot
  *
@@ -32,7 +32,7 @@
  *
  * **What it is not is a browser, and no wording here should be read as one.** Everything
  * below `ApiClient` is real and `fetch` is a stub, exactly as `FlowRunner.test.tsx`'s is;
- * a live apiserver and a database are what would make this criterion's *end to end*
+ * a live apiserver and a database are what would make this file's *end to end*
  * unqualified, and neither was available to the session that wrote it.
  *
  * ## Why `qc_report` for the DOM walk
@@ -204,7 +204,7 @@ describe("a projected document set, where the installer puts it", () => {
    *
    * Without `cpipesTemplateApply` in the registry the set fails at `resolveEscapes` —
    * the sixth of `FlowStore.load`'s six checks, and the last one before a flow would
-   * render. That is exactly the state this application was in until U.3, and stating it
+   * render. That is exactly the state this application was in until it was registered, and stating it
    * as a failing load rather than as prose is what stops the entry above being read as
    * "the documents happen to be fine".
    */
@@ -242,15 +242,13 @@ describe("the runner drives one, in a DOM, against the real client", () => {
             <MemoryRouter initialEntries={["/flow/qc_report"]}>
               <Routes>
                 <Route path="/flow/:key" element={<FlowRunner api={api} />} />
-                {/* Where a finished flow lands. **`/home` since D.8, and it was
+                {/* Where a finished flow lands. **`/home` now, and it was
                     `/workspace` until then** — a flow declaring no `exitScreenPath`,
                     which a projected one does not, used to exit to the Workspace IDE
                     wherever it began. It now returns to the `returnTo` its
                     url carries, and to the app's index when it carries none, which
                     is this case. Stubbed so that "the flow completed" is observable
-                    rather than a router warning. Changed by the ui_refresh session
-                    that made it, per the cross-project rule in the root `CLAUDE.md`:
-                    the editor fixes the call site rather than handing it over. */}
+                    rather than a router warning. */}
                 <Route path="/home" element={<p>Home</p>} />
               </Routes>
             </MemoryRouter>
@@ -289,7 +287,7 @@ describe("the runner drives one, in a DOM, against the real client", () => {
 
     // **A config, not a form dump.** The escape substitutes into the generator's
     // skeleton, so what comes back is the expanded template with the collected values
-    // in it — which is the property M.5 built the apply plan for.
+    // in it — which is the property the apply plan was built for.
     const config = JSON.parse(saved[0]!.content) as Record<string, unknown>;
     expect(Array.isArray(config["channels"]) || Array.isArray(config["pipes"])).toBe(true);
     expect(saved[0]!.content).toContain("bindings._item.report");

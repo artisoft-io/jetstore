@@ -144,7 +144,7 @@ describe("ufCancel", () => {
 });
 
 /**
- * Where a run begins when the url names a state. Task D.10, from **I-260**.
+ * Where a run begins when the url names a state.
  *
  * Here rather than in a new file because `startAtPosition` is `startAt`'s other
  * case and the two are read together; the end-to-end behaviour is

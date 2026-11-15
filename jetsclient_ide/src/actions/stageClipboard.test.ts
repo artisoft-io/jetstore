@@ -1,8 +1,8 @@
 /**
- * `fetchStageToClipboard` — jetstore_maintenance_02, `D04`, task `AE.3`.
+ * `fetchStageToClipboard` (2026-10-01).
  *
  * **The fetch is the real `ApiClient` over a stubbed `fetch`**, not a stubbed
- * host method, because the claim worth testing is the one the plan makes about
+ * host method, because the claim worth testing is the one made about
  * the route: the file comes back through the API client's `dataTable`, in the
  * request shape `fetch_file_from_stage` reads (`jets/apiserver/api_tables.go`,
  * `Data[0]["stage_file_path"]`), and a grammar `post` was never involved. Only
@@ -213,7 +213,7 @@ describe("fetchStageToClipboard", () => {
     expect(host.copied).toEqual(["a,b", "a|b"]);
   });
 
-  it("shows the text in a dialog when the browser refuses the clipboard write (R-2)", async () => {
+  it("shows the text in a dialog when the browser refuses the clipboard write", async () => {
     const { api } = await signedIn([{ status: 200, body: { file_content: "the text" } }]);
     const host = hostFor(api, "refuses");
     const formState = withParameters(selected(), { filePath: "x.json", label: "Run manifest" });

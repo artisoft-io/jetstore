@@ -12,8 +12,9 @@
  *
  * So this is `actions/homeFilters.ts`'s shape exactly, and for the same stated
  * reason — **there is one build, so there is one selection**, and a per-screen
- * copy would make *is this table filtered?* depend on who asked. C.6 is the first
- * consumer; three of its tables have the column, and C.9, C.10 and C.13 follow.
+ * copy would make *is this table filtered?* depend on who asked. The home screen is
+ * the first consumer; three of its tables have the column, and Process Errors,
+ * Rules Configuration and User Administration follow.
  *
  * ## What the query builder does with it, which is not what the name suggests
  *

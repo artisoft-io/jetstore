@@ -2,7 +2,7 @@
 
 **A marker nothing reads is worse than no marker**, because it reads as a
 control to anyone auditing the model. `Evidence.statement` has carried
-`data_classification = "PHI"` since Phase 0 and it was, until this emitter, the
+`data_classification = "PHI"` from the start and it was, until this emitter, the
 only property in the domain model to carry one — surviving the whole toolchain
 (stripped from the JSON Schema, kept in the sidecar, emitted into every client
 workspace as a rule-visible triple) and consumed by nothing. No rule matched on

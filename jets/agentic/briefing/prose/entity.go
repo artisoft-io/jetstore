@@ -95,8 +95,8 @@ func date(node any, sel briefing.Selector) (time.Time, bool) {
 // countOf reads a count property, falling back to the length of the list it
 // counts when the property is absent.
 //
-// **The property wins when it is present**, and that is `AT.1`'s point rather
-// than a preference: I-516 moved the four arithmetic fields into
+// **The property wins when it is present**, and that is the point rather
+// than a preference: the four arithmetic fields moved into
 // `briefing_projection.jr` so that the count is a fact of the projection, and a
 // renderer that recomputed it would be a second answer to a question the
 // projection now settles. The fallback is for an entity projected before that
@@ -143,11 +143,11 @@ func prefixedKey(entity map[string]any) string {
 
 // scalar, asInt and asDate are one line each because the implementations moved.
 //
-// **I-563 and I-643 are resolved by [briefing.ValueText], [briefing.AsInt] and
+// **The duplication is resolved by [briefing.ValueText], [briefing.AsInt] and
 // [briefing.AsDate]**, which this package could not call when it was written:
-// the originals were unexported and `AT.3` was forbidden to edit
-// `jets/agentic/briefing/`. `AY.5` is the task that was allowed to, and the
-// divergence the entries predicted had already happened - the date table here
+// the originals were unexported and this package was not to edit
+// `jets/agentic/briefing/`. A later change was allowed to, and the
+// divergence that was predicted had already happened - the date table here
 // carried five layouts and the checker's carried six, so `2025-08-14 10:00:00`
 // was a date to `briefing.Check` and not to this renderer.
 //
@@ -158,7 +158,7 @@ func prefixedKey(entity map[string]any) string {
 // reading what actually changed.
 //
 // **What is not delegated is `filters.go`'s ten functions**, which are copied
-// into the engine and stay copied - that is I-647, and the argument for it is
+// into the engine and stay copied, and the argument for it is
 // the opposite of this one: a filter is named by the template document, so two
 // implementations that disagree are a difference criterion 82 is meant to see.
 // A value reader is named by neither document.

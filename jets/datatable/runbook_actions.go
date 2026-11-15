@@ -1,7 +1,7 @@
 package datatable
 
 // The operations behind /runbook: reading runbooks and runs, and a
-// person's controls on a run. Project runbooks, Phase 1, track AB.
+// person's controls on a run.
 //
 // Every control is one transaction that locks the run's row, checks the run's
 // state and the step the request names, records the decision on the step row
@@ -640,7 +640,7 @@ func (e *RunbookExecutor) advanceAfter(ctx context.Context, tx pgx.Tx, run *rbRu
 
 // reload reads the runbook from the workspace again. When a file changed it
 // must validate and leave every step that has run unchanged, and a new
-// revision is recorded (§4.4, criterion 6).
+// revision is recorded.
 func (e *RunbookExecutor) reload(ctx context.Context, run *rbRun, steps []*rbStep) (*loadedRunbook, bool, error) {
 	disk, err := loadRunbookFromDisk(run.WorkspaceName, run.Runbook)
 	if err != nil {

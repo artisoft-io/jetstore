@@ -2,7 +2,7 @@
 
 `tools/cpipes_contract/cpipes_model.py` is 1,740 lines of Pydantic v2 covering
 the whole document, it is the *source of truth* for the contract claims since
-the B.10 flip, and `cpipes-contract reflect --check` is the guard that keeps it
+the source-of-truth flip, and `cpipes-contract reflect --check` is the guard that keeps it
 honest against the matrix. **This package does not re-derive any of that.** A
 second schema here would be two readers of one rule, which is the failure mode
 the whole contract effort exists to remove.
@@ -38,12 +38,11 @@ validates.
 one**, and `PipesConfig` below is now an alias for it. The two fields stay
 `applicable=no` in the matrix and stay out of the emitted schema, because an
 authored schema admitting a runtime document is what `negative_suite.json`'s
-*root pipes_config (I-14 runtime shape)* case exists to refuse. So the
+*root pipes_config* runtime-shape case exists to refuse. So the
 thirteen-against-fifteen difference was never the defect on its own; the
 absence of any class on the runtime side of it was. `tests_config.py` derives
 the pair by parsing the Go struct's tags rather than repeating this paragraph.
-(`jetstore_maintenance_01` Phase 1 `AD`, closing `healthcare_corpus`'s
-`P9-I28`, read 2026-09-20.)
+(Repaired after the gap was reported on 2026-09-20.)
 
 **The union omitted the site operator, and that half is closed upstream as of
 2026-09-19.** `TransformationSpecSite` existed in the model, carried the right

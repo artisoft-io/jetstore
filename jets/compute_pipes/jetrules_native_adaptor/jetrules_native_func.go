@@ -339,7 +339,7 @@ func (ses *JetRdfSessionNative) Erase(s, p, o compute_pipes.RdfNode) (bool, erro
 
 // Retract deletes an asserted fact, as the interface method says: it is the
 // session's erase, which removes the triple from the asserted and the inferred
-// graphs and, since rules_benchmark I-103, tells the rete.
+// graphs and tells the rete.
 func (ses *JetRdfSessionNative) Retract(s, p, o compute_pipes.RdfNode) (bool, error) {
 	sNative, pNative, oNative, err := toSPO(s, p, o)
 	if err != nil {
@@ -696,7 +696,7 @@ var _ compute_pipes.VertexObserver = (*JetReteSessionNative)(nil)
 
 // IsNil is true for the null node, and for a node that holds nothing: GetObject
 // returns one when the session has no object (bridge GetObject's nil, nil), which
-// IsNil dereferenced until rules_benchmark I-221.
+// IsNil once dereferenced.
 func (n *RdfNodeNative) IsNil() bool {
 	if n == nil || n.node == nil {
 		return true

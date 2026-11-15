@@ -1,12 +1,12 @@
 """The emitted schema and the model, held to each other.
 
 **They are two readers of one contract and they disagreed for six days.**
-Gap 2b put the `~site` complement branch into `types.csv` and into
+One change put the `~site` complement branch into `types.csv` and into
 the emitted JSON Schema, and left `cpipes_model.py`'s `TransformationSpec`
 alias carrying only the nineteen tagged members. Nothing noticed, because until
 2026-09-19 no authored `.pc.json` in JetStore's own corpus named a site
 operator: the schema said yes, the model said no, and no document asked both.
-`workspaces/jets_ws/pipes_config/healthcare_corpus.pc.json` is the document
+A site-operator `.pc.json` in `workspaces/jets_ws/pipes_config/` is the document
 that asked, and `cpipes_node`'s corpus test is where it was heard.
 
 So the tests here are about *agreement* rather than about either artefact, and
@@ -88,7 +88,7 @@ def test_the_folded_union_is_a_single_discriminated_one_of():
     The alias is `Annotated[Union[<tagged>, <branch>], left_to_right]`, which
     Pydantic writes as a two-member `anyOf`;
     `schema.splice_complement_branches` folds that back into the single
-    discriminated `oneOf` the schema has carried since gap 2b. If the fold
+    discriminated `oneOf` the schema has carried since the site operator. If the fold
     stopped being exact, every consumer of the emitted file would move while
     the model stood still — which is the disagreement this module exists to
     prevent, in the other direction.
@@ -215,7 +215,7 @@ def test_both_readers_refuse_the_same_documents(step, why):
 
     Each case is a thing the *engine* refuses, and the point is that the two
     contract artefacts refuse it too and refuse it together. A case the schema
-    caught and the model did not is exactly the state gap 2b left behind, one
+    caught and the model did not is exactly the state an earlier change left behind, one
     direction over.
     """
     doc = document(step)

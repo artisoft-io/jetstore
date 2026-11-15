@@ -79,7 +79,7 @@ func TestAdvisoryLanguageOnABoundedFieldIsRefusedByItsBound(t *testing.T) {
 
 // **Negative control 2**: introduce a field the contract does not bound, and the
 // document says so when it is saved. A Warning rather than an Error, because
-// `ungrounded` is AK.1's declared exemption with a required reason and refusing
+// `ungrounded` is a declared exemption with a required reason and refusing
 // it outright here would delete that escape hatch on this task's authority.
 func TestConfineNamesAFieldTheContractDoesNotBound(t *testing.T) {
 	doc := strings.Replace(confinedDoc,
@@ -140,7 +140,7 @@ func TestConfineNamesAFieldTheContractDoesNotBound(t *testing.T) {
 	}
 }
 
-// A§8.3's notice is a required field of the output record, so a contract that
+// The intended-use notice is a required field of the output record, so a contract that
 // declares a briefing and no notice is refused.
 func TestConfineRequiresADisclaimer(t *testing.T) {
 	doc := strings.Replace(confinedDoc,
@@ -296,7 +296,7 @@ func TestTheLexiconFlagsRealDescriptionsAndNeverSeesThem(t *testing.T) {
 // The delivered contract itself, read from the workspace rather than restated.
 //
 // Every other test in this package works on a document written beside it, which
-// agrees with the hand that wrote it - phase 3's I-147. This one opens
+// agrees with the hand that wrote it. This one opens
 // `workspaces/jets_ws/provenance/patient_briefing.pv.json`, the file the save
 // path validates and the pipeline is configured against, and asks it the two
 // questions criterion 53 is graded on: does it carry a notice, and is there any
@@ -341,7 +341,7 @@ func TestTheWorkspaceContractIsConfined(t *testing.T) {
 // at all is one that would prove nothing by flagging nothing.
 //
 // The lookups are in the parent checkout - `workspaces/` are submodules of
-// jetstore_agentic_ai and not of this repo - so the test skips when they are
+// the parent repository and not of this repo - so the test skips when they are
 // absent, on eval_test.go's precedent, and JETS_BRIEFING_VOCAB_ROOT overrides
 // the path.
 func TestAdvisoryLexiconAgainstTheWorkspaceVocabularies(t *testing.T) {
@@ -387,7 +387,7 @@ func TestAdvisoryLexiconAgainstTheWorkspaceVocabularies(t *testing.T) {
 // workspaceRoot locates `workspaces/jets_ws`.
 //
 // It is in the *parent* checkout - the workspaces are submodules of
-// jetstore_agentic_ai and not of this repo - so a worktree that initialised only
+// the parent repository and not of this repo - so a worktree that initialised only
 // jetstore_ai has none, and the tests that use it skip rather than fail. That is
 // eval_test.go's `repoRootWithWorkspaces` precedent, and the override exists for
 // the same reason: the parent is not always one level up.

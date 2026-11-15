@@ -1,4 +1,4 @@
-"""B.7: the harness that turns matrix rows into test results.
+"""The harness that turns matrix rows into test results.
 
 For each `(go_struct, type_token)` the harness synthesizes a **minimal authored
 config** from the matrix alone — the required fields of the target type, embedded
@@ -7,7 +7,7 @@ a host chain that is itself minimal — and asks the real `ValidatePipeSpecConfi
 (through the Go runner in `harness/`) whether JetStore accepts it. Then, for each
 `required` field of the target, the same document with that one field removed must
 be rejected. Every row thereby carries a test result the review can read, which is
-the R-1 mitigation: reviewing a row means reading what the validator actually did.
+the review-risk mitigation: reviewing a row means reading what the validator actually did.
 
 What a result means — and does not mean — at config-validation level:
 
@@ -659,7 +659,7 @@ def evaluate(matrix: Matrix, code_root: Path, dump_dir: Path | None = None) -> R
             # Unreachable by construction: this type embeds only through
             # applicable=no fields, so no authored document can ever put it in
             # front of the validator. The claims are untestable, not awaiting a
-            # future run (the runtime-injected shapes of I-14).
+            # future run (the runtime-injected shapes).
             report.type_results[key] = Harness.UNTESTABLE
             for row in index.fields.get(key, []):
                 cell = (row.go_struct, row.type_token, row.json_key)

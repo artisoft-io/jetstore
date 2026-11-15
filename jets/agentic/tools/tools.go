@@ -153,7 +153,7 @@ func DescribeDomainClass(_ context.Context, ws *Workspace, args json.RawMessage)
 
 type validateArgs struct {
 	Config json.RawMessage `json:"config"`
-	// ConfigPath is I-94's remedy on this tool. `config` relaxes to
+	// ConfigPath is the path remedy on this tool. `config` relaxes to
 	// {"type":"object"} at the wire — relaxExternalRefs must, since an MCP
 	// client cannot resolve a cross-file $ref — so a config arriving with half
 	// its pipes missing satisfies the schema. A path is not carried and cannot

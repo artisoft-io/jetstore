@@ -25,8 +25,8 @@ import (
 //     in the session it is checking. Reading makes nothing. (On C++ that was
 //     safe only once a rete session existed: before one, the native manager
 //     fell back to the meta graph, which aborted the process once an RDF
-//     session was open. Fixed 2026-10-11, rules_unit_test_harness I-15.)
-//   - Literals are interned by constructor (definition F28), so a node built
+//     session was open. Fixed 2026-10-11.)
+//   - Literals are interned by constructor, so a node built
 //     for an expected value matches only if built the way the rules built it.
 //     Comparing decoded values does not depend on that.
 //   - RdfNode.Equals could not be used: the Go adaptor's compared EQ's result

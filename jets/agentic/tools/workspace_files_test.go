@@ -138,8 +138,8 @@ func TestReadWorkspaceFile(t *testing.T) {
 	}
 }
 
-// A path argument that could name anything on the host is A§5.2's open-proxy
-// hazard, and I-69's deferral rests on the argument that it cannot. That is a
+// A path argument that could name anything on the host is the open-proxy
+// hazard, and deferring it rests on the argument that it cannot. That is a
 // claim about this function, so it is tested rather than asserted.
 func TestWorkspacePathConfinement(t *testing.T) {
 	ws := fixture(t)

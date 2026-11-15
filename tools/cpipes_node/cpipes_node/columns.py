@@ -16,7 +16,7 @@ this phase needs it and each of the nine is refused with an argument:
   `expressions.SUPPORTED_OPERATORS`. It adds no semantics: the operator table,
   the literal parser and the boolean conversion are the guard subset's, which is
   what keeps one implementation of `==` in this package rather than two.
-* **`case`, `count`, `sum`** — the charter's §1 describes the two population QC
+* **`case`, `count`, `sum`** — the charter describes the two population QC
   pipelines as *aggregate per partition, aggregate with `sum` across them, a
   `case` expression against a looked-up threshold, one verdict row out*, so
   these three are named by the phase that will author them.
@@ -24,7 +24,7 @@ this phase needs it and each of the nine is refused with an argument:
 The nine refusals, and the reason each is a refusal rather than an omission:
 
 * **`lookup`** — `graph._resolve_lookups` refuses a document declaring
-  `site_config.lookups` outright, because D-202 keeps the corpus's reference
+  `site_config.lookups` outright, because a decision keeps the corpus's reference
   tables in their own package and nothing here loads a lookup. An evaluator over
   no table answers every query with a miss.
 * **`map`** — its payload is `MapExpression`, whose `cleansing_function` names
@@ -65,9 +65,9 @@ here is one leaf class, :class:`_SelectFromRecord`, and the refusal that names
 the leaf types this mode does not cover.
 
 **The end state is `expressions.build` growing a `columns` argument**, which is
-the Go function's own shape and would delete this function's plumbing. It is not
-done here because `expressions.py` is another task's file this wave; the
-duplication is one dataclass and is recorded as **P9-I57**.
+the Go function's own shape and would delete this function's plumbing. It was not
+done here because `expressions.py` was being changed separately at the time; the
+duplication is one dataclass and is recorded as debt.
 """
 
 from __future__ import annotations
@@ -510,7 +510,7 @@ REFUSED: dict[str, str] = {
 
 #: The task that owes every refused column type. One name rather than one per
 #: entry, because the ruling on whether this node ever reaches parity with the
-#: built-ins is a single question: P9-I04, with D-206 reserved for it.
+#: built-ins is a single open question, with a decision reserved for it.
 REFUSED_OWED_BY = "P9-I04 / D-206"
 
 

@@ -10,9 +10,9 @@ import (
 // FindSPO use: the same resource, or a literal of the same type and value, with no
 // coercion. TestNativeRdfNode (rdf_node_test.go) checks a node read twice; this is
 // the identity table the Go adaptor's twin checked,
-// moved onto the C++ engine with the Go engine's retirement (rules_benchmark
-// Phase 6, 2026-10-22). And NodeKey, the identity extraction groups a subject's
-// triples by (rules_benchmark G11), is equal exactly when Equals is true.
+// moved onto the C++ engine with the Go engine's retirement
+// (2026-10-22). And NodeKey, the identity extraction groups a subject's
+// triples by, is equal exactly when Equals is true.
 func TestNativeRdfNodeEqualsIsIdentity(t *testing.T) {
 	if inScratchTestWs(t) {
 		return

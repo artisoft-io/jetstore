@@ -14,8 +14,8 @@ import (
 // many triples, meta graph included.
 //
 // Its shape is TestGoEngineSessionsShareTheMetaStore's, which was the regression
-// test for the Go engine's writes to its shared meta store (rules_benchmark I-5,
-// I-22, I-24) until that engine's retirement (October 2026). It makes no claim
+// test for the Go engine's writes to its shared meta store until that engine's
+// retirement (October 2026). It makes no claim
 // about -race: what it checks is the answers. test_lookup_main.jr adds a negation,
 // a lookup and a lookup row inserted into the session.
 func TestSessionsShareOneEngine(t *testing.T) {

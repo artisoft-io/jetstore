@@ -15,8 +15,8 @@ import (
 // jetsapi.pipeline_execution_channel_details, which is deployed nowhere.
 //
 // Two rather than one because one detector proves the path and two prove it is
-// a family. The two chosen differ on the axis that matters for the shape N.3
-// decided: row 2 is a predicate over one row's own columns and row 3 is a
+// a family. The two chosen differ on the axis that matters for the decided
+// detector shape: row 2 is a predicate over one row's own columns and row 3 is a
 // comparison against a windowed aggregate, so between them they exercise both
 // halves of "SQL plus a Go emitter".
 //
@@ -41,7 +41,7 @@ import (
 
 // Evidence is one read of the execution record, and what the read could not
 // see. Both detectors take one rather than a list of arguments, and that is
-// the shape R-19 was open about: the extraction's four exported functions
+// the shape that was left open: the extraction's four exported functions
 // turned out to be the right reads, and what a detector wanted that was not
 // there was the composition of them — a baseline window that provably excludes
 // the run being judged, an Extent beside the rows rather than inside one of
@@ -150,7 +150,7 @@ var VolumeCollapseConfounders = []string{
 // Detect judges every worker row in ev and returns the anomalies, in the
 // record's own order. A session with no ConfigConfounders entry produces an
 // anomaly whose basis says no configuration was consulted — the one thing
-// I-168 rules out is saying nothing, because an empty anomaly_confounders is a
+// ruled out is saying nothing, because an empty anomaly_confounders is a
 // claim rather than an omission.
 func (d VolumeCollapse) Detect(ev *Evidence) []Anomaly {
 	if ev == nil || ev.Workers == nil {
@@ -325,7 +325,7 @@ func (d StepRegression) Detect(ev *Evidence) ([]Anomaly, error) {
 		// computed from the record. Row 3 needs nothing from the configuration:
 		// section 12.3 names its qualifier as "which of cpipes_step_id's
 		// ambiguities applies", and that is a column of the worker row. This is
-		// where the two detectors differ, and it is the answer to I-168 —
+		// where the two detectors differ, and it is the answer to the silence rule —
 		// the gap is a property of row 2 rather than of derivable rows.
 		conf := append([]string(nil), b.Confounders...)
 
@@ -340,7 +340,7 @@ func (d StepRegression) Detect(ev *Evidence) ([]Anomaly, error) {
 			// No expected range and no deviation magnitude, and their absence
 			// is the finding rather than an omission: what this compares is a
 			// status against a history of statuses, so there is no number to
-			// be a minimum of and no distance to measure. I-126 made the three
+			// be a minimum of and no distance to measure. The model made the three
 			// properties optional on the reasoning that within-run predicates
 			// have no range; this is a windowed comparison that has none
 			// either, and row 2 above is a within-run predicate that has one.

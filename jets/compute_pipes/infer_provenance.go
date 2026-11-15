@@ -1,7 +1,7 @@
 package compute_pipes
 
-// Per-field provenance on an inference operator (agentic_ai gap 16 and gap 18,
-// AK.5): the model's answer checked against the entity the prompt was built
+// Per-field provenance on an inference operator: the
+// model's answer checked against the entity the prompt was built
 // from, by the rule table of jets/agentic/briefing rather than by a sentence in
 // the system prompt.
 //
@@ -114,7 +114,7 @@ func resolveInferProvenanceSchema(common *InferCommonSpec, source *InputChannel,
 			configName, name, provenanceFindingsText(wsvalidate.ErrorsOnly(findings)))
 	}
 	// Warnings travel rather than block, which is wsvalidate's own contract and
-	// AK.3's for a declared prose surface. They are logged once at build so a
+	// the advisory check's for a declared prose surface. They are logged once at build so a
 	// deployment is not asked to read the workspace to learn it has one.
 	for _, f := range findings {
 		if f.Severity != wsvalidate.Error {
@@ -167,7 +167,7 @@ func readProvenanceSchema(name string) (string, error) {
 // reconcileResponseFormat settles which of the two copies of the briefing's
 // shape the model is constrained by, and refuses the case where they disagree.
 //
-// **This is the whole of what closes agentic_ai I-438.** Before it, the
+// **This is the whole of what closes the two-copies seam.** Before it, the
 // response_format the model is given lived in the pipeline config's
 // prompt_templates and the one the guardrail's rules are checked against lived
 // in the provenance schema, they were identical because somebody compared them
@@ -181,7 +181,7 @@ func reconcileResponseFormat(common *InferCommonSpec, schema *briefing.Schema,
 	configName, name string) error {
 
 	if len(schema.Response) == 0 {
-		// A schema with no declared shape is the partial contract AK.1 shipped
+		// A schema with no declared shape is the partial contract first shipped
 		// and Cover declines to check. It still grounds every field a briefing
 		// carries, by the runtime closure, so it is accepted rather than
 		// refused.

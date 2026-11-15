@@ -74,7 +74,7 @@ def test_an_unknown_channel_is_refused_with_the_go_messages():
 
 
 def test_an_output_channel_has_no_way_to_close_what_it_writes():
-    """§12.6's line, enforced by absence rather than by convention.
+    """The site contract's line, enforced by absence rather than by convention.
 
     `OperatorArgs.Outputs`' own doc block says *the graph closes a channel, not
     the operator that writes it*. In Go that is a rule a site operator could
@@ -145,7 +145,7 @@ def test_report_error_fills_the_columns_a_site_cannot_reach():
     """The five a site cannot reach, **placed by name**.
 
     This test read the row positionally and asserted five values at indices 0-4.
-    It went red when P9-T09 replaced the positional row with `write2Chan`'s
+    It went red when the side effects replaced the positional row with `write2Chan`'s
     name-based placement, and it is rewritten rather than re-indexed: the whole
     point of the change is that a column's position is the *channel's* and not
     the writer's, so a test that knew the positions would be asserting the thing
@@ -230,10 +230,10 @@ def test_report_error_stops_when_the_node_is_terminating():
 
 
 def test_an_error_channel_of_an_unexpected_width_is_not_refused(tmp_path=None):
-    """**Inverted by P9-T09**, and the inversion is the repair.
+    """**Inverted later**, and the inversion is the repair.
 
     This asserted that a channel declaring anything but the eight columns the
-    positional row carried was refused with a `ChannelError` naming P9-T09. It
+    positional row carried was refused with a `ChannelError` naming the task. It
     is refused no longer, because refusing was the defect: the eight were not
     the table's columns and no authored spec declares eight. A channel declaring
     two columns that name nothing gets two NULLs, which is `setColumn`'s comma-ok

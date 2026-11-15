@@ -247,7 +247,7 @@ func processErrors(t *testing.T, pool *pgxpool.Pool, execKey int, session string
 // storeConfig puts a configuration where a run's configuration lives.
 //
 // **It named sharding_config_json and reducing_config_json until 2026-09-04, and
-// no longer needs to** — which was I-305 and was a defect in jets/schema rather
+// no longer needs to** — which was a defect in jets/schema rather
 // than a quirk of this fixture. Both columns are marked "deleted": true in
 // jets_schema.json and both are declared NOT NULL with no default;
 // TableDefinition.UpdateTable dropped a deleted column and
@@ -257,11 +257,11 @@ func processErrors(t *testing.T, pool *pgxpool.Pool, execKey int, session string
 // (`StartShardingComputePipes`, `jets/compute_pipes/actions_start_sharding_cp.go:385`)
 // names six columns, not these two, and failed with a not-null violation.
 //
-// **Fixed at AH.1**: CreateTable now skips a column or an index marked deleted
+// **Fixed 2026-09-04**: CreateTable now skips a column or an index marked deleted
 // (`jets/schema/schema.go`'s `CreateTable`), so one pass and two passes agree
 // and this fixture names what the production writer names.
 //
-// The reason it took until AC.1 to find is worth keeping. Running the migration
+// The reason it took until triage to find is worth keeping. Running the migration
 // twice cleared it, so every environment migrated more than once was fine for
 // ever after and only a brand-new deployment's first run met it. observe's own
 // suite did not see it either, and by luck rather than by design: its testPool
@@ -279,13 +279,13 @@ func storeConfig(t *testing.T, pool *pgxpool.Pool, execKey int, session, config 
 	}
 }
 
-// TestFreshInstallCanWriteTheRunConfiguration is I-305 as an assertion, and the
+// TestFreshInstallCanWriteTheRunConfiguration is that defect as an assertion, and the
 // assertion is now the opposite of the one it was written as.
 //
-// **It was TestFreshInstallCannotWriteTheRunConfiguration until 2026-09-04.** AC.1
-// wrote it to require the insert to *fail*, skipping with an explanation the day
+// **It was TestFreshInstallCannotWriteTheRunConfiguration until 2026-09-04.** It was
+// written to require the insert to *fail*, skipping with an explanation the day
 // somebody fixed CreateTable, so that the suite would say which defect went away
-// rather than going quietly green. AH.1 fixed it, the skip fired, and the test is
+// rather than going quietly green. The fix landed, the skip fired, and the test is
 // inverted here rather than deleted: what was a reproduction is now a regression
 // guard over this suite's own fixture, and the two are the same statement run
 // against the same schema for opposite reasons.
@@ -303,7 +303,7 @@ func TestFreshInstallCanWriteTheRunConfiguration(t *testing.T) {
 		 cpipes_startup_json, input_row_columns_json)
 		VALUES (1, 'probe', '{}', '{}', '{}', '{}')`)
 	if err != nil {
-		t.Fatalf("the sharding start's own insert failed on a fresh schema, which is I-305 returning: %v", err)
+		t.Fatalf("the sharding start's own insert failed on a fresh schema, which is the deleted-column defect returning: %v", err)
 	}
 }
 
@@ -399,7 +399,7 @@ func TestPredicatesOnAMigratedDeployment(t *testing.T) {
 		r := classify(t, pool, "s-stall", 0)
 		f := wantVerdict(t, r, LocusWorkerNotTerminated, Present)
 		if !strings.Contains(f.Basis, "cpipes_execution_status_details") {
-			t.Errorf("basis does not carry F193's finding that the step aggregate hides the row: %s", f.Basis)
+			t.Errorf("basis does not carry the finding that the step aggregate hides the row: %s", f.Basis)
 		}
 		// One stalled worker of two, so the finding localises to its shard.
 		if f.ShardRef == nil || *f.ShardRef != 1 {
@@ -428,7 +428,7 @@ func TestPredicatesOnAMigratedDeployment(t *testing.T) {
 		r := classify(t, pool, "s-fail", 0)
 		f := wantVerdict(t, r, LocusWorkerFailed, Present)
 		// The comma count is reported as the upper bound it is: the message
-		// holds three commas and two errors, which is the whole of F191.
+		// holds three commas and two errors, which is the whole point.
 		if !strings.Contains(f.Basis, "4 comma-separated segments is an upper bound") {
 			t.Errorf("basis does not report the comma count as an upper bound: %s", f.Basis)
 		}
@@ -548,7 +548,7 @@ func TestPredicatesOnAMigratedDeployment(t *testing.T) {
 			t.Errorf("step_ref is %q, want reducing01", f.StepRef)
 		}
 		if !strings.Contains(f.Basis, "workspace version") {
-			t.Errorf("basis does not carry F196: %s", f.Basis)
+			t.Errorf("basis does not carry the workspace-version limit: %s", f.Basis)
 		}
 		// The invariant: a finding naming a step carries step_label_ambiguous.
 		// assertAllValid has already refused it otherwise; this says why.
@@ -660,7 +660,7 @@ func TestCensusHasADenominatorForEveryLocus(t *testing.T) {
 	pool := freshDB(t, "triage_census", migratedTables)
 
 	// One run per shape, deliberately overlapping: s-multi exhibits three loci
-	// at once, which is the case Q-30 asks about and which a single-valued
+	// at once, which is the case of what splits a session and which a single-valued
 	// incident_locus cannot represent in one row.
 	k1 := header(t, pool, "client2", "loader", "claims", "s-multi", "failed", now.Add(-time.Hour))
 	workerRow(t, pool, k1, "client2", "loader", "s-multi", "reducing01", 0, "failed", 5000, 0, "boom,bang", now.Add(-time.Hour))
@@ -702,7 +702,7 @@ func TestCensusHasADenominatorForEveryLocus(t *testing.T) {
 	if multi == 0 {
 		t.Error("no session fired more than one locus; the fixture was meant to build one that does")
 	}
-	// s-multi is the concrete case for Q-30: a failed worker, a stalled worker
+	// s-multi is the concrete case of what splits a session: a failed worker, a stalled worker
 	// and a volume collapse in one session, which incident_locus cannot hold in
 	// one row.
 	for _, l := range []string{LocusWorkerFailed, LocusWorkerNotTerminated, LocusRowsLostSilently,
@@ -740,7 +740,7 @@ func TestClassificationIsStable(t *testing.T) {
 // The confounders a finding carries must be writable into jetsapi.incident.
 // This is the assertion that the Go vocabulary and the database's agree in the
 // direction that matters — an insert rather than a string comparison — and it
-// is the F68 lesson applied to a column rather than to a table.
+// is the same lesson applied to a column rather than to a table.
 func TestFindingConfoundersAreAcceptedByTheIncidentTable(t *testing.T) {
 	pool := freshDB(t, "triage_confounders", migratedTables)
 	ctx := context.Background()
@@ -757,7 +757,7 @@ func TestFindingConfoundersAreAcceptedByTheIncidentTable(t *testing.T) {
 		if conf == nil {
 			conf = []string{}
 		}
-		// The classifier does not write incidents — that is AC.3 — so this
+		// The classifier does not write incidents — that is the shadow writer — so this
 		// insert exists only to prove the vocabularies agree. It uses the
 		// finding's own locus and confounders and nothing else of its own.
 		_, err := pool.Exec(ctx, `INSERT INTO jetsapi.incident

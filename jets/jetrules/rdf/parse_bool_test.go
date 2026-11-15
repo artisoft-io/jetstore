@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// The specification of rules_unit_test_harness I-45: the accepted spellings,
+// The specification of bool parsing: the accepted spellings,
 // trimmed and in any case; empty is null; anything else is an error. The C++
 // counterpart, rdf::parse_bool, is pinned to the same table in
 // jets/rdf/parse_bool_test.cc.

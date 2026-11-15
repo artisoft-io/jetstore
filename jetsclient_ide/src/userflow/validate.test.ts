@@ -68,7 +68,7 @@ describe("the reachability policy", () => {
   });
 
   it("refuses nothing in the shipping corpus, which is what changed", () => {
-    // **S.1 asserted the opposite — that a strict deployment could not save
+    // **The first schema asserted the opposite — that a strict deployment could not save
     // `pipelineConfigUF`.** That was true of the check, not of the flow: two of
     // its states are reached by a button and the document did not say so.
     // The switch is now free to turn on, which is the trade it should always

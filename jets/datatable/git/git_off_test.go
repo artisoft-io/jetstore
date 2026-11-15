@@ -187,7 +187,7 @@ func TestGitOffOperationsSkipTheirOwnValidation(t *testing.T) {
 	}
 }
 
-// TestGitOffStatusVocabulary is the guard the plan asks for at I-517: the status
+// TestGitOffStatusVocabulary is the guard for the status vocabulary: the status
 // strings are coupled to the registry's actions by substring
 // (jetsclient_ide/src/datatable/tables/workspaceRegistryTable.tc.json, and since
 // 2026-10-11 jetsclient_ide/src/screens/documents/workspaceIdeToolbar.json, the

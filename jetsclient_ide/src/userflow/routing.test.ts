@@ -43,7 +43,7 @@ describe("the handoff", () => {
   });
 
   it("respects a different IDE base rather than hard-coding one", () => {
-    // I-26 records that `/ide/` is a misnomer; when it moves, this moves with it.
+    // `/ide/` was a misnomer; when it moves, this moves with it.
     expect(handoffFor("loadFilesUF", "flutter", migrated, "/app")).toBe("/app/flow/loadFilesUF");
   });
 

@@ -49,7 +49,7 @@ func TestAsTypeScriptRendersUnionsAndEnums(t *testing.T) {
 		t.Fatal(err)
 	}
 	// The discriminator's legal tokens are the whole reason a model can pick
-	// one: I-41 measured a prompt that named class names instead, and the model
+	// one: an earlier prompt named class names instead, and the model
 	// dutifully wrote a class name into `type`.
 	for _, want := range []string{
 		`type: "sort" | "filter"`,
@@ -103,7 +103,7 @@ func TestAsTypeScriptRefusesADocumentWithNoDefs(t *testing.T) {
 }
 
 // **The rendering is far smaller than the JSON Schema and that is the reason it
-// exists** (I-41 measured 18 to 20% on two real bundles). This asserts the
+// exists** (18 to 20% was measured on two real bundles). This asserts the
 // direction on a real sub-schema rather than the ratio, which is a property of
 // the contract and would make the test a tripwire on unrelated edits.
 func TestAsTypeScriptIsSmallerThanTheSchema(t *testing.T) {

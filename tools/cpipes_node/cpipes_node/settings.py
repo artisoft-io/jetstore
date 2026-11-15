@@ -16,7 +16,7 @@ told about one is a deployment redeployed three times.
 
 The pool-size floor is mirrored too, warning and clamping rather than refusing,
 which is what the Go main does. It is carried here although this node opens no
-pool of its own: the value reaches `P9-T09`'s side effects, and a setting read
+pool of its own: the value reaches the side effects, and a setting read
 in two places with two floors is two things to keep right.
 """
 

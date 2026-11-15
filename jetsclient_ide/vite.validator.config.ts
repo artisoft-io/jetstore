@@ -1,6 +1,6 @@
 import { defineConfig } from "vite";
 
-// The workspace validator as one Node script — `jetstore_maintenance_02` AG.3.
+// The workspace validator as one Node script.
 //
 // `npm run build:validator` writes `dist-validator/jets_validate_workspace.mjs`:
 // `src/userflow/validateWorkspaceCli.ts` and everything it imports, zod and the

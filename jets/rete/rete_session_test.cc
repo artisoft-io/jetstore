@@ -1852,7 +1852,7 @@ TEST(BetaRowScanTest, IndexScanSkipsARowThatLeftTheIndexButNotTheSet)
 
 // The row removed is the one the scan returned, whose filter is running: the scan
 // does not skip it from under its caller, and goes on to the next row. The first row's
-// candidate lost its parent row to its own filter, so it is not inserted (I-91; before
+// candidate lost its parent row to its own filter, so it is not inserted (before
 // the fix it was, and (first outP v) was inferred and never retracted)
 TEST(BetaRowScanTest, IndexScanSurvivesANegationRemovingTheRowItReturned)
 {

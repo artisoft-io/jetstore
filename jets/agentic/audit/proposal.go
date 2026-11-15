@@ -8,22 +8,22 @@ import (
 
 // What a run proposes.
 //
-// **Phase 1 writes a row and nothing to git.** Staged branch writes are the
-// analysis's §5.2 "Write — staged" class and arrive with the Phase-2 approval
+// **An authoring run writes a row and nothing to git.** Staged branch writes are the
+// "Write — staged" class and arrive with the approval
 // screens. A copilot that can commit before anyone can review the commit has
 // the supervision layer in the wrong order, and that ordering is the whole
 // argument for shipping the authoring copilot first.
 //
-// **What `draft` means here, because it is not obvious.** Appendix A.2.10
+// **What `draft` means here, because it is not obvious.** A complete proposal
 // requires generated_tests, affected_pipelines and an impact analysis. A
-// Phase-1 authoring run has none of them: it produced one transformation, not a
-// change set with tests and a blast radius. So a Phase-1 proposal is created in
+// transformation-authoring run has none of them: it produced one transformation, not a
+// change set with tests and a blast radius. So such a proposal is created in
 // `draft` with empty arrays — honest about having nothing, and distinguishable
 // from a proposal that was never asked for the information. The approval
 // lifecycle fills them before the proposal may leave draft, which is what the
 // state is for.
 
-// Proposal is one row of jetsapi.change_proposal, in the subset a Phase-1
+// Proposal is one row of jetsapi.change_proposal, in the subset an
 // authoring run can honestly populate. The remaining columns of the table are
 // the approval lifecycle's to fill.
 type Proposal struct {
@@ -33,8 +33,8 @@ type Proposal struct {
 	TriggerRef string
 	// Artifact is what the model produced and the verifier accepted. It is
 	// stored as the rationale's companion rather than in a column of its own:
-	// A.2.10 models a change as a diff against a repository, and Phase 1 has no
-	// repository to diff against yet.
+	// the model treats a change as a diff against a repository, and an authoring
+	// run has no repository to diff against yet.
 	Rationale            string
 	AffectedPipelines    []string
 	GeneratedTests       []string
@@ -66,9 +66,9 @@ func RecordProposal(ctx context.Context, db Execer, p *Proposal) error {
 		 VALUES ($1,$2,NULLIF($3,''),NULLIF($4,''),$5,$6,$7,$8,$9,$10)`,
 		p.ProposalId, p.Trigger, p.TriggerRef, p.Rationale,
 		nonNil(p.AffectedPipelines), nonNil(p.GeneratedTests), nonNil(p.ImpactAffectedAssets),
-		// Phase 1 authors transformations, not clinical logic, and has no way
+		// An authoring run produces transformations, not clinical logic, and has no way
 		// to judge this. False is the honest default and the approval
-		// lifecycle is where a human sets it — §10 escalates on this flag, so
+		// lifecycle is where a human sets it — escalation keys on this flag, so
 		// guessing true would raise noise and guessing it away would be worse.
 		false,
 		p.ApprovalState, p.ModelVersion)
@@ -85,13 +85,13 @@ func nonNil(s []string) []string {
 	return s
 }
 
-// Reading proposals back (task K.3, gap 11) — the staging half of criterion
-// 31's "a staged proposal is visible and approvable in the IDE".
+// Reading proposals back — the staging half of the requirement
+// that "a staged proposal is visible and approvable in the IDE".
 //
-// **K.2's finding, one table over.** The audit store had a write path and no
+// **The transcript's finding, one table over.** The audit store had a write path and no
 // read path, so the sufficiency claim its criterion made had never been
 // exercised. `change_proposal` was in exactly the same condition: RecordProposal
-// above has been writing rows since Phase 1's D.7 and nothing has ever selected
+// above has been writing rows from the start and nothing has ever selected
 // one. The two functions below are what makes "visible" a property of the code
 // rather than of the schema.
 //
@@ -114,7 +114,7 @@ type ProposalSummary struct {
 	TriggerRef    string
 	ApprovalState string
 	ModelVersion  string
-	// ClinicalRelevanceTouched is in the summary because §10 escalates on it —
+	// ClinicalRelevanceTouched is in the summary because escalation keys on it —
 	// it changes who should be looking at the row, so it belongs where the row
 	// is chosen rather than one click in.
 	ClinicalRelevanceTouched bool

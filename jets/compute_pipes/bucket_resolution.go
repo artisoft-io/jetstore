@@ -13,7 +13,7 @@ import (
 //
 // The test for "the deployment's own bucket" (empty, or the "jetstore_bucket"
 // sentinel) is awsi.IsJetStoreBucket, used by every reader, writer and sink in
-// this package and in awsi. Until JM-057 it was spelled out by hand at each of
+// this package and in awsi. It was once spelled out by hand at each of
 // them, and none of them says anything about a bucket name that still carries
 // an unexpanded environment reference -- so a document naming
 // `${CORPUS_OUT_BUCKET}` was carried all the way to the write and created an S3

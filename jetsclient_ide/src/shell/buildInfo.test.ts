@@ -1,6 +1,5 @@
 /**
- * The build line's formatter. jetstore_maintenance_02 Phase 1, task AC.2, for
- * D05 — criterion 6: *seconds, milliseconds, empty and non-numeric versions each
+ * The build line's formatter. The criterion: *seconds, milliseconds, empty and non-numeric versions each
  * render as specified*.
  *
  * The inputs are the ones the deployments actually produce, not invented edge

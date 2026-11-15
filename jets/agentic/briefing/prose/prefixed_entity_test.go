@@ -8,33 +8,33 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/template"
 )
 
-// **I-623 and I-693 settled, in the package that holds the refusal.**
+// **Where the prefix refusal belongs, settled in the package that holds it.**
 //
 // `prose.Render` refuses an entity whose root keys still carry a model prefix
 // (`prefixedKey`, `jets/agentic/briefing/prose/entity.go:135`): that is
 // `remove_model_prefixes: false` on the `column_encodings` entry, and without
 // the refusal the briefing renders as *"No claims activity on record for this
-// member"* for a member who has claims. `I-623` asked where that check goes when
-// the configured engine replaces this renderer and proposed the operator.
-// `I-693` answered that the operator must not have it: `ParseSelector` accepts a
+// member"* for a member who has claims. One question was where that check goes when
+// the configured engine replaces this renderer, and the operator was proposed.
+// The answer was that the operator must not have it: `ParseSelector` accepts a
 // colon (`ParseSelector`, `jets/agentic/briefing/selector.go:57`), so a template
 // written against an unstripped entity is legal and an unconditional refusal
 // would refuse a working configuration.
 //
-// **`AY.5`'s answer is that the refusal belongs to the caller and already has
+// **The answer here is that the refusal belongs to the caller and already has
 // two homes, and that what replaces it in the operator is a property of the
 // document rather than of the engine.** Both halves are asserted below rather
-// than argued, because `I-693`'s replacement - a `require` on the first
+// than argued, because the proposed replacement - a `require` on the first
 // substitution - had never been run against a prefixed entity, and running it
 // found that the answer is two decisions rather than one: the `require` fires,
 // **and the engine renders the empty briefing anyway**, so what keeps it from a
-// reader is the operator failing the row (`Q-107`, answered at `AZ.3`) rather
+// reader is the operator failing the row (the render operator's decision) rather
 // than the violation existing.
 //
 // # What the two tests divide
 //
 // [TestTheShippedDocumentReportsAPrefixedEntityRatherThanRefusingIt] is the
-// claim `I-693` makes, for the document the operator will actually run. Its
+// claim that answer makes, for the document the operator will actually run. Its
 // name is *reports* rather than *refuses* for the reason above. It goes
 // through [template.Template.Render] rather than through `briefingtmpl.Render`
 // on purpose: the caller's refusal is what is *not* there in the operator, and a
@@ -46,7 +46,7 @@ import (
 // an affirmative false statement, with no violation and no error, and **nothing
 // in the engine or the operator can catch that without refusing a legal
 // configuration**. What is available is the author's own `require`, which is why
-// the shipped document carries one and why `I-732` records the general case as
+// the shipped document carries one and why the general case is recorded as
 // guidance owed rather than as a check owed.
 
 // prefixedEntity is the section-1106 fixture as a column with
@@ -85,10 +85,10 @@ func TestTheShippedDocumentReportsAPrefixedEntityRatherThanRefusingIt(t *testing
 			"what a reader gets in place of the refusal: %q", joined)
 	}
 	// **And the engine renders the false artefact beside the violation**, which
-	// is the half of `I-693`'s answer the entry does not say. `prose.Render`
+	// is the half of that answer the original record does not say. `prose.Render`
 	// returns `("", err)`: the sentence never exists. The engine returns the
 	// sentence *and* a violation, and the only thing between that string and a
-	// member is `AZ.3`'s answer to `Q-107` - the operator fails the row rather
+	// member is the render operator's decision - the operator fails the row rather
 	// than writing the column and reporting beside it. Asserted rather than
 	// noted, because it means the replacement for the refusal is two decisions
 	// in two packages and not one `require`.
@@ -132,7 +132,7 @@ func TestADocumentWithNoRequireRendersThePrefixedEntityAsEmpty(t *testing.T) {
 	out, violations := tmpl.Render(prefixedEntity())
 	if len(violations) > 0 {
 		t.Fatalf("this document asserts nothing, so a violation here means the engine has gained a check "+
-			"and I-732 should be reopened rather than this test relaxed: %v", violations)
+			"and guidance on the general case should be revisited rather than this test relaxed: %v", violations)
 	}
 	if !strings.Contains(out, "No claims activity") {
 		t.Fatalf("expected the empty fallback, got %q", out)

@@ -377,7 +377,7 @@ func TestCorpusCapReachesOnlyTheSynthesizedOperators(t *testing.T) {
 // **The render arm was missing until 2026-09-11 and the corpus is what found it**.
 // `setDefaultMaxErrorCount` and `setErrorChannelConfig`
 // both name `RenderOperatorType`, so the *production* switch sites were complete
-// when `AZ.1` landed; this helper mirrors the same switch inside the test binary
+// when the render operator landed; this helper mirrors the same switch inside the test binary
 // and was not on the list of six. It read 0 for the render operator, which is
 // exactly what an uncapped operator reads, so the first `.pc.json` in the corpus
 // to carry a render step failed this test with a message about the synthesis

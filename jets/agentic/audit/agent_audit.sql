@@ -278,9 +278,9 @@ CREATE INDEX IF NOT EXISTS approval_event_run_idx
 --
 -- Section 12.2 fixes what each column can hold; three of the schema's own required
 -- properties are nullable here because four of the six derivable rows are within-run
--- predicates with no range and no magnitude. The CHECK constraints carry the
+-- predicates with no range and no magnitude (I-126). The CHECK constraints carry the
 -- three vocabularies, two of which extend the proposal's Appendix A.2.6 with the rows
--- and grains JetStore's execution record actually has.
+-- and grains JetStore's execution record actually has (I-127).
 --
 -- anomaly_confounders is a text[] with a containment CHECK rather than a child table.
 -- The list is small, closed and read whole, which is the same argument the array
@@ -353,13 +353,13 @@ CREATE INDEX IF NOT EXISTS anomaly_detector_idx
 -- that aggregates accuracy over both is the silent rescoping criterion 46 forbids.
 --
 -- **The grain is the session and that is a finding, not a default.** Seven tables can
--- carry evidence for an incident and session_id is the only key all seven share,
--- so an incident identified below the session is one whose evidence set cannot
+-- carry evidence for an incident and session_id is the only key all seven share
+-- (F202), so an incident identified below the session is one whose evidence set cannot
 -- be assembled by a join. incident_step_ref and incident_shard_ref are nullable
 -- because localisation is a property of an incident and not its identity: four of the
 -- nine loci supply no step at all. An incident that sets incident_step_ref should
 -- carry step_label_ambiguous, cpipes_step_id being a stage location rather than a step
--- identity -- which is why incident_confounders reuses the detector's vocabulary
+-- identity (F52) -- which is why incident_confounders reuses the detector's vocabulary
 -- rather than opening a second one that would not compare.
 --
 -- **incident_step_confounder_ck is the one cross-column rule in this file, and it is an
@@ -371,10 +371,10 @@ CREATE INDEX IF NOT EXISTS anomaly_detector_idx
 -- alternative -- leave it to AC.1 -- was rejected for that reason and not for a
 -- technical one.
 --
--- **incident_run_ref is a governance column and not a localisation one.**
+-- **incident_run_ref is a governance column and not a localisation one (AB.4, Q-32).**
 -- Every other reference here says where in the execution record the incident sits; this
 -- one says which AgentRun raised it, and it exists because jetsapi.agent_audit is keyed
--- on an AgentRun by construction. Before it, a transition on an incident reached
+-- on an AgentRun by construction (F254). Before it, a transition on an incident reached
 -- the hash chain only when its own caller named a run -- which put a person's correction
 -- of a classification on the unchained side and an agent's own reclassification on the
 -- chained one, inverting the property a governance record is for (R-34).
@@ -472,7 +472,7 @@ CREATE INDEX IF NOT EXISTS incident_status_idx
 --
 -- hypothesis_locus is constrained by the SAME vocabulary incident_locus is: the CHECK
 -- below interpolates the one 'run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived' the emitter builds from M.IncidentLocus, so there is
--- no second list to drift. It is required because AC.2's headline finding was that
+-- no second list to drift (F68). It is required because AC.2's headline finding was that
 -- 20 of 29 model-generated hypotheses sat at loci triage did not find present -- and
 -- without this column a hypothesis raised at an absent locus is indistinguishable in
 -- stored data from a sound one, which would persist that failure mode in a form that
@@ -587,7 +587,7 @@ ALTER TABLE jetsapi.remediation ADD COLUMN IF NOT EXISTS remediation_approval_st
 CREATE INDEX IF NOT EXISTS remediation_incident_idx
   ON jetsapi.remediation (incident_ref, remediation_approval_state);
 -- stmt
--- One transition of one incident, emitted at AB.2. Appendix A.5's preamble says
+-- One transition of one incident, emitted at AB.2 (I-276). Appendix A.5's preamble says
 -- "Every transition records actor, agent version where applicable, and timestamp" and
 -- then draws four machines and no entity to record one. jetsapi.approval_event is that
 -- entity for ChangeProposal; this is it for Incident.

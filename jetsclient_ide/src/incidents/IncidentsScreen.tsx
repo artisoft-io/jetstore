@@ -1,16 +1,16 @@
 /**
  * The incident list: what triage has concluded, and where each incident sits.
  *
- * Task AE.1, gap 11 residue — the supervision half of Phase 4, on K.3's
- * precedent and in this project's third directory inside ui_refresh's
- * application (Q-24, answered by the user 2026-09-04).
+ * The incident half of agent supervision, on the proposal screens'
+ * precedent and in the agentic layer's third directory inside the IDE
+ * application (settled 2026-09-04).
  *
  * ## Two columns, never one
  *
- * Plan §9.5's finding is that the execution record supports a taxonomy of
- * **locus** and not of **cause**. `AB.1` therefore carries both on the row with
- * the cause optional, and **R-27** — that a locus will be read as a
- * cause — names this screen as the place the two are seen together for the first
+ * The execution record supports a taxonomy of
+ * **locus** and not of **cause**. The incident table therefore carries both on the
+ * row with the cause optional, and the risk — that a locus will be read as a
+ * cause — is greatest on this screen, the place the two are seen together for the first
  * time. So the headings say which is which, and an incident with no cause claimed
  * renders the words *not claimed* rather than an empty cell. **A blank cell reads
  * as missing data**; the schema says an unclaimed cause is a legitimate state, and
@@ -37,10 +37,9 @@
  * ## The adjudicated view, and why it is not a filter for tidiness
  *
  * Three of `IncidentStatus`'s eleven values are adjudications rather than
- * progress — `verified`, `reclassified` and `suppressed_as_benign` — and plan
- * §10.7 argues that such a transition **is** a corrected label, the only
- * labelling instrument this programme can build. `AA.2` counted the
- * labelled population at zero. This view is the read side of that instrument, and
+ * progress — `verified`, `reclassified` and `suppressed_as_benign` — and such a
+ * transition **is** a corrected label, the only labelling instrument JetStore
+ * has. The labelled population was counted at zero. This view is the read side of that instrument, and
  * what it shows today is that count.
  */
 
@@ -181,7 +180,7 @@ export function IncidentsScreen({ api }: { api: ApiClient }) {
                 <tr>
                   <th scope="col">Incident</th>
                   <th scope="col">Detected</th>
-                  {/* The two headings are the mitigation for R-27. A locus is
+                  {/* The two headings keep a locus from being read as a cause. A locus is
                       where the evidence sits; a classification is a claim about
                       what produced it, and the record does not determine the
                       step between them. */}

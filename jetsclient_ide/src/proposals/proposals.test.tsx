@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * The supervision screens (task K.3, criterion 31).
+ * The supervision screens.
  *
  * **What is worth testing here is what the screens refuse to do**, because the
  * refusals are the design and they are the things a later edit would undo
@@ -163,7 +163,7 @@ describe("the staging list", () => {
     expect(sent[2]!["states"]).toEqual([]);
   });
 
-  // A draft with no generated tests is the ordinary output of a Phase-1
+  // A draft with no generated tests is the ordinary output of an
   // authoring run, and it is the thing a reviewer most needs to see before
   // opening it. Marked, not hidden.
   it("marks a proposal with no generated tests", async () => {

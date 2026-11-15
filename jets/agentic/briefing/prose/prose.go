@@ -1,22 +1,22 @@
 // Package prose renders a projected briefing entity as the briefing itself:
 // facts from jetrules, prose from a template, no model.
 //
-// It is agentic_ai's Phase 7 `AT.3`, and it is the **control** rather than the
-// product. Every model arm of that phase - the encoding experiment, the backend
-// benchmark, the one-call prose arm at `AT.5` - is read against what this
+// It is the **control** rather than the product. Every model arm of the
+// briefing experiments - the encoding experiment, the backend benchmark, the
+// one-call prose arm - is read against what this
 // package writes over the same fact set, which is what exit criterion 74 asks
 // for and what criterion 76 means by *the template and the model differ in the
 // renderer and in nothing else*.
 //
-// The specification is plan §1.10.6 of `projects/agentic_ai/plan/phase7_plan.md`:
-// four elements in a stated order under a notice and a rule, ten constructs, and
-// an explicit empty case. Read that section before changing anything here; the
+// The specification is four elements in a stated order under a notice and a
+// rule, ten constructs, and an explicit empty case. Read it before changing
+// anything here; the
 // order and the omissions in it are decisions with arguments behind them rather
 // than styling, and each is commented at the place it is implemented.
 //
 // # A Go function rather than a template engine, and the reason is the word *control*
 //
-// §1.10.6 writes the briefing in a `{{...}}` notation. That notation is written
+// The specification writes the briefing in a `{{...}}` notation. That notation is written
 // to be **read** - it is how a reviewer checks that this renderer says what the
 // plan decided - and reproducing it as a parsed language would buy nothing this
 // task needs and cost the one property that makes the arm worth having.
@@ -25,13 +25,13 @@
 // mistyped filter name, a filter applied to the wrong arity, an unclosed `each`.
 // Every one of those is a failure *of the renderer* rather than of the data, and
 // an arm that can fail for reasons of its own is not a control - it is a second
-// thing to debug, competing with the model arm it exists to bound. §1.10.6's own
+// thing to debug, competing with the model arm it exists to bound. The specification's own
 // argument for the ten constructs is that "none can fail on well-formed input";
 // in Go those ten are ten functions the compiler checks the arity and the types
 // of, and the sentence becomes a property of the build rather than a claim.
 //
 // The cost is that the notation and this file can drift. That is paid down by
-// `TestRendersSection1106Verbatim`, which holds §1.10.6's printed entity and its
+// `TestRendersSection1106Verbatim`, which holds the specification's printed entity and its
 // printed output as one fixture: the plan prints what the briefing should say,
 // so the plan is the assertion.
 //
@@ -40,7 +40,7 @@
 // `Render` is a total function of the entity for every briefing a well-formed
 // projection produces. The error return is a **malformed map**, not missing
 // data: a briefing with no events is a valid input with a specified output
-// (§1.10.6's empty case), and a briefing whose pharmacy event carries no
+// (the specification's empty case), and a briefing whose pharmacy event carries no
 // `Drug_Name` is a projection defect that must be loud. The three refusals are
 // listed at `Render`.
 //
@@ -80,21 +80,21 @@ import (
 
 // Width is the column the rendered briefing is wrapped to.
 //
-// **Measured from §1.10.6's printed output rather than chosen**: its longest
+// **Measured from the specification's printed output rather than chosen**: its longest
 // line is 77 characters and its first line breaks before a word that would make
 // 79, so a greedy wrap reproduces that block at 77 or at 78 and at no other
 // width. 78 is taken; the plan's fixture does not separate the two.
 const Width = 78
 
 // rule is the horizontal rule between the notice and the prose, verbatim from
-// §1.10.6 - 68 characters, which is inside Width and so is never wrapped.
+// the specification - 68 characters, which is inside Width and so is never wrapped.
 const rule = "--------------------------------------------------------------------"
 
 // SplitNotice separates a rendered briefing into its intended-use notice and
 // its body, at the horizontal rule Render puts between them.
 //
 // **It exists so that a reader of the rendered artefact does not have to
-// re-declare the rule.** §1.10.5 makes the notice a field carried *above* the
+// re-declare the rule.** The specification makes the notice a field carried *above* the
 // prose rather than a sentence inside it, and every consumer that reasons about
 // what the prose says - a scorer, a diff, a length measurement - has to drop it
 // first. The notice is also the one string in the artefact that must carry
@@ -116,7 +116,7 @@ func SplitNotice(rendered string) (notice, body string) {
 // emptyCase is what a briefing with no claims activity says.
 //
 // **It emits a sentence rather than nothing**. A blank artefact under
-// a notice reads as a rendering failure, and I-515's whole subject is a briefing
+// a notice reads as a rendering failure, and a known defect was a briefing
 // that is empty when it should not be - so the one state a reader must be able
 // to distinguish from a broken renderer is the one that would otherwise look
 // exactly like one.
@@ -126,7 +126,7 @@ const emptyCase = "No claims activity on record for this member."
 //
 // `entity` is `extractAsEntity`'s map for the briefing subject
 // (`extractAsEntity`, `jets/compute_pipes/jetrules_extract_entity.go:55`), with
-// `remove_model_prefixes` applied and **no** exclusions: plan §1.10.8's
+// `remove_model_prefixes` applied and **no** exclusions: the specification's
 // recommendation is one representation and two callers, the exclusion list the
 // only difference between what the template sees and what the model sees. In
 // particular the prose column must not exclude `cintel:Briefing_Disclaimer`,
@@ -141,11 +141,11 @@ const emptyCase = "No claims activity on record for this member."
 //   - a briefing with no `Briefing_Disclaimer`, because the artefact is notice,
 //     rule, prose in that order and prose delivered without its notice
 //     is the one output worse than no output;
-//   - a pharmacy event carrying no `Drug_Name`. §1.10.6 keeps the components
+//   - a pharmacy event carrying no `Drug_Name`. The specification keeps the components
 //     beside the joined `Medication` value precisely so that no renderer has to
-//     parse the joined one, and I-544 is the entry that decided it: recovering
-//     the name from the joined value would encode `AT.6`'s separator in a second
-//     place for a consumer to keep in step with. This renderer never reads
+//     parse the joined one, and that was decided on purpose: recovering the
+//     name from the joined value would encode the projection's separator in a
+//     second place for a consumer to keep in step with. This renderer never reads
 //     `Medication`, so the drift is impossible rather than merely documented.
 func Render(entity map[string]any) (string, error) {
 	if entity == nil {
@@ -171,7 +171,7 @@ func Render(entity map[string]any) (string, error) {
 	return assemble(paragraphs), nil
 }
 
-// renderBody is the four elements of §1.10.3, in that order, one paragraph each.
+// renderBody is the four elements of the specification, in that order, one paragraph each.
 func renderBody(entity map[string]any) ([]string, error) {
 	medical := nodes(entity, selMedicalEvents)
 	pharmacy := nodes(entity, selPharmacyEvents)
@@ -205,7 +205,7 @@ func renderBody(entity map[string]any) ([]string, error) {
 	return out, nil
 }
 
-// elementVolumeAndWindow is §1.10.3's element 1 and element 2 in one paragraph:
+// elementVolumeAndWindow is the specification's element 1 and element 2 in one paragraph:
 // how much and how recently, then what the last contact was.
 //
 // **`latest_by` is applied to the events rather than to `Latest_Service_Date`**:
@@ -245,16 +245,16 @@ func elementVolumeAndWindow(entity map[string]any, medical []map[string]any, cou
 	return b.String()
 }
 
-// elementConditions is §1.10.3's element 3, and it is third rather than first on
+// elementConditions is the specification's element 3, and it is third rather than first on
 // purpose. A briefing that opens with a diagnosis list reads like a clinical
-// handover, and under A§8's read-aloud test the first line is the line most
+// handover, and under the read-aloud test the first line is the line most
 // likely to be spoken. Placing it third costs nothing and buys two sentences of
 // framing that make it read as claims history rather than as a finding. **Do not
 // "improve" the order.**
 //
 // **The parenthesised diagnosis code is stripped here and stays on the entity**:
 // the code exists so a checker can match a whole string exactly, and
-// "" is noise to a member and jargon to a representative.
+// "(F1120)" is noise to a member and jargon to a representative.
 func elementConditions(entity map[string]any) string {
 	conditions := make([]string, 0, 4)
 	for _, v := range values(entity, selConditions) {
@@ -268,7 +268,7 @@ func elementConditions(entity map[string]any) string {
 	return "Conditions on record: " + join(conditions, ", ", " and ") + "."
 }
 
-// elementMedications is §1.10.3's element 4 - the one element a representative
+// elementMedications is the specification's element 4 - the one element a representative
 // can act on with no judgement at all, because "are you still filling your
 // lisinopril" is a scheduling question rather than a clinical one.
 //

@@ -18,7 +18,7 @@ func renderOne(t *testing.T, markup string, doc map[string]any) string {
 	return out
 }
 
-// TestTheTenConstructs walks §10.5's table, each construct on a value it takes
+// TestTheTenConstructs walks the construct table, each construct on a value it takes
 // and on a value it does not.
 //
 // **The second half is the one worth having.** Every construct is total, and a
@@ -89,7 +89,7 @@ func TestTheTenConstructs(t *testing.T) {
 	}
 }
 
-// TestPredicates covers §10.4's two operator families, the connectives and the
+// TestPredicates covers the notation's two operator families, the connectives and the
 // parentheses - including the grouping that is the reason parentheses are in
 // the grammar at all.
 func TestPredicates(t *testing.T) {
@@ -107,7 +107,7 @@ func TestPredicates(t *testing.T) {
 		{"b <= 3", true},
 		{"ratio >= 0.75", true},
 		{"s == 'open'", true},
-		{"s == 'Open'", false}, // case-sensitive, which is I-622's subject
+		{"s == 'Open'", false}, // case-sensitive, on purpose
 		{"s != ''", true},
 		{"blank != ''", false},
 		{"missing != ''", false},
@@ -126,7 +126,7 @@ func TestPredicates(t *testing.T) {
 	}
 }
 
-// TestElementOrderAndConditionalEmission is §10.6: order is array order, a
+// TestElementOrderAndConditionalEmission is element emission: order is array order, a
 // paragraph emits when its `when` holds and its text is not blank, and
 // paragraphs are joined with one blank line.
 func TestElementOrderAndConditionalEmission(t *testing.T) {
@@ -147,7 +147,7 @@ func TestElementOrderAndConditionalEmission(t *testing.T) {
 	}
 }
 
-// TestTheEmptyCaseIsAGroupsFallback is the structural half of §10.6, and the
+// TestTheEmptyCaseIsAGroupsFallback is the structural half of element emission, and the
 // reason a document is a group rather than a flat list: a preamble that emits
 // regardless must not suppress a fallback for the body.
 func TestTheEmptyCaseIsAGroupsFallback(t *testing.T) {
@@ -197,7 +197,7 @@ func TestADocumentIsAGroup(t *testing.T) {
 	}
 }
 
-// TestAGroupWhoseGateIsShutEmitsNothing pins the reading §10.6 leaves open: a
+// TestAGroupWhoseGateIsShutEmitsNothing pins the reading the notation leaves open: a
 // closed `when` suppresses the fallback too, so that `when` does not mean two
 // things depending on whether an `empty` is present.
 func TestAGroupWhoseGateIsShutEmitsNothing(t *testing.T) {
@@ -275,7 +275,7 @@ func TestNestedBlocksScopeTheContext(t *testing.T) {
 	}
 }
 
-// TestRequireReportsAndStillRenders is §10.7's design: a violated assertion is
+// TestRequireReportsAndStillRenders is the `require` design: a violated assertion is
 // data, the render completes, and the caller decides what it costs.
 func TestRequireReportsAndStillRenders(t *testing.T) {
 	tmpl := mustCompile(t, &Spec{Key: "k", Width: 200, Elements: []*Element{
@@ -345,7 +345,7 @@ func TestRenderIsTotal(t *testing.T) {
 	}
 }
 
-// TestTheWrapIsPerParagraph is §10.7's third piece: `width` applies to each
+// TestTheWrapIsPerParagraph is the output design's third piece: `width` applies to each
 // paragraph after it is rendered, and whitespace inside a paragraph collapses -
 // so a template author decides whether there is a space at a markup boundary
 // and never how much.

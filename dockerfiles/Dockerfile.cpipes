@@ -111,7 +111,7 @@ RUN \
 
 # jemalloc is the C and C++ allocator of the processes this image starts: the
 # rule engine (libjets.so) and cgo allocate through it, the Go heap does not.
-# Measured on the rules benchmark (Phase 3, C6). Set last, so that no build step
+# Measured on the rules benchmark. Set last, so that no build step
 # above runs under it. Setting LD_PRELOAD to an empty value in the task's or the
 # function's environment turns it off without a new image.
 ENV LD_PRELOAD=/usr/lib64/libjemalloc.so.2

@@ -47,7 +47,7 @@ describe("TextInput", () => {
   });
 
   it("clears the binding rather than storing an empty string", () => {
-    // A.4a's where-clause fallback tests for *absence*; an empty string would
+    // The where-clause fallback tests for *absence*; an empty string would
     // filter on "" and return nothing, which looks like a broken query.
     const formState = new FormState();
     formState.setValue(0, "client", "acme");
@@ -182,7 +182,7 @@ describe("Dropdown", () => {
   });
 
   it("keeps a choice made after the items are drawn and before the re-seed runs", async () => {
-    // **jetstore_maintenance_02 `I-30`, 2026-10-27.** The re-seed above is a
+    // **2026-10-27.** The re-seed above is a
     // passive effect, and a render that is not inside an event leaves it to run
     // later. A change landing in that gap wrote the store, and the effect then
     // compared against the render's stale `value` and put the default back.
@@ -243,7 +243,7 @@ describe("the field corpus", () => {
   ).forms;
   const fields = Object.values(forms).flatMap((f) => f.fields);
 
-  it("is the 50 flow forms, and A.3 covers the two scalar input types in them", () => {
+  it("is the 50 flow forms, and these widgets cover the two scalar input types in them", () => {
     expect(Object.keys(forms)).toHaveLength(50);
     const counts = fields.reduce<Record<string, number>>((acc, f) => {
       acc[f.type] = (acc[f.type] ?? 0) + 1;
@@ -251,7 +251,7 @@ describe("the field corpus", () => {
     }, {});
     expect(counts["FormInputFieldConfig"]).toBe(46);
     expect(counts["FormDropdownFieldConfig"]).toBe(11);
-    // The data-table field is A.4's, and its 37 match the 37 table configurations
+    // The data-table field is covered elsewhere, and its 37 match the 37 table configurations
     // exactly — the cross-check that says the traversal reaches everything.
     expect(counts["FormDataTableFieldConfig"]).toBe(37);
   });

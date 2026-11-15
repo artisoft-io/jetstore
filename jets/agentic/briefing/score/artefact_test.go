@@ -12,14 +12,14 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/briefing/score"
 )
 
-// The validation harness. It reads an `AT.5`-shaped side-by-side artefact and
+// The validation harness. It reads a side-by-side artefact and
 // scores both arms of every member in it.
 //
 // # It is gated on an environment variable and it commits no artefact
 //
 // The artefacts are model output. Committing one would make this a fixture test
 // over a captured run, which is the wrong shape twice over: the run is not
-// reproducible (`F835`, and `I-575` only fixes it under `pool_size: 1`), and a
+// reproducible (it is only fixed under `pool_size: 1`), and a
 // scorer whose test data is one saved run is a scorer that can be tuned to it
 // without anybody noticing. So the artefacts stay where they are and the test
 // skips when it is not pointed at one:
@@ -34,7 +34,7 @@ import (
 // rather than of a run - the template is a total function of the entity map -
 // so it is a real assertion and not a snapshot.
 //
-// **It prints the model arm** and asserts nothing about it. `AT.5`'s hand counts
+// **It prints the model arm** and asserts nothing about it. The hand counts
 // are a labelled reference, not a specification, and a test that failed when the
 // scorer disagreed with them would be a test that forces the scorer to agree.
 // The adjudication is a reader's job and the report is what they read.
@@ -95,7 +95,7 @@ func artefacts(t *testing.T) []string {
 	t.Helper()
 	v := strings.TrimSpace(os.Getenv("JETS_SCORE_ARTEFACT"))
 	if v == "" {
-		t.Skip("JETS_SCORE_ARTEFACT is unset; this test reads an AT.5 side-by-side artefact, " +
+		t.Skip("JETS_SCORE_ARTEFACT is unset; this test reads a side-by-side artefact, " +
 			"which is model output and is deliberately not committed")
 	}
 	return strings.Split(v, ",")
@@ -185,7 +185,7 @@ func TestTheMaintenanceWindowIsSwept(t *testing.T) {
 }
 
 // TestTheOmissionRuleIsCompared runs the three omission rules side by side and
-// prints the per-member breakdown, which is where `AT.5`'s hand count is
+// prints the per-member breakdown, which is where the hand count is
 // concentrated (`M007` 12 of 21, `M008` 6 of 17) and therefore where a
 // disagreement is worth opening.
 func TestTheOmissionRuleIsCompared(t *testing.T) {

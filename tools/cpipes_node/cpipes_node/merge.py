@@ -9,7 +9,7 @@ builds an evaluator and never sees a record. So `graph.run` asks the first
 pipe's declaration whether it drives the channel graph and comes here when it
 does not, and nothing in this module touches `ChannelRegistry`.
 
-That is **D-224**, and its second limb is about the scope gate. A merge pipe's
+That is the **merge-pipe decision**, and its second limb is about the scope gate. A merge pipe's
 input channel is typed `stage`, which is *not* a channel type this node
 declares — and declaring it would be a real over-claim, because a `fan_out`
 reading a `stage` channel needs an S3 reader and a record parser this node does
@@ -40,7 +40,7 @@ Three inputs are refused rather than approximated, each naming what it needs:
   every reader accepts and no reader can parse.
 - **more than one parquet part**, because merging them is a schema-aware
   rewrite (`MergeParquetPartitions`) and the library for it arrives with
-  P9-T07's writer. A *single* parquet part is a copy and is supported, which is
+  the partition writer. A *single* parquet part is a copy and is supported, which is
   Go's own condition (`inputFormat == "parquet" && nbrFiles > 1`) read
   faithfully rather than widened.
 - **xlsx**, which Go itself carries as `//*TODO Add support for xlsx`.
@@ -48,10 +48,10 @@ Three inputs are refused rather than approximated, each naming what it needs:
 # The bridge is built, and the argument is that the harness should read
 # the tree instead
 
-**P9-I09 asks whether Phase 8's harness should read the partitioned tree rather
-than a merged directory, and building the bridge is what produced the argument
+**An open question asks whether the comparison harness should read the partitioned
+tree rather than a merged directory, and building the bridge is what produced the argument
 for the other answer.** It is not an opinion about tidiness; it is a property of
-the engine, measured from its own source, and it is recorded as **P9-I68**.
+the engine, measured from its own source, and it is recorded as an issue.
 
 **A merge step runs on exactly one partition, by validation.**
 `actions_start_reducing_cp.go:190-196` refuses a `merge_files` step whose
@@ -64,13 +64,12 @@ part files the step before it wrote under one partition label.**
 
 So merging a corpus a forty-node run wrote requires the whole corpus to funnel
 through a single partition first — one node reading everything — which is exactly
-the memory concentration household partitioning was chartered to remove
-(healthcare_corpus P6-I27, the row Phase 9's charter says this phase answers).
+the memory concentration household partitioning was chartered to remove.
 Twelve tables do not soften it: one node writing twelve single-partition stage
 channels is still one node holding the run.
 
 **The case for merging anyway, which is real and is why the bridge is built.**
-X5 asks that the harness report *the same finding set* over a partitioned corpus
+The findings criterion asks that the harness report *the same finding set* over a partitioned corpus
 as over a single-process one, and that proposition is easiest to hold when the
 input shape is identical — changing the reader changes the instrument. And a
 customer taking delivery of a corpus wants one file per table rather than forty.
@@ -79,7 +78,7 @@ producer's is the one that scales with `nbr_nodes`.
 
 **What would settle it** is a measurement nobody has: the peak memory of the
 single-partition step at the authored cohort size. Until then the bridge exists,
-the cost is written down, and P9-I09 is a live question rather than a closed one.
+the cost is written down, and the question is live rather than closed.
 
 # The one Go-side disagreement this module had to choose between
 
@@ -138,7 +137,7 @@ DEFAULT_OUTPUT_LOCATION = "jetstore_s3_output"
 
 #: The type a `merge_files` pipe's input channel must have. Not a token this
 #: node declares: `ValidatePipeSpecConfig` fixes it, so it is asserted rather
-#: than dispatched on. See the module docstring and D-224.
+#: than dispatched on. See the module docstring.
 MERGE_INPUT_CHANNEL_TYPE = "stage"
 
 #: The default field delimiter, as `NewMergeFileReader`'s caller computes it:
@@ -533,7 +532,7 @@ def destination_key(
 
     Both halves of the switch go through Go's accessors — `output_file_location`
     and `output_file_name` — rather than through the fields, which is the whole
-    of **P9-I133**: a document spelling `name` resolved to nothing and every
+    of an earlier defect: a document spelling `name` resolved to nothing and every
     merge of a twelve-table run landed on one key.
 
     `$NAME_FILE_KEY` is the default file name and is left to substitution: it is
@@ -736,7 +735,7 @@ def package_headers(
     default where Go's terminates with `\\n`, and Python's `QUOTE_MINIMAL`
     quotes on any character of the line terminator where Go quotes on a leading
     space as well. Both differences are in the bytes of a merged file, which is
-    what X2 compares.
+    what the run-to-run comparison compares.
 
     `quote_all` and `no_quotes` are the output schema provider's two switches,
     and `no_quotes` wins in Go because it is tested second on the same writer.
@@ -894,7 +893,7 @@ def external_bucket(out_spec: Any, env: Mapping[str, Any]) -> str:
     The second case is refused by name rather than passed over, because this
     node reads no schema provider and would resolve to its own bucket where Go
     resolves to somebody else's — the same file, the wrong account, and nothing
-    reporting it. That is D-242's judgement one pipe kind over.
+    reporting it. That is the partition writer's bucket judgement one pipe kind over.
     """
     declared = str(getattr(out_spec, "bucket", None) or "")
     if declared:
@@ -922,7 +921,7 @@ def _reported_bucket(external: str, ctx: Any) -> str:
     `StartMergeFiles` computes exactly this and for exactly this purpose —
     `bucket := externalBucket; if bucket == "" || bucket == "jetstore_bucket" {
     bucket = awsi.JetStoreBucket() }` — and then uploads to `externalBucket`
-    rather than to it. **Keeping the two apart is the whole of P9-I134**: this
+    rather than to it. **Keeping the two apart is the whole of an earlier defect**: this
     function's result was being computed, printed, and then *not written to*,
     so the log asserted `s3://demo-corpus-bucket/…` over a run that put every
     merged object in the node's own store and left that bucket holding zero
@@ -981,7 +980,7 @@ def _merge_text(
     node's lifetime is the shape streaming needs and streaming is deferred by
     instruction. So the merged object is assembled in memory, which for the
     corpus is twelve tables' worth of one partition. Recorded rather than
-    hidden: it is the same standing concern as P6-I27 one layer out.
+    hidden: it is the same standing memory-concentration concern one layer out.
 
     The header comes from `out_spec` when there is one and from the first part's
     own first line when there is not — Go's `getHeadersFromInputFile`, which is

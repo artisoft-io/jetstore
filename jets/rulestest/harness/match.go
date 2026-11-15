@@ -269,7 +269,7 @@ func (s *Snapshot) explainNoMatch(pattern []patternTriple, st joinStats) string 
 }
 
 // evaluateCount evaluates {"s", "p", "count": ExpressionNode} against
-// {"count": n}, n an int64 as parseValue reads a constant (definition F33).
+// {"count": n}, n an int64 as parseValue reads a constant.
 // With a pattern, every binding must satisfy it, and a pattern that binds
 // nothing fails the check: "every member has one name" is not shown by an
 // empty session.

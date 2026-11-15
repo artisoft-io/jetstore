@@ -1,42 +1,42 @@
-"""The compile and round-trip check (A1.8, A1.9) — one command, exit code.
+"""The compile and round-trip check — one command, exit code.
 
 Builds a throwaway workspace (the platform base model from the test workspace
 plus the freshly emitted jets_agentic.jr), compiles it under compilerv2, and
 asserts against the produced workspace.db:
 
-- all ten entity classes are in `domain_classes` (A1.8);
+- all ten entity classes are in `domain_classes`;
 - every vocabulary value is in `resources` as a *named* text literal —
-  `type='text'`, `id` set, `inline` null (the §4 verification shape);
+  `type='text'`, `id` set, `inline` null (the verification shape);
 - the round trip holds: the classes and properties read back from the
   compiled model equal the projection of the Python source, with the one
   documented asymmetry — Evidence appears as a class plus object properties
-  where the source declares a nested value object (§4);
+  where the source declares a nested value object;
 - **`domain_tables` holds exactly the entities carrying `jr_as_table`**, per
-  class and in both directions (added at AB.1).
+  class and in both directions (added later).
 
-That last assertion closes **I-129**, which recorded that this check asserted
+That last assertion closes a recorded gap: this check asserted
 classes, literals and properties **and not tables** — so `$as_table` was the
 one thing in the chain that no check would have caught had it silently failed
-to take effect. N.2 verified it for `Anomaly` by reading `domain_tables` out of
-the compiled workspace by hand; AB.1 tables two more, and by-hand does not
+to take effect. It was verified for `Anomaly` by reading `domain_tables` out of
+the compiled workspace by hand; two more entities are tabled since, and by-hand does not
 scale to three. Note what it is *not*: this is the **JetRules** table, whose
 column set is the class graph walked in both directions and is wider than the
-Postgres one (F67 measured 19 against 13 for `Anomaly`). The Postgres half is
-asserted by `ddl._assert_tables_agree`, which is F68's guard; the two together
+Postgres one (measured at 19 against 13 for `Anomaly`). The Postgres half is
+asserted by `ddl._assert_tables_agree`, which is that half's guard; the two together
 are what make *"the flag and the table agree"* a checked claim rather than a
 remembered one.
 
-Note on F5: `build/classes.json` — the workspace-wide view — is written by
+Note on the workspace-wide view: `build/classes.json` — the workspace-wide view — is written by
 the *full* workspace compile (`jets/workspace/compile_workspace_v2.go`).
-An earlier version of this note said that compile needs Postgres; item 3
-disproved that — `compile_workspace` runs with a nil dbpool (Postgres is
-only for the upload), and the item-3 test fixture compiles a workspace
+An earlier version of this note said that compile needs Postgres; a later
+change disproved that — `compile_workspace` runs with a nil dbpool (Postgres is
+only for the upload), and the tool tests' fixture compiles a workspace
 offline. This check still reads `workspace.db` directly, which carries the
 same class model and needs no per-run workspace copy of the platform model;
-the classes.json comparison lives in the item-3 tool tests, which resolve a
+the classes.json comparison lives in the tool tests, which resolve a
 fully compiled fixture.
 
-Beware F4: a full compile deletes workspace.db first, and re-saving a main
+Beware: a full compile deletes workspace.db first, and re-saving a main
 source file already present is an error — hence the throwaway directory per
 run.
 """
@@ -126,13 +126,13 @@ def run(args: argparse.Namespace) -> int:
             return 1
         db = sqlite3.connect(db_path)
 
-        # A1.8: the ten classes
+        # the ten classes
         got_classes = {r[0] for r in db.execute("select name from domain_classes")}
         missing = expected_classes() - got_classes
         if missing:
             problems.append(f"classes missing from domain_classes: {sorted(missing)}")
 
-        # A1.8: every vocabulary value as a named text literal
+        # every vocabulary value as a named text literal
         got_literals = {
             r[0]: r[1]
             for r in db.execute(
@@ -168,7 +168,7 @@ def run(args: argparse.Namespace) -> int:
                 f"{name} is in domain_tables and carries no jr_as_table in the source"
             )
 
-        # A1.9: the round trip - properties read back vs the source projection
+        # the round trip - properties read back vs the source projection
         got_props: set[tuple[str, str, str, int]] = set()
         for cname, pname, ptype, as_array in db.execute(
             """select dc.name, dp.name, dp.type, dp.as_array

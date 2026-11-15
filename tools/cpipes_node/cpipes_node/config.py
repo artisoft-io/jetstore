@@ -46,8 +46,8 @@ CONFIG_QUERY = (
 class ConfigSource(Protocol):
     """Where the pipeline configuration document comes from.
 
-    Two implementations, and the local one is not a test double: X2, X3, X5 and
-    X7 all need an executable oracle and there is no docker-compose in this
+    Two implementations, and the local one is not a test double: the corpus
+    comparisons all need an executable oracle and there is no docker-compose in this
     repository, so a run against a file on disk and a directory standing in for
     S3 is the path every check takes. The S3 and database implementations are
     the same code with a different source.
@@ -181,11 +181,11 @@ def check_scope(
 ) -> ScopeReport:
     """Judge every token the document names against the declared scope.
 
-    This is X6's instrument. It runs before any channel is opened, which is
+    This is the scope gate's instrument. It runs before any channel is opened, which is
     what "aborts at startup" means and is a guarantee the Go node cannot give:
     there the registry is an argument to the node while the document is seen by
     the starters, so a mistyped token is reported by the dispatch inside a
-    running worker (`site_operators.go`, I-779).
+    running worker (`site_operators.go`).
     """
     report = ScopeReport()
     site_tokens = site_operators.tokens()

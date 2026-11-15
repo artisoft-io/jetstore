@@ -1,6 +1,6 @@
 /**
  * Every button style a document declares, against the stylesheet that has to
- * draw it. Task **D.11**, from the report on the flow navigation buttons.
+ * draw it. From the report on the flow navigation buttons.
  *
  * **`buttonFidelity.test.ts` says what it does not cover and this is the half it
  * names.** That file compares *declarations* — the document says `primary`, the
@@ -11,11 +11,11 @@
  * declared style inert, and the two corpora agreed with each other the whole
  * time.
  *
- * **D.4 fixed the same defect in the table action bar and did not find this
+ * **The table action bar's fix for the same defect did not find this
  * one**, because it was reported rather than measured — *Start Pipeline does not
  * look primary* names one button, and the fix that follows a report is the size
- * of the report. The comment D.4 left enumerated the call sites it had checked,
- * which is I-281's shape and is why the count above is eleven times the 49 it
+ * of the report. The comment that fix left enumerated the call sites it had checked,
+ * which is a known shape and is why the count above is eleven times the 49 it
  * counted.
  *
  * So this file asserts the join the two sides never had:
@@ -88,7 +88,7 @@ describe("declared button styles against the stylesheet", () => {
     // An equality, so that a new style brings somebody back to this file rather
     // than being drawn as the base button and nobody noticing for a phase.
     // `add` since 2026-10-01: the light-green *+ Add* on the three tables
-    // jetstore_maintenance_02's D06 opens its flows on.
+    // its flows now open on.
     expect([...declaredStyles().keys()].sort()).toEqual(["add", "danger", "primary", "secondary"]);
   });
 
@@ -105,7 +105,7 @@ describe("declared button styles against the stylesheet", () => {
   });
 
   it("emits no `btn--` class anywhere in the sources", () => {
-    // The regression guard, and the one that would have caught both sites: D.4
+    // The regression guard, and the one that would have caught both sites: the table fix
     // corrected `datatable/ActionBar.tsx` and left `userflow/FormRenderer.tsx`
     // and `screens/InferServerAdmin.tsx` emitting it.
     const offenders: string[] = [];

@@ -28,7 +28,7 @@ type Recorder interface {
 	Finish(ctx context.Context, outcome Outcome, tokenSpend int) error
 	// Propose records what a successful run produced. It is called before
 	// Finish and only on success, and it writes a row — never to git. Staged
-	// branch writes arrive with the Phase-2 approval screens, because a
+	// branch writes arrive with the approval screens, because a
 	// copilot that can commit before anyone can review the commit has the
 	// supervision layer in the wrong order.
 	Propose(ctx context.Context, artifact json.RawMessage) (string, error)
@@ -61,7 +61,7 @@ func (r *PgRecorder) Finish(ctx context.Context, outcome Outcome, tokenSpend int
 }
 
 // Propose writes the run's output as a draft proposal. Draft is not a
-// placeholder: Appendix A.2.10 requires tests, affected pipelines and an
+// placeholder: a proposal requires tests, affected pipelines and an
 // impact analysis, and an authoring run has none of them, so the state says
 // truthfully that this is not yet a proposal anyone can approve.
 func (r *PgRecorder) Propose(ctx context.Context, artifact json.RawMessage) (string, error) {

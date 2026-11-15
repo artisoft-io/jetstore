@@ -20,7 +20,7 @@ import (
 
 // A registered operator runs, an unregistered name still produces
 // today's error, a site name colliding with a built-in loses to the built-in,
-// and `OperatorEnv` exposes nothing beyond `BD.1`'s list. The last of those
+// and `OperatorEnv` exposes nothing beyond its decided list. The last of those
 // lives in pipesmodel, beside the interface it pins.
 
 var siteTestColumns = []string{"member_id", "value"}
@@ -167,7 +167,7 @@ func TestRegisteredSiteOperatorRuns(t *testing.T) {
 		t.Fatalf("the dispatch built a %T", pipe)
 	}
 
-	// The argument assembly, which is what §12.4 decided.
+	// The argument assembly, which is what the design decided.
 	if op.args.Type != "site_double" || op.args.Comment != "doubles the value column" {
 		t.Errorf("args carry type %q comment %q", op.args.Type, op.args.Comment)
 	}
@@ -408,7 +408,7 @@ func TestSiteErrorChannelIsResolvedAtBuildTime(t *testing.T) {
 	}
 }
 
-// The environment adapter, method by method. Five of the six are on §12.1's
+// The environment adapter, method by method. Five of the six are on the design's
 // measurement and the sixth, IsDebugMode, is the one method admitted ahead of
 // its evidence; all six are here because the adapter is what a site actually
 // calls and a wrong one is not a compile error.
@@ -803,7 +803,7 @@ func TestReportErrorFillsTheColumnsASiteCannotReach(t *testing.T) {
 		got[name] = row[pos]
 	}
 	// The five JetStore fills. shard_id and pipeline_execution_status_key are
-	// `I-807` and `I-808`: NOT NULL and unreachable, and nullable and orphaned.
+	// the two that used to be NOT NULL and unreachable, and nullable and orphaned.
 	if got["shard_id"] != 3 {
 		t.Errorf("shard_id: got %v, want 3 -- a site operator used to write a placeholder 0 here", got["shard_id"])
 	}
@@ -944,7 +944,7 @@ func TestReportErrorIsInterruptedByDone(t *testing.T) {
 // The extension is ErrorChannel's move pluralised, so these tests are the
 // error channel's tests pluralised: resolved at build time, refused when it
 // cannot work, absent when nothing is declared, and surviving the document's
-// two JSON hops. The one they add is the §12.6 assertion, which is about what
+// two JSON hops. The one they add is the withholding assertion, which is about what
 // the operator is *not* given.
 // ---------------------------------------------------------------------------
 
@@ -1111,7 +1111,7 @@ func TestSiteOutputChannelsAreAbsentWhenNoneAreDeclared(t *testing.T) {
 	}
 }
 
-// §12.6's argument, asserted: an operator receives what its own step declared
+// The withholding argument, asserted: an operator receives what its own step declared
 // and can name nothing else.
 //
 // **Both halves are derived rather than listed.** The registry half is measured
@@ -1161,7 +1161,7 @@ func TestSiteOperatorIsGivenNoWayToNameAnotherChannel(t *testing.T) {
 			out := m.Type.Out(j)
 			name := out.String()
 			if strings.Contains(name, "OutputChannel") || strings.Contains(name, "ChannelRegistry") {
-				t.Errorf("OperatorEnv.%s returns %s; §12.6 withholds the registry precisely so an "+
+				t.Errorf("OperatorEnv.%s returns %s; the interface withholds the registry precisely so an "+
 					"operator cannot name a channel its step did not declare", m.Name, name)
 			}
 		}
@@ -1233,9 +1233,9 @@ func TestSiteOutputChannelConfigsReadsTheDocument(t *testing.T) {
 // of them has to know about a site step's. A fourth such place added later joins
 // this test by existing.
 //
-// **It was deliberately not satisfied by the two pipe executors when P9-T01
-// wrote it**, and it said so by logging rather than failing. P9-T04 added the
-// arm to both, so the report becomes the assertion: every file in the derived
+// **It was deliberately not satisfied by the two pipe executors when it was
+// written**, and it said so by logging rather than failing. A later change added
+// the arm to both, so the report becomes the assertion: every file in the derived
 // set must read the function. The count is asserted as well as the membership,
 // because a glob that matched nothing and a package that satisfied everything
 // produce the same silence.
@@ -1276,7 +1276,7 @@ func TestTheRegistryConstructionReadsTheSiteDeclaration(t *testing.T) {
 			"assertion was written; a file joining or leaving the set has to be "+
 			"reckoned with rather than absorbed", len(plural), sortedKeys(plural))
 	}
-	// What P9-T01 owns: the pass that registers channels.
+	// The first half: the pass that registers channels.
 	if !reads["compute_pipes.go"] {
 		t.Error("the channel registry construction does not read siteOutputChannelConfigs; " +
 			"a channel declared in site_config.output_channels would fail to resolve")
@@ -1285,13 +1285,13 @@ func TestTheRegistryConstructionReadsTheSiteDeclaration(t *testing.T) {
 		t.Error("outputChannelConfigs does not read siteOutputChannelConfigs; " +
 			"the validator would not see a site operator's declared channels")
 	}
-	// What P9-T04 added: the two executors' close passes. Derived rather than
+	// The second half: the two executors' close passes. Derived rather than
 	// named, so the pair is not a list here -- a file that learns about jetrules'
 	// plural channels has to learn about a site step's, and joins this demand by
 	// existing.
 	for _, f := range sortedKeys(plural) {
 		if !reads[f] {
-			t.Errorf("P9-I13: %s knows jetrules' plural output channels and not a site "+
+			t.Errorf("%s knows jetrules' plural output channels and not a site "+
 				"step's; a channel declared in site_config.output_channels is registered "+
 				"and resolved and closed by nothing, so its reader never sees EOF", f)
 		}
@@ -1373,7 +1373,7 @@ func TestSiteOutputChannelsSurviveTheDocumentRoundTrip(t *testing.T) {
 // Built for the contract rather than for this corpus, so its first
 // consumer is these tests: the corpus operator keeps its own reference-table
 // package and does not use the extension. That makes the tests the only thing
-// standing between the field and P4-I43's class -- a component whose own tests
+// standing between the field and a known class -- a component whose own tests
 // pass and which nothing on a run's path ever reaches -- so they exercise both
 // ends: the starter pass that decides a table is loaded at all, and the builder
 // pass that hands it over.

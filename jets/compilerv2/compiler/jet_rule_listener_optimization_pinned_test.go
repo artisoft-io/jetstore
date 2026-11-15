@@ -7,13 +7,13 @@ package compiler
 // for every rule that does not set o=false, which is most rules in production. These
 // tests pin what a reordering must not change:
 //   - TestOptimizerKeepsANegatedTermAfterItsBindings: a negated term comes after the
-//     positive terms that bind its variables (I-200, fixed in BS.2);
+//     positive terms that bind its variables (a fixed defect);
 //   - TestOptimizerPlacesAFilterWhereItsVariablesAreBound: a filter's variables are
 //     bound where it lands;
 //   - TestOptimizerKeepsTheConsequentsVariables: the consequents name the antecedents'
 //     variables;
 //   - TestOptimizerKeepsTiesInTheAuthoredOrder: terms of equal priority keep their
-//     authored order (I-201, fixed in BS.2).
+//     authored order (a fixed defect).
 // Each checks the property on the optimized rule, rather than a label, so that a
 // heuristic that orders differently still passes.
 

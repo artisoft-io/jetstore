@@ -1,9 +1,9 @@
 // anomaly_detect runs JetStore's deterministic anomaly detectors over the
 // execution record and writes what they find to jetsapi.anomaly.
 //
-// It is the "Go emitter" half of the shape N.3 decided (Phase 3 section 18):
+// It is the "Go emitter" half of the agentic layer's detection design:
 // the detectors are two SQL reads and a predicate each, and this is the process
-// that runs them. Two detectors, section 12.2 rows 2 and 3 — an output count
+// that runs them. Two detectors — an output count
 // that collapsed relative to its input, and a step that failed having
 // previously succeeded on the same source.
 //

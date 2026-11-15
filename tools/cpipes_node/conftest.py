@@ -96,7 +96,7 @@ def document(apply: list[dict[str, Any]], channel_type: str = "generator") -> di
     builds its own `apply`, and a shared fixture carrying six operators would
     make a test that meant to examine one of them pass on another.
 
-    **Minimal and runnable, which it was not until P9-T04.** It grew the
+    **Minimal and runnable, which it was not at first.** It grew the
     generator channel's own spec and `common_runtime_args`, because a document
     that stops at the scope gate needs neither and one that runs needs both — and
     a fixture that cannot run is a fixture that can only ever test a refusal.
@@ -217,9 +217,9 @@ def declared_and_unbuilt():
     """Make `aggregate` a declaration with no `build`, for the length of one test.
 
     **Every test of the declared-and-not-implemented refusal named a real token,
-    and P9-T06 is when that stopped working**: `map_record`, `filter` and
+    and that stopped working once the transformations were built**: `map_record`, `filter` and
     `partition_writer` all carry a `build` now, and the one declaration still
-    without one is `merge_files`, which P9-T08 is landing. A test whose subject is
+    without one is `merge_files`, which was still being landed. A test whose subject is
     *which token happens to be unfinished* has a subject that empties as the
     phase progresses — so the subject is a declaration the test makes itself, and
     the refusal stays exercised when the scope is complete.

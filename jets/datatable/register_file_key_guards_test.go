@@ -1,8 +1,8 @@
 package datatable
 
 // The guards and default cases of RegisterFileKeys and RegisterSchemaEvent found
-// by the JM-035 review, JM-037's checked schema_provider_json, and JM-084's
-// session registration order, and JM-089's domain keys of a load. The tests
+// by a review, the checked schema_provider_json, the session
+// registration order, and the domain keys of a load. The tests
 // that write use the fixtures of register_file_key_action_test.go and
 // register_file_input_source_test.go, and skip unless JETS_TEST_DSN is set; see
 // the header of the first.
@@ -57,7 +57,7 @@ func TestRegisterFileKeysSchemaProviderJsonNotAString(t *testing.T) {
 	}
 }
 
-// JM-035 review: client, vendor, org and object_type are read as strings without
+// Client, vendor, org and object_type are read as strings without
 // a check in updateFileKeyComponentCase, so a non-string panicked there. It is a
 // 400 now.
 func TestRegisterFileKeysComponentNotAString(t *testing.T) {
@@ -73,7 +73,7 @@ func TestRegisterFileKeysComponentNotAString(t *testing.T) {
 	}
 }
 
-// JM-035 review: a request decoded from JSON, as the apiserver decodes
+// A request decoded from JSON, as the apiserver decodes
 // register_keys, carries year, month and day as float64. They had no case and
 // the row was registered under 1970-01-01.
 func TestRegisterFileKeysDateFromJson(t *testing.T) {
@@ -111,7 +111,7 @@ func TestRegisterFileKeysDateFromJson(t *testing.T) {
 	}
 }
 
-// JM-035 review: request_id was declared above the row loop, so a row with none
+// request_id was declared above the row loop, so a row with none
 // was registered with the request_id of the row before it.
 func TestRegisterFileKeysRequestIdIsPerRow(t *testing.T) {
 	t.Setenv("JETS_SENTINEL_FILE_NAME", testSentinel)
@@ -183,7 +183,7 @@ func TestRegisterFileKeysRegistersTheSessionBeforeStartingPipelines(t *testing.T
 	}
 }
 
-// JM-035 review: a nil schema event is an error. The register-key lambda decodes
+// A nil schema event is an error. The register-key lambda decodes
 // a list of events into []*SchemaProviderSpec, where a JSON null is a nil
 // pointer, and RegisterSchemaEvent read its Type first.
 func TestRegisterSchemaEventNilIsAnError(t *testing.T) {

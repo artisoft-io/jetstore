@@ -10,7 +10,7 @@ import (
 )
 
 // The tier vocabulary and its ordering, held against the generated SQL rather
-// than against a comment (task AJ.1, gap 7b).
+// than against a comment.
 //
 // These need no database: the schema is checked in beside the package and
 // embedded, so the CHECK constraints are readable as text. That is the same
@@ -65,7 +65,7 @@ func TestTiersMatchTheGeneratedCheck(t *testing.T) {
 // rather than a `<` in the gate.
 //
 // AutonomyTier's docstring says lexicographic order is tier order and asks that
-// the members not be relabelled to §9.2's names. This turns the request into a
+// the members not be relabelled to their descriptive names. This turns the request into a
 // test: relabel Observe/Advise/Propose and the declared order stops being the
 // sorted order, this fails, and nobody ships a comparison that has silently
 // inverted.

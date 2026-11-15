@@ -133,7 +133,7 @@ type JetStoreStackComponents struct {
 	// It is a separate gate from DeployCpipesNative rather than a value of one selector,
 	// because the two are not alternatives: a deployment may want the native node Lambda for
 	// its jetrules steps and the Python node for its own operators, and both state machines
-	// get the Python arm when this is on (buildCpipesSMInternal is shared, which is F1536's
+	// get the Python arm when this is on (buildCpipesSMInternal is shared, which is the
 	// reason for the ECS half being in both).
 	DeployCpipesPython bool
 

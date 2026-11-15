@@ -32,19 +32,19 @@ export interface WorkspaceNode {
    * the compiler reads — `wsfile.WorkspaceSections` is where the predicate and
    * the three current values live.
    *
-   * **Read by `screens/sectionContract.ts` as of C.3**, which is what this
+   * **Read by `screens/sectionContract.ts` since 2026-08-25**, which is what this
    * paragraph was waiting for. The Workspace IDE shows a workspace from both
    * sides of the compiler: the nodes below a heading are the source files, and
    * the heading itself is a view of the compiled artifact. This app rendered only
    * the first half until 2026-08-25; it now renders `data_model` and `jet_rules`,
-   * and `lookups` is C.3a.
+   * and `lookups`.
    *
    * **The field was mirrored here before anything read it, and that turned out to
    * be worth it** — the value of a mirror that omits nothing is that the next
-   * reader does not have to re-derive the field, and C.3 was that reader. What it
+   * reader does not have to re-derive the field, and `sectionContract.ts` was that reader. What it
    * does *not* say is whether this app renders a view for the value: the server
    * answers *does this section have one*, `sectionContract.ts` answers *do we draw
-   * it*, and C.1 removed the Flutter client's conflation of the two.
+   * it*, and an earlier change removed the Flutter client's conflation of the two.
    */
   compiled_view?: string;
   /**
@@ -76,7 +76,7 @@ export interface WorkspaceSummary {
  * `fileKeyLabelRe` comes back in the same response and is the pattern the
  * `fileKeyLabel` cell filter uses (`actions/registry.ts`). The Flutter app reads
  * it here too, at sign-in (`modules/actions/user_delegates.dart:107`,
- * `globalWorkspaceFileKeyLabelRe`); this app had no equivalent until F.0a needed
+ * `globalWorkspaceFileKeyLabelRe`); this app had no equivalent until the flow runner needed
  * the workspace name from the same call.
  */
 export interface ActiveWorkspace {

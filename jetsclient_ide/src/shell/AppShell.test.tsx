@@ -213,7 +213,7 @@ describe("AppShell", () => {
   });
 
   it("disables a nav item the user has no capability for, and keeps it visible", async () => {
-    // **Corrected in A.2.** A.1 filtered the item out of the list; every gated
+    // **Corrected later.** The first shell filtered the item out of the list; every gated
     // control in the Flutter app disables and stays visible
     // (`screens/base_screen.dart:155`), so hiding was a divergence introduced
     // without noticing. An application that looks different to different people,
@@ -280,7 +280,7 @@ describe("AppShell", () => {
     expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
   });
 
-  it("shows the build information at the foot of the screen (D05)", async () => {
+  it("shows the build information at the foot of the screen", async () => {
     renderShell(
       await signedIn(["workspace_ide"], { jetstore_version: "1759338000", jetstore_git_sha: "jets_ai-6aeb790" }),
       nav,

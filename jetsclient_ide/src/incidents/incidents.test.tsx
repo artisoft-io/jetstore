@@ -9,7 +9,7 @@
  * noticing.
  *
  *  - the locus and the classification are shown together, and an unclaimed cause
- *    is words rather than a blank (R-27, I-289);
+ *    is words rather than a blank;
  *  - the empty list says why it may be empty (incidents are written by shadow
  *    triage, where the detection task runs), because an empty supervision queue
  *    otherwise reads as a quiet system;
@@ -21,7 +21,7 @@
  *    — the buttons come from `permittedTransitions`, a response
  *    that carries none renders read-only, and nothing else on the screen writes;
  *  - an incident with no `AgentRun` says its corrections will not be
- *    hash-chained, which is the whole visible consequence of `AB.4`;
+ *    hash-chained, which is the whole visible consequence of the hash chain's scope;
  *  - a withheld PHI statement is words rather than a blank, and the screen names
  *    the capability that would lift it.
  *
@@ -121,7 +121,7 @@ const vocabularies = {
 const triagedRow = {
   incidentId: "inc_1",
   sessionId: "sess_1",
-  // "" is the ordinary case out of AC.1: a deterministic triage step is not an
+  // "" is the ordinary case out of triage: a deterministic triage step is not an
   // AgentRun, so the incident it writes names none.
   runRef: "",
   detectedAt: "2026-09-04T10:00:00Z",
@@ -146,7 +146,7 @@ const detail = {
       causeCategory: "",
       confidence: 0.6,
       rank: 1,
-      // The two columns Q-46 added at AC.3. Carried here because the wire always
+      // The two locus columns. Carried here because the wire always
       // sends them; the tests that assert what they mean run over the generated
       // payload below rather than over this one.
       locus: "worker_failed",
@@ -184,7 +184,7 @@ const detail = {
 };
 
 /**
- * The `get_incident` envelope as the server sends it. `AE.2` widened it: the
+ * The `get_incident` envelope as the server sends it, widened 2026-09-04: the
  * redaction is reported rather than inferred from a blank statement, so a test
  * that kept sending the bare `{ incident }` would be testing a wire shape the
  * server no longer produces.
@@ -201,7 +201,7 @@ describe("the incident list", () => {
     expect(link.getAttribute("href")).toBe("/incidents/inc_1");
   });
 
-  // The whole of R-27's mitigation on this screen: two columns, labelled for
+  // The whole guard against a locus read as a cause on this screen: two columns, labelled for
   // what they are, and an unclaimed cause rendered as words. A blank cell reads
   // as data that failed to load; `classification` is nullable on purpose, so
   // that a deterministic triage step can write an incident without inventing a
@@ -294,7 +294,7 @@ describe("one incident", () => {
     expect(screen.getByText("None cited.")).toBeTruthy();
   });
 
-  // §B.3's escalation trigger, which the domain model states as a
+  // The escalation trigger, which the domain model states as a
   // rule-countable fact: contradicting evidence exceeding supporting.
   it("flags a hypothesis contradicted more than it is supported", async () => {
     const { api } = await clientWith({ get_incident: { body: disclosed } });
@@ -304,7 +304,7 @@ describe("one incident", () => {
   });
 
   // **A response carrying no `permittedTransitions` renders read-only**, which is
-  // this screen's behaviour against a server predating `AJ.2` and is why the
+  // this screen's behaviour against a server predating the verdict control and is why the
   // fields are optional on the wire. It was the whole screen until 2026-09-05;
   // it is now the fallback, and the tests below are the control itself.
   it("offers no way to write when the server names no permitted transition", async () => {
@@ -317,7 +317,7 @@ describe("one incident", () => {
     expect(sent[0]?.["action"]).toBe("get_incident");
   });
 
-  // AB.4, Q-32. The run reference is not provenance trivia: it is what decides
+  // The run reference is not provenance trivia: it is what decides
   // whether a correction to this incident reaches the audit hash chain, and a
   // supervision screen is the only place a person could learn that it will not.
   it("says an incident with no agent run has corrections that are not hash-chained", async () => {
@@ -338,7 +338,7 @@ describe("one incident", () => {
     expect(screen.getByText(/appended to that run's audit chain/)).toBeTruthy();
   });
 
-  // AE.2, I-311. The marker was read by nothing and this screen rendered the
+  // The PHI marker was read by nothing and this screen rendered the
   // field it marks to any holder of `agent_supervision`. Two assertions, because
   // they are two different claims: that the value does not arrive, and that the
   // reader is told why rather than shown a blank.
@@ -395,7 +395,7 @@ describe("one incident", () => {
  * Criterion 50's fourth clause: *over an incident **triage** wrote*.
  *
  * **Every fixture above this line is hand-written, and that is what the clause
- * objects to.** A fixture its author agreed with by construction is I-147's
+ * objects to.** A fixture its author agreed with by construction is a familiar
  * shape arriving at the wire: the stub is shaped like the caller, so it passes
  * whatever the caller does. `triagedRow` even carries `severity: "high"`, which
  * triage does not write — the shadow-mode writer supplies `info` for every
@@ -419,10 +419,10 @@ describe("an incident triage actually wrote", () => {
   // The verdict control over the golden payload. **This is the one
   // assertion here that is not about rendering**: the buttons are whatever
   // `permittedTransitions` carries, and on a payload triage produced that is
-  // exactly one, because the incident reached `diagnosed` and A.5 draws one edge
+  // exactly one, because the incident reached `diagnosed` and the lifecycle draws one edge
   // out of it. A fixture regenerated after a lifecycle change fails this rather
   // than quietly offering a different set.
-  it("offers the transition A.5 draws out of the status triage left it in", async () => {
+  it("offers the transition the lifecycle draws out of the status triage left it in", async () => {
     const { api } = await clientWith({ get_incident: { body: triageWritten } });
     renderAt(api, `/incidents/${triageWritten.incident.incidentId}`);
     await screen.findByRole("heading", { name: triageWritten.incident.incidentId });
@@ -445,7 +445,7 @@ describe("an incident triage actually wrote", () => {
     expect(written.classification).toBe("");
     expect(screen.getByText("not claimed")).toBeTruthy();
     expect(screen.getAllByText(vocabLabel(written.locus)).length).toBeGreaterThan(0);
-    // The blind spot travels with the locus — the half of the gate's reading a
+    // The blind spot travels with the locus — the half of the reading a
     // summary drops.
     expect(screen.getByText(/Cannot see:/)).toBeTruthy();
 
@@ -484,12 +484,12 @@ describe("an incident triage actually wrote", () => {
     // supervisor is not left to infer it from an email address.
     expect(screen.getAllByText("the system itself").length).toBe(transitions.length);
     // And a transition on an incident nothing agentic raised is outside the
-    // hash chain, which is the whole visible consequence of AB.4 (R-44).
+    // hash chain, which is the whole visible consequence of the chain's scope.
     expect(screen.getAllByText("not hash-chained").length).toBe(transitions.length);
   });
 
   // The negative control for the section above, seen to fail before being
-  // believed: a database migrated between AB.1 and AB.2 has the incident and no
+  // believed: a database migrated before `incident_event` existed has the incident and no
   // history for it, and an empty list must read as a deployment state rather
   // than as a blank.
   it("says so when there is no transition history at all", async () => {
@@ -502,7 +502,7 @@ describe("an incident triage actually wrote", () => {
 });
 
 /**
- * The two columns Q-46 added at `AC.3`, answered by the user 2026-09-04 and
+ * The two locus columns, settled 2026-09-04 and
  * applied before the first row was written.
  *
  * **These assertions are over the generated payload rather than a fixture**, so
@@ -520,7 +520,7 @@ describe("a hypothesis's own basis and locus", () => {
       expect(h.basis.supportingCount).toBe(h.supportingEvidence.length);
       expect(h.basis.contradictingCount).toBe(h.contradictingEvidence.length);
       // And the confidence is that ratio, which is the whole reason the basis is
-      // numbers: R-48 warns it will be read as a probability, and a reader who
+      // numbers: it will otherwise be read as a probability, and a reader who
       // can see both counts can see that it is not one.
       const total = h.basis.supportingCount + h.basis.contradictingCount;
       expect(h.confidence).toBeCloseTo(h.basis.supportingCount / total, 9);
@@ -537,7 +537,7 @@ describe("a hypothesis's own basis and locus", () => {
     );
   });
 
-  // The reason `hypothesis_locus` is a column rather than a join. AC.2 measured
+  // The reason `hypothesis_locus` is a column rather than a join. An evaluation measured
   // 20 of 29 model-generated hypotheses sitting at loci triage did not find
   // present; without the column such a row is indistinguishable on the screen
   // from a sound one.
@@ -575,14 +575,14 @@ describe("a hypothesis's own basis and locus", () => {
  * `HumanVerdicts` a writer.
  *
  * **What is worth testing is again what it refuses**, and the refusals are not
- * the same as `AE.1`'s. The screen may not invent a transition the server did
+ * the same as the read-only screen's. The screen may not invent a transition the server did
  * not offer; it may not send a reclassification the CHECK would refuse; and it
  * may not send an actor or an actor kind at all, because a client that could
  * name its own kind could write itself into the labelled population.
  */
 describe("the verdict control", () => {
   // `triaged` is the only status with three successors and all three are
-  // adjudications, which is why P4 §10.7 calls this screen the labelling
+  // adjudications, which is why this screen is the labelling
   // instrument.
   const adjudicable = {
     ...disclosed,
@@ -638,7 +638,7 @@ describe("the verdict control", () => {
     );
   });
 
-  // AB.4, R-44. Seq 0 is not a failure and must not read as one.
+  // Seq 0 is not a failure and must not read as one.
   it("says in words when a verdict is recorded and not hash-chained", async () => {
     const { api } = await clientWith({
       get_incident: { body: adjudicable },

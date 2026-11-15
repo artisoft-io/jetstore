@@ -3,7 +3,7 @@ package user
 import "testing"
 
 // A login is checked against the database, not against an email format; only
-// registration requires an email. rules_unit_test_harness I-32, 2026-10-11: with
+// registration requires an email. Until 2026-10-11, with
 // -adminEmail at its default, "admin", the built-in administrator could not sign
 // in to the React app, and a login that is not the configured administrator's was
 // refused as "invalid Email" before the database was asked.

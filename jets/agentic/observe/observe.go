@@ -1,6 +1,6 @@
-// Package observe is the extraction step of the anomaly detectors (Phase 3
-// item 9, task N.3): it reads JetStore's execution record out of Postgres and
-// hands a detector typed rows, and it writes the resulting jetsa:Anomaly back.
+// Package observe is the extraction step of the anomaly detectors: it reads
+// JetStore's execution record out of Postgres and hands a detector typed
+// rows, and it writes the resulting jetsa:Anomaly back.
 //
 // # Why this is a Go package and not a cpipes pipeline
 //

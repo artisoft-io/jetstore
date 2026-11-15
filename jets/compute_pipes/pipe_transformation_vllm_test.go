@@ -283,7 +283,7 @@ func TestVllmResponseErrorMessage(t *testing.T) {
 // The guided_json arm, which is no longer the default and is still reachable: an
 // author sets `structured_output` explicitly for a vLLM version that honours it.
 // The arm is set here rather than relied upon, which is the whole of what changed
-// when AG.2 measured the pinned v0.28.0 discarding the field.
+// when the pinned v0.28.0 was measured discarding the field.
 func TestVllmSchemaGoesToGuidedJson(t *testing.T) {
 	server, requests, _ := vllmTestServer(t, []vllmTestResponse{{content: `{"category":"dental"}`}})
 	config := vllmTestConfig()

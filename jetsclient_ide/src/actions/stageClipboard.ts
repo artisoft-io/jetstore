@@ -1,6 +1,6 @@
 /**
  * `fetchStageToClipboard`: read one file out of the S3 stage and put it on the
- * clipboard. jetstore_maintenance_02, defect `D04`, task `AE.3` (2026-10-01).
+ * clipboard. Added 2026-10-01.
  *
  * ## What it replaces
  *
@@ -143,9 +143,9 @@ export function applyReplacement(content: string, spec: StageClipboardSpec): str
 }
 
 /**
- * Copies, or shows the text when the browser will not let it be copied (`R-2`).
+ * Copies, or shows the text when the browser will not let it be copied.
  *
- * Shared because `D04`'s *Get Schema Event* writes the clipboard too and must
+ * Shared because *Get Schema Event* writes the clipboard too and must
  * fall back the same way. Returns the error to report, or null.
  */
 export async function copyWithFallback(

@@ -12,13 +12,13 @@ import (
 	"time"
 )
 
-// Reading a run's transcript back (task K.2, gap 11) — criterion 29's "one
+// Reading a run's transcript back — the requirement that "one
 // agent run's transcript is viewable from its audit record alone".
 //
 // **The load-bearing phrase is "alone", and it is a claim about sufficiency
-// rather than about a screen.** F10 settled that the transcript *is* the audit
+// rather than about a screen.** It was settled early that the transcript *is* the audit
 // store: a hash-chained per-run ordered event log with a tool_call type is what
-// a transcript is, which is why gap 4 shrank. What that left unbuilt was the
+// a transcript is. What that left unbuilt was the
 // other direction — the store had a write path and no read path, so the claim
 // that the record suffices had never been exercised. ReadTranscript exercises
 // it: it touches `jetsapi.agent_audit` and nothing else. Not agent_run, whose

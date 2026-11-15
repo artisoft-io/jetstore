@@ -1,6 +1,6 @@
 package stack
 
-// Build the scheduled agentic detection task -- agentic_ai I-861.
+// Build the scheduled agentic detection task.
 //
 // The agentic layer's detectors and its shadow-mode triage are two commands,
 // jets/cmds/anomaly_detect and jets/cmds/shadow_triage. Until this file nothing
@@ -40,7 +40,7 @@ const agenticDetectHourVariable = "JETS_AGENTIC_DETECT_HOUR_UTC"
 // not missed. The overlap is safe on both sides: anomaly_detect writes an anomaly
 // only if this detector generation has not already recorded it
 // (observe.InsertAnomalyIfNew), and shadow_triage keys an incident on its session
-// and locus and leaves one already raised alone (shadow.IncidentIdFor, Q-34).
+// and locus and leaves one already raised alone (shadow.IncidentIdFor).
 const agenticDetectWindow = "26h"
 
 // The two containers' names. The apiserver's run action overrides each by name,

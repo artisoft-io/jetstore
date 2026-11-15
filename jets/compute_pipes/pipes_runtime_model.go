@@ -162,7 +162,7 @@ func (ctx *BuilderContext) parseValue(expr *string, maxSubstitutions int) (any, 
 type PipeTransformationEvaluator = pipesmodel.PipeTransformationEvaluator
 
 // Initialize and Done are intended for aggregate transformations column evaluators.
-// The declaration moved to pipesmodel at BD.2: it is OperatorEnv.ColumnEvaluator's
+// The declaration moved to pipesmodel: it is OperatorEnv.ColumnEvaluator's
 // return type, so a site operator has to be able to name it.
 type TransformationColumnEvaluator = pipesmodel.TransformationColumnEvaluator
 

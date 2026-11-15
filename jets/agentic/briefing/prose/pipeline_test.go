@@ -136,9 +136,9 @@ const shippedNotice = "Informational only. Prepared from claims data for a call-
 	"recommendation, and it must not be used to make or support a clinical decision. " +
 	"Downstream use is governed by the service agreement."
 
-// projectedBriefing asserts plan §1.10.6's entity as triples: the same member,
+// projectedBriefing asserts the projected entity as triples: the same member,
 // the same two encounters and the same two medications, with the components
-// `AT.1`(ii) keeps beside the joined `Medication` value.
+// the projection keeps beside the joined `Medication` value.
 //
 // It returns false in the parent process, where the test runs in a child (see
 // nativeSession), and the caller returns.
@@ -257,7 +257,7 @@ func TestTheProseEncodingRendersFromARealSession(t *testing.T) {
 	}
 	for _, forbidden := range []string{"(F1120)", "0.89", "900123456"} {
 		if strings.Contains(flat, forbidden) {
-			t.Errorf("the prose carries %q, which §1.10.4 keeps out of it:\n%s", forbidden, text)
+			t.Errorf("the prose carries %q, which must stay out of it:\n%s", forbidden, text)
 		}
 	}
 	for _, line := range strings.Split(text, "\n") {
@@ -323,8 +323,8 @@ func TestPipelineEntityShape(t *testing.T) {
 // machine, not a guarantee of the engine, so the renderer still inherits the order
 // rather than sorting, and the fix, if one is wanted, still belongs in
 // `extractAsEntity`, where it reaches the toon column the model arm reads as well
-// as this one. The Go measurement is why `AU.1` and `AV.2` were told not to
-// read a difference between two runs as an effect of what they changed.
+// as this one. The Go measurement is why the encoding and prompt benchmarks
+// do not read a difference between two runs as an effect of what they changed.
 //
 // It is a **report** rather than a pass/fail: asserting in-process stability
 // would be asserting an implementation detail of the engine, and asserting

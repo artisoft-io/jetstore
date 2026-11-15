@@ -18,8 +18,8 @@ import (
 // are the half of criterion 47 that is a property of the code rather than of a
 // deployment.
 
-// TestActingStatusesAreTheUnreachableHalf recomputes the ceiling from Appendix
-// A.5's own machine.
+// TestActingStatusesAreTheUnreachableHalf recomputes the ceiling from the
+// incident lifecycle's own machine.
 //
 // **ActingStatuses is not allowed to be an opinion held in this package.** The
 // claim it makes is that `remediation_proposed` is the articulation point of the
@@ -27,7 +27,7 @@ import (
 // `detected` only through it, and that none of triaged, diagnosed, reclassified
 // or suppressed_as_benign is. That is checkable against audit.IncidentTransitions,
 // so it is checked here rather than asserted in a comment, and an edge added to
-// A.5 moves the list or fails this test.
+// the lifecycle moves the list or fails this test.
 func TestActingStatusesAreTheUnreachableHalf(t *testing.T) {
 	reachable := map[string]bool{audit.IncidentDetected: true}
 	queue := []string{audit.IncidentDetected}
@@ -52,9 +52,9 @@ func TestActingStatusesAreTheUnreachableHalf(t *testing.T) {
 	sort.Strings(got)
 	sort.Strings(want)
 	if !slices.Equal(got, want) {
-		t.Errorf("the acting half of A.5's machine is %v; ActingStatuses says %v.\n"+
+		t.Errorf("the acting half of the lifecycle machine is %v; ActingStatuses says %v.\n"+
 			"ActingStatuses must be exactly the statuses no path from %q reaches without passing "+
-			"through %q — if A.5 gained or lost an edge, this list moves with it",
+			"through %q — if the lifecycle gained or lost an edge, this list moves with it",
 			got, want, audit.IncidentDetected, ActingFrontier)
 	}
 
@@ -72,7 +72,7 @@ func TestActingStatusesAreTheUnreachableHalf(t *testing.T) {
 	// must be neither shadow statuses nor acting ones.
 	for _, s := range AdjudicationStatuses {
 		if IsShadowStatus(s) {
-			t.Errorf("adjudication %q is writable by this wiring; a label the measured system wrote is not a label (plan §10.7)", s)
+			t.Errorf("adjudication %q is writable by this wiring; a label the measured system wrote is not a label", s)
 		}
 	}
 }
@@ -80,8 +80,8 @@ func TestActingStatusesAreTheUnreachableHalf(t *testing.T) {
 // TestNothingWritesTheRemediationTable asserts the absence of an executor over
 // the source tree.
 //
-// **AB.2 tabled Remediation with no executor deliberately, so that Phase 5 has
-// something to gate.** That makes the absence a property this phase is entitled
+// **Remediation was tabled with no executor deliberately, so that a later autonomy gate has
+// something to gate.** That makes the absence a property this package is entitled
 // to assert rather than a fact about what nobody got round to — and criterion
 // 47's *no remediation executes* is exactly the claim it supports. The day
 // somebody writes the executor, this test names the file.
@@ -90,9 +90,9 @@ func TestActingStatusesAreTheUnreachableHalf(t *testing.T) {
 // creates it and the attestation counts it, and both are supposed to.
 //
 // **Test files are counted and reported rather than asserted on**, and the
-// distinction is the honest one rather than a convenience. AB.2's
+// distinction is the honest one rather than a convenience. The audit package's
 // TestRemediationRefusesAnIrreversibleAction has to insert a remediation to
-// establish that §A.2.9's validator rule is enforced by the CHECK — a test that
+// establish that the remediation validator rule is enforced by the CHECK — a test that
 // could not write the row could not test the refusal. So the claim this makes is
 // **no production writer**, which is what criterion 47 needs, and the test-file
 // count is logged so that a would-be executor hiding in a `_test.go` is visible
@@ -143,8 +143,8 @@ func TestNothingWritesTheRemediationTable(t *testing.T) {
 		len(offenders), len(inTests), inTests)
 	if len(offenders) > 0 {
 		t.Errorf("production code writes jetsapi.remediation: %v.\n"+
-			"AB.2 tabled the entity with no executor so that Phase 5 has something to gate, and "+
-			"criterion 47 says in terms that nothing acts. If this is Phase 5's executor arriving, "+
+			"the entity was tabled with no executor so that a later autonomy gate has something to gate, and "+
+			"criterion 47 says in terms that nothing acts. If this is that executor arriving, "+
 			"this test is what has to be retired with an argument rather than deleted", offenders)
 	}
 }

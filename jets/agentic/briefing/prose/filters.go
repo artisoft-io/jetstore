@@ -126,7 +126,7 @@ func maxDate(vals []any) (time.Time, bool) {
 	return best, found
 }
 
-// stripCode removes a leading parenthesised diagnosis code: "Alcohol
+// stripCode removes a leading parenthesised diagnosis code: "(F1120) Alcohol
 // dependence" becomes "Alcohol dependence".
 //
 // **The code is stripped in the prose and stays on the entity**. It

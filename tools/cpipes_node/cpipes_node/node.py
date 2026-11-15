@@ -13,7 +13,7 @@ Go                            here
 ===========================  ==========================================
 sync the workspace            not this node's: the workspace files it
                               would fetch are the jetrules caches, and
-                              this node runs no rules (charter §1.3)
+                              this node runs no rules (the charter)
 default the partition label   `NodeArgs.jets_partition_label_or_default`
 SELECT the config             `ConfigSource.config_json`
 unmarshal                     `config.parse_config`
@@ -21,17 +21,17 @@ unmarshal                     `config.parse_config`
 find the main_input provider  `_main_input_provider`
 env, $SHARD_ID, $JETS_...     `environment`
 switch on cpipes_mode         `_file_keys`
-build and run                 `graph.run` — P9-T04
+build and run                 `graph.run`
 ===========================  ==========================================
 
-**The one row that is out of order is the scope gate, and that is X6.** In Go
+**The one row that is out of order is the scope gate, and that is deliberate.** In Go
 an unknown token is met by `BuildPipeTransformationEvaluator`'s `default:`
-branch inside a running worker — `site_operators.go` says so in terms and cites
-I-779, and the reason is structural: the registry is an argument to the node
+branch inside a running worker — `site_operators.go` says so in terms, and the reason
+is structural: the registry is an argument to the node
 while the document is seen by the starters. Here the registry and the document
 are in one process before anything opens, so the check is available at startup
 and is taken there. It is the earliest point at which it *can* run, which is
-the criterion X6 states.
+the criterion the scope rule states.
 """
 
 from __future__ import annotations
@@ -70,7 +70,7 @@ class NodeContext:
 
     The equivalent of `ComputePipesContext`, minus the six fields that are
     goroutine plumbing. It is what `graph.run` takes, and the fields on it are
-    the interface P9-T04 builds against.
+    the interface the graph builds against.
     """
 
     args: NodeArgs
@@ -117,7 +117,7 @@ def _main_input_provider(config: Any) -> Any:
 def environment(config: Any, args: NodeArgs) -> dict[str, Any]:
     """The env the expression evaluators read, with the node's two additions.
 
-    `$SHARD_ID` is the one P9-T05 derives a member index from, so that **which
+    `$SHARD_ID` is the one a site operator derives a member index from, so that **which
     node writes a member changes and what the member contains does not**.
 
     The Go source's warning travels with the code rather than being left in
@@ -182,7 +182,7 @@ def _file_keys(
     - **`reducing` with a `stage` channel on a `merge_files` pipe** reads the
       stage area with `GetS3FileKeys`, and that is implemented, because a merge
       is exactly a step whose input is a set of part files. It is reachable for
-      this pipe kind and no other, which is D-224's second limb: `stage` is not
+      this pipe kind and no other, which is the merge-pipe decision's second limb: `stage` is not
       a declared channel type, and the type is asserted rather than classified
       because `ValidatePipeSpecConfig` fixes it for a merge.
 
@@ -191,8 +191,8 @@ def _file_keys(
       and neither is in this node's declared scope
       (`cpipes_node.operators.channels` declares `generator` and `memory`), so
       `config.check_scope` has already aborted on the token. Implementing the
-      branch would mean implementing a record parser for a channel type X6
-      refuses.
+      branch would mean implementing a record parser for a channel type the scope
+      rule refuses.
 
     - **`sharding`** reads `jetsapi.compute_pipes_shard_registry`, a database
       table, for shards a sharding starter wrote. A sharding step's main input is
@@ -277,7 +277,7 @@ def _stage_file_keys(
         )
     resolved = prefixes or Prefixes()
     if not resolved.stage:
-        # **A named divergence rather than conformance, and it is P9-I66.** With
+        # **A named divergence rather than conformance, recorded as an issue.** With
         # `JETS_s3_STAGE_PREFIX` unset Go lists a prefix beginning with `/`,
         # matches no object — S3 keys under JetStore's layout carry no leading
         # slash — and merges nothing: an empty output file for a parquet merge
@@ -357,8 +357,8 @@ def _refuse_a_partition_this_node_cannot_be_reading(
     is the one `GetComputePipesPartitions` lists and the label extraction is
     `jetPartitionRe`, so any document the starter passes this node also passes,
     and the only documents refused are ones the starter would already have
-    refused. That is the judgement D-224 made for the merge's channel type and
-    D-242 made for a partition writer's bucket, taken a third time.
+    refused. That is the judgement made for the merge's channel type and
+    for a partition writer's bucket, taken a third time.
 
     **The second state is this node's addition and needs its own argument.**
     When exactly one partition exists and it is not the one this node was told
@@ -409,7 +409,7 @@ def _has_bytes(store: ObjectStore, key: str) -> bool:
     has no `size()` and adding one for this would put a method on the seam that
     only this function uses. The cost is that the object is read twice on the
     merge path; it is stated rather than hidden, and what would remove it is a
-    listing that carried sizes — which is P9-T07's writer's question as much as
+    listing that carried sizes — which is the partition writer's question as much as
     this one's.
     """
     return len(store.get(key)) > 0

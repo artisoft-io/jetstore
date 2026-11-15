@@ -1,7 +1,6 @@
 package compute_pipes_test
 
-// The jetrules step's optimizer_statistics option (rules_benchmark Phase 9,
-// CC.1 and CC.3), on the C++ engine over a compiled copy of test_ws, in a child
+// The jetrules step's optimizer_statistics option, on the C++ engine over a compiled copy of test_ws, in a child
 // process as TestExecuteRulesCharacterisation is. Run it with -count=1.
 
 import (

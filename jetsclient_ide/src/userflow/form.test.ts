@@ -98,8 +98,8 @@ describe("the dropdown field kind", () => {
     ).toBe(false);
   });
 
-  it("rejects I-11's query options, which are not this field's business", () => {
-    // The named query is form-level machinery and is I.2b. A document that
+  it("rejects the query options, which are not this field's business", () => {
+    // The named query is form-level machinery. A document that
     // spelled it here would be accepted and ignored, which is the failure the
     // closed objects exist to prevent.
     for (const extra of [
@@ -298,7 +298,7 @@ describe("query-backed item sources", () => {
   });
 
   it("reports nothing for a form whose dropdown carries only literals", () => {
-    // I.2a's variant is untouched by I.2b: `itemsFrom` is optional on a dropdown
+    // The static variant is untouched by queries: `itemsFrom` is optional on a dropdown
     // and absent is the static case.
     const literal: Form = FormSchema.parse({
       rows: [[variantChoice]],

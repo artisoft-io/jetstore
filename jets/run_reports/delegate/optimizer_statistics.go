@@ -11,8 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// The rule optimizer's statistics, the pipeline route (rules_benchmark Phase 9,
-// CC). A statistics process is a pipeline whose jetrules step sets
+// The rule optimizer's statistics, the pipeline route. A statistics process is a
+// pipeline whose jetrules step sets
 // optimizer_statistics: each node writes a partial file under the session's
 // stage folder (optstats.PartialsPrefix). Its report, in the workspace's
 // reports/config.json, names this function in reportScripts and sets

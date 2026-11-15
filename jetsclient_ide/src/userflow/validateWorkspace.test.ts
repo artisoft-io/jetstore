@@ -157,7 +157,7 @@ describe("each check fires at the file an author would edit", () => {
     expect(run(files)).toEqual([
       expect.objectContaining({
         file: "table_configs/client.tc.json",
-        // `/actions/1/` since 2026-10-01: `D06`'s *+ Add* is the client table's
+        // `/actions/1/` since 2026-10-01: the *+ Add* is the client table's
         // first action now.
         pointer: "/actions/1/actionName",
         message: expect.stringContaining('(in flow "clientRegistryUF")'),
@@ -211,7 +211,7 @@ describe("each check fires at the file an author would edit", () => {
     expect(found[0]!.pointer).toMatch(/^\/forms\/.+\/validator$/);
   });
 
-  // `AM.4` (`R-15`). Each *+ Add* list with one key taken out. `key` decides
+  // Each *+ Add* list with one key taken out. `key` decides
   // insert or update in both wizards and is published by the table's selection;
   // `client` is also bound by the add step's form.
   const withoutKey = (flowKey: string, actionName: string, key: string) => {
@@ -247,7 +247,7 @@ describe("each check fires at the file an author would edit", () => {
     expect(found.map((f) => f.message)).toEqual([expect.stringContaining('leaves "rutTestCaseTable"')]);
   });
 
-  // `AM.1`. Both mutations name a predicate that is registered, so the
+  // Both mutations name a predicate that is registered, so the
   // escape check passes them and only the new rule can refuse them.
   it("an authored isEnabled the runtime would not use, on either side of the derivation", () => {
     const files = shippingTree("homeFiltersUF");

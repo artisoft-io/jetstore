@@ -30,7 +30,7 @@ import (
 //
 // When the workspace commits statistics of its graphs, a rule they cover is
 // ordered by the rows each antecedent is estimated to add instead of by the
-// score (rules_benchmark Phase 9, BY.1; jet_rule_listener_cost_order.go). Both
+// score (jet_rule_listener_cost_order.go). Both
 // orders are then checked as validation checks the authored one.
 func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 	if !rule.Optimization || !rule.IsValid {

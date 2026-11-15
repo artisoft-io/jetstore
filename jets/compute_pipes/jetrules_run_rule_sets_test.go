@@ -2,8 +2,7 @@ package compute_pipes_test
 
 // Tests of the two entry points the rules unit-test harness calls:
 // RunRuleSets, the rule loop extracted from executeRules, and AssertTextRow,
-// typed assertion of a row of text cells (rules_unit_test_harness Phase 1,
-// task AA.2).
+// typed assertion of a row of text cells.
 //
 // jetrules_execute_rules_test.go pins what executeRules does and is unchanged
 // by the extraction; this file states what the harness may rely on in the
@@ -261,18 +260,18 @@ func TestRunRuleSets(t *testing.T) {
 				t.Errorf("outcome = %+v, want not completed, loop 2 the last run, the maximum reached", o)
 			}
 		})
-		// I-7, fixed by AA.3: completion or an error on the last allowed loop is not
+		// Fixed defect: completion or an error on the last allowed loop is not
 		// the maximum reached.
-		t.Run("I7_completion_on_last_allowed_loop_not_max_loop", func(t *testing.T) {
+		t.Run("completion_on_last_allowed_loop_not_max_loop", func(t *testing.T) {
 			o := runRuleSets(t, loopingRuleFile, "ok", &compute_pipes.RuleSetsConfig{MaxLooping: 3})
 			if !o.Completed || o.Loops != 3 || o.MaxLoopReached || o.Failed() {
-				t.Errorf("outcome = %+v, want completed on loop 3 and nothing failed (I-7)", o)
+				t.Errorf("outcome = %+v, want completed on loop 3 and nothing failed", o)
 			}
 		})
-		t.Run("I7_execute_rules_error_on_last_allowed_loop_not_max_loop", func(t *testing.T) {
+		t.Run("execute_rules_error_on_last_allowed_loop_not_max_loop", func(t *testing.T) {
 			o := runRuleSets(t, executeRulesRuleFile, "late_runaway", &compute_pipes.RuleSetsConfig{})
 			if o.ExecuteErr == nil || o.Loops != 2 || o.MaxLoopReached {
-				t.Errorf("outcome = %+v, want the ExecuteRules error on loop 2 and not the maximum (I-7)", o)
+				t.Errorf("outcome = %+v, want the ExecuteRules error on loop 2 and not the maximum", o)
 			}
 		})
 		t.Run("execute_rules_error", func(t *testing.T) {

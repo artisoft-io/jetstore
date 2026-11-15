@@ -12,7 +12,7 @@ interface Props {
    * `compiled_view` from the server, which says whether the section *has* a view;
    * whether *this app renders one* is `sectionContract.ts`'s question, and the
    * two are different — `lookups` answers yes to the first and no to the second
-   * until C.3a. Conflating them is what C.1 removed from the Flutter client.
+   * until it gained a view. Conflating them is what an earlier change removed from the Flutter client.
    */
   canOpenView?: (node: WorkspaceNode) => boolean;
   onOpenView?: (node: WorkspaceNode) => void;

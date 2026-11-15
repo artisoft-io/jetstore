@@ -1,7 +1,6 @@
 package workspace
 
 // Recording a workspace's rules unit tests in workspace.db at compile.
-// Project rules_unit_test_harness, Phase 1, task AD.1.
 
 import (
 	"context"

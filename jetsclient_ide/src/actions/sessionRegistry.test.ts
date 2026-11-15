@@ -1,7 +1,7 @@
 /**
  * The Session Registry tab's filters (`homeFilters.ts`) and its *Delete*'s
- * preview and gate (`sessionDeletion.ts`), without a screen. `session_registry`
- * Phase 2, JM-081, 2026-11-08. `screens/Home.test.tsx` drives both through the
+ * preview and gate (`sessionDeletion.ts`), without a screen. Added
+ * 2026-11-08. `screens/Home.test.tsx` drives both through the
  * screen; this file holds the cases a screen would make slow to enumerate.
  */
 
@@ -43,7 +43,7 @@ const clauses = () =>
     ...(defaultValue.length > 0 ? { values: defaultValue } : {}),
   }));
 
-describe("Set Session Id on Session Registry (Q-6)", () => {
+describe("Set Session Id on Session Registry", () => {
   it.each([
     ["100..200", [{ column: "session_num", ge: "100" }, { column: "session_num", le: "200" }]],
     ["100..", [{ column: "session_num", ge: "100" }]],

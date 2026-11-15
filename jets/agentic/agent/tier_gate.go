@@ -7,11 +7,11 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/audit"
 )
 
-// The autonomy gate (task AJ.1, gap 7b, criterion 51).
+// The autonomy gate.
 //
 // **This is the gate, not the thing it gates.** Nothing here executes a
-// remediation and nothing here decides what a run may be raised to; Phase 5's
-// §2 says the comparison track builds the gate, and `AJ.2` carries the
+// remediation and nothing here decides what a run may be raised to; the
+// gate is the comparison, and `audit.RecordTierTransition` carries the
 // transition. What this file adds is the missing `if`: the tier an action
 // requires, compared against the authority the run is operating at, refused
 // below it, and the refusal on the transcript.
@@ -23,13 +23,13 @@ import (
 // There is no remediation executor — criterion 47 records that as deliberate —
 // so there is no call site for it. What *is* reachable at the loop's enforcement
 // point is the other one: `Signature.MinTier`
-// (`MinTier`, jets/agentic/tools/registry.go:30), carried since Phase 1 and
+// (`MinTier`, jets/agentic/tools/registry.go:30), carried from the start and
 // surfaced to MCP clients as `jetstore.min_tier`
 // (`jetstore.min_tier`, jets/agentic/mcp/adapter.go:56), and likewise never
 // compared — its only reader outside this file asserts that all three tools are
 // T0.
 //
-// **So gap 7b's comparison was missing twice, and this closes the half that has
+// **So the tier comparison was missing twice, and this closes the half that has
 // a caller.** The primitive underneath — audit.Tier, audit.ParseTier,
 // audit.Reaches — and the refusal below take a required tier as a string and
 // care nothing about where it came from, so an executor arriving later uses them

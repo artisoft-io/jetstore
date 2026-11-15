@@ -36,9 +36,8 @@ const UnterminatedCode = "sqlUnterminated"
 // (`reportOrScript`), not visible in the file**. A validator is handed a file
 // name and its content, so it cannot tell a script from a reports file, and six
 // of the 23 `reports/*.sql` carry no name comment at all and are correct
-// (2026-09-12). Refusing those is the 38%-false-flag result agentic_ai's Phase
-// 3 §17.4 measured and rejected for the citation checker, arriving at a
-// different door.
+// (2026-09-12). Refusing those would flag correct files, the result a
+// similar heuristic was measured and rejected for elsewhere.
 //
 // **Nor the narrower version of that check**, which looked promising for a day:
 // flag only a file where *some* statements are named and others are not, since

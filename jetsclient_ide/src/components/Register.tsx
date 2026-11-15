@@ -1,13 +1,12 @@
 /**
- * Create an account. Task X.4, and the last screen the Flutter app owned.
+ * Create an account. The last screen the Flutter app owned.
  *
- * **It is here rather than in track C because it is a retirement decision.**
+ * **It is here rather than in the design pass because it is a retirement decision.**
  * `/register` is the only path by which a user account comes into existence —
  * `UserAdmin`'s action document has `update/users` and `delete/users` and nothing
  * that inserts one — so retiring `jetsclient` without this screen would mean no
- * new user could ever be created. That is why X.4 lands before X.1 rather than
- * after it, which is the opposite of the order the phase 3 plan's dependency
- * column gives.
+ * new user could ever be created. That is why this screen landed before
+ * `jetsclient` was retired rather than after it.
  *
  * ## The rules are the Dart's, and they are stricter than they look
  *

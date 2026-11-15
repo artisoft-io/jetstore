@@ -60,7 +60,7 @@ else()
   find_package(absl CONFIG REQUIRED)
 endif()
 
-# Build variants, for measuring the engine (rules_benchmark Phase 3, C5). Both
+# Build variants, for measuring the engine. Both
 # are off by default, and a build that does not set them compiles and links with
 # exactly the flags above.
 #   -DJETS_MARCH=x86-64-v3  adds -march=x86-64-v3 to every C and C++ compile here

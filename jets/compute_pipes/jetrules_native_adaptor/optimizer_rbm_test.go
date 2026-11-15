@@ -1,7 +1,6 @@
 package jetrules_native_adaptor
 
-// THE RULE OPTIMIZER COMPUTES WHAT THE AUTHORED ORDER COMPUTES (rules_benchmark Phase 8,
-// task BS.1).
+// THE RULE OPTIMIZER COMPUTES WHAT THE AUTHORED ORDER COMPUTES.
 //
 // The compiler reorders a rule's antecedents unless the rule sets o=false
 // (OptimizeJetruleNode, jets/compilerv2/compiler/jet_rule_listener_optimization.go).

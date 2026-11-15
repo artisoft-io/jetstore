@@ -14,7 +14,7 @@ import (
 // audit store's event taxonomy.
 //
 // Three of the signal types and two of the subject types extend the source
-// proposal's Appendix A.2.6, because its ten signals are a warehouse's
+// proposal's anomaly vocabulary, because its ten signals are a warehouse's
 // data-quality signals and cannot name a step that regressed, a worker that
 // stalled or data that did not arrive.
 const (
@@ -115,7 +115,7 @@ func IsConfounder(name string) bool { return slices.Contains(confounders, name) 
 // its own copy.
 func Confounders() []string { return slices.Clone(confounders) }
 
-// Anomaly is one row of jetsapi.anomaly, the thirteen properties N.2 gave
+// Anomaly is one row of jetsapi.anomaly, the thirteen properties the model gives
 // jetsa:Anomaly. The three nullable fields are nullable because four of the
 // six derivable failure modes are within-run predicates with no range and no
 // magnitude: a worker that never reached a terminal state has nothing
@@ -191,7 +191,7 @@ const insertAnomalySQL = `INSERT INTO jetsapi.anomaly (
     anomaly_detector_ref)
   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`
 
-// InsertAnomaly is the "Go emitter" half of N.3's decided shape. It takes an
+// InsertAnomaly is the "Go emitter" half of the decided detector shape. It takes an
 // Exec rather than a pool so a detector can write inside the transaction that
 // read the evidence.
 //
@@ -233,8 +233,8 @@ const selectAnomaliesSQL = `SELECT anomaly_id, detected_at, anomaly_session_id,
 
 // ReadAnomalies returns what the detectors said about one run, oldest first.
 //
-// **This table had a write path and no read path**, which is the shape K.2
-// found in the audit store and gave the same answer to: a row nothing can read
+// **This table had a write path and no read path**, which is the shape found earlier
+// in the audit store and gave the same answer to: a row nothing can read
 // back is a row whose contents nobody has checked. The first consumer is
 // jets/agentic/rca, whose contradicting evidence is populated from
 // Anomaly.Confounders — so the read exists because a caller needed it rather

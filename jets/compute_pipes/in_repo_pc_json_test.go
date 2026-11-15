@@ -8,8 +8,8 @@ package compute_pipes
 // repository carries itself -- the test workspace under jets/jetrules/test_ws
 // and the shipped assets under jets/workspace_assets -- read by nothing.
 //
-// **Two of the three under test_ws had never parsed** (jetstore_maintenance_02
-// I-316, 2026-10-27; first reported as cgt_test_harness_filters I-17). Both
+// **Two of the three under test_ws had never parsed** (found
+// 2026-10-27). Both
 // wrote "delimiter" as a one-character string, and every Delimiter field in
 // pipes_model.go is a rune, which encoding/json reads only from a number:
 // `json: cannot unmarshal string into Go struct field ... of type int32`. The

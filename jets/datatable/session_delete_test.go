@@ -1,7 +1,7 @@
 package datatable
 
-// The start guard and the two Delete actions (session_registry Phase 2, E.1 and
-// E.3), against a real PostgreSQL. Needs JETS_TEST_DSN; skipped otherwise. Each
+// The start guard and the two Delete actions, against a real PostgreSQL. Needs
+// JETS_TEST_DSN; skipped otherwise. Each
 // test rebuilds the database srg_session_delete. Locally:
 //
 //	docker run -d --rm --name srg-e-pg -e POSTGRES_PASSWORD=pw -p 55432:5432 postgres:16

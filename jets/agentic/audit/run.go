@@ -9,8 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// The run record and the write-before-act contract over it (plan §7.2, task
-// D.4).
+// The run record and the write-before-act contract over it.
 //
 // jetsapi.agent_run is the mutable summary of a run; jetsapi.agent_audit is the
 // immutable record of how it got there. That division is what makes the

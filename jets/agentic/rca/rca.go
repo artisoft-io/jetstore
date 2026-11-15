@@ -1,11 +1,11 @@
-// Package rca is the advisory half of Phase 4's agent track: it
+// Package rca is the advisory half of the incident agent: it
 // ranks causal hypotheses for one run, and every hypothesis it emits carries
 // the evidence against itself as well as the evidence for.
 //
-// # What this package claims and what AC.1 claims
+// # What this package claims and what triage claims
 //
 // jets/agentic/triage emits a *locus* — where in the execution record a failure
-// left its evidence — and never a cause. The gate's reading (phase-4 plan §9.5)
+// left its evidence — and never a cause. The gate's reading
 // is that the record supports the first and does not support the second: three
 // of the imported ten IncidentClassification values have no substrate in
 // JetStore at all, four are evidenced only at a grain coarser than the class
@@ -13,40 +13,40 @@
 // from a locus to a cause is the step the substrate does not determine, and a
 // ranked hypothesis with contradicting evidence is the honest shape for it.
 //
-// **R-27 is the risk this package creates rather than finds**: a locus
+// **This package creates a risk rather than finding one**: a locus
 // taxonomy is close enough to a cause taxonomy in shape that *classified* will
-// be read as *diagnosed*. AC.1's structural answer was that a Finding has no
+// be read as *diagnosed*. Triage's structural answer was that a Finding has no
 // classification field. This package cannot take that answer, because naming a
 // cause is what it is for. **Its structural answer is that a hypothesis cannot
 // exist without the evidence against it**: ContradictingEvidence is a required
 // field that a nil value fails Validate on, so an assertion with nothing
-// against it is not a value this package can produce. Appendix A.2.8 calls that
+// against it is not a value this package can produce. The source proposal calls that
 // column a calibration control; here it is also the thing that keeps a ranking
 // advisory in the type system rather than in the prose beside it.
 //
 // # Two vocabularies, and a hypothesis says which one it is speaking
 //
-// Q-27 was answered on 2026-09-04: *per class* means both vocabularies,
-// reported separately. So every Hypothesis carries Locus — the AC.1 verdict it
+// The question was answered on 2026-09-04: *per class* means both vocabularies,
+// reported separately. So every Hypothesis carries Locus — the triage verdict it
 // was derived from, in the nine-member locus vocabulary — and CauseCategory,
-// the claim, in the imported ten. AD.1 scores per locus and reports the
+// the claim, in the imported ten. The census scores per locus and reports the
 // cause-class denominators beside it, and neither number is computable if a
 // hypothesis does not say which vocabulary its claim is in.
 //
 // **CauseCategory may be empty and Locus may not.** A hypothesis derived from a
-// locus the gate's §9.5 maps to no cause class makes no claim in the cause
+// locus the gate's table maps to no cause class makes no claim in the cause
 // vocabulary at all; the floor emits none for such a locus and reports the
 // locus in Ranking.UnmappedLoci instead, so that a locus which fired and
 // produced no hypothesis is visible rather than silently absent.
 //
-// # The deterministic floor comes first, and that is §9.8's instruction
+// # The deterministic floor comes first, and that is the design's instruction
 //
 // The contradicting side has a substrate that was already built and populated
 // before this task started: AnomalyConfounder's fourteen members are the
 // record's own statement of what a detector could not rule out, they are
-// written on every anomaly N.4's detectors emit and on every finding AC.1
-// emits, and EvidenceSource gained detector_confounder at AB.1 so a hypothesis
-// can name one. §9.8 says to populate the contradicting side from that
+// written on every anomaly the detectors emit and on every finding triage
+// emits, and EvidenceSource gained detector_confounder so a hypothesis
+// can name one. The design says to populate the contradicting side from that
 // substrate *before* any model is asked for one, so that a model's contribution
 // is measurable against a floor rather than against nothing. Rank is that
 // floor. It reads no model, holds no threshold, and is a transcription of the
@@ -54,7 +54,7 @@
 //
 // # Nothing here writes a row
 //
-// AC.3 is the shadow-mode wiring. This package returns a Ranking; it does not
+// The shadow package is the wiring. This package returns a Ranking; it does not
 // insert into jetsapi.hypothesis, does not create an incident, and does not
 // supply the severity that jetsapi.incident requires and no locus determines.
 package rca
@@ -65,14 +65,14 @@ import (
 )
 
 // The ten IncidentClassification values, which are the source proposal's own
-// (§A.2.7, §A.2.8's cause_category). They are the members of
+// (its incident classification and hypothesis cause_category). They are the members of
 // jetsapi.hypothesis.hypothesis_cause_category_ck and of
 // jetsapi.incident.incident_classification_ck; TestCauseCategoriesMatchDDL
 // asserts them against the generated DDL so a regeneration that adds or removes
 // one fails the suite rather than an insert, on triage.TestLociMatchDDL's model
 // and observe.TestVocabulariesMatchDDL's before it.
 //
-// The order is §9.5's table order, which is the order the ranker breaks ties
+// The order is the gate's table order, which is the order the ranker breaks ties
 // in. It is not a priority: it is the order the gate wrote them in, kept so
 // that two runs of the ranker over the same evidence agree.
 const (
@@ -88,7 +88,7 @@ const (
 	CauseBenignVariation         = "benign_variation"
 )
 
-// CauseCategories is the vocabulary in §9.5's order.
+// CauseCategories is the vocabulary in the gate table's order.
 var CauseCategories = []string{
 	CauseSourceDeliveryFailure, CauseSourceContentChange, CauseTransportFailure,
 	CauseParseFailure, CauseValidationBreach, CauseTransformationDefect,
@@ -96,8 +96,8 @@ var CauseCategories = []string{
 	CauseCapacityOrCostDeviation, CauseBenignVariation,
 }
 
-// The ten EvidenceSource values. Nine are §A.2.8's and detector_confounder is
-// this project's, added at AB.1 because §9.7 found the record's own statement
+// The ten EvidenceSource values. Nine are the source proposal's and detector_confounder is
+// JetStore's, added because a review found the record's own statement
 // of what could not be ruled out had no member to be filed under.
 //
 // **These are not a CHECK constraint anywhere**, and that is a property of the
@@ -128,7 +128,7 @@ var EvidenceSources = []string{
 	SourceCodeInspection, SourceProfile, SourceDetectorConfounder,
 }
 
-// Evidence is one item of a hypothesis's case, for or against. It is §A.2.8's
+// Evidence is one item of a hypothesis's case, for or against. It is the proposal's
 // `$defs` entry and the model's Evidence value object, three fields and no
 // more.
 type Evidence struct {
@@ -150,16 +150,16 @@ type Evidence struct {
 type Hypothesis struct {
 	HypothesisId string
 	// IncidentRef is jetsapi.hypothesis.hypothesis_incident_ref. The floor
-	// leaves it empty: an incident is written by AC.3 and a ranking computed
+	// leaves it empty: an incident is written by the shadow writer and a ranking computed
 	// before one exists cannot name it, which is why this package returns a
 	// Ranking keyed on the session rather than a list keyed on an incident.
 	IncidentRef string
-	// Cause is the hypothesised cause in words (§A.2.8 caps it at 500 chars).
+	// Cause is the hypothesised cause in words (the model caps it at 500 chars).
 	Cause string
 	// CauseCategory is the claim's entry in the ten-member cause vocabulary,
 	// or empty where the hypothesis makes no claim in it. Empty is a value the
 	// column holds — classification and cause_category are both nullable, on
-	// I-289's argument that a required cause column forces a deterministic step
+	// the argument that a required cause column forces a deterministic step
 	// to invent one.
 	CauseCategory string
 	// Confidence is 0..1. The floor computes it rather than choosing it: see
@@ -168,41 +168,41 @@ type Hypothesis struct {
 	Confidence float64
 	// Rank is 1-based within the session's ranking.
 	Rank int
-	// SupportingEvidence is the case for. §A.2.8 requires at least one.
+	// SupportingEvidence is the case for. The model requires at least one.
 	SupportingEvidence []Evidence
 	// ContradictingEvidence is the case against. **Required, and nil is not
 	// empty**: an empty slice asserts that the ranker found nothing against
-	// this hypothesis, and nil says it was never asked. §A.2.8 calls the column
+	// this hypothesis, and nil says it was never asked. The model calls the column
 	// a calibration control — an agent that can omit the evidence against its
 	// own hypothesis will — and Validate is where that is enforced.
 	ContradictingEvidence []Evidence
 
 	// --- not columns -------------------------------------------------------
 
-	// Locus is the AC.1 verdict this hypothesis was derived from, in the nine
+	// Locus is the triage verdict this hypothesis was derived from, in the nine
 	// member locus vocabulary. It has no column on jetsapi.hypothesis and it is
 	// not redundant with jetsapi.incident.incident_locus: an incident is
 	// written per (session, locus) and a hypothesis is written per (incident,
 	// cause), so the join recovers it — but a Ranking is computed before any
-	// incident exists, and Q-27's answer needs every hypothesis to say which
+	// incident exists, and the per-class answer needs every hypothesis to say which
 	// vocabulary its claim is in.
 	Locus string
 	// Basis is why this hypothesis ranks where it does, in the words an
-	// operator reads. **It has no column either, and that is criterion 45's
-	// last clause meeting a schema that has no place to keep it** — see
-	// Ranking.Basis and I-361. It is required by Validate for the same reason
+	// operator reads. **It has no column either, and that is the readable-basis
+	// requirement meeting a schema that has no place to keep it** — see
+	// Ranking.Basis. It is required by Validate for the same reason
 	// triage.Finding.Basis and observe.Anomaly.ExpectedBasis are: a claim that
 	// cannot say what it rests on is the signal an operator learns to ignore.
 	Basis string
 	// RankerRef names the ranker and its generation, so two generations are
 	// told apart the way two detector and two classifier generations are. A
 	// ranker that consulted a model names the model here, because a figure
-	// without its model is not a figure (R-23).
+	// without its model is not a figure.
 	RankerRef string
 }
 
 // Fired reports whether the hypothesis has more for it than against it, which
-// is §B.3's escalation trigger read the other way up. It is a convenience for a
+// is the escalation trigger read the other way up. It is a convenience for a
 // caller and never a filter inside this package: a hypothesis whose
 // contradicting evidence outweighs its supporting is still ranked and still
 // emitted, because suppressing it would delete the calibration the column
@@ -273,8 +273,8 @@ func (e *Evidence) validate() error {
 // Ranking is one session's ranked hypotheses, with the denominators a per-class
 // report needs and the account of how the order was arrived at.
 //
-// It is keyed on the session and not on an incident for the reason §9.6 gives
-// for an incident's own grain: session_id is the only key all seven
+// It is keyed on the session and not on an incident for the reason an
+// incident has its own grain: session_id is the only key all seven
 // evidence-bearing tables carry. A caller that has written incidents
 // assigns IncidentRef afterwards.
 type Ranking struct {
@@ -283,14 +283,14 @@ type Ranking struct {
 	RankerRef string
 	// Hypotheses are in rank order, best first.
 	Hypotheses []Hypothesis
-	// UnmappedLoci are the loci that fired and that §9.5's table maps to no
+	// UnmappedLoci are the loci that fired and that the gate's table maps to no
 	// cause class, so no hypothesis was emitted for them. **Two of the nine are
 	// permanently in this state** — step_never_started and
-	// per_record_failures_unreportable appear in no row of §9.5 — and a
+	// per_record_failures_unreportable appear in no row of the table — and a
 	// caller counting hypotheses per locus needs to know the difference between
 	// a locus that produced none and a locus that was never asked.
 	UnmappedLoci []string
-	// UnaskedLoci are the loci AC.1 could not evaluate. They are the other half
+	// UnaskedLoci are the loci triage could not evaluate. They are the other half
 	// of the denominator: a cause class whose only evidence position was
 	// not_evaluable has not been ruled out, it has not been looked at.
 	UnaskedLoci []string

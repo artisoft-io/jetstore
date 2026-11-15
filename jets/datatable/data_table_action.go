@@ -560,7 +560,7 @@ func bindToCaller(rows []map[string]any, email string) bool {
 var ErrAdminRowProtected = errors.New("error: forbidden, the installation admin's account cannot be changed or deleted")
 
 // ErrMalformedRoles is the 400 for an update/users row whose roles are not a list of
-// strings. Until JM-087 InsertRows type-asserted them unchecked, so such a row
+// strings. Until a fix InsertRows type-asserted them unchecked, so such a row
 // panicked the handler; since user_admin (2026-11-07) that input comes from user
 // administrators as well as from the admin.
 var ErrMalformedRoles = errors.New("error: bad request, roles must be a list of role names")
@@ -616,7 +616,7 @@ func writesAdminRow(rows []map[string]any, adminEmail string) bool {
 // this declaration, and that is what makes AuthzStatusFor's claim checkable.
 //
 // **Three of the four are refusals and the first is not**, which is the split
-// ui_refresh D.2 added on top of the one below. ErrCapabilityNotConfigured says
+// a later change added on top of the one below. ErrCapabilityNotConfigured says
 // the server is misconfigured; the other three say something about the caller.
 //
 // **Among the refusals the split that matters is identity against policy, and it
@@ -627,8 +627,7 @@ func writesAdminRow(rows []map[string]any, adminEmail string) bool {
 var (
 	// ErrCapabilityNotConfigured is a defect in the *server*, not a refusal of the
 	// caller: a SqlInsertDefinition that names no capability. It answers **500**,
-	// and it is the only one of the four that does; ui_refresh I-241 raised it and
-	// D.2 fixed it.
+	// and it is the only one of the four that does (2026-08-27).
 	//
 	// **It is unreachable from every caller in this package, re-measured 2026-08-27.**
 	// sqlInsertStmts had 58 entries and 58 non-empty Capability fields (38 since
@@ -642,7 +641,7 @@ var (
 	// statement added without a capability is what reaches this, and nothing else does.
 	//
 	// **The text keeps its "unauthorized" prefix deliberately.** It is pinned by
-	// TestTheFourRefusalTextsAreUnchanged, which exists so C.17's promise that no
+	// TestTheFourRefusalTextsAreUnchanged, which exists so the promise that no
 	// message moved stays checkable, and the clause after the comma is the half an
 	// operator needs. Rewording it would spend that guard on a word.
 	ErrCapabilityNotConfigured = errors.New("error: unauthorized, configuration error: missing capability on sql statement")
@@ -657,21 +656,21 @@ var (
 // AuthzStatusFor maps a VerifyUserPermission error to the status that describes it.
 //
 // **This exists because 401 was answering two questions and could only carry one
-// answer** -- ui_refresh I-189. A client cannot distinguish "your session is over,
+// answer**. A client cannot distinguish "your session is over,
 // sign in again" from "you are signed in and may not do this", so the React app
 // signed the user out on both, and a refusal presented as a session failure.
 //
-// **It was answering three, and the third is why 500 is here** -- ui_refresh I-241,
-// fixed at D.2 on 2026-08-27. ErrCapabilityNotConfigured is not an answer about the
+// **It was answering three, and the third is why 500 is here** -- fixed on
+// 2026-08-27. ErrCapabilityNotConfigured is not an answer about the
 // caller at all: it says a SqlInsertDefinition names no capability, which no request
 // can cause and no request can repair. Left at 401 it signed out a user for the
-// server's mistake, in a corner of exactly the failure I-189 describes. C.17 saw it
+// server's mistake, in a corner of exactly that failure. The status split saw it
 // and declined it on two grounds -- that it was unreachable, which it still is, and
 // that a third status was a decision outside what that task was approved to take.
-// The second ground is what Phase 4 exists to discharge.
+// The second ground was discharged later.
 //
-// **One of C.17's grounds has also expired rather than been overruled.** It weighed
-// a third status as "a change on a path both clients use"; track X deleted
+// **One of those grounds has also expired rather than been overruled.** It weighed
+// a third status as "a change on a path both clients use"; the React port deleted
 // jetsclient on 2026-08-26, so there is one client, and the cost side of that trade
 // is gone.
 //
@@ -682,8 +681,8 @@ var (
 // separates the middleware from the handler, and a handler refusal *includes* the
 // dead-user and database-unavailable cases.
 //
-// **It is not a new oracle**, measured against the reasoning I-124, I-125 and
-// I-126 were resolved on. The four gates in jets/apiserver already return two
+// **It is not a new oracle**, measured against the reasoning the earlier
+// gate fixes were resolved on. The four gates in jets/apiserver already return two
 // distinct messages for exactly this distinction, deliberately (jets/apiserver/api_purgedata.go,
 // DoPurgeDataAction, the comment above the IsAdmin check). Splitting the status
 // along the line the message already splits along tells a caller nothing the
@@ -702,11 +701,11 @@ func AuthzStatusFor(err error) int {
 
 // ErrRefused is the one message every gate in this package returns when it refuses
 // a caller. It is unchanged from the errors.New that stood at each of the fourteen
-// sites, and it stays collapsed on purpose: I-124's fix turns on the two gates on
+// sites, and it stays collapsed on purpose: an earlier fix turns on the two gates on
 // the insert_raw_rows path being byte-identical, so that neither becomes an oracle
 // for whether a mapping exists.
 //
-// **The status says more than the message does, and that is the whole of C.17's
+// **The status says more than the message does, and that is the whole of the
 // change.** RefusalFor is the pair, so a handler cannot take one without the other.
 var ErrRefused = errors.New("error: unauthorized, cannot get user info or does not have permission")
 
@@ -722,7 +721,7 @@ var ErrRefused = errors.New("error: unauthorized, cannot get user info or does n
 // **The configuration error is the exception, and it is the one case where the body
 // moves too**. Collapsing it into ErrRefused would answer 500 with
 // a sentence asserting the caller is unauthorised -- the misdescription this fix is
-// about, surviving the fix. I-124's argument does not reach it either: that argument
+// about, surviving the fix. The earlier fix's argument does not reach it either: that argument
 // is about two gates on one path staying indistinguishable, and both of those gates
 // resolve the *same* SqlInsertDefinition, so a missing capability field is identical
 // at both by construction rather than by collapse. Nobody but the operator who
@@ -1386,7 +1385,7 @@ func execDDL(dbpool *pgxpool.Pool, _ *DataTableAction, query *string) (*[][]any,
 	return &resultRows, &columnDefs, nil
 }
 
-// Capabilities required to read through /dataTable — I-2.
+// Capabilities required to read through /dataTable.
 //
 // **These were already declared and granted; they were simply never checked.**
 // `jets_init_db.sql:48` documents `jetstore_read` as "read data in JetStore" and
@@ -1430,7 +1429,7 @@ func (ctx *DataTableContext) requireCapability(capability, token string) (int, e
 // /dataTable dispatch that jets/apiserver handles inline rather than through a
 // method on this type. There are two — resubmit_pipeline and
 // fetch_file_from_stage — and both were reachable by any authenticated caller
-// because a watched list of method names could not see them (I-125's sweep).
+// because a watched list of method names could not see them (found by a sweep).
 //
 // It is a wrapper rather than a rename so that the refusal is byte-identical to
 // the one every gated method in this package returns, and so that the read-side
@@ -1619,7 +1618,7 @@ func (ctx *DataTableContext) DoPreviewFileAction(dataTableAction *DataTableActio
 // the ActionKeys.dropTable arm) and loadFilesUF (.../load_files/, ActionKeys.lfDropTable).
 //
 // **It took a token and never read it, so every authenticated caller of any role
-// could drop any table.** ui_refresh I-125, fixed 2026-08-25.
+// could drop any table.** Fixed 2026-08-25.
 //
 // **On the capability, because it was a choice rather than a lookup.** The two
 // call sites sit beside arms requiring different things -- configure_files writes

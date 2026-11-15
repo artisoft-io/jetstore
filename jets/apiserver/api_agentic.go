@@ -1,10 +1,10 @@
 package main
 
-// The agentic supervision endpoint (task K.3, gap 11) — proposal staging,
+// The agentic supervision endpoint — proposal staging,
 // approval decisions and run transcripts, for the Workspace IDE.
 //
-// **This route was deliberately not registered by K.2**, which built
-// `audit.ReadTranscript` and stopped. The reasoning is worth keeping where the
+// **This route was deliberately not registered when `audit.ReadTranscript`
+// was built.** The reasoning is worth keeping where the
 // route is rather than only in a tracking document: a route registered before
 // its consumer exists fixes its shape by guess, and `jets/apiserver/server.go`
 // is the known textual collision surface with the UI project. So the shape below
@@ -155,7 +155,7 @@ type AgenticAction struct {
 // dispatch below is testable without Postgres.
 //
 // **The seam is not ceremony; it is what makes two behaviours checkable.** The
-// state conflict must reach the client as 409 rather than 500 — K.1 made
+// state conflict must reach the client as 409 rather than 500 — the audit package made
 // `ErrStateConflict` a distinct type precisely so a caller could act on it, and
 // a mapping that only a live race can exercise is a mapping nobody exercises.
 // And a transcript's defects must reach the client whenever its events do; a
@@ -168,9 +168,9 @@ type agenticOps interface {
 	ReadTranscript(ctx context.Context, runId string) (*audit.Transcript, error)
 	RunTier(ctx context.Context, runId string) (string, error)
 	RecordApproval(ctx context.Context, a *audit.Approval) (int, error)
-	// The incident half. **Read-only at `AE.1` and no longer** (task AJ.2,
-	// Q-52): `AB.2` built the actor, the actor kind and the immutable
-	// classification pairing that I-276 asked for before anything wrote a
+	// The incident half. **Read-only at first and no longer**: the audit
+	// package built the actor, the actor kind and the immutable
+	// classification pairing that was asked for before anything wrote a
 	// verdict, and `RecordIncidentTransition` below is what finally writes one.
 	// Until it existed, `HumanVerdicts` — *the labelled population, as a query*
 	// — had no writer that could put a row in it.
@@ -179,18 +179,18 @@ type agenticOps interface {
 	// package redacts inside the read, so a handler cannot obtain an
 	// unredacted Evidence without having passed audit.DisclosePHI.
 	ReadIncident(ctx context.Context, incidentId string, phi audit.PHIAccess) (*audit.Incident, error)
-	// IncidentTransitionsFor returns how the incident got where it is, added at
-	// `AC.3`. **It is the audit record's visible form and not a detail**: the
+	// IncidentTransitionsFor returns how the incident got where it is, added
+	// later. **It is the audit record's visible form and not a detail**: the
 	// classifier's own basis for the locus travels on the `detected -> triaged`
 	// rationale and the ranker's account of the whole ranking on
 	// `triaged -> diagnosed`, neither of which has a column on the rows they are
 	// about. Without this the basis reaches the database and stops
-	// there, which is criterion 45's last clause met and invisible.
+	// there, which is the basis recorded and invisible.
 	IncidentTransitionsFor(ctx context.Context, incidentRef string) ([]audit.IncidentTransition, error)
 	// RecordIncidentTransition is the verdict write. The guard, the
 	// lifecycle check, the classification pairing and the chain event are all
-	// on the far side of this call — P4 §12.5 stated that as a fact about the
-	// interface and named the remaining step as "one call", and this is it.
+	// on the far side of this call — the remaining step was named as "one
+	// call", and this is it.
 	RecordIncidentTransition(ctx context.Context, t *audit.IncidentTransition) (int, error)
 	// The Detection screen: the runs the detection commands recorded,
 	// the deployed task those runs come from, and starting it now. The ECS half
@@ -429,9 +429,9 @@ func readTranscript(ctx context.Context, ops agenticOps, a *AgenticAction) (*map
 		})
 	}
 	// `verified` and `defects` are not optional and are not a separate action.
-	// K.2's design decision is that there is no way to obtain the events
+	// The design decision is that there is no way to obtain the events
 	// without the verdict, and an endpoint that split them would give the
-	// client the choice K.2 refused to give the caller.
+	// client the choice the audit package refused to give the caller.
 	return &map[string]any{
 		"runId":    t.RunId,
 		"events":   events,
@@ -522,11 +522,11 @@ func recordApproval(ctx context.Context, ops agenticOps, a *AgenticAction, actor
 	}, http.StatusOK, nil
 }
 
-// The incident half (task AE.1, gap 11 residue) — two reads and no write.
+// The incident half — two reads and no write.
 //
 // **Both actions carry the locus and the classification together**, which is the
-// endpoint's share of R-27's mitigation. Plan §9.5 found the record supports a
-// taxonomy of *locus* and not of *cause*, so `AB.1` put both on the row with the
+// endpoint's share of a risk's mitigation. The record supports a
+// taxonomy of *locus* and not of *cause*, so both are on the row with the
 // classification optional; a response that carried one without the other
 // would let a screen render a locus in a column headed with a cause word, which
 // is the risk arriving through the wire rather than through the prose.
@@ -575,18 +575,18 @@ func getIncident(ctx context.Context, ops agenticOps, a *AgenticAction, phi audi
 			"causeCategory": h.CauseCategory,
 			"confidence":    h.Confidence,
 			"rank":          h.Rank,
-			// Both sides, always. §A.2.8 calls the contradicting side a
+			// Both sides, always. The contradicting side is a
 			// calibration control, and an endpoint that could return one
 			// without the other would offer a caller the choice of showing a
 			// claim nobody argued with.
 			"supportingEvidence":    evidenceItems(h.SupportingEvidence),
 			"contradictingEvidence": evidenceItems(h.ContradictingEvidence),
-			// The two columns Q-46 added at `AC.3`. **The locus travels because
+			// The two columns added later. **The locus travels because
 			// a hypothesis raised at a locus triage did not find present is
 			// otherwise indistinguishable on the screen from one raised at a
-			// locus it did**, which is `AC.2`'s headline finding; the basis
+			// locus it did**, which is the ranker's headline finding; the basis
 			// travels because a confidence a reader cannot check against
-			// anything is the number R-48 warns will be read as a probability.
+			// anything is a number that will be read as a probability.
 			"locus": h.Locus,
 			"basis": map[string]any{
 				"supportingCount":    h.Basis.SupportingCount,
@@ -599,8 +599,8 @@ func getIncident(ctx context.Context, ops agenticOps, a *AgenticAction, phi audi
 	row["hypotheses"] = hs
 
 	// How it got here. **A read failure here is not a failure of the
-	// screen**: jetsapi.incident_event arrived at AB.2 and jetsapi.incident at
-	// AB.1, so a database migrated between the two has the incident and not its
+	// screen**: jetsapi.incident_event arrived after
+	// jetsapi.incident, so a database migrated between the two has the incident and not its
 	// history — and an incident a supervisor cannot open is worse than one whose
 	// history is missing. The empty list is what the screen renders in that case,
 	// and it renders it as *no recorded transitions* rather than as a blank.
@@ -612,17 +612,17 @@ func getIncident(ctx context.Context, ops agenticOps, a *AgenticAction, phi audi
 				"fromStatus":      t.FromStatus,
 				"toStatus":        t.ToStatus,
 				"actor":           t.Actor,
-				// The column I-276 asks for, on the wire because a screen showing
+				// The actor kind, on the wire because a screen showing
 				// a verdict without whose it is shows half a label.
 				"actorKind":            t.ActorKind,
 				"transitionedAt":       timeOrEmpty(t.TransitionedAt),
 				"runRef":               t.RunRef,
 				"classificationBefore": t.ClassificationBefore,
 				"classificationAfter":  t.ClassificationAfter,
-				// Where the basis lives. `AC.2` emits a per-hypothesis basis and a
+				// Where the basis lives. The ranker emits a per-hypothesis basis and a
 				// ranking basis and jetsapi.hypothesis has a column for neither, so
-				// `AC.3` writes the ranking's account here — criterion 45's last
-				// clause, carried by the transition rather than by the row.
+				// the ranking's account is written here, carried by the transition
+				// rather than by the row.
 				"rationale": t.Rationale,
 			})
 		}
@@ -639,7 +639,7 @@ func getIncident(ctx context.Context, ops agenticOps, a *AgenticAction, phi audi
 		"transitions": transitions,
 		// What may be done to it from here, and what a reclassification may
 		// claim. **Both come from the server for the same reason the
-		// loci do**: A.5's graph and the ten causes are enforced by
+		// loci do**: the incident lifecycle graph and the ten causes are enforced by
 		// `IncidentTransitionAllowed` and by a CHECK, and a browser copy of
 		// either is the copy that cannot enforce anything. The screen renders
 		// a button per permitted status and refuses to invent one.
@@ -651,15 +651,14 @@ func getIncident(ctx context.Context, ops agenticOps, a *AgenticAction, phi audi
 	}, http.StatusOK, nil
 }
 
-// recordIncidentTransition writes a human verdict on an incident (task AJ.2,
-// Q-52).
+// recordIncidentTransition writes a human verdict on an incident.
 //
 // **This is the single change that moves the labelled population off zero**, and
-// the reason it is one function rather than a feature is that `AB.2` built
-// everything under it: the guard, A.5's lifecycle, the immutable classification
+// the reason it is one function rather than a feature is that the audit
+// package built everything under it: the guard, the incident lifecycle, the immutable classification
 // pairing, the actor kind and the conditional chain event are all inside
-// `RecordIncidentTransition`. P4 §12.5 said the remaining step was one call and
-// meant it.
+// `RecordIncidentTransition`. The remaining step was one call, as
+// designed.
 //
 // It is `recordApproval` a second time and deliberately so — the same shape of
 // act, at the same endpoint, under the same capability. Three things differ and
@@ -670,7 +669,7 @@ func getIncident(ctx context.Context, ops agenticOps, a *AgenticAction, phi audi
 //     could name its own kind could write itself into the labelled population.
 //   - **There is no tier.** An approval is an authority-bearing act and records
 //     `tier_at_event`; a reclassification is a verdict on a claim and authorises
-//     nothing (P4 §12.4). The authority half of this task is
+//     nothing. The authority half of this task is
 //     `audit.RecordTierTransition`, which has no endpoint for the reason
 //     `tier_transition.go` gives.
 //   - **The `from` status is checked against the row before the lifecycle is
@@ -760,7 +759,7 @@ func recordIncidentTransition(ctx context.Context, ops agenticOps, a *AgenticAct
 		"classificationAfter":  t.ClassificationAfter,
 		"transitionedAt":       timeOrEmpty(t.TransitionedAt),
 		// "" when the incident named no run, in which case the verdict is
-		// durable and attributable and **not** hash-chained (AB.4, R-44). The
+		// durable and attributable and **not** hash-chained. The
 		// screen says so rather than leaving a supervisor to infer it from a
 		// zero seq.
 		"runRef": t.RunRef,
@@ -771,7 +770,7 @@ func recordIncidentTransition(ctx context.Context, ops agenticOps, a *AgenticAct
 	}, http.StatusOK, nil
 }
 
-// incidentTransitionsOrEmpty is transitionsOrEmpty over A.5's Incident machine
+// incidentTransitionsOrEmpty is transitionsOrEmpty over the Incident machine
 // rather than its ChangeProposal one. Two functions rather than one taking a
 // table, because the two vocabularies are the thing most worth not mixing up
 // here — see the `Statuses`/`States` split in AgenticAction.
@@ -836,8 +835,8 @@ func evidenceItems(items []audit.Evidence) []map[string]any {
 //
 // **503 rather than 500, and the distinction is the whole reason the error type
 // exists.** `jetsapi.incident` reaches a database only through
-// `update_db -migrateDb` (P3 I-169), so on any deployment older than AB.1 the
-// tables are simply absent — which is not a fault, not the caller's mistake, and
+// `update_db -migrateDb`, so on any deployment older than the incident
+// tables they are simply absent — which is not a fault, not the caller's mistake, and
 // fixable by a named command. A 500 would put it in the same bucket as an outage
 // and a screen would report it as one.
 func incidentErrorCode(err error) int {

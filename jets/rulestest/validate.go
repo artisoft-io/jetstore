@@ -29,13 +29,13 @@ const (
 )
 
 // topLevelOnly are the fields of TestDefinition that are refused anywhere else
-// with a message naming where they belong (definition §8.5.2).
+// with a message naming where they belong.
 var topLevelOnly = map[string]bool{"legacy": true, "compare_engines": true, "expect": true}
 
 // RdfTypes are the type names ParseRdfNodeValue reads.
 var RdfTypes = []string{"null", "bn", "resource", "int", "bool", "long", "uint", "ulong", "double", "text", "date", "datetime"}
 
-// NoTruthMainOnExist was the C++ engine's rule_config switch (definition F14),
+// NoTruthMainOnExist was the C++ engine's rule_config switch,
 // deleted with the LEGACY retraction mode: a rule_config that still turns it on is
 // refused here, and by the engine at session start.
 const NoTruthMainOnExist = "_0:no_truth_main_on_exist"
@@ -363,8 +363,8 @@ func validateDefinition(td *TestDefinition, raw map[string]any) []wsvalidate.Fin
 		}
 	}
 	// The LEGACY retraction mode is deleted: a switch that asks for one of its
-	// behaviours is refused rather than run on the one that remains (rules_benchmark
-	// Q-102); every present switch false asks for what remains, and is accepted.
+	// behaviours is refused rather than run on the one that remains; every
+	// present switch false asks for what remains, and is accepted.
 	for _, name := range td.Legacy.SwitchesOn() {
 		f = append(f, errorf(CodeRefused, "/legacy/"+name,
 			"legacy.%s: true asks for a LEGACY retraction behaviour: %s; remove it or set it to false",

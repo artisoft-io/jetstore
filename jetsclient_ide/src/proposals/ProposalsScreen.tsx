@@ -2,12 +2,12 @@
  * The staging screen: every change proposal an agent has produced, and where
  * each one sits in the approval lifecycle.
  *
- * Task K.3, gap 11 — the "visible" half of criterion 31.
+ * The "visible" half of the supervision screens.
  *
  * **Three columns are here because of what they change about who should look**,
- * not because the row had space. The clinical-relevance flag is what §10
- * escalates on. The generated-test count is what tells a reviewer whether the
- * proposal is reviewable at all — a Phase-1 authoring run writes a draft with
+ * not because the row had space. The clinical-relevance flag is what
+ * escalation is decided on. The generated-test count is what tells a reviewer whether the
+ * proposal is reviewable at all — an authoring run writes a draft with
  * empty arrays, honestly, and "0 tests" is the single most useful thing to know
  * before opening one. And the last-decision time distinguishes a proposal
  * somebody is working through from one nobody has touched.

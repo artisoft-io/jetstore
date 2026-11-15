@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# run_protocol.sh -- the run protocol every measured rules_bench run follows
-# (rules_benchmark plan, AA.4 and section 5.5).
+# run_protocol.sh -- the run protocol every measured rules_bench run follows.
 #
 #   run_protocol.sh [options] <spec.json> [-- <extra rules_bench flags>]
 #

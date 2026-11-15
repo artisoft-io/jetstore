@@ -31,7 +31,7 @@ const (
 )
 
 // Cover checks the provenance schema against the shape of the briefing it is
-// for, and is `AK.2`'s addition to `AK.1`'s checker.
+// for, and is the provenance schema's addition to the grounding checker.
 //
 // # What it adds, and why the closure was not already enough
 //

@@ -29,7 +29,7 @@
 //   - A session's values are counted from its graph when the rule set ends:
 //     everything the session's Find returns, the meta graph included with the
 //     asserted and inferred triples, each triple once. That is what the rule
-//     set's antecedents match (rules_benchmark BX.1 rule 2, as amended
+//     set's antecedents match (as amended
 //     2026-10-24).
 //   - Every count is an integer, the sum over the sessions of that session's
 //     value. A reader divides by sessions. A partial file has the same shape,

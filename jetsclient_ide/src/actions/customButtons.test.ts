@@ -1,5 +1,5 @@
 /**
- * Parsing a deployment's custom buttons — jetstore_maintenance_02, `D04`, `AE.8`.
+ * Parsing a deployment's custom buttons (2026-10-01).
  * The rendering half is `screens/Home.test.tsx`, *the third row*.
  */
 
@@ -66,7 +66,7 @@ describe("parseCustomButtons", () => {
 describe("a custom button on the action bar", () => {
   const [button] = parseCustomButtons(JSON.parse(DEPLOYED));
 
-  it("needs a selected row and jetstore_read, the capability fetch_file_from_stage checks (Q-14)", () => {
+  it("needs a selected row and jetstore_read, the capability fetch_file_from_stage checks", () => {
     const action = customButtonAction(button!);
     expect(action).toMatchObject({
       actionType: "doAction",

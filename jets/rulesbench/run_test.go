@@ -573,7 +573,7 @@ func TestRun(t *testing.T) {
 	})
 }
 
-// TestSessionFailureRaisesTheRunStatus is rules_benchmark I-34's regression test: a
+// TestSessionFailureRaisesTheRunStatus is a regression test: a
 // session's err, execute_err or exceptions each fail the run, as the README says; a
 // session that only reached max_looping does not.
 func TestSessionFailureRaisesTheRunStatus(t *testing.T) {

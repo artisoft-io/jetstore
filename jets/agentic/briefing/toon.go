@@ -15,11 +15,11 @@ import (
 // `ColumnEncodingSpec` (`ColumnEncodingSpec`,
 // `jets/compute_pipes/pipes_model.go:291`) admits both, and
 // `workspaces/jets_ws/pipes_config/patient_profile.pc.json` chooses toon. The
-// phase-5 plan §9.7 left `AK.2` two branches: the projection emits json, or
+// provenance schema had two branches open: the projection emits json, or
 // something learns to read toon. **The second is right and it is not a
 // convenience.**
 //
-// toon exists to cut prompt tokens, and A§8.2 measures prompt tokens dominating
+// toon exists to cut prompt tokens, and prompt tokens are measured dominating
 // this workload roughly 9:1 - the minimum-necessary projection is argued for on
 // exactly that arithmetic. A guardrail that forced json would be paid for out of
 // the budget the thing it guards was built to protect, which is the wrong party
@@ -27,7 +27,7 @@ import (
 // interpolates the same column this reads, so a checker that insisted on a json
 // re-encoding would be checking a document the model was never shown. That is a
 // second encoder to drift, and this repository has measured what a second
-// encoder costs (P2 M.5).
+// encoder costs.
 //
 // What it cost is one library call. `github.com/toon-format/toon-go` is already
 // in go.mod for `EncodeColumnData`'s `Marshal`
@@ -42,7 +42,7 @@ import (
 // (`2006-01-02`, or `2006-01-02T15:04:05` when it carries a clock) and the
 // decoder returns that text as a string. This costs nothing here, because
 // `asDate` parses both forms and every comparison in this package is over
-// normalised text. It is the same asymmetry the phase-5 plan's §10.3 records for
+// normalised text. It is the same asymmetry already recorded for
 // a decoder that has to assert back into a rule session, where it is expensive;
 // a checker is the case where it is free, and the difference is that a checker
 // compares rather than reasons.

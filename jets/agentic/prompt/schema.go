@@ -1,7 +1,7 @@
 // Package prompt builds what a run sends: a schema narrow enough to constrain
 // generation, and the instruction around it.
 //
-// **The measurement this package exists because of.** The Phase 1 plan's §3.3
+// **The measurement this package exists because of.** The original design
 // says a request for one TransformationSpec "constrains generation to
 // #/$defs/TransformationSpec rather than to the whole document — which is what
 // makes the narrow task narrow at the wire level and not merely in the
@@ -28,8 +28,8 @@
 //     Silently sending an over-budget schema gets it truncated by the server or
 //     rejected late, after the tokens are spent. Fits() is the check and Task
 //     validation is where it belongs.
-//   - **This is direct evidence for decision 9's granularity.** The Phase 0
-//     plan's §5.3.7 argued that templates convert "generate a 177KB config" into
+//   - **This is direct evidence for fragment granularity.** The early
+//     analysis argued that templates convert "generate a 177KB config" into
 //     "generate 453 independently validatable TransformationColumnSpec
 //     fragments", and called that "precisely the regime in which a small
 //     self-hosted model is credible". The numbers above say that is not merely
@@ -46,7 +46,7 @@ import (
 
 // DefaultContextTokens is the infer server's configured context length
 // (OLLAMA_CONTEXT_LENGTH, cdk/jetstore_one/stack/build_infer_service.go). It is
-// a default rather than a constant because gap 12 may move it, and a caller
+// a default rather than a constant because the deployment may move it, and a caller
 // that knows better should say so.
 const DefaultContextTokens = 32768
 

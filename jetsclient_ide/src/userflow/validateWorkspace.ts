@@ -4,7 +4,7 @@
  *
  * ## Why this exists
  *
- * These documents are going to be written by a model (Michel, 2026-10-01), so a
+ * These documents are going to be written by a model (2026-10-01), so a
  * validator is the whole of their quality control. Two halves existed and
  * neither was reachable by a generator or a build:
  *
@@ -33,8 +33,7 @@
  *
  * ~~Step 3 mirrors `FlowStore.load` check for check, as a second reading of
  * that sequence rather than a call to it.~~ **It calls it, since
- * `jetstore_maintenance_02` `AM.3` (2026-10-27).** The restatement was `I-31`
- * and its drift was `R-16`. `load` throws at the first failing stage and this
+ * 2026-10-27.** The restatement had begun to drift. `load` throws at the first failing stage and this
  * reports every finding with its file, and that difference is now in what each
  * caller does with `checkFlowSet`'s findings rather than in two copies of the
  * checks.
@@ -293,13 +292,12 @@ function unresolvedFindings(
 }
 
 /**
- * An authored `isEnabled` the runtime would not use. `jetstore_maintenance_02`
- *
+ * An authored `isEnabled` the runtime would not use.
  *
  * **The action bar does not read the document's `isEnabled`.** It asks
  * `isEnabledEscapeFor(tableKey, actionKey)` (`actionBarModel.ts`), because
  * `fromDocument` keeps only that the action has a predicate, not its name
- * (`ui_refresh`'s `I-66`, which keeps `ActionConfig` free of a field the
+ * (a choice that keeps `ActionConfig` free of a field the
  * corpus cannot express). So a document naming another predicate is valid,
  * resolves, and is silently gated on the derived one instead. Every committed
  * document agrees with the derivation, which `clearFiltersGate.test.tsx`
