@@ -217,7 +217,7 @@ func ExecuteRequests(ctx context.Context, db *pgxpool.Pool, reqs []Request, opts
 // A dry run takes no session lock (LockSession) and no coordinator map-row lock,
 // both of which a real run takes. It writes nothing, so it has nothing to order
 // against a start, and its savepoints still see its own earlier deletions, so its
-// prediction for a request shared between sessions stays exact (I-21). Holding
+// prediction for a request shared between sessions stays exact. Holding
 // them would have cost three things: it would have held many session locks, in
 // queue order rather than sorted, until it ended; so a start or a Resubmit reading
 // a session it had reached would wait up to the purge lambda's fifteen minutes,

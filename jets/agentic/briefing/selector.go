@@ -160,8 +160,8 @@ func escapePointerToken(tok string) string {
 
 // leaves walks a decoded document and returns a pointer for every scalar it
 // holds, in document order for maps by sorted key so that a run is comparable
-// with itself. Phase 3's F118 is why the sort is here rather than left to the
-// map: a checker whose output reshuffles between runs cannot be diffed.
+// with itself. The sort is here rather than left to the map because a
+// checker whose output reshuffles between runs cannot be diffed.
 func leaves(node any, ptr string, out *[]Located) {
 	switch v := node.(type) {
 	case map[string]any:

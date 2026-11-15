@@ -14,15 +14,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// The incident read path (task AE.1).
+// The incident read path.
 //
 // **Three of these need no database and one needs a database with *no* schema**,
 // which is the unusual one and the reason it is here. Every other test in this
 // package installs the schema before it asks anything, so nothing in the suite
 // could ever have observed what a query does on a database where the migration
 // has not been run — which is the state every existing deployment is in, because
-// `jetsapi.incident` arrived at AB.1 and reaches a database only through
-// `update_db -migrateDb` (P3 I-169). That is P3 F107's lesson repeated
+// `jetsapi.incident` arrived later and reaches a database only through
+// `update_db -migrateDb`. That is an earlier lesson repeated
 // deliberately rather than rediscovered: a test that arranges the world before
 // asking about the world cannot test a report about the world.
 
@@ -40,7 +40,7 @@ func TestIncidentStatusesMatchTheGeneratedCheck(t *testing.T) {
 		IncidentStatuses, "IncidentStatuses")
 }
 
-// Added at AJ.2, when the reclassify control needed the list of causes to offer.
+// Added when the reclassify control needed the list of causes to offer.
 // The CHECK admits NULL, so the pattern matches the `IN (...)` half of it.
 func TestIncidentClassificationsMatchTheGeneratedCheck(t *testing.T) {
 	assertVocabularyMatchesCheck(t,
@@ -95,7 +95,7 @@ func TestReadIncidentRequiresAnId(t *testing.T) {
 	}
 }
 
-// insertIncident writes one incident directly. The writer is AC.3's and does not
+// insertIncident writes one incident directly. The shadow writer did not yet
 // exist, so the fixture is SQL — and this test says so rather than implying the
 // rows came from anywhere else, which is criterion 43's fourth clause and the
 // reason it is graded not met.
@@ -118,7 +118,7 @@ func insertHypothesis(t *testing.T, pool *pgxpool.Pool, id, incidentRef, cause, 
 	rank int64, confidence float64, supporting, contradicting string) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(),
-		// hypothesis_locus and basis are columns as of AC.3 (Q-46). The fixture
+		// hypothesis_locus and basis are columns now. The fixture
 		// writes a locus from the same nine-value vocabulary the CHECK admits and
 		// a basis whose counts are those of the two arrays above, so a read-path
 		// test still exercises a row shaped like one the writer produces.
@@ -163,7 +163,7 @@ func TestReadIncidentCarriesBothVocabulariesAndBothEvidenceSides(t *testing.T) {
 		t.Errorf("locus %q, want %q", inc.Locus, LocusWorkerFailed)
 	}
 	// The one that matters most: a locus with no cause claimed is a legitimate
-	// state, and it must not arrive as a cause (I-289, R-27).
+	// state, and it must not arrive as a cause.
 	if inc.Classification != "" {
 		t.Errorf("classification %q, want empty — nothing claimed one", inc.Classification)
 	}
@@ -185,7 +185,7 @@ func TestReadIncidentCarriesBothVocabulariesAndBothEvidenceSides(t *testing.T) {
 	if got := inc.Hypotheses[0].SupportingEvidence; len(got) != 1 || got[0].SourceRef != "sess/3" {
 		t.Errorf("supporting evidence %v, want source_ref sess/3", got)
 	}
-	// Empty is not absent: A.2.8 calls contradicting evidence a calibration
+	// Empty is not absent: contradicting evidence is a calibration
 	// control, so "the agent asserts none" has to be distinguishable from "the
 	// agent was never asked".
 	if inc.Hypotheses[1].ContradictingEvidence == nil {
@@ -247,7 +247,7 @@ func TestListIncidentsFiltersByStatusAndCountsHypotheses(t *testing.T) {
 // The report about the world, on a world that has not been migrated.
 //
 // It builds a database with no schema in it, which is what every JetStore
-// deployment older than AB.1 looks like, and asserts the error a screen can act
+// deployment older than these tables looks like, and asserts the error a screen can act
 // on rather than the string a screen would otherwise print.
 func TestListIncidentsReportsAnUnmigratedDatabase(t *testing.T) {
 	pool := testPool(t) // skips without a DSN, and installs the schema in the *other* database
@@ -289,9 +289,9 @@ func TestListIncidentsReportsAnUnmigratedDatabase(t *testing.T) {
 }
 
 // basisFor builds the `basis` column for a fixture from the two evidence arrays
-// it is written beside, so the counts describe the row rather than being typed
-// (AC.3, Q-46). The evidenceability tier is left `none` for a fixture, which is
-// the honest value for a hand-composed row: nothing here consulted plan §9.5.
+// it is written beside, so the counts describe the row rather than being typed.
+// The evidenceability tier is left `none` for a fixture, which is
+// the honest value for a hand-composed row: nothing here consulted the evidenceability table.
 func basisFor(supporting, contradicting, category string) string {
 	count := func(raw string) int {
 		var items []Evidence

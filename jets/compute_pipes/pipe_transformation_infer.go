@@ -790,7 +790,7 @@ func (w *inferWorker) stripFences(text string) string {
 //
 // It exists so the provenance check and applyMappings read the **same** string:
 // two readers of one value with nothing comparing them is how a date came to be
-// a nested object in the prompt and a scalar in a column (AK.2's F554), and the
+// a nested object in the prompt and a scalar in a column, and the
 // cheapest way not to repeat that is to have one reader.
 func (w *inferWorker) answerText(resp inferResponse) string {
 	text, _ := resp.Text()

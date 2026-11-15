@@ -1,20 +1,18 @@
 package datatable
 
 // The rules unit test executor pool, and the recording of what each run did.
-// Project rules_unit_test_harness, Phase 1, track AC: AC.3 (the pool) and AC.4
-// (recording), definition §5.4, §5.5 and §6.
 //
 // # One pool per apiserver, one process per test
 //
 // The pool is a process-wide FIFO queue served by a fixed number of workers, so
 // two batches started together share the workers rather than doubling them
-// (§5.5, item 1). Each worker runs one harness process per test: the engine and
+// Each worker runs one harness process per test: the engine and
 // rule_config are fixed when the engine is built, and a fault
 // in the C++ engine ends the process it is in -- so it must not be the apiserver.
 //
 // # The defaults, and why they are small
 //
-// Measured at AB.1 (2026-10-11): an engine loads in 2 to 200 ms and the load is
+// Measured 2026-10-11: an engine loads in 2 to 200 ms and the load is
 // CPU-bound, so on the apiserver's one vCPU a pool buys isolation -- a runaway
 // test held to its deadline does not stall the queue -- rather than overlap. A
 // real test takes 8 to 71 MB private memory plus about 48 MB of shared binary
@@ -75,7 +73,7 @@ const (
 	RulesUnitTestHarnessName = "rules_unit_test"
 )
 
-// Defaults, from AB.1's measurement (see the file comment).
+// Defaults, from that measurement (see the file comment).
 const (
 	DefaultRulesUnitTestPoolSize = 2
 	DefaultRulesUnitTestMemoryMB = 512
@@ -84,7 +82,7 @@ const (
 
 // RulesUnitTestLogCap is the most of a harness log a run row keeps: the tail,
 // because the end of a log is where a failure is. Below the 4,000,000 characters
-// the log dialog accepts (definition F67), with room for the line saying how
+// the log dialog accepts, with room for the line saying how
 // much was cut.
 const RulesUnitTestLogCap = 1_000_000
 
@@ -344,7 +342,7 @@ func isSecretEnvName(name string) bool {
 }
 
 // harnessEnviron is the harness's environment: the apiserver's, less every
-// variable that carries a secret, with the run's workspace set (I-19).
+// variable that carries a secret, with the run's workspace set.
 //
 // **The harness opens no database and calls no AWS service, so it needs none of
 // them -- and it links jets/user**, through compute_pipes, jets/workspace and

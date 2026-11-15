@@ -14,7 +14,7 @@ set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -fPIC -fmessage-length=0
 
 set(C_LIBRARY_NAME jets)
 
-# The sanitizer build (rules_benchmark Phase 7, I-69), off by default:
+# The sanitizer build, off by default:
 #   -DJETS_SANITIZE=ON  compiles and links everything here, abseil included when
 #                       it is built here, with AddressSanitizer (leak detection on)
 #                       and UndefinedBehaviorSanitizer, every report fatal. Three
@@ -60,7 +60,7 @@ else()
   find_package(absl CONFIG REQUIRED)
 endif()
 
-# Build variants, for measuring the engine (rules_benchmark Phase 3, C5). Both
+# Build variants, for measuring the engine. Both
 # are off by default, and a build that does not set them compiles and links with
 # exactly the flags above.
 #   -DJETS_MARCH=x86-64-v3  adds -march=x86-64-v3 to every C and C++ compile here

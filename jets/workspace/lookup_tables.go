@@ -213,7 +213,7 @@ func buildLookupDb(tables []*rete.LookupTableNode, wsDir, dbPath, fingerprint, s
 							outputRec[i+2] = val
 						case "bool":
 							// Empty is null and anything outside the accepted
-							// spellings stops the compile, naming where (I-45).
+							// spellings stops the compile, naming where.
 							// The engine serves a NULL bool column as rdf null.
 							b, err := rdf.ParseBool(val)
 							switch {

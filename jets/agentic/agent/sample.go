@@ -7,23 +7,23 @@ import (
 	"sync"
 )
 
-// Generate-and-filter (plan §4.3, task E.8), beside sequential repair rather
+// Generate-and-filter, beside sequential repair rather
 // than instead of it.
 //
 // **Why it is available at all** is a fact the analysis established rather than
 // a guess: both RETE engines handle concurrent validation with session
 // isolation (decision 4, confirmed 2026-08-06), so the verifier is safe to run
 // many-at-once. That is what makes sampling K candidates and checking them in
-// parallel possible, and it is the reason §7 argues this is usually a better
+// parallel possible, and it is the reason this is usually a better
 // use of a fixed token budget than K sequential repair turns on one candidate:
 // K failures are often independent draws rather than one fixable mistake.
 //
-// **Usually is not always, and Phase 1 does not know which.** §4.3 says to
+// **Usually is not always, and this package does not know which.** The aim is to
 // build both and measure which is better at equal token spend rather than
-// assume. This is the other half of that instruction; E.9's harness is what
+// assume. This is the other half of that instruction; the eval harness is what
 // settles it. Nothing here should be read as a recommendation.
 //
-// **Each candidate is its own run.** §3.3 gave the choice — one mutex per run,
+// **Each candidate is its own run.** The design gave the choice — one mutex per run,
 // or a run per candidate correlated by a parent — and recommended the latter,
 // because concurrent appends within one run collide on UNIQUE (run_id, seq) and
 // because a candidate's verification history is worth reading on its own. The
@@ -65,7 +65,7 @@ type SampleResult struct {
 	// FellBack says whether sequential repair ran after the batch failed.
 	FellBack bool
 	// BatchTokenSpend is what the parallel batch cost, *including* the
-	// candidates that failed. This is the number §4.3 compares against
+	// candidates that failed. This is the number the comparison sets against
 	// sequential repair, and leaving out the losers would make the comparison
 	// flattering and meaningless.
 	BatchTokenSpend int
@@ -74,7 +74,7 @@ type SampleResult struct {
 // Run samples K candidates, returns the first that verifies, and falls back to
 // a full sequential repair run when none does.
 //
-// The winner is "first to pass" rather than "best", because Phase 1 has no way
+// The winner is "first to pass" rather than "best", because this package has no way
 // to rank two configs that both compile — that is what the eval harness and a
 // golden-case library would be for, and neither exists yet. Saying so matters:
 // a reader could reasonably assume a batch picks the best of K.
@@ -92,7 +92,7 @@ func (s *Sampler) Run(ctx context.Context, task *Task) (*SampleResult, error) {
 	out := &SampleResult{Candidates: s.K}
 
 	// Cancelling the losers as soon as one passes is the point of the
-	// exercise: the tokens they would go on to spend are wasted, and §4.3's
+	// exercise: the tokens they would go on to spend are wasted, and the
 	// comparison is about spend.
 	batchCtx, cancel := context.WithCancel(ctx)
 	defer cancel()

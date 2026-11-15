@@ -1,7 +1,7 @@
 package datatable
 
 // What a coordinator map's registration does when one of its steps cannot be
-// registered (JM-096). The map row was written first and each step registered in
+// registered. The map row was written first and each step registered in
 // turn, so a step that failed left the map in_progress for ever, with the steps
 // before it running and no notice sent. Now every step is checked before the map
 // row is written, and a step that fails after it is written fails the map and

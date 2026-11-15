@@ -13,9 +13,9 @@ func coverFindings(t *testing.T, doc string) []wsvalidate.Finding {
 	return findings
 }
 
-// coveredDoc gained a `disclaimer` at AK.3: a schema that declares the shape of
-// a briefing declares a delivered artefact, and A§8.3 makes the intended-use
-// notice a required field of it. Confine refuses one without.
+// coveredDoc gained a `disclaimer` with the advisory check: a schema that declares
+// the shape of a briefing declares a delivered artefact, and a delivered artefact
+// carries the intended-use notice as a required field. Confine refuses one without.
 const coveredDoc = `{
   "key": "b",
   "disclaimer": {"field": "cintel:Briefing_Disclaimer"},
@@ -114,7 +114,7 @@ func TestCoverRefusesAnArrayOfArrays(t *testing.T) {
 	}
 }
 
-// A schema with no response_format is what AK.1 shipped and it keeps working:
+// A schema with no response_format is what first shipped and it keeps working:
 // the runtime closure is the only totality it has, which is exactly the state
 // this function improves on rather than replaces.
 func TestCoverIsSilentWithoutAResponseFormat(t *testing.T) {
@@ -161,7 +161,7 @@ func TestSelectorCanonicalIsWhatCoverCompares(t *testing.T) {
 }
 
 // KindDerived cannot express a per-element correspondence, and this measures it
-// rather than asserting it (agentic_ai AK.2, I-436).
+// rather than asserting it.
 //
 // A derived rule resolves its single source against the whole entity and
 // requires exactly one value, so `medications[].adherence_flag` derived from
@@ -169,22 +169,22 @@ func TestSelectorCanonicalIsWhatCoverCompares(t *testing.T) {
 // medication and the source resolves per entity, and nothing pairs them. It is
 // usable for a field that is one per briefing.
 //
-// **This comment used to name the disclaimer as that field and AK.3 did not
-// build it that way.** A derived rule resolves its source against the *input
+// **This comment used to name the disclaimer as that field and it was not
+// built that way.** A derived rule resolves its source against the *input
 // entity*, so a derived disclaimer would have to be serialised into the prompt,
 // restated by the model and compared - three copies of a constant, a per-record
-// token cost against A§8.2's arithmetic, and a record refused when a model
+// token cost against the token arithmetic, and a record refused when a model
 // garbles one character of a legal notice. The notice is asserted onto the
 // record by the projection and the model never sees it; advisory.go's Disclaimer
 // carries the argument. What that leaves is a kind with no live case in the
 // delivered schema, which is a fair thing to know and not a defect: it is the
 // right shape for a field the projection computes and the model restates, which
-// is what A§8.3's *adherence flags* becomes once I-436 is answered.
+// is what the *adherence flags* become once that is settled.
 //
 // This is the shape a rule session would express naturally and the table does
 // not: a rule matching (medication, fill) pairs is what a rete join is for. It
 // is recorded rather than remedied, because the checker's closure is what
-// carries criterion 52 and widening it here would be widening AK.1 to fit AK.2.
+// carries criterion 52 and widening it here would be widening the checker to fit the schema.
 func TestDerivedCannotPairElementsOfAnArray(t *testing.T) {
 	doc := `{"key":"b","rules":[
 	  {"field":"medications[].flag","kind":"derived","sources":["fills[].flag[]"]}]}`

@@ -3,7 +3,7 @@ FROM cpipes_builder:latest AS builder
 
 # JETSTORE FRONT END == VITE BUILD ==
 #
-# **One front end since X.1, 2026-08-26.** This built the Flutter app first and
+# **One front end since 2026-08-26.** This built the Flutter app first and
 # the React bundle beside it; `jetsclient/` is gone, and with it the
 # JETS_CUSTOM_BUTTONS_CONFIG_JSON build arg, which existed to pass
 # `--dart-define=BUTTON_CFG_JSON` into `flutter build web`.

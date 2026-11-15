@@ -9,14 +9,14 @@ import (
 
 // The two detectors, section 12.2 rows 2 and 3. Which two is a measurement
 // rather than a preference: row 1's numerator sums to zero across four
-// production environments and 22.6 billion input records (F72), and row 4's
+// production environments and 22.6 billion input records, and row 4's
 // predicate fires four times in thirty days across all four, so a family
 // cannot be proven on it. Rows 5 and 10 read
 // jetsapi.pipeline_execution_channel_details, which is deployed nowhere.
 //
 // Two rather than one because one detector proves the path and two prove it is
-// a family. The two chosen differ on the axis that matters for the shape N.3
-// decided: row 2 is a predicate over one row's own columns and row 3 is a
+// a family. The two chosen differ on the axis that matters for the decided
+// detector shape: row 2 is a predicate over one row's own columns and row 3 is a
 // comparison against a windowed aggregate, so between them they exercise both
 // halves of "SQL plus a Go emitter".
 //
@@ -41,7 +41,7 @@ import (
 
 // Evidence is one read of the execution record, and what the read could not
 // see. Both detectors take one rather than a list of arguments, and that is
-// the shape R-19 was open about: the extraction's four exported functions
+// the shape that was left open: the extraction's four exported functions
 // turned out to be the right reads, and what a detector wanted that was not
 // there was the composition of them — a baseline window that provably excludes
 // the run being judged, an Extent beside the rows rather than inside one of
@@ -112,7 +112,7 @@ func Gather(ctx context.Context, db DB, detect Window, baselineFor time.Duration
 // It fires only on a worker that reached 'completed'. A worker that failed has
 // already reported itself through its status, and an anomaly beside that
 // failure is the second copy of a signal rather than a new one; a worker still
-// in progress has NULL counts (F99) and is row 4's observation, not this one.
+// in progress has NULL counts and is row 4's observation, not this one.
 type VolumeCollapse struct {
 	// MinRatio fires the detector when output_records_count / input_records_count
 	// is below it. Unsourced; see the file comment.
@@ -150,7 +150,7 @@ var VolumeCollapseConfounders = []string{
 // Detect judges every worker row in ev and returns the anomalies, in the
 // record's own order. A session with no ConfigConfounders entry produces an
 // anomaly whose basis says no configuration was consulted — the one thing
-// I-168 rules out is saying nothing, because an empty anomaly_confounders is a
+// ruled out is saying nothing, because an empty anomaly_confounders is a
 // claim rather than an omission.
 func (d VolumeCollapse) Detect(ev *Evidence) []Anomaly {
 	if ev == nil || ev.Workers == nil {
@@ -163,7 +163,7 @@ func (d VolumeCollapse) Detect(ev *Evidence) []Anomaly {
 		if r.Status != StatusCompleted {
 			continue
 		}
-		// F99: the six counts are NULL for exactly as long as the worker is
+		// The six counts are NULL for exactly as long as the worker is
 		// running, and a coalesce written for tidiness here would turn a
 		// stalled worker into a total collapse.
 		if r.InputRecords == nil || r.OutputRecords == nil {
@@ -206,7 +206,7 @@ func (d VolumeCollapse) Detect(ev *Evidence) []Anomaly {
 func (d VolumeCollapse) recordConfounders(r *WorkerRow, ev *Evidence) []string {
 	var out []string
 	if r.StepId == "" {
-		// F52: ten reducing steps in the corpus carry an empty label, so the
+		// Ten reducing steps in the corpus carry an empty label, so the
 		// anomaly cannot say which step of the config this row is.
 		out = append(out, ConfounderStepLabelAmbiguous)
 	}
@@ -215,7 +215,7 @@ func (d VolumeCollapse) recordConfounders(r *WorkerRow, ev *Evidence) []string {
 	}
 	// Without the per-channel child table there is no way to say which DAG
 	// edge lost the rows, so a collapse cannot be attributed inside the
-	// worker. The table is deployed nowhere as of 2026-08-25 (F71, I-132), so
+	// worker. The table is deployed nowhere as of 2026-08-25, so
 	// this is the ordinary case rather than the exception.
 	if ev.Extent != nil && !ev.Extent.ChannelDetails {
 		out = append(out, ConfounderCrossStepJoinUnavailable)
@@ -252,7 +252,7 @@ func (d VolumeCollapse) basis(r *WorkerRow, in, got int64, cc *ConfigConfounders
 // The source is (client, process_name, main_object_type, cpipes_step_id) and
 // not the input file key, which for a periodic feed differs every run. That is
 // the whole reason this detector needs the run header at all: three of the four
-// keys are on the worker row (F98) and main_object_type is not.
+// keys are on the worker row and main_object_type is not.
 type StepRegression struct {
 	// MinPriorRuns is how many prior runs of the step the baseline must hold
 	// before a failure is called a regression. One prior success is not a
@@ -325,7 +325,7 @@ func (d StepRegression) Detect(ev *Evidence) ([]Anomaly, error) {
 		// computed from the record. Row 3 needs nothing from the configuration:
 		// section 12.3 names its qualifier as "which of cpipes_step_id's
 		// ambiguities applies", and that is a column of the worker row. This is
-		// where the two detectors differ, and it is the answer to I-168 —
+		// where the two detectors differ, and it is the answer to the silence rule —
 		// the gap is a property of row 2 rather than of derivable rows.
 		conf := append([]string(nil), b.Confounders...)
 
@@ -340,7 +340,7 @@ func (d StepRegression) Detect(ev *Evidence) ([]Anomaly, error) {
 			// No expected range and no deviation magnitude, and their absence
 			// is the finding rather than an omission: what this compares is a
 			// status against a history of statuses, so there is no number to
-			// be a minimum of and no distance to measure. I-126 made the three
+			// be a minimum of and no distance to measure. The model made the three
 			// properties optional on the reasoning that within-run predicates
 			// have no range; this is a windowed comparison that has none
 			// either, and row 2 above is a within-run predicate that has one.

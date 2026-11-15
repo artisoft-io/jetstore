@@ -2,7 +2,7 @@ package briefingtmpl_test
 
 // **This is criterion 82 and it is a byte comparison per fixture.**
 //
-// `AY.4` asks that the seventeen tests of `jets/agentic/briefing/prose` run
+// The requirement is that the seventeen tests of `jets/agentic/briefing/prose` run
 // unchanged against the configured engine. They do - they are untouched and
 // they still pass - and what this file adds is the comparison those tests
 // cannot make themselves: the same input through `prose.Render` and through
@@ -13,10 +13,10 @@ package briefingtmpl_test
 //
 // `section1106Entity` and `TestRenderCases`' six mutations are unexported
 // helpers of `package prose`'s own test binary, so no other package can call
-// them, and `AY.3` may not add a file to that directory. **So they are
-// transcribed here rather than shared** (`I-679`), and the transcription is
+// them, and this package may not add a file to that directory. **So they are
+// transcribed here rather than shared**, and the transcription is
 // pinned rather than trusted: every case asserts the two renderers agree, and
-// the anchor case additionally asserts that both produce plan §10.9's printed
+// the anchor case additionally asserts that both produce the drafted document's printed
 // block byte for byte. A transcription that had drifted would fail the second
 // assertion with `prose.Render` on the wrong side of it, which is the failure
 // a copied fixture is supposed to be able to hide.
@@ -98,8 +98,8 @@ func section1106Entity() map[string]any {
 	}
 }
 
-// section1106Rendered is what plan §10.9 prints under "Over P7 §1.10.6's entity
-// that renders", byte for byte, and it is what `prose_test.go` asserts.
+// section1106Rendered is what the drafted document prints for the specified entity,
+// byte for byte, and it is what `prose_test.go` asserts.
 const section1106Rendered = `Informational only. Prepared from claims data for a call-centre
 representative, who is not a clinician. This is not medical advice, not a
 diagnosis and not a treatment recommendation, and it must not be used to make
@@ -170,12 +170,12 @@ func TestTheAnchorFixture(t *testing.T) {
 		t.Fatalf("render: %v", err)
 	}
 	if got != section1106Rendered {
-		t.Fatalf("the rendered artefact differs from plan §10.9.\n--- want ---\n%s\n--- got ---\n%s",
+		t.Fatalf("the rendered artefact differs from the drafted output.\n--- want ---\n%s\n--- got ---\n%s",
 			section1106Rendered, got)
 	}
 }
 
-// TestTheJoinedMedicationValueIsNeverRead is I-544 asserted rather than
+// TestTheJoinedMedicationValueIsNeverRead is a design rule asserted rather than
 // commented: the joined value is the prompt's and the components are the
 // template's, and a document that quietly fell back to parsing the joined value
 // would pass every other case in this file.
@@ -193,7 +193,7 @@ func TestTheJoinedMedicationValueIsNeverRead(t *testing.T) {
 	}
 }
 
-// TestTheTwoRefusalsThatAreTemplateAssertions is §10.7's split demonstrated:
+// TestTheTwoRefusalsThatAreTemplateAssertions is the design's split demonstrated:
 // the two claims about the record are `require`s in the document, and each
 // still names the property it is about.
 func TestTheTwoRefusalsThatAreTemplateAssertions(t *testing.T) {
@@ -216,8 +216,8 @@ func TestTheTwoRefusalsThatAreTemplateAssertions(t *testing.T) {
 			t.Fatal("expected a refusal: prose delivered without its notice is worse than no output")
 		}
 	})
-	// **And the third refusal is the caller's**, which is the half of §10.7
-	// that this package rather than the document carries (I-623).
+	// **And the third refusal is the caller's**, which is the half of the design
+	// that this package rather than the document carries.
 	t.Run("a prefixed entity", func(t *testing.T) {
 		_, err := agree(t, map[string]any{
 			"cintel:Briefing_Disclaimer":  shippedNotice,
@@ -452,19 +452,19 @@ func TestNoLineExceedsTheWidth(t *testing.T) {
 	}
 }
 
-// TestTheTwoBehavioursNoFixtureSees is `AY.3`'s two decisions asserted, and it
+// TestTheTwoBehavioursNoFixtureSees is this package's two decisions asserted, and it
 // is the whole reason they are decisions rather than inheritances.
 //
-// **`I-621` - the count fallbacks - is reproduced**, and the argument is that
-// dropping it does not cost a sentence. Without the fallback an entity carrying
+// **The count fallbacks are reproduced**, and the argument is that
+// dropping them does not cost a sentence. Without the fallback an entity carrying
 // events and no count fails every element gate *and* the group's guard, so the
 // fallback fires and the briefing says **No claims activity on record for this
 // member** about a member with claims. That is an affirmative false statement
 // rather than an omission, and it is the failure mode `prose.Render`'s
-// prefixed-entity refusal exists to prevent. `I-621` priced it as a briefing
+// prefixed-entity refusal exists to prevent. An earlier reading priced it as a briefing
 // "missing a sentence"; it is the briefing.
 //
-// **`I-622` - `Maintenance` matched with `EqualFold` - is reproduced**, and it
+// **`Maintenance` matched with `EqualFold` is reproduced**, and it
 // is exact rather than approximate: `strings.EqualFold(s, "Y")` over a trimmed
 // value is true for `y` and for `Y` and for nothing else, so
 // `Maintenance == 'Y' or Maintenance == 'y'` is that function written out. It
@@ -474,7 +474,7 @@ func TestNoLineExceedsTheWidth(t *testing.T) {
 // because agreement is what is being demonstrated - so each case asserts the
 // text, and `agree` asserts that `prose.Render` says the same thing.
 func TestTheTwoBehavioursNoFixtureSees(t *testing.T) {
-	t.Run("I-621 a medical count absent beside a populated list", func(t *testing.T) {
+	t.Run("a medical count absent beside a populated list", func(t *testing.T) {
 		got, err := agree(t, map[string]any{
 			"Briefing_Disclaimer": shippedNotice,
 			"has_Briefing_Medical_Events": []any{
@@ -492,7 +492,7 @@ func TestTheTwoBehavioursNoFixtureSees(t *testing.T) {
 			t.Errorf("the fallback did not count the list:\n%s", got)
 		}
 	})
-	t.Run("I-621 a fill count absent beside fill dates", func(t *testing.T) {
+	t.Run("a fill count absent beside fill dates", func(t *testing.T) {
 		got, err := agree(t, map[string]any{
 			"Briefing_Disclaimer":  shippedNotice,
 			"Medical_Event_Count":  0,
@@ -509,7 +509,7 @@ func TestTheTwoBehavioursNoFixtureSees(t *testing.T) {
 			t.Errorf("the fill-date fallback did not fire:\n%s", got)
 		}
 	})
-	t.Run("I-622 a lower-case maintenance indicator", func(t *testing.T) {
+	t.Run("a lower-case maintenance indicator", func(t *testing.T) {
 		got, err := agree(t, map[string]any{
 			"Briefing_Disclaimer":  shippedNotice,
 			"Medical_Event_Count":  0,
@@ -529,17 +529,17 @@ func TestTheTwoBehavioursNoFixtureSees(t *testing.T) {
 	})
 }
 
-// TestTheEmptyCaseIsReachedByBothOfItsPredicates is F1149 asserted, and it is
-// the one place §10.9's document and this one differ in structure rather than
+// TestTheEmptyCaseIsReachedByBothOfItsPredicates is a finding asserted, and it is
+// the one place the drafted document and this one differ in structure rather than
 // in wording. `renderBody` returns the empty sentence when both counts are zero
 // - **before any element runs** - and again when every element produced
-// nothing. §10.9 writes the first as a conjunct on the conditions element,
+// nothing. The draft writes the first as a conjunct on the conditions element,
 // which leaves the medications element ungated; this document writes it as a
 // nested group, so the guard is one predicate covering all three.
 //
 // The input that separates the two is a pharmacy count of zero beside a
 // populated event list and no medical activity: `prose.Render` emits the empty
-// sentence and §10.9's document would emit `Medications:`.
+// sentence and the draft would emit `Medications:`.
 func TestTheEmptyCaseIsReachedByBothOfItsPredicates(t *testing.T) {
 	t.Run("both counts zero suppresses an element that would otherwise emit", func(t *testing.T) {
 		got, err := agree(t, map[string]any{
@@ -574,12 +574,12 @@ func TestTheEmptyCaseIsReachedByBothOfItsPredicates(t *testing.T) {
 	})
 }
 
-// TestAnEmptyConditionDoesNotEmitAnEmptyClause is the second place §10.9 and
-// this document differ. §10.9 gates the conditions element on
+// TestAnEmptyConditionDoesNotEmitAnEmptyClause is the second place the draft and
+// this document differ. The draft gates the conditions element on
 // `Condition_Summary[]|count > 0`, which counts values; `elementConditions`
 // filters values that are empty **after** the code is stripped and only then
 // asks whether anything is left. A condition that is nothing but its code is
-// the input that separates them, and §10.9's gate would emit
+// the input that separates them, and the draft's gate would emit
 // `Conditions on record: .`
 func TestAnEmptyConditionDoesNotEmitAnEmptyClause(t *testing.T) {
 	got, err := agree(t, map[string]any{

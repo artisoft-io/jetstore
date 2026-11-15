@@ -8,7 +8,7 @@ import (
 // Violation is a `require` that a record did not satisfy.
 //
 // **It is data rather than an error, and that is the design rather than a
-// dodge.** The distinction Phase 7 drew is precisely this one: a failure of the
+// dodge.** The distinction the `prose` package drew is precisely this one: a failure of the
 // *renderer* is what disqualifies a control, and a record missing a property
 // its template declares required is the *data* failing. The renderer still
 // renders; it reports what was not there. What that buys is that the diagnosis
@@ -18,7 +18,7 @@ import (
 // **The caller decides what a violation costs.** A caller reproducing
 // `prose.Render` maps a non-empty list to an error; whether the `render`
 // operator fails the row into its error channel or writes the column and
-// reports separately is Q-107, settled where the operator's tests are written.
+// reports separately is settled where the operator's tests are written.
 type Violation struct {
 	// Message is the template's own words, verbatim. It is the whole of what a
 	// reader has to act on, which is why an empty one is a compile failure.
@@ -73,7 +73,7 @@ func (t *Template) Render(doc map[string]any) (string, []Violation) {
 	return strings.Join(wrapped, "\n\n"), r.violations
 }
 
-// render emits an element's paragraphs (§10.6).
+// render emits an element's paragraphs.
 //
 // A paragraph emits when its `when` holds and its rendered text is not blank,
 // which is `renderBody`'s rule as data. A group emits its children in array
@@ -127,7 +127,7 @@ func (s literalSpan) render(any, *renderState) string { return s.text }
 // the substitution asserts one and there is nothing to write.
 //
 // **The test is on the rendered text rather than on the resolution**, which is
-// the stricter of the two readings of §10.4's "yields nothing" and is the one
+// the stricter of the two readings of the notation's "yields nothing" and is the one
 // that reproduces what it generalises: both refusals of `prose.Render` compare
 // the trimmed text with the empty string, so a property present and blank is
 // already a failure there (`Render`, `jets/agentic/briefing/prose/prose.go:148`).
@@ -153,7 +153,7 @@ func (s ifSpan) render(ctx any, r *renderState) string {
 }
 
 // render scopes a span to the node the chain yields, and emits nothing when it
-// yields none. **That guard is the whole argument for the form** (F1148): the
+// yields none. **That guard is the whole argument for the form**: the
 // alternative is writing the chain out once per substitution and guarding each
 // occurrence by hand, which is what the notation's source sketch did and is
 // what it got wrong.
@@ -172,7 +172,7 @@ func (s withSpan) render(ctx any, r *renderState) string {
 // render emits the span once per node and joins the results.
 //
 // **It joins with `join`**, so a span that renders blank is skipped rather than
-// leaving a separator with nothing on one side of it. That is I-624's
+// leaving a separator with nothing on one side of it. That is the `join`
 // refinement applied consistently: the same rule in the construct and in the
 // block form, rather than two answers to one question.
 func (s eachSpan) render(ctx any, r *renderState) string {

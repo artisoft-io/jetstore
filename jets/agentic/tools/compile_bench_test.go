@@ -6,9 +6,9 @@ import (
 	"testing"
 )
 
-// I-21 asked for a measurement before a fix: compile_rule_file copies the
+// A measurement was asked for before a fix: compile_rule_file copies the
 // workspace's .jr tree on every call, which is invisible for one interactive
-// compile and might not be for E.8's fan-out, where K candidates each compile
+// compile and might not be for the sampler's fan-out, where K candidates each compile
 // on every repair iteration.
 //
 // Run with: go test -bench . -benchtime 10x ./jets/agentic/tools/

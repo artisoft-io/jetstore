@@ -216,7 +216,7 @@ def test_the_sink_kinds_are_the_go_constants():
         assert f'{name}       = "{value}"' in source or f'{name} = "{value}"' in source
 
 
-# --- the measurement P9-I01 asks for ----------------------------------------
+# --- the measurement of the side-effect list ---------------------------------
 
 
 def test_the_side_effect_set_is_the_four_writes_and_no_others():
@@ -224,7 +224,7 @@ def test_the_side_effect_set_is_the_four_writes_and_no_others():
 
     **Derived from the tree rather than listed here.** The subject is every such
     statement in the package, so a fifth write added on the other side of the
-    seam makes this red — which is exactly what P9-I01 asks for: the list is
+    seam makes this red — which is exactly what was asked for: the list is
     measured once and a later one is a conformance failure rather than a feature
     request.
 
@@ -234,8 +234,8 @@ def test_the_side_effect_set_is_the_four_writes_and_no_others():
     is reached from nowhere at all.
 
     **The manifest write is the first time this guard has fired, 2026-09-21, and
-    it fired correctly.** `jetstore_maintenance_01`'s track `AC` built `D-255`'s
-    run manifest, whose UPDATE lands in `run_manifest.go`. It is not this node's
+    it fired correctly.** The run manifest built that day has its UPDATE in
+    `run_manifest.go`. It is not this node's
     for the same reason the starters' are not: it is written from
     `StatusUpdate.CoordinateWork`, once per run, after the run's five-way status
     has been computed, by something that knows every node finished. A worker
@@ -272,9 +272,9 @@ def test_the_side_effect_set_is_the_four_writes_and_no_others():
         "actions_start_reducing_cp.go",
         "actions_start_sharding_cp.go",
         "compute_pipes.go",
-        # The run manifest (D-255), written from StatusUpdate.CoordinateWork
+        # The run manifest, written from StatusUpdate.CoordinateWork
         # rather than from a worker. Added 2026-09-21 when this assertion went
-        # red on jetstore_maintenance_01's track AC -- the guard working, not a
+        # red on the run-manifest work -- the guard working, not a
         # guard being widened to keep quiet.
         "run_manifest.go",
     }
@@ -317,7 +317,7 @@ def test_domain_keys_registry_is_neither_the_nodes_nor_the_starters():
 
 
 def test_cpipes_results_is_written_by_nothing_and_so_this_node_writes_it_too():
-    """**P9-I62.** `SaveResultsContext.Save` is reached from nowhere.
+    """`SaveResultsContext.Save` is reached from nowhere.
 
     Its five call sites are commented out in `actions_process_file.go` and have
     been since 2024-07-18. The assertion is in both directions: the method exists
@@ -338,14 +338,14 @@ def test_cpipes_results_is_written_by_nothing_and_so_this_node_writes_it_too():
 
 
 def test_the_execution_status_update_is_behind_two_conditions_this_node_refuses():
-    """**P9-I63**, and the brief named one of the two conditions.
+    """The guard is two conditions, and the brief named one of them.
 
     `if cpCtx.NodeId == 0` is the inner guard. It sits inside
     `if inputSchemaCh != nil`, and `inputSchemaCh` is non-nil only when the input
     format is parquet **and** the mode is `sharding`. This node refuses both —
     a non-generator channel by the scope gate and sharding mode by name — so no
     document it accepts can reach the Go write, and implementing it would be a
-    path no document can take (P4-I43's class).
+    path no document can take (a known class).
 
     Both halves are read out of the Go source rather than asserted from memory,
     because the whole value of the finding is that the second condition was not
@@ -377,18 +377,36 @@ def test_the_execution_status_update_is_behind_two_conditions_this_node_refuses(
         _file_keys(sharding, NodeArgs(id=0, pe=1))
 
 
-def test_the_error_path_writes_nothing_and_this_node_adds_nothing(monkeypatch):
-    """**P9-I64.** The `gotError:` label logs and returns, carrying a TODO.
+def test_the_go_error_path_records_a_failed_row_and_this_node_does_not():
+    """Go's `gotError:` label records a `failed` row; this node's startup does not.
 
-    Filling it in would diverge in the direction that looks like an improvement,
-    which is the hardest kind to argue back out — so the TODO's presence is
-    asserted, and so is the fact that this node's failure path writes the
-    *status* row and no error row of its own.
+    The label used to log and return, carrying a TODO, and this test asserted
+    that. Since 2026-10-05 it calls `RegisterNodeError`, which inserts the
+    `in progress` row and updates it to `failed` with the error's text, so that
+    an error raised before the files are processed reaches the pipeline status
+    when the node runs as an ECS task.
+
+    This node does not mirror it: `coordinate` resolves its file keys before
+    `effects.begin()`, so a startup refusal leaves no row. That divergence is
+    asserted in both directions, so the day either side changes, this goes red
+    and says which.
     """
+    import inspect
+
+    from cpipes_node import node
+
     source = go_source("jets/compute_pipes/actions_coordinate_cp.go")
-    assert "//*TODO insert error in pipeline_execution_details" in source
     tail = source[source.index("gotError:") :]
-    assert "INSERT" not in tail and "UPDATE" not in tail
+    assert "args.RegisterNodeError(" in tail
+    process = go_source("jets/compute_pipes/actions_process_file.go")
+    register = process.split(
+        "func (args *ComputePipesNodeArgs) RegisterNodeError(", 1
+    )[1].split("\n}\n", 1)[0]
+    assert "InsertPipelineExecutionStatus(" in register
+    assert '"failed", nodeErr.Error()' in register
+
+    coordinate = inspect.getsource(node.coordinate)
+    assert coordinate.index("_file_keys(") < coordinate.index("effects.begin()")
 
 
 # --- the two rows -----------------------------------------------------------
@@ -764,7 +782,7 @@ def test_a_kill_switch_is_not_a_failure():
 def test_the_four_metric_names_are_the_go_switchs_own():
     """Read off `ReportMetrics`' `case` labels.
 
-    The partition into measurable and not is this node's judgement (P9-I65); the
+    The partition into measurable and not is this node's judgement; the
     *set* of four is Go's, and a fifth metric added there makes this red.
     """
     source = go_source(METRICS_GO)
@@ -776,7 +794,7 @@ def test_the_four_metric_names_are_the_go_switchs_own():
 
 
 def test_a_metric_this_runtime_cannot_measure_is_not_written(caplog):
-    """**D-225**, whose cost is P9-I65, and the direction is `RowCountUnknown`'s
+    """**The metrics decision**, whose cost is recorded, and the direction is `RowCountUnknown`'s
     argument one table over.
 
     `alloc_mb` is the live heap and `total_alloc_mb` is cumulative-ever-allocated;
@@ -790,7 +808,7 @@ def test_a_metric_this_runtime_cannot_measure_is_not_written(caplog):
 
 
 def test_nothing_in_the_metric_row_says_which_runtime_wrote_it():
-    """**P9-I65, which D-225 does not close.**
+    """**The cost the metrics decision does not close.**
 
     The table is `(session_id, jets_partition, node_id, category, name, value,
     units)` and there is no engine column, so a consumer comparing a Go row with
@@ -900,7 +918,7 @@ def test_a_run_with_no_database_writes_nothing_and_is_not_a_double():
 
 
 def test_nothing_in_this_package_imports_a_database_driver():
-    """The seam P9-T14's image depends on, asserted structurally.
+    """The seam the node's image depends on, asserted structurally.
 
     Its packaging notes record that declaring `psycopg` as an extra would
     contradict the package's refusal to import one, so the refusal is held by a
@@ -985,7 +1003,7 @@ def test_a_crashed_node_closes_its_own_row_as_failed(tmp_path):
 def test_a_document_the_scope_gate_refuses_writes_no_row_at_all(tmp_path):
     """A run that never started is not an `in progress` row.
 
-    Everything X6 refuses happens before the INSERT, deliberately: a
+    Everything the scope rule refuses happens before the INSERT, deliberately: a
     `pipeline_execution_details` row for a document this node will not run would
     say a worker started.
     """
@@ -1039,7 +1057,7 @@ def test_a_merge_reports_its_synthetic_edge_as_a_child_row(tmp_path):
 
 
 def test_a_graph_run_reports_each_writer_as_an_edge(tmp_path):
-    """**P9-I67's hole, closed.** This test asserted that a graph run reported
+    """**The writer-edge hole, closed.** This test asserted that a graph run reported
     no edge, and said it would go red "when the first writer lands owing its
     `WriterResult`". The writer landed and the test stayed green, because its
     document had no writer in it - and the first completed deployed run (2423,

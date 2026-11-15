@@ -47,7 +47,7 @@ func TestReport_RefusesAReportNobodyCanPlace(t *testing.T) {
 			Era: EraPreTemplates, Model: "m", CaseSource: "s", HeldOutFiles: []string{"a"},
 			Operators: []OperatorResult{{Operator: "clustering", Attempted: 1, LiveInstances: 0}},
 		}},
-		// P.1's two additions. A figure that cannot say what produced it or
+		// The two provenance fields. A figure that cannot say what produced it or
 		// what it measured is the one that travels furthest.
 		{"no model", &Report{
 			Era: EraPreTemplates, CaseSource: "s", HeldOutFiles: []string{"a"},
@@ -66,7 +66,7 @@ func TestReport_RefusesAReportNobodyCanPlace(t *testing.T) {
 	}
 }
 
-// The three reporting shapes decision 13 requires, each with the reason it is
+// The three reporting shapes the rules require, each with the reason it is
 // not the obvious one.
 func TestReport_RendersEachOperatorHonestly(t *testing.T) {
 	r := &Report{
@@ -228,20 +228,20 @@ func TestCoverage_NamesWhatTheSplitCannotMeasure(t *testing.T) {
 // a prose-only or partial checkout will not have them, so this skips rather
 // than fails.
 //
-// **Nothing here asserts a count, and that is the whole of BB.3.** Until
+// **Nothing here asserts a count, and that is the whole point.** Until
 // 2026-09-11 this test asserted `len(c.Files) == 41` and `len(c.Instances) ==
 // 455` as literals. They are a property of four *other* repositories --
 // the corpus's four workspaces are living workspaces that track
 // real installations -- so every legitimate asset change landed here as a red
 // test. The comment this one replaces was a four-paragraph account of the three
-// times that happened in a month, and a fourth -- BA.1 removing two drain pipes,
+// times that happened in a month, and a fourth -- an asset change removing two drain pipes,
 // 455 to 453 -- is what retired them. **Its own record is the argument: three
 // false failures and, in that account, not one walker defect.** A detector with
 // that ratio is worse than none, because a test that is red for a legitimate
 // reason is one somebody eventually edits without reading.
 //
 // **The two literals were doing three jobs and only one of them wanted an
-// equality** (Phase 8 §1.7.1). Each is now served by the thing it actually
+// equality**. Each is now served by the thing it actually
 // needed, and each assertion below says which job it is standing in for, so that
 // a future reader does not "restore" a number:
 //
@@ -255,9 +255,9 @@ func TestCoverage_NamesWhatTheSplitCannotMeasure(t *testing.T) {
 //     fail rather than skip. That is a *floor*, and growth cannot break a floor.
 //   - **Be the denominator** every operator-coverage figure in this project
 //     rests on. That is a *measurement*, logged with the run that produced it
-//     and written down with its date -- here, and in the prose at BB.4.
+//     and written down with its date.
 //
-// **What this loses is real and is R-112.** A floor and a relation cannot catch
+// **What this loses is real, and it is an accepted risk.** A floor and a relation cannot catch
 // a walker that miscounts by a constant; an equality could. What recovers most
 // of it is `TestTheWalkerCountsNestedShapes`, which asserts exact numbers over a
 // committed fixture -- a defect that shows over the shapes the fixture carries
@@ -267,7 +267,7 @@ func TestCoverage_NamesWhatTheSplitCannotMeasure(t *testing.T) {
 // head-operator skew assertion below are properties rather than counts, predate
 // this phase, and have never gone stale.
 //
-// **The -count=1 hazard is untouched by any of this (F1139).** The corpus lives
+// **The -count=1 hazard is untouched by any of this.** The corpus lives
 // outside the Go module, so nothing in the cache key changes when `workspaces/`
 // moves: an old-corpus `ok` is replayed against a new corpus, and it is
 // indistinguishable from a real pass. That cost three merges in September.
@@ -315,7 +315,7 @@ func TestAgainstTheRealCorpus(t *testing.T) {
 	// of 41" names the exclusion and "loaded 3 of 3" names the checkout.
 	if len(c.Files) < 35 {
 		t.Errorf("the corpus loaded %d of the %d .pc.json on disk; the exclusion is dropping "+
-			"authored configs (I-13's definition is workspaces/*/pipes_config/**, less what "+
+			"authored configs (the definition is workspaces/*/pipes_config/**, less what "+
 			"the asset manifest names)", len(c.Files), len(onDisk))
 	}
 	// **The relation, standing in for `len(c.Instances) == 455`.** This is the
@@ -352,7 +352,7 @@ func TestAgainstTheRealCorpus(t *testing.T) {
 	// rather than a count, which is why it has never gone stale.
 	head := byOp["map_record"] + byOp["partition_writer"]
 	if head*100/len(c.Instances) < 70 {
-		t.Errorf("the two head operators are %d%% of %d instances; the skew decision 13 assumes has changed",
+		t.Errorf("the two head operators are %d%% of %d instances; the skew the reporting rules assume has changed",
 			head*100/len(c.Instances), len(c.Instances))
 	}
 }
@@ -474,7 +474,7 @@ func sortedOperators(byOp map[string]int) []string {
 func repoRootWithWorkspaces(t *testing.T) string {
 	t.Helper()
 	// The corpus lives in the *parent* checkout: workspaces/ are submodules of
-	// jetstore_agentic_ai, not of this repo. A worktree that initialised only
+	// the parent repository, not of this repo. A worktree that initialised only
 	// jetstore_ai has none, which is why this test skips rather than fails —
 	// and why the override exists, since the parent is not always one level up.
 	if root := os.Getenv("JETS_EVAL_CORPUS_ROOT"); root != "" {
@@ -488,7 +488,7 @@ func repoRootWithWorkspaces(t *testing.T) string {
 	return filepath.Clean(filepath.Join(wd, "..", "..", "..", ".."))
 }
 
-// --- P.1's additions: filling a hole, and saying why one was not filled ----
+// --- Filling a hole, and saying why one was not filled ---------------------
 
 // The corpus API could cut a hole and could not fill one, which is what the
 // first caller needed: a compile-pass gate judges a whole config, and a
@@ -576,13 +576,13 @@ func TestReport_DistinguishesNotRunByTheSplitFromNotRunByTheHarness(t *testing.T
 	}
 }
 
-// --- BB.3: the exact counts, on a fixture rather than on the corpus --------
+// --- The exact counts, on a fixture rather than on the corpus --------------
 
 // nestedShapes is the walker's fixture: both authored roots, both depths, and
 // an `apply` inside an `apply`.
 //
 // **An exact count over a committed fixture is legitimate and an exact count
-// over `workspaces/` is not**, which is the whole of the trade BB.3 makes. This
+// over `workspaces/` is not**, which is the whole of the trade made here. This
 // document is this repository's; it changes when somebody means it to, and the
 // numbers below move in the same commit. The corpus is four other repositories
 // tracking real installations, and its numbers move on somebody else's Tuesday.
@@ -624,7 +624,7 @@ const nestedShapes = `{
 // that miscounts by a constant, or that stops descending at one of the four
 // shapes above, fails here by name and by operator rather than by a total nobody
 // can place. What it cannot see is a shape the corpus has and this document does
-// not -- R-112, accepted.
+// not -- an accepted risk.
 func TestTheWalkerCountsNestedShapes(t *testing.T) {
 	got, err := instancesIn([]byte(nestedShapes), "nested.pc.json")
 	if err != nil {

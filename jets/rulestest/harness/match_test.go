@@ -13,7 +13,7 @@ func text(s string) Term { return Term{Kind: TermText, Text: s} }
 func intT(s string) Term { return Term{Kind: TermInt, Text: s} }
 
 // session: two persons whose subjects a test cannot name (create_entity mints
-// them, definition F57), one with two names; an int and an unsigned 2; a date.
+// them), one with two names; an int and an unsigned 2; a date.
 func testSnapshot() *Snapshot {
 	return NewSnapshot([]SnapshotTriple{
 		{res("jets:iState"), res("jets:completed"), intT("1")},

@@ -15,17 +15,16 @@ the matrix's `applicable` column, the emitted schema - so the sixteenth tag
 added to `ComputePipesConfig` in Go goes red here on the day it lands rather
 than on the day a node is handed one. A test naming the pair would pass for
 ever afterwards while the same gap reopened one field over, which is the whole
-reason `AD` is four tasks for a two-line repair.
+reason this is several tests for a two-line repair.
 
 **And two of them are about what the repair must *not* do.** The authored
 model and the emitted schema go on refusing the runtime shape;
-`negative_suite.json`'s *root pipes_config (I-14 runtime shape)* case expects
+`negative_suite.json`'s *root pipes_config* runtime-shape case expects
 exactly that, and a repair that widened `ComputePipesConfig` instead would have
 made that negative start passing. The refusal is the contract, not an
 oversight.
 
-Written for `jetstore_maintenance_01` Phase 1, track `AD`, closing
-`healthcare_corpus`'s `P9-I28` (read 2026-09-20).
+Written after the gap was reported on 2026-09-20.
 """
 
 from __future__ import annotations
@@ -134,7 +133,7 @@ def test_the_split_between_the_two_models_is_the_one_the_matrix_records():
 
     Derived rather than typed. A field marked `applicable=no` tomorrow joins
     the runtime model or this goes red, so the two artefacts cannot drift into
-    the arrangement that produced `P9-I28` - a contract that knows a field is
+    the arrangement that produced the gap - a contract that knows a field is
     never authored and no model that accepts it anyway.
     """
     authored = set(model.ComputePipesConfig.model_fields)
@@ -193,7 +192,7 @@ def test_the_authored_model_goes_on_refusing_the_runtime_document():
 
 
 def test_the_emitted_schema_goes_on_refusing_the_runtime_shape():
-    """`negative_suite.json`'s *root pipes_config (I-14 runtime shape)* case.
+    """`negative_suite.json`'s *root pipes_config* runtime-shape case.
 
     That case expects `invalid` and is run by `python -m cpipes_contract
     validate` and by `go run ./tools/cpipes_contract/validate`. It is asserted

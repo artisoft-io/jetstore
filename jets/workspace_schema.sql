@@ -213,8 +213,8 @@ CREATE TABLE IF NOT EXISTS rule_sequences (
   UNIQUE (name)
 );
 
--- unit_tests: the rules unit tests the compile found under jet_rules/unit_tests/
--- (rules_unit_test_harness, task AD.1). path is relative to the workspace root.
+-- unit_tests: the rules unit tests the compile found under jet_rules/unit_tests/.
+-- path is relative to the workspace root.
 -- findings is NULL for a test that may be started, else the JSON array of the
 -- error findings that refuse it; warnings are not recorded here, so a test with
 -- warnings alone stays runnable. An invalid test is recorded, not fatal.

@@ -4,13 +4,13 @@ Three Go files are mirrored here and only as far as a **guard** reaches:
 `utils/conversions.go`'s substitution and int parsing, `eval_expression.go`'s
 `BuildExprNodeEvaluator`, and `eval_operators.go`'s operator table. Nothing here
 evaluates a *column*: that is `TransformationColumnSpec`'s vocabulary and it is
-P9-T06's, reached through `OperatorEnv.column_evaluator`.
+reached through `OperatorEnv.column_evaluator`.
 
 **The subset is declared and everything outside it is refused by name, at build
 time** — which is `scope.py`'s rule one level down, and for scope.py's reason. A
 `when` this node could not evaluate and quietly treated as true would apply a
 step an author asked it not to; treated as false it would skip one they asked
-for. Both are silent, and the second is X6's own failure mode. So
+for. Both are silent, and the second is the scope rule's own failure mode. So
 `SUPPORTED_OPERATORS` and `SUPPORTED_LEAF_TYPES` are the declaration, an
 unsupported token raises `ExpressionUnsupported` naming the token and the task
 that owes it, and the refusal happens while the graph is being built, before a
@@ -106,7 +106,7 @@ def to_int_with_env(value: Any, env: Mapping[str, Any] | None) -> int:
     """`utils.ToIntWithEnv`: **substitute, then parse, with no arithmetic**.
 
     This is the whole of how `nbr_rows` and `nbr_nodes` are resolved, and the
-    measured constraint it puts on the corpus is D-217's: there is no
+    measured constraint it puts on the corpus is this: there is no
     expression a document can carry that divides a household count by a node
     count, so `nbr_rows` is computed where the env is assembled and every node
     is told the same number.

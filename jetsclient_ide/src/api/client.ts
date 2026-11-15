@@ -25,7 +25,7 @@
  * they lacked a capability for. The apiserver answered 401 for both a dead token and
  * a refused capability, so `post` could not tell them apart and treated every one as
  * an expiry: a refusal presented as a session failure, on every screen with a gated
- * write. Raised as ui_refresh **I-189** by C.14, fixed at **C.17**.
+ * write.
  *
  * **The fix is on the server**, because it had to be. The obvious cheap alternative —
  * read the error string — cannot work, and that is a stronger statement than "it is
@@ -38,7 +38,7 @@
  * So `jets/datatable`'s `AuthzStatusFor` now answers 403 for the two policy refusals
  * and 401 for everything else, the four gates in `jets/apiserver` pair the same way,
  * and this file reads the status. **The messages did not move**; only the status did,
- * which is what keeps I-124's byte-identical refusals intact.
+ * which is what keeps the byte-identical refusals intact.
  */
 
 import { parseCustomButtons, type CustomButton } from "../actions/customButtons";
@@ -49,7 +49,7 @@ import { parseCustomButtons, type CustomButton } from "../actions/customButtons"
  * **An html page is the load balancer's, not the apiserver's**: a 502 or 504
  * when the apiserver dropped the connection (a panic) or did not answer in time.
  * Until 2026-10-16 the banner showed that page's raw html, padding comments and
- * all (Michel, deleting a source configuration at a client). Its `<title>`
+ * all (found deleting a source configuration at a client). Its `<title>`
  * names the status; the rest is markup. A bare string is the server's own words
  * and passes through, trimmed and capped.
  */
@@ -85,12 +85,12 @@ export class SessionExpiredError extends ApiError {
 }
 
 /**
- * Thrown on 403: the session is live and the server refused what was asked. C.17.
+ * Thrown on 403: the session is live and the server refused what was asked.
  *
  * **It extends `ApiError` and not `SessionExpiredError`, and that is the whole of
  * its contract.** Every existing consumer already discriminates on
  * `err instanceof SessionExpiredError` — `WorkspaceIde`'s `guard`, and the
- * `agentic_ai` project's `ProposalsScreen` and `ProposalScreen` — so a refusal now
+ * `ProposalsScreen` and `ProposalScreen` (`src/proposals/`) — so a refusal now
  * falls into the branch that shows the message rather than the branch that clears
  * the session. Those three call sites needed no edit; they were already written for
  * a distinction the server could not make.
@@ -111,7 +111,7 @@ export class PermissionDeniedError extends ApiError {
 /**
  * The signed-in user's git identity, as the sign-in response carries it.
  *
- * Task C.14. **Three fields of the four the server sends**, and the omission is
+ * **Three fields of the four the server sends**, and the omission is
  * the point — see `LoginResponse.gitProfile` below.
  */
 export interface GitProfile {
@@ -130,19 +130,19 @@ export interface User {
    * The image's `<branch>-<sha>`, from `JETS_GIT_SHA` (`jets/apiserver/api_users.go`,
    * the `"jetstore_git_sha"` entry of the login `data` map). Empty on a
    * workstation, where nothing sets it. Rendered with `jetstoreVersion` by
-   * `formatBuildInfo` (`shell/buildInfo.ts`) — jetstore_maintenance_02, D05.
+   * `formatBuildInfo` (`shell/buildInfo.ts`).
    */
   jetstoreGitSha: string;
   /**
    * The deployment's own Pipeline Status buttons, from the login response's
-   * `custom_buttons` (`jets/apiserver/custom_buttons.go`). jetstore_maintenance_02
-   * `D04`, `AE.8`. Empty when the deployment configures none or the value cannot
+   * `custom_buttons` (`jets/apiserver/custom_buttons.go`).
+   * Empty when the deployment configures none or the value cannot
    * be used — see `actions/customButtons.ts` for why it is all or nothing.
    */
   customButtons: CustomButton[];
   devMode: boolean;
   /**
-   * The git identity, for the git profile screen. Task C.14.
+   * The git identity, for the git profile screen.
    *
    * It lives on the user rather than on the screen because that is where the
    * Flutter app keeps it and what makes the screen's route parameterless: the
@@ -183,7 +183,7 @@ interface LoginResponse {
    * at the response; a client that kept it would put a live credential in
    * browser memory for the length of the session and into whatever the client
    * persists. The profile screen asks the user to type the token when they want
-   * to change it, which is what the Flutter form does. Recorded as **I-188**.
+   * to change it, which is what the Flutter form does.
    */
   gitProfile?: {
     git_name?: string;
@@ -227,7 +227,7 @@ export class ApiClient {
   }
 
   /**
-   * Creates an account. Task X.4.
+   * Creates an account.
    *
    * **Registration does not sign you in, and that is the Dart's behaviour rather
    * than an omission.** `CreateUser` mints a token and returns it
@@ -299,7 +299,7 @@ export class ApiClient {
   }
 
   /**
-   * Records a git profile the user has just saved. Task C.14.
+   * Records a git profile the user has just saved.
    *
    * The server writes `jetsapi.users` and answers with no profile, so the copy
    * held here would otherwise stay at what sign-in returned until the next one —
@@ -344,7 +344,7 @@ export class ApiClient {
    * jets/apiserver/api_agentic.go). Same envelope shape as /dataTable: an
    * `action` name and its arguments.
    *
-   * Added by the agentic_ai project, whose screens live in `src/proposals/`;
+   * Added for the agentic layer, whose screens live in `src/proposals/`;
    * this method is the whole of its footprint on the api client.
    */
   async agentic<T = Record<string, unknown>>(
@@ -354,18 +354,18 @@ export class ApiClient {
   }
 
   /**
-   * POST to one of the endpoints an authored action may name. Task F.0a.
+   * POST to one of the endpoints an authored action may name.
    *
    * `dataTable` was the only public poster, and a flow's `post` step names an
    * endpoint: two flows in the corpus use `/registerFileKey` rather than
    * `/dataTable` (`actions/schema.ts`, `EndpointSchema`).
    *
-   * **The allowlist stays in the schema and is not repeated here.** S.7 narrowed
+   * **The allowlist stays in the schema and is not repeated here.** The schema narrows
    * the endpoint to two values *in the document type*, so a `.ua.json` naming
    * anything else does not parse and never reaches this method — and the Go
    * validator enforces the same enum at save time. A second list here would be a
    * second place to update and the one more likely to be forgotten, which is the
-   * failure mode S.8's migrated-flow list is a standing example of.
+   * failure mode the Flutter app's migrated-flow list is a standing example of.
    *
    * `agentic` above is the same shape for a fixed path; the two do not merge,
    * because that one names its endpoint and this one is handed one.

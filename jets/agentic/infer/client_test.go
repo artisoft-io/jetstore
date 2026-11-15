@@ -161,7 +161,7 @@ func TestChat_RetriesTransportFailuresButNotSchemaFailures(t *testing.T) {
 }
 
 // A cancelled context is the caller's decision, not a transient failure. This
-// is what makes the run-level wall-clock cap (D.5) able to stop a run: if the
+// is what makes the run-level wall-clock cap able to stop a run: if the
 // client retried through cancellation, the cap would not bind.
 func TestChat_CancelledContextIsNotRetriedInto(t *testing.T) {
 	var calls atomic.Int32

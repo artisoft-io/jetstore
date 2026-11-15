@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// Criterion 14 of the agentic_ai Phase 1 plan: a failing compile returns
+// A failing compile returns
 // diagnostics, each carrying the authored file name and a line local to that
 // file.
 //

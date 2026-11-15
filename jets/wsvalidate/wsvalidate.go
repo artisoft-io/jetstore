@@ -8,8 +8,8 @@
 // another, and putting it in the caller would have inverted the dependency: a
 // validator would import the HTTP handler package to describe its own findings.
 //
-// Settled 2026-08-18 with the agentic_ai stream as Q-3 in the ui_refresh
-// project's tracking. Their request was for a per-suffix validator table
+// Settled 2026-08-18 with the authors of the agentic layer. Their request was
+// for a per-suffix validator table
 // returning findings with a severity rather than a bare error; the package name
 // and the leaf-package shape were this side's addition, because where the type
 // lives is what actually decides the packaging.
@@ -38,9 +38,8 @@ const (
 //
 // Path is a JSON Pointer (RFC 6901) into the document — "/states/x/choices/0" —
 // or empty for a finding about the document as a whole. It exists because a
-// message is not something an editor can jump to or a repair prompt can use;
-// see the ui_refresh project's I-21 for the argument, which came from the
-// agentic_ai side.
+// message is not something an editor can jump to or a repair prompt can use.
+// The argument came from the agentic layer.
 //
 // **Segments are not escaped by this package.** A validator whose path segments
 // can contain "/" or "~" must escape them per RFC 6901 §3 at the point of
@@ -51,8 +50,8 @@ const (
 // rather than a JSON Pointer, and 0 when there is none. **It is the same
 // argument as Path, for the first file type Path cannot serve** — added
 // 2026-09-12 with the `.sql` row, whose findings are lexical and land on a
-// line. Writing the line into Message instead would have been the thing I-21
-// asked Path to fix, one file type later: prose an editor cannot jump to.
+// line. Writing the line into Message instead would have been the thing Path
+// was asked to fix, one file type later: prose an editor cannot jump to.
 //
 // A finding may carry both, neither, or either. Every validator that predates
 // this field leaves it 0.

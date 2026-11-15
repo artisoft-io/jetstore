@@ -324,7 +324,7 @@ class RDFGraph {
    *
    * For RDFSession::insert only, which moves a triple from the inferred graph to the
    * asserted one: the triple never leaves the session, so a notice would only make the
-   * rete withdraw and rebuild the rows built on it (I-103). Anything that removes a
+   * rete withdraw and rebuild the rows built on it. Anything that removes a
    * triple from the session calls erase, which notifies.
    *
    * @return 1 if erased, 0 if it was not there, -1 if error
@@ -343,7 +343,7 @@ class RDFGraph {
    * A delete: every reference count goes, and the graph's callbacks hear
    * triple_deleted for each triple removed, as for retract and as the retired Go engine's
    * Erase did. From 2022-05 (2507bf7c) until 2026-10 this told the rete nothing, so the rows
-   * and consequents built on an erased triple stayed (I-6).
+   * and consequents built on an erased triple stayed.
    * 
    * Throws exception if graph is locked
    * 

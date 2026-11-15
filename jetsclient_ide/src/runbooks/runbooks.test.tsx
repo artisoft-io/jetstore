@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * The runbook screens (`runbooks` project, Phase 1, track AC).
+ * The runbook screens.
  *
  * One test per control and state, driven through a stubbed `fetch` as
  * `proposals.test.tsx` drives its screens, so these exercise

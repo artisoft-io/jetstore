@@ -1,13 +1,12 @@
 /**
  * Typed wrappers over the incident half of `/agentic`, the supervision endpoint.
  *
- * **This directory is the agentic_ai project's, inside the ui_refresh project's
- * application** — the third such directory, after `src/cpipes/` (M.5) and
- * `src/proposals/` (K.3), and on exactly the terms the repository `CLAUDE.md`
- * records for those two: self-contained, its own stylesheet, this project's
- * domain logic needing no pull request from theirs and their wiring needing none
- * from ours. What is theirs here is the nav item and the two route entries in
- * `App.tsx`; everything below this line is ours. Settled as **Q-24** by the user
+ * **This directory is the agentic layer's, inside the IDE application** — the
+ * third such directory, after `src/cpipes/` and `src/proposals/`, and on the same
+ * terms as those two: self-contained, its own stylesheet, its domain logic
+ * needing no change to the application and the application's wiring needing
+ * none to it. What the application holds is the nav item and the two route
+ * entries in `App.tsx`; everything below this line belongs here. Settled
  * on 2026-09-04.
  *
  * The wire shapes mirror the Go side one for one:
@@ -21,30 +20,30 @@
  *
  * ## Two taxonomies, and neither screen may show one without the other
  *
- * Phase-4 plan §9.5 found that JetStore's execution record supports a taxonomy of
+ * JetStore's execution record supports a taxonomy of
  * **locus** — where in the record the evidence sits, nine values — and does not
- * support a taxonomy of **cause** below the level of a hypothesis. `AB.1` put both
- * on the row and made `classification` optional for that reason (I-289): a
+ * support a taxonomy of **cause** below the level of a hypothesis. The incident
+ * table puts both on the row and makes `classification` optional for that reason: a
  * required cause column would force a deterministic triage step to invent one.
  *
- * **R-27 is that a locus gets read as a cause**, and it names this screen as the
+ * **The risk is that a locus gets read as a cause**, and this screen is the
  * place an operator meets the two side by side for the first time. So the rule
  * these components hold to is: the locus is labelled as evidence, the
  * classification is labelled as a claim, and an absent claim renders as an
  * explicit *not claimed* rather than as an empty cell. A blank reads as missing
  * data; the schema says it is a legitimate state.
  *
- * ## ~~Read-only, deliberately~~ It writes a verdict as of `AJ.2`
+ * ## ~~Read-only, deliberately~~ It writes a verdict since 2026-09-05
  *
  * This section said there was no counterpart to `ProposalsApi.decide` and that
  * the writer was unassigned. **Both stopped being true on 2026-09-05**, when
- * Q-52 was answered *Phase 5* and `AJ.2` took the control. `recordVerdict` below
+ * the verdict control was built. `recordVerdict` below
  * is that counterpart.
  *
- * **The wait was real and is worth keeping rather than deleting.** `AE.1`
+ * **The wait was real and is worth keeping rather than deleting.** The screen
  * shipped read-only because the actor, the actor kind and the immutable
- * classification pairing a corrected label needs did not exist yet; `AB.2` built
- * them, `AB.4` made the transition chainable, and only then was there anything
+ * classification pairing a corrected label needs did not exist yet; the event
+ * table supplied them, the hash chain made the transition chainable, and only then was there anything
  * for a button to write into. A screen that had written a transition against a
  * schema still moving underneath it is what the split avoided.
  *
@@ -58,7 +57,7 @@
  * ## PHI is withheld here unless the caller was granted it
  *
  * `Evidence.statement` is the one property the domain model marks
- * `data_classification = "PHI"`. Until `AE.2` (2026-09-04) that marker was read
+ * `data_classification = "PHI"`. Until 2026-09-04 that marker was read
  * by nothing and this screen rendered the field to any holder of
  * `agent_supervision`. It is now redacted **server-side** unless the caller holds
  * `agent_phi_access`, and the response says so rather than leaving the browser to
@@ -72,8 +71,8 @@ export interface IncidentRow {
   incidentId: string;
   sessionId: string;
   /**
-   * The `AgentRun` that raised the incident, `""` when nothing agentic did
-   * (AB.4, Q-32). **Not decoration**: it is what decides whether a transition on
+   * The `AgentRun` that raised the incident, `""` when nothing agentic did.
+   * **Not decoration**: it is what decides whether a transition on
    * this incident reaches the audit hash chain, so an incident with none is one
    * whose corrections would be durable and not tamper-evident. The detail screen
    * renders it; the list does not.
@@ -103,7 +102,7 @@ export interface Evidence {
   source: string;
   sourceRef: string;
   /**
-   * The statement was **withheld** rather than empty (AE.2, I-311).
+   * The statement was **withheld** rather than empty.
    *
    * `Evidence.statement` is the one property the domain model marks
    * `data_classification = "PHI"`, and the server redacts it unless the caller
@@ -128,12 +127,12 @@ export interface HypothesisRow {
   supportingEvidence: Evidence[];
   contradictingEvidence: Evidence[];
   /**
-   * The `AC.1` locus this hypothesis was raised from (`AC.3`, Q-46).
+   * The triage locus this hypothesis was raised from.
    *
    * **It is not the incident's locus restated.** The shadow writer files a
    * hypothesis under the incident of its own locus, so today the two agree; a
    * ranker that proposed a cause at a locus triage did **not** find present would
-   * produce a row where they do not, and `AC.2` measured exactly that as 20 of 29
+   * produce a row where they do not, and an evaluation measured exactly that as 20 of 29
    * on its model arm. The screen shows it beside the incident's so a supervisor
    * can see the disagreement rather than infer it.
    */
@@ -153,7 +152,7 @@ export interface HypothesisRow {
 export interface HypothesisBasisRow {
   supportingCount: number;
   contradictingCount: number;
-  /** Plan §9.5's third column: what the record can do for this cause class. */
+  /** What the record can do for this cause class. */
   evidenceability: string;
 }
 
@@ -162,19 +161,18 @@ export interface IncidentDetail extends IncidentRow {
 }
 
 /**
- * One row of `jetsapi.incident_event` — how the incident got where it is
- * (`AB.2`'s table, put on the wire by `AC.3`).
+ * One row of `jetsapi.incident_event` — how the incident got where it is.
  *
  * **`rationale` is where the reasoning lives, and that is a property of the
  * schema rather than a convention.** `jetsapi.hypothesis` has eight columns and
- * neither a basis nor a locus is one of them, so `AC.2`'s account of *why this
+ * neither a basis nor a locus is one of them, so the ranker's account of *why this
  * hypothesis ranks where it does* and *what was considered and dropped* has
  * nowhere on the rows it is about. The shadow-mode writer puts the locus
  * verdict's own basis on the `detected -> triaged` transition and the ranking's
  * on `triaged -> diagnosed`, which is the only place in the record that holds
  * them. A screen that dropped this column would be dropping the reasoning.
  *
- * **`actorKind` is a column and not a spelling convention** (`AB.2`, I-276):
+ * **`actorKind` is a column and not a spelling convention**:
  * `agent` here means the system reached this verdict about its own work, and a
  * supervision screen that showed the two alike would show half a label.
  */
@@ -189,7 +187,7 @@ export interface IncidentTransitionRow {
   /**
    * The `AgentRun` this transition was chained onto, "" when the incident names
    * none — which is every incident triage writes, a deterministic classifier not
-   * being an `AgentRun` (`AB.4`, R-44). An empty value means this transition is
+   * being an `AgentRun`. An empty value means this transition is
    * durable and attributable and is **not** hash-chained.
    */
   runRef: string;
@@ -211,14 +209,14 @@ export interface IncidentDetailResponse {
   incident: IncidentDetail;
   /**
    * How the incident got here, oldest first. Optional on the wire: a database
-   * migrated between `AB.1` and `AB.2` has the incident and not its history, and
+   * migrated before `incident_event` existed has the incident and not its history, and
    * an incident a supervisor cannot open is worse than one whose history is
    * missing.
    */
   transitions?: IncidentTransitionRow[];
   /**
-   * What may be done to this incident from where it is (`AJ.2`), from
-   * `audit.IncidentTransitions` — Appendix A.5's graph, enforced on the server.
+   * What may be done to this incident from where it is, from
+   * `audit.IncidentTransitions` — the incident lifecycle graph, enforced on the server.
    *
    * **The screen renders a button per entry and invents none.** A terminal
    * status gives `[]`, which is the same distinction `ProposalView.transitions`
@@ -231,7 +229,7 @@ export interface IncidentDetailResponse {
    * The ten causes a reclassification may claim, from
    * `audit.IncidentClassifications`. Optional for the same reason.
    *
-   * **Not a taxonomy the record supports.** P4 §9.5 found the execution record
+   * **Not a taxonomy the record supports.** The execution record
    * determines a *locus* and not a cause, which is why `classification` is
    * nullable — so a choice from this list is a supervisor's judgement, and the
    * screen labels it as one.
@@ -246,7 +244,7 @@ export interface IncidentDetailResponse {
 }
 
 /**
- * What `record_incident_transition` returns (`AJ.2`).
+ * What `record_incident_transition` returns.
  *
  * **`actorKind` comes back rather than being sent**, which is the wire's share
  * of the guarantee: a caller cannot label its own verdict, so the field is worth
@@ -299,8 +297,8 @@ export interface IncidentList {
  *
  * **This is not an outage and a screen that reports it as one sends somebody to
  * the wrong place.** `jetsapi.incident` and `jetsapi.hypothesis` reach a database
- * only through `update_db -migrateDb` (P3 I-169), so on every deployment older
- * than `AB.1` they are simply absent. The Go side raises
+ * only through `update_db -migrateDb`, so on every deployment older
+ * than the tables they are simply absent. The Go side raises
  * `audit.ErrTablesNotDeployed` for exactly this and maps it to 503; this type is
  * what lets the screen say the one true thing rather than printing *relation
  * jetsapi.incident does not exist*.
@@ -328,7 +326,7 @@ export class IncidentsApi {
   }
 
   /**
-   * Record a supervisor's verdict on an incident (`AJ.2`, Q-52).
+   * Record a supervisor's verdict on an incident.
    *
    * `fromStatus` is sent so the server can refuse a verdict taken against a
    * screen that has gone stale — checked against the row rather than trusted as
@@ -381,7 +379,7 @@ export class IncidentsApi {
 export const AGENT_SUPERVISION = "agent_supervision";
 
 /**
- * The capability that lifts the redaction of PHI-classified fields (AE.2).
+ * The capability that lifts the redaction of PHI-classified fields.
  *
  * **A default, not the answer.** The server names the capability in every
  * `get_incident` response (`phiCapability`), and the screen renders what it was
@@ -407,7 +405,7 @@ export function vocabLabel(value: string): string {
 }
 
 /**
- * What a locus is, and what the record cannot see about it — plan §9.4, in one
+ * What a locus is, and what the record cannot see about it, in one
  * line each.
  *
  * **This is a gloss and not a vocabulary.** The nine values arrive from the
@@ -417,9 +415,9 @@ export function vocabLabel(value: string): string {
  * anything — the argument `ProposalsScreen` makes about its filter constants,
  * one step weaker still.
  *
- * **The second sentence of each entry is the one that earns the table.** §9.4's
- * *cannot see* column is the part of the gate's finding that does not survive a
- * summary (R-27), and this screen is where an operator meets a locus for the
+ * **The second sentence of each entry is the one that earns the table.** The
+ * *cannot see* column is the part of the finding that does not survive a
+ * summary, and this screen is where an operator meets a locus for the
  * first time. A vocabulary that looks like a cause taxonomy will be read as one
  * unless something on the page says what it is not.
  */
@@ -482,21 +480,20 @@ export const OPEN_STATUSES = [
 ];
 
 /**
- * The three statuses that are adjudications rather than progress — I-276's
- * finding, and the reason this view exists at all.
+ * The three statuses that are adjudications rather than progress, and the
+ * reason this view exists at all.
  *
- * Plan §10.7 argues that a `reclassified`, `verified` or `suppressed_as_benign`
- * transition **is** a corrected label, and that those transitions are the only
- * labelling instrument this project can build. `AA.2` counted the labelled
- * population at zero. So this view is the instrument's read side, and today it
- * shows nothing — which is that count, visible, rather than an empty screen.
+ * A `reclassified`, `verified` or `suppressed_as_benign` transition **is** a
+ * corrected label, and those transitions are the only labelling instrument
+ * JetStore has. The labelled population was counted at zero. So this view is the
+ * instrument's read side, and today it shows nothing — which is that count, visible, rather than an empty screen.
  */
 export const ADJUDICATED_STATUSES = ["verified", "reclassified", "suppressed_as_benign"];
 
 /**
  * The one status whose verdict must also claim a cause.
  *
- * `incident_event_reclassified_ck` is Appendix A.5's own sentence as a
+ * `incident_event_reclassified_ck` is the incident lifecycle's own sentence as a
  * cross-column CHECK — *"reclassified returns to triaged with a new
  * classification and a recorded reason"* — so a reclassification with either
  * missing is refused at the database. **Spelling it here decides which fields

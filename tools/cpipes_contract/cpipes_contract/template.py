@@ -1,8 +1,8 @@
 """The template model: a config with typed holes, declared rather than inferred.
 
-**The one architectural fork.** Phase 0's §5.3.2 argued against a placeholder expander
+**The one architectural fork.** The design argued against a placeholder expander
 over JSON text, from precedent — macro languages over configuration acquire conditionals
-and arithmetic within about two releases. §5.3.9 then produced a measurement: a
+and arithmetic within about two releases. An experiment then produced a measurement: a
 text-marker expander **cannot determine which level of a nested structure repeats**,
 because the metric marker occurs at both the `apply` level and the `columns` level
 within it and nothing in the text distinguishes them. **A typed hole declares its repeat
@@ -18,14 +18,14 @@ structure a reader is scanning for shape. The body carries `{"$hole": "<name>"}`
 node is missing, and every marker must have a declaration and every declaration a marker.
 
 **A `schema_ref` naming a type the library has no part for is legitimate**, settled
-2026-08-20 (Q-14). Twenty of the contract's types have no exemplar after extraction,
+2026-08-20. Twenty of the contract's types have no exemplar after extraction,
 curation and recovery, and a new operator will always arrive before its corpus does. So
 coverage is *reported* rather than enforced: `check` says which holes have nothing to
 show a model, and an author decides whether that matters for this template. A `Hole`
 that assumed an exemplar existed would be expensive to loosen; this is cheap to tighten.
 
 Expansion is author-time and the output is an ordinary `.pc.json` - `compute_pipes`
-learns nothing about templates. That is F.4's work; this module is the model and its
+learns nothing about templates. That is the expander's work; this module is the model and its
 checks.
 """
 
@@ -76,7 +76,7 @@ class Template(BaseModel):
         """Every `$hole` marker in the body, as (name, path).
 
         A marker may carry a `$body` giving the shape each repetition takes, with its
-        own markers inside. **That nesting is the whole point of the model**: §5.3.9's
+        own markers inside. **That nesting is the whole point of the model**: the earlier
         failure was an expander that could not tell the `apply` level from the `columns`
         level within it, and a flat list of holes reproduces exactly that ambiguity - the
         inner hole would have nowhere to sit and would have to be inferred back into
@@ -148,7 +148,7 @@ def check(
 
     Findings are defects: a marker with no declaration, a declaration with no marker, a
     duplicate name, a `schema_ref` that is not an addressable type. Notes are the
-    coverage report Q-14 asked for rather than an error - a hole whose type the library
+    coverage report that was asked for rather than an error - a hole whose type the library
     cannot illustrate is authorable, and the author is told so.
     """
     findings: list[str] = []
@@ -192,7 +192,7 @@ def check(
     # `jets/agentic/prompt` makes: the schema is emitted regardless and Task validation
     # is what refuses.
     #
-    # **What is measured is the prompt, not the schema (Q-15).** Until 2026-08-20 this
+    # **What is measured is the prompt, not the schema.** Until 2026-08-20 this
     # sized a hole by its JSON Schema and reported `ConditionalPipeSpec` as 49,008
     # tokens against a 24,576 budget - unauthorable by construction. That number never
     # occupied the context: Ollama compiles `format` into a sampling grammar, and the
@@ -220,7 +220,7 @@ def check(
             # **Reported rather than rounded.** The estimate carries a few per cent of
             # error, and a hole this close to the budget is one the error decides. Saying
             # so is the honest answer; `from_model` will get the exact count from the
-            # server when it runs (I-42).
+            # server when it runs.
             notes.append(
                 f"hole {hole.name!r} fills {hole.schema_ref}, whose prompt is ~{tokens} tokens "
                 f"against a {budget} budget - **too close to call offline**; the estimate's "

@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  *
  * The app's own `confirm` and `prompt`, and the rule that nothing else asks.
- * jetstore_maintenance_02 `I-39`, 2026-10-02.
+ * Added 2026-10-02.
  *
  * The first block pins the native contract the call sites rely on: a call site
  * changed by an `await` and nothing else, so `true`/`false` and value/`null`
@@ -78,7 +78,7 @@ describe("confirm", () => {
   });
 
   it("shows a detail under the message, line breaks kept, named by the message alone", async () => {
-    // `session_registry` Phase 2 (2026-11-08): *Delete*'s list of sessions. The
+    // The Session Registry (2026-11-08): *Delete*'s list of sessions. The
     // class is the message's, whose rule is `white-space: pre-wrap`; jsdom
     // computes no style, so the text node carrying the newlines is what is held.
     const prompts = mount();

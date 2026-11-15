@@ -1,14 +1,13 @@
 package jetrules_native_adaptor
 
-// The template arm and the model arm over one fact set (agentic_ai Phase 7
-// `AT.5`, question Q-94).
+// The template arm and the model arm over one fact set.
 //
 // # What it is for
 //
-// Q-94 asks whether there is a briefing worth having that a template cannot
-// write. Plan §1.8.1 makes that a controlled experiment rather than an opinion:
-// `AT.3`'s template and `AT.5`'s model call take **the same jetrules fact set**
-// and differ in the renderer and in nothing else, which is criterion 76. This
+// The question is whether there is a briefing worth having that a template
+// cannot write. This makes that a controlled experiment rather than an opinion:
+// the template and the model call take **the same jetrules fact set**
+// and differ in the renderer and in nothing else. This
 // file is what runs both over the 22-member evaluation population and prints
 // them side by side, so the judgement criterion 75 asks for is made against
 // output rather than against argument.
@@ -33,7 +32,7 @@ package jetrules_native_adaptor
 // subject, that test fails and criterion 76 stops being satisfiable by
 // inspection. `extractAsEntity` passes `excludeProp` down its own recursion
 // (`extractAsEntity`, `jets/compute_pipes/jetrules_extract_entity.go:82`), which
-// is what makes the two maps comparable at all (agentic_ai F757).
+// is what makes the two maps comparable at all.
 //
 // **The comparison is order-insensitive and that is deliberate.** A multi-valued
 // property becomes a `[]any` in the order the graph container yields it, and two
@@ -46,12 +45,12 @@ package jetrules_native_adaptor
 //
 // `at5PromptExclusions` is what the pipeline's `Briefing` channel carries in
 // `pipes_config/patient_profile.pc.json` plus the four medication components
-// `AT.1`(ii) put on the pharmacy node. Whether `cintel:Adherence` joins it is
-// Q-98 and is open: §1.10.4 argues the ratio should not be in the prose and
-// criterion 76 forbids withholding it from one arm alone, so the position taken
+// the projection put on the pharmacy node. Whether `cintel:Adherence` joins it
+// is open: the specification argues the ratio should not be in the prose and
+// the comparison forbids withholding it from one arm alone, so the position taken
 // is to leave the entity identical and **count what the model does with the
-// ratio as a Q-94 datum rather than prevent it**. The list is one variable so
-// that answering Q-98 is one edit, and `at5RecordedExclusions` is what the
+// ratio as a datum rather than prevent it**. The list is one variable so
+// that answering the question is one edit, and `at5RecordedExclusions` is what the
 // artefact prints, so a reading always says which list produced it.
 //
 // # The model arm is gated and makes no call in an ordinary run
@@ -63,8 +62,8 @@ package jetrules_native_adaptor
 // `jets/compute_pipes/pipe_transformation_vllm.go:241`): `model`, `stream:false`
 // and two messages, with no sampling parameters, because the operator sends none
 // unless a config supplies `options`. **The first request body is written into
-// the artefact verbatim**, which is criterion 71's discipline - `AG.2` is why
-// this project reads a request off the wire rather than off the code.
+// the artefact verbatim**, a deliberate discipline: a server once discarded a
+// field, which is why a request is read off the wire rather than off the code.
 //
 // # `-count=1`
 //
@@ -95,11 +94,11 @@ const at5BriefingColumn = "cintel:Briefing_Input"
 // at5PromptExclusions is what the model sees kept out of its prompt.
 //
 // The first five are the `Briefing` channel's own `exclude_properties` in
-// `pipes_config/patient_profile.pc.json`. The last four are `AT.1`(ii)'s
+// `pipes_config/patient_profile.pc.json`. The last four are the projection's
 // medication components: the prompt carries one joined `cintel:Medication` value
 // per drug so that a consumer which flattens cannot mispair a drug with another
-// drug's indicator (agentic_ai F735), and the components are on the node beside
-// it because the **template** needs them as four things (F757). Excluding them
+// drug's indicator, and the components are on the node beside
+// it because the **template** needs them as four things. Excluding them
 // from the prompt is what stops the same facts appearing twice in the claim
 // summary.
 var at5PromptExclusions = map[string]bool{
@@ -288,8 +287,8 @@ func TestTheTwoArmsDifferOnlyInTheirExclusionList(t *testing.T) {
 // --- the model arm --------------------------------------------------------
 
 // at5SystemPrompt is the prose system prompt, which is what the pipeline's
-// `patient_briefing` template becomes once the structured response retires
-// (agentic_ai F736). Held here as a literal rather than read out of the
+// `patient_briefing` template becomes once the structured response retires.
+// Held here as a literal rather than read out of the
 // workspace, because the workspace copy is being changed by another task in the
 // same track and a harness that read it would measure whichever version happened
 // to be on disk.
@@ -322,7 +321,7 @@ type at5ChatMessage struct {
 // # The options are read from the config rather than restated here
 //
 // `patient_profile.pc.json` gained `temperature: 0` and `seed: 42` on
-// 2026-09-10 (agentic_ai `I-575`), and this harness sent neither for the first
+// 2026-09-10, and this harness sent neither for the first
 // two runs after that - so it stopped reproducing the operator on the same day
 // the operator changed, silently, in the direction that makes a measurement
 // look noisier than the pipeline is. Two runs over identical data differed in
@@ -331,8 +330,8 @@ type at5ChatMessage struct {
 // have looked like too.
 //
 // **So they are read out of the document rather than copied into this file.**
-// A second copy of a sampling parameter, compared by nothing, is the seam this
-// project already records at `I-438` and `I-544`; and a harness whose whole
+// A second copy of a sampling parameter, compared by nothing, is the seam already
+// recorded for the response schema and the medication separator; and a harness whose whole
 // claim is that it reproduces the operator cannot afford a knob that drifts.
 // `at5InferOptions` returns an empty map when the config carries none, so a
 // workspace that sets nothing gets exactly the request this function sent
@@ -431,7 +430,7 @@ type at5ModelArm struct {
 	http  *http.Client
 	// options is what patient_profile.pc.json's infer step sets, read at
 	// construction so that the request this harness sends is the request the
-	// operator sends (agentic_ai I-575).
+	// operator sends.
 	options map[string]any
 }
 

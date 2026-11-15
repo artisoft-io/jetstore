@@ -1,15 +1,15 @@
 /**
  * The ported flows' action documents, checked against the grammar and against the
- * Dart they were derived from: eleven at F.9, the ten imported below since
+ * Dart they were derived from: eleven on 2026-08-24, the ten imported below since
  * 2026-10-01.
  *
- * **This was `coverage.test.ts` until F.9, 2026-08-24, and the rename is the whole
- * of what that task did to it.** It exists because S.2a's exit condition said
- * "expressible" and only five arms had been expressed (I-22); writing the other
+ * **This was `coverage.test.ts` until 2026-08-24, and the rename is the whole
+ * of what changed then.** It exists because an early exit condition said
+ * "expressible" and only five arms had been expressed; writing the other
  * fifty found two primitives the grammar lacked and two more escapes than the
- * sizing counted (I-23). For eight tasks it then read two kinds of document —
+ * sizing counted. For eight tasks it then read two kinds of document —
  * transcriptions under `coverage/`, wired to nothing, and the runtime documents
- * under `flows/` that track F promoted them into. F.7 promoted the last
+ * under `flows/` that the flow ports promoted them into. The last port promoted the last
  * transcription and deleted the directory, so **every import below is a document a
  * flow runs** and the old name described a fixture that no longer exists. The name
  * now says what the file reads; the history is here rather than in the filename.
@@ -17,17 +17,16 @@
  * **What the transcriptions did not prove, and it must not be forgotten now they
  * are gone.** They were written from reading the Dart, so the schema could tell
  * you a document was well formed and nothing could tell you it was *faithful*. A
- * delegate is a function body, not an object, so no corpus can be generated for it
- * — see `sizing_action_grammar.md` §2. Each of the nine re-partitions found
- * something wrong (I-84, I-90, I-97, I-100, I-110, I-115, I-116, I-120, and F.7's
- * I-130), which is what re-deriving each arm from the Dart is for. Fidelity beyond
+ * delegate is a function body, not an object, so no corpus can be generated for it.
+ * Each of the nine re-partitions found
+ * something wrong, which is what re-deriving each arm from the Dart is for. Fidelity beyond
  * that is established by running a flow against a live server and diffing the
  * payload, as `lfLoadFilesUF` is.
  *
  * **That list outlives the transcriptions and is written up in `../README.md`**,
  * reduced to the five distinct mechanisms it holds and stated for anyone who
  * authors or *generates* one of these documents rather than for this corpus alone.
- * F.9, 2026-08-24, I-146.
+ * 2026-08-24.
  */
 
 import { describe, expect, it } from "vitest";
@@ -47,70 +46,70 @@ import dartConstantValues from "./fixtures/dart_constant_values.json";
 
 const all: Record<string, unknown> = {
   loadFilesUF: loadFiles,
-  // `registerFileKeyUF` was here until 2026-10-01, when `jetstore_maintenance_02`
-  // retired it (`Q-6`, task `AD.4`); see the 52 below.
-  // F.1's re-partition: `mapperOk`, `mapperDraft` and `dialogCancel` moved here
-  // out of `coverage/fileMappingUF.ua.json`, which is F4's rule — a coverage
+  // `registerFileKeyUF` was here until 2026-10-01, when it was
+  // retired; see the 52 below.
+  // The worksheet's re-partition: `mapperOk`, `mapperDraft` and `dialogCancel` moved here
+  // out of `coverage/fileMappingUF.ua.json`, which is the partition rule — a coverage
   // document is partitioned by *delegate file* and a runtime one by *flow*, and
-  // `file_mapping/` is one directory holding two flows (I-61). The three that
-  // stay behind belong to `fileMappingUF`, which is F.8.
+  // `file_mapping/` is one directory holding two flows. The three that
+  // stay behind belong to `fileMappingUF`, ported later.
   mapFileUF: mapFile,
-  // F.2's re-partition, and the one the plan's F4 was written about
+  // The workspace pull's re-partition, and the one the partition rule was written about
   // (`actions/coverage/workspacePullUF.ua.json`, now gone): one *delegate file*
   // holding two switches for two flows. `wpLoadConfigConfirmUF` is a state
   // action of both, so it appears in both documents; `dialogCancel` appears in
   // neither, because no form or table of either flow offers it.
   loadConfigUF: loadConfig,
   workspacePullUF: workspacePull,
-  // F.3's re-partition. One delegate file, one flow — so unlike F.1's and F.2's
+  // The client registry's re-partition. One delegate file, one flow — so unlike the two above
   // nothing had to be split. What it dropped is `crShowVendorUF`, whose body
   // jumps the flow to `show_org` and which **no form and no table of the flow
-  // offers** (I-91): the reachability shape of I-86, on a live arm rather than a
+  // offers**: the reachability shape seen before, on a live arm rather than a
   // cancel. The two `delete*Action` arms are here because the *tables* offer
   // them, which is the third place an action name can appear and the first time
   // a migrated set has used it.
   clientRegistryUF: clientRegistry,
-  // F.4's re-partition. One delegate file, one flow, and nothing to split — the
-  // same shape as F.3's. What it changed is inside two arms rather than in the
+  // The start pipeline's re-partition. One delegate file, one flow, and nothing to split — the
+  // same shape as the client registry's. What it changed is inside two arms rather than in the
   // partition: `spPipelineSelected` reads `unpackToList(unpack(x))` in the Dart
   // and the coverage document had `fromKeyList` alone, which is `unpackToList(x)`
-  // and a different function on the value the table publishes (I-97).
+  // and a different function on the value the table publishes.
   startPipelineUF: startPipeline,
-  // F.5's re-partition. One delegate file, one flow, nothing to split — and the
+  // The home filters' re-partition. One delegate file, one flow, nothing to split — and the
   // first whose arms are not all state actions: `resubmitPipeline` and
   // `dialogCancel` are reached from the *table*, the second row of it, and from
   // the dialog that row opens. What changed inside an arm is a step the coverage
   // document did not have at all: `resubmitPipeline` begins
   // `state[session_id] = unpack(state[session_id])`, which reads as a no-op
-  // assignment and is a conversion the server type-asserts on (I-100).
+  // assignment and is a conversion the server type-asserts on.
   homeFiltersUF: homeFilters,
-  // F.6's re-partition. One delegate file, one flow, nothing to split — and the
+  // The pipeline configuration's re-partition. One delegate file, one flow, nothing to split — and the
   // largest of the nine at 14 `case` labels, a quarter of the 58. **The first
   // whose document holds an arm the nine delegate files do not declare**:
   // `addProcessInputOk` is the Save button of the two dialogs this flow's tables
   // open, and it lives in `modules/actions/config_delegates.dart`
   // (`processInputFormActions`) because those dialogs carry their own
-  // `formActionsDelegate` rather than the flow's. So the count *rises* here
-  // (I-114). `dialogCancel` is the same story and F.5 has already written it up
-  // as I-101: dead in the delegate it was transcribed from, live in the document
+  // `formActionsDelegate` rather than the flow's. So the count *rises* here.
+  // `dialogCancel` is the same story the home filters flow
+  // already met: dead in the delegate it was transcribed from, live in the document
   // it becomes.
   pipelineConfigUF: pipelineConfig,
-  // F.7's re-partition. One delegate file holding two flows — the shape F.1 and
-  // F.2 met — and **the arm that has to be duplicated rather than moved is the
-  // one F.1 moved**: `dialogCancel` is a `case` label of *both* switches in
+  // The file mapping table's re-partition. One delegate file holding two flows — the shape
+  // the worksheet and the workspace pull met — and **the arm that has to be duplicated
+  // rather than moved is the one the worksheet moved**: `dialogCancel` is a `case` label of *both* switches in
   // `file_mapping/form_action_delegates.dart`, and both flows have a form that
   // offers it. `mapFileUF`'s worksheet is a dialog and so is
-  // `loadRawRowsDialog`, which `fmFileMappingTableUF` opens. F.1 took the name
-  // with the other two and left three behind, so the coverage document this task
-  // promoted was short an arm no step-level re-reading would have found (I-120).
+  // `loadRawRowsDialog`, which `fmFileMappingTableUF` opens. The worksheet took the name
+  // with the other two and left three behind, so the coverage document this port
+  // promoted was short an arm no step-level re-reading would have found.
   fileMappingUF: fileMapping,
-  // F.7's re-partition, and the last. One delegate file, one flow, nothing to
+  // The source configuration's re-partition, and the last. One delegate file, one flow, nothing to
   // split — and **the first whose document holds fewer arms than the delegate
   // declares for two different reasons at once**. `configureFilesFormActions`
   // declares eight `case` labels; six are here. `scStartUF` is a live `case` whose
   // body is `return null` and which no state, form or table names — the shape of
-  // I-91's `crShowVendorUF` with nothing behind it (I-132). `dialogCancel` is the
-  // shape of I-86 rather than of I-101: this flow has **no dialog form at all**,
+  // `crShowVendorUF` with nothing behind it. `dialogCancel` is the
+  // unoffered-cancel shape rather than the dead-delegate one: this flow has **no dialog form at all**,
   // its one confirmation being `showConfirmationDialog`, which is a built-in
   // Yes/No and not a form whose Cancel button dispatches an action name.
   sourceConfigUF: sourceConfig,
@@ -128,12 +127,12 @@ describe("the flows' action documents", () => {
     // delegate and once in the dialog delegate — which is one action reached
     // from two switches, not two actions. 58 − 3 = 55.
     //
-    // **Still 55 after F.1's re-partition, and that is the check that it was a
+    // **Still 55 after the worksheet's re-partition, and that is the check that it was a
     // move.** Three names left `coverage/fileMappingUF.ua.json` and three
     // arrived in `flows/mapFileUF.ua.json`; a copy rather than a move would read
     // as 58 here.
     //
-    // **Still 55 after F.2's, and there the total conserves by cancellation
+    // **Still 55 after the workspace pull's, and there the total conserves by cancellation
     // rather than by construction** — which is why the names are checked below
     // as well as the count. `coverage/workspacePullUF.ua.json` held six names
     // for a delegate file with seven arms (`dialogCancel` twice). The two
@@ -142,28 +141,28 @@ describe("the flows' action documents", () => {
     // `dialogCancel` is **dropped**, because neither flow has a form or a table
     // that offers it. +1 and −1 is not an invariant, so the assertion below is.
     //
-    // **54 after F.3's, and the fall is the point rather than a slip.** That
+    // **54 after the client registry's, and the fall is the point rather than a slip.** That
     // re-partition dropped `crShowVendorUF` and duplicated nothing, so the
-    // cancellation F.2 relied on does not apply and the total moves. The arm is
+    // cancellation the workspace pull relied on does not apply and the total moves. The arm is
     // live in the Dart — it jumps the flow to `show_org` — and is offered by no
-    // form and no table of `clientRegistryUF`, which is I-86's reachability
-    // question asked of an arm that *does* something (I-91). **55 was never an
+    // form and no table of `clientRegistryUF`, which is the reachability
+    // question asked of an arm that *does* something. **55 was never an
     // invariant**: it is a count of `case` labels minus the ones declared twice,
     // and a migrated corpus needs fewer of them than the delegates declare.
     //
-    // **Still 54 after F.4's, and here the conservation is by construction
+    // **Still 54 after the start pipeline's, and here the conservation is by construction
     // again.** `startPipelineUF` is one delegate file holding one flow, all
     // three of whose arms a state action names, so three names left
     // `coverage/` and the same three arrived in `flows/`. Nothing was dropped
-    // and nothing duplicated — which is the F.1 shape rather than the F.2 or
-    // F.3 one, and is why the count alone would not have told you.
+    // and nothing duplicated — which is the worksheet's shape rather than the workspace
+    // pull's or the client registry's, and is why the count alone would not have told you.
     //
-    // **Still 54 after F.5's, and its `dialogCancel` is the interesting one.**
+    // **Still 54 after the home filters', and its `dialogCancel` is the interesting one.**
     // Six names left `coverage/` and the same six arrived in `flows/`. Four are
     // state actions and two are not: `resubmitPipeline` is a table button and
     // `dialogCancel` is the only button of the dialog that table opens.
     //
-    // **`dialogCancel` was the arm F.2 dropped from two flows and it is kept
+    // **`dialogCancel` was the arm the workspace pull dropped from two flows and it is kept
     // here, which is not an inconsistency.** The test is *what can press it*,
     // and the answer changed because the port changed the question. In the Dart
     // this arm is unreachable through `homeFiltersFormActionsUF`: the dialog is
@@ -174,35 +173,35 @@ describe("the flows' action documents", () => {
     // (`screens/user_flow_screen.dart`). The port has **one action document per
     // flow rather than one per delegate**, so the dialog's Close button resolves
     // here — and `validateTableActions` requires exactly that. An arm dead in
-    // the file it was transcribed from, live in the document it becomes (I-101).
+    // the file it was transcribed from, live in the document it becomes.
     //
-    // **55 after F.6's, and it is the first re-partition that adds.** Fourteen
+    // **55 after the pipeline configuration's, and it is the first re-partition that adds.** Fourteen
     // names left `coverage/` and fifteen arrived in `flows/`. The extra is
     // `addProcessInputOk`, which is not one of the 58 at all: the denominator is
     // `case ActionKeys.` across the nine `user_flows/*/form_action_delegates.dart`
     // files, and this arm is in `modules/actions/config_delegates.dart`. **A
     // dialog a flow's table opens may be served by a delegate outside the flow's
     // directory**, so the corpus of arms a migrated flow needs is not a subset of
-    // the corpus this count is drawn from (I-114). 54 was as much an invariant as
+    // the corpus this count is drawn from. 54 was as much an invariant as
     // 55 was.
     //
-    // **56 after F.8's, and it adds for a different reason than F.6's did.**
+    // **56 after the file mapping table's, and it adds for a different reason than the last did.**
     // Three names left `coverage/fileMappingUF.ua.json` and four arrived in
     // `flows/`. The extra is `dialogCancel`, which is not a new arm at all: it is
     // **already in `flows/mapFileUF.ua.json`**, because `file_mapping/` is one
-    // directory holding two flows and F.1 *moved* the name rather than
-    // duplicating it. This is F.2's `wpLoadConfigConfirmUF` exactly — one arm two
-    // flows need — and the difference is that F.2 saw it at the split and F.1
-    // could not, because the rule that a table-opened dialog's buttons resolve in
-    // the flow's own document was not written until I-101, four tasks later.
+    // directory holding two flows and the worksheet *moved* the name rather than
+    // duplicating it. This is the workspace pull's `wpLoadConfigConfirmUF` exactly — one
+    // arm two flows need — and the difference is that the workspace pull saw it at the
+    // split and the worksheet could not, because the rule that a table-opened dialog's
+    // buttons resolve in the flow's own document was not written until four ports later.
     //
-    // **54 after F.7's, and the fall of two is the whole of the dead-arm
-    // decision F.9 was going to have to take.** Eight names left
+    // **54 after the source configuration's, and the fall of two is the whole of the
+    // dead-arm decision still to be taken.** Eight names left
     // `coverage/sourceConfigUF.ua.json` and six arrived in `flows/`. Both
     // absentees are `case` labels of `configureFilesFormActions` that nothing can
     // press: `scStartUF`, whose body is `return null` and which appears in no
-    // `UserFlowState`, no `FormActionConfig` and no `ActionConfig` (I-132), and
-    // `dialogCancel`, which is I-86's shape rather than I-101's — the flow has no
+    // `UserFlowState`, no `FormActionConfig` and no `ActionConfig`, and
+    // `dialogCancel`, which is the unoffered-cancel shape rather than the dead-delegate one — the flow has no
     // dialog *form*, so there is no Cancel button to resolve.
     //
     // **56 was no more an invariant than 55 and 54 were.** This is a count of
@@ -211,34 +210,33 @@ describe("the flows' action documents", () => {
     //
     // **52 since 2026-10-01, and the first fall that is a retirement rather than
     // a re-partition.** `registerFileKeyUF` left with its two arms,
-    // `rfkSubmitSchemaEventUF` and its own `dialogCancel` (`jetstore_maintenance_02`
-    // `AD.4`); its schema event is posted from the Pipeline Status table's dialog
+    // `rfkSubmitSchemaEventUF` and its own `dialogCancel`; its schema event is
+    // posted from the Pipeline Status table's dialog
     // now, which is a Home-screen action document and not one of these.
     //
     // **53 the same day**: `homeFiltersUF` gained `putSchemaEvent`, an arm with no
     // Dart original, because its table's first row opens a dialog whose Save
-    // button runs it (`AD.3`). The I-114 shape — an arm a flow needs that the
+    // button runs it. The familiar shape — an arm a flow needs that the
     // delegates never declared — arriving from the port's own work.
     //
-    // **55 the same day again** (`jetstore_maintenance_02` `D04`, `AE.4` and
-    // `AE.5`): the same table's third row gained *Get Run Manifest* and *Get
+    // **55 the same day again**: the same table's third row gained *Get Run Manifest* and *Get
     // Schema Event*, two more arms the Dart never declared, for the same reason.
     const names = Object.values(all).flatMap((doc) =>
       Object.keys((doc as ActionDocument).actions),
     );
     //
-    // **59 the same day, and the last four are `D06`'s** (`jetstore_maintenance_02`
-    // `AF.3`, `AF.4`): each wizard gained a *+ Add* arm that clears the edit
+    // **59 the same day, and the last four are the wizards'**: each wizard
+    // gained a *+ Add* arm that clears the edit
     // path's keys and jumps to the add page, and a *Cancel* arm that returns to
     // the table. `clientRegistryUF` swapped `crAddClientUF` for the dialog's
-    // `crAddClientOk` (`AF.2`), one for one.
+    // `crAddClientOk`, one for one.
     //
     // **58 since 2026-10-15 (Release 4.0.4)**: `startPipelineUF` no longer chooses
     // merged or historical sources, so `spPipelineSelected`, which unpacked the
     // pipeline's merged and injected key lists for the two tables that drew them,
     // went with them. The second retirement, after `registerFileKeyUF`'s.
     //
-    // **59 since 2026-11-05** (jetstore_maintenance JM-062): `homeFiltersUF`
+    // **59 since 2026-11-05**: `homeFiltersUF`
     // gained `checkPendingTasks`, the Pipeline Status table's *Check Pending*
     // button, carried because the flow draws that table.
     expect(names).toHaveLength(59);
@@ -246,11 +244,11 @@ describe("the flows' action documents", () => {
   });
 
   it("holds sourceConfigUF's four state actions plus the two its table reaches", () => {
-    // F.7. `configure_files/form_action_delegates.dart` declares eight `case`
+    // `configure_files/form_action_delegates.dart` declares eight `case`
     // labels in one switch, all of them `sourceConfigUF`'s — the file defines one
     // flow and `configureFilesFormActions` is named by nothing else, so this is
-    // the F.3/F.4/F.5 shape with nothing to split and no sibling to have taken an
-    // arm away (I-120's question, asked and answered *no*).
+    // the one-file, one-flow shape with nothing to split and no sibling to have taken an
+    // arm away.
     //
     // Four state actions (`user_flow_config.dart`), and `scSourceConfigKey`'s two
     // `doAction` buttons — `dropStagingTable` → `dropTable` and `deleteSourceConfig`
@@ -258,7 +256,7 @@ describe("the flows' action documents", () => {
     // `standardActions` and `scSummaryUF` takes Previous / Cancel / Completed, so
     // no form contributes an arm.
     //
-    // **Two more since 2026-10-01** (`jetstore_maintenance_02` `AF.3`, `D06`):
+    // **Two more since 2026-10-01**:
     // `scGoToAddSourceConfig` is the table's *+ Add*, and `scCancelToList` is every
     // wizard page's *Cancel*, which returns to the table rather than leaving.
     expect(Object.keys((sourceConfig as ActionDocument).actions).sort()).toEqual([
@@ -274,7 +272,7 @@ describe("the flows' action documents", () => {
   });
 
   it("leaves the organization out of the staging table name when there is none", () => {
-    // **I-130, and it is the largest thing F.7 found.** `scAddSourceConfigUF` is
+    // **The largest thing the source configuration port found.** `scAddSourceConfigUF` is
     // `state[table_name] = makeTableNameFromState(state)`, which forwards to
     // `makeTableName` (`modules/actions/delegate_helpers.dart`, `makeTableName`) —
     // and *that* function branches: `'${client}_${org}_$objectType'` when the org
@@ -295,7 +293,7 @@ describe("the flows' action documents", () => {
   });
 
   it("clears all fourteen keys the delete arm removes, not the six transcribed", () => {
-    // I-84's original mechanism, on the largest list in the corpus. The Dart calls
+    // A known transcription mechanism, on the largest list in the corpus. The Dart calls
     // `state.remove` thirteen times after encoding the request
     // (`configure_files/form_action_delegates.dart`, `deleteSourceConfig`); the
     // coverage document listed six. The seven missing ones are the record's
@@ -322,7 +320,7 @@ describe("the flows' action documents", () => {
   });
 
   it("holds pipelineConfigUF's thirteen reachable arms plus the two its dialogs need", () => {
-    // F.6. `pipeline_config/form_action_delegates.dart` declares fourteen `case`
+    // `pipeline_config/form_action_delegates.dart` declares fourteen `case`
     // labels in one switch. Thirteen are reachable through it — seven state
     // actions, the two `pc*GotTo*` buttons `pcViewMergeProcessInputsUF` and
     // `pcViewInjectedProcessInputsUF` carry inline (`form_config.dart`), and four
@@ -335,12 +333,12 @@ describe("the flows' action documents", () => {
     // and is here anyway** — the two dialogs set `formActionsDelegate:
     // processInputFormActions`, and only the current state's form has its
     // delegate overridden with the flow's (`screens/user_flow_screen.dart`). It is
-    // I-101's shape exactly, one flow later: the port has one action document per
+    // the home filters' shape exactly, one flow later: the port has one action document per
     // flow rather than one per delegate, so the dialog's Cancel resolves here.
     // `addProcessInputOk` is its neighbour in that same switch and is the arm the
     // 58 never counted.
     //
-    // **Two more since 2026-10-01** (`jetstore_maintenance_02` `AF.4`, `D06`):
+    // **Two more since 2026-10-01**:
     // `pcGoToAddPipelineConfig` is the table's *+ Add* and `pcCancelToList` every
     // wizard page's *Cancel*.
     expect(Object.keys((pipelineConfig as ActionDocument).actions).sort()).toEqual([
@@ -365,7 +363,7 @@ describe("the flows' action documents", () => {
   });
 
   it("branches the two save arms on whether a row was selected, which the coverage document did not", () => {
-    // **I-115, and it is the largest thing F.6 found.** `pcSavePipelineConfigUF`
+    // **The largest thing the pipeline configuration port found.** `pcSavePipelineConfigUF`
     // reads `updateKey = unpack(state[pcPipelineConfigTable])` and posts to
     // `update/pipeline_config` with `key` when it is set, `pipeline_config`
     // without it otherwise (`pipeline_config/form_action_delegates.dart`,
@@ -385,13 +383,13 @@ describe("the flows' action documents", () => {
   });
 
   it("initialises the two key lists to empty rather than to themselves", () => {
-    // **The transcription mechanism F.6 found, and it is a fifth** (I-116).
+    // **The transcription mechanism this port found, and it is a fifth**.
     // `pcAddPipelineConfigUF` opens `state[merged_process_input_keys] =
     // <String?>[]` — a fresh empty list. The coverage document wrote
     // `{ "fromKeyList": "merged_process_input_keys" }`, which reads the key it is
     // assigning to: the *left*-hand side supplied the right. Two `set` steps say
     // what the Dart says — a `{}` literal, then the conversion that decodes it —
-    // which is F.4's finding again, that a lost composition needs no primitive.
+    // which is the start pipeline's finding again, that a lost composition needs no primitive.
     const steps = (pipelineConfig as ActionDocument).actions["pcAddPipelineConfigUF"]!.steps;
     expect(steps.slice(1, 5).map((s) => (s.do === "set" ? [s.key, Object.keys(s.value)[0]] : s.do))).toEqual([
       ["merged_process_input_keys", "literal"],
@@ -417,17 +415,17 @@ describe("the flows' action documents", () => {
   });
 
   it("holds every clientRegistryUF arm a form or a table offers, and no other", () => {
-    // F.3. `client_registry/form_action_delegates.dart` declares seven `case`
+    // `client_registry/form_action_delegates.dart` declares seven `case`
     // labels across its two switches; six are here. The absentee is
-    // `crShowVendorUF`, and the check that finds it is the one I-86 used: not
+    // `crShowVendorUF`, and the check that finds it is the reachability one: not
     // *what does the delegate declare* but *what can press it*. The flow's four
     // states take `standardActions` or Previous/Done (`form_config.dart`), the
     // `ufVendor` dialog offers `crAddVendorOk` and `dialogCancel`, and
     // `client`/`org` offer `deleteClientAction` and `deleteOrgAction`
     // (`data_table_config.dart`). Nothing names `crShowVendorUF`.
     //
-    // **`crAddClientUF` became `crAddClientOk` on 2026-10-01**
-    // (`jetstore_maintenance_02` `AF.2`, `D06`): the `create_client` state it was
+    // **`crAddClientUF` became `crAddClientOk` on 2026-10-01**:
+    // the `create_client` state it was
     // the action of is gone, and the client is added from an *Add Client* dialog
     // on the `client` table, as a vendor is from the `org` table's.
     expect(Object.keys((clientRegistry as ActionDocument).actions).sort()).toEqual([
@@ -441,7 +439,7 @@ describe("the flows' action documents", () => {
   });
 
   it("holds homeFiltersUF's four state actions plus the three its table reaches", () => {
-    // F.5. `home_filters/form_action_delegates.dart` declares six `case` labels
+    // `home_filters/form_action_delegates.dart` declares six `case` labels
     // in one switch — four `hf*` state actions falling through to one body,
     // `resubmitPipeline` and `dialogCancel`. All six are reachable and all six
     // are here, which is the first migrated flow where a *table* contributes
@@ -451,14 +449,14 @@ describe("the flows' action documents", () => {
     //
     // **Seven since 2026-10-01, and the seventh has no Dart `case` at all.**
     // `putSchemaEvent` is the Save button of `putSchemaEventDialog`, which the same
-    // table's first row now opens (`jetstore_maintenance_02` `D01`, task `AD.3`);
+    // table's first row now opens;
     // the flow carries it because it draws the table, as it carries
     // `resubmitPipeline`.
     //
-    // **Nine, the same day** (`D04`, `AE.4`, `AE.5`): `getRunManifest` and
+    // **Nine, the same day**: `getRunManifest` and
     // `getSchemaEvent` are the table's third-row buttons, here for the same reason.
     //
-    // **Ten since 2026-11-05** (jetstore_maintenance JM-062): `checkPendingTasks`,
+    // **Ten since 2026-11-05**: `checkPendingTasks`,
     // the first-row *Check Pending* button, beside *Put Schema Event*.
     expect(Object.keys((homeFilters as ActionDocument).actions).sort()).toEqual([
       "checkPendingTasks",
@@ -472,8 +470,8 @@ describe("the flows' action documents", () => {
       "putSchemaEvent",
       "resubmitPipeline",
     ]);
-    // The plan's *Actions* column reads 4 and counts `stateAction` declarations,
-    // which F.4 established is the wrong count for arms. Six `case` labels, four
+    // A count of `stateAction` declarations reads 4, which the start pipeline
+    // flow showed is the wrong count for arms. Six `case` labels, four
     // of them one body.
     const bodies = new Set(
       ["hfSelectProcessUF", "hfSelectStatusUF", "hfSelectFileKeyFilterUF", "hfSelectTimeWindowUF"].map(
@@ -484,7 +482,7 @@ describe("the flows' action documents", () => {
   });
 
   it("normalises session_id before posting it, which the coverage document did not", () => {
-    // **I-100, and it is a 400 rather than a subtlety.** `resubmitPipeline` opens
+    // **A 400 rather than a subtlety.** `resubmitPipeline` opens
     // `state[FSK.sessionId] = unpack(state[FSK.sessionId])`
     // (`modules/actions/config_delegates.dart`, `resubmitPipeline`) — a
     // self-assignment, which is why a transcription reads it as a no-op and drops
@@ -501,7 +499,7 @@ describe("the flows' action documents", () => {
   });
 
   it("holds fileMappingUF's one state action plus the three its table and dialog reach", () => {
-    // F.8. `file_mapping/form_action_delegates.dart` declares **seven** `case`
+    // `file_mapping/form_action_delegates.dart` declares **seven** `case`
     // labels across two switches, and neither switch belongs to one flow:
     // `fileMappingFormActionsUF` is `fileMappingUF`'s (`downloadMapping`,
     // `fmSelectSourceConfigUF`, `dialogCancel`) and `fileMappingFormActions`
@@ -509,7 +507,7 @@ describe("the flows' action documents", () => {
     // (`loadRawRowsOk`, `mapperOk`, `mapperDraft`, `dialogCancel`).
     //
     // **The partition is by what can press the arm, not by which switch declares
-    // it** (I-101). One state action; `downloadMapping` and the dialog are
+    // it**. One state action; `downloadMapping` and the dialog are
     // `fmFileMappingTableUF`'s (`file_mapping/data_table_config.dart`), and the
     // dialog's two buttons are `loadRawRows.Ok` and `dialogCancel`
     // (`FormKeys.loadRawRows`, `file_mapping/form_config.dart`).
@@ -518,7 +516,7 @@ describe("the flows' action documents", () => {
     // and it is a `showScreen`, which navigates to `mapFileUF`'s route and carries
     // a `configForm` that lives in *that* flow's form document — which is why
     // `validateTableActions` checks `configForm` for the two dialog kinds and not
-    // for this one (I-122).
+    // for this one.
     expect(Object.keys((fileMapping as ActionDocument).actions).sort()).toEqual([
       "dialogCancel",
       "downloadMapping",
@@ -531,8 +529,8 @@ describe("the flows' action documents", () => {
     // The state action is `state[k] = unpack(state[k])` four times over
     // (`file_mapping/form_action_delegates.dart`, `fileMappingFormActionsUF`),
     // and `{"fromKey": k}` *is* `unpack` — so this is the one arm of the seven
-    // re-partitions where I-100's mechanism was already spelled correctly.
-    // Asserted because it reads like the no-op I-100 describes and a later tidy-up
+    // re-partitions where the dropped self-assignment was already spelled correctly.
+    // Asserted because it reads like the no-op a transcription drops and a later tidy-up
     // would delete it: `fmInputSourceMappingUF` publishes all four through its
     // `formStateBinding`, so each arrives as a one-element list and the flow's
     // second table filters `process_mapping` on `table_name`.
@@ -546,9 +544,9 @@ describe("the flows' action documents", () => {
   });
 
   it("holds every startPipelineUF arm a state names, and the flow has no others", () => {
-    // F.4. `start_pipeline/form_action_delegates.dart` declares three `case`
+    // `start_pipeline/form_action_delegates.dart` declares three `case`
     // labels in one switch and the four states name them —
-    // `spPrepareStartPipeline` twice, which is why the plan's *Actions* column
+    // `spPrepareStartPipeline` twice, which is why a count of state actions
     // says 4 and the document has 3. **No form and no table adds a fourth**: the
     // three selection forms take `standardActions`, `spSummaryUF` takes
     // Previous / Cancel / Completed (`start_pipeline/form_config.dart`), and the
@@ -569,11 +567,11 @@ describe("the flows' action documents", () => {
 
   // **"unpacks a selection before decoding the array literal inside it" was
   // retired on 2026-10-15 (Release 4.0.4)** with the `spPipelineSelected` arm it
-  // asserted on (I-97). The two `set` steps per key it pinned had nothing left to
+  // asserted on. The two `set` steps per key it pinned had nothing left to
   // unpack for: no table of the flow reads the merged or injected key lists now.
 
   it("re-partitions the workspace_pull delegate by flow, not by file", () => {
-    // The whole of F4, checked on the one delegate file it was written about.
+    // The whole of the partition rule, checked on the one delegate file it was written about.
     // Every name here is a `case ActionKeys.` label of
     // `workspace_pull/form_action_delegates.dart`; the two switches in that file
     // are two flows, and this is where they part.
@@ -594,13 +592,13 @@ describe("the flows' action documents", () => {
     );
   });
 
-  it("names five escapes: I-23 found six and one of them became grammar", () => {
+  it("names five escapes: the transcription found six and one of them became grammar", () => {
     const escapes = Object.values(all).flatMap((doc) =>
       Object.values((doc as ActionDocument).actions).flatMap((action) =>
         action.steps.filter((s) => s.do === "escape").map((s) => s.name),
       ),
     );
-    // **`saveProcessMapping` is gone and that is F.1's finding.** I-23 counted
+    // **`saveProcessMapping` is gone and that is the worksheet port's finding.** The coverage pass counted
     // six escapes by transcribing the delegates, and this one was transcribed as
     // an escape because the grammar of the day could not post one row per
     // validation group and had no missing-key guard. It has both now — `rows:
@@ -608,21 +606,21 @@ describe("the flows' action documents", () => {
     // `mapperOk` and `mapperDraft` are steps. **A transcription says what the
     // grammar could express when it was written, not what the arm needs.**
     //
-    // **F.8 asked the same question of its two and got two different answers,
-    // which narrows the rule rather than repeating it (I-121).**
+    // **The file mapping table port asked the same question of its two and got two different answers,
+    // which narrows the rule rather than repeating it.**
     // `downloadMapping` stays because no step can express a two-table joined read
     // whose rows become a file the browser saves. `loadRawRows` stays although the
     // grammar *can* express it — a `set` and a `post` with `transport:
-    // "insertRows"` — because S.7's allowlist refuses the target: `insert_raw_rows`
+    // "insertRows"` — because the schema's allowlist refuses the target: `insert_raw_rows`
     // runs `DELETE FROM jetsapi.process_mapping` in a pre-processing hook before
     // `InsertRows` reaches `VerifyUserPermission`
     // (`jets/datatable/data_table_action.go`, `InsertRawRows`). **So "can the
     // grammar say it" is necessary and not sufficient**, and the escape count is
     // an upper bound on the first question alone.
     //
-    // **F.7 asked it of the last two and the count did not move, which is the
+    // **The source configuration port asked it of the last two and the count did not move, which is the
     // wrong thing to read off it.** `loadSourceConfigWithFileTypeInference` is
-    // *gone*: F.2's `when` guard expresses all but one step of
+    // *gone*: the `when` guard expresses all but one step of
     // `scSelectSourceConfigUF`, and what remains is `readXlsxSheetOption`, a
     // `JSON.parse` of a value held in form state. One name replaced another and
     // the arm went from a body to twenty-one steps plus four lines.
@@ -630,7 +628,7 @@ describe("the flows' action documents", () => {
     // vocabulary nor permission, but that `wholeState`'s `normalise` and `omit`
     // carry no `when`, so the Dart's per-file-type projection of a *copy* of the
     // state has no guarded form. See `sourceConfig.ts`.
-    // **Seven since 2026-10-01** (`jetstore_maintenance_02` `D04`): the Pipeline
+    // **Seven since 2026-10-01**: the Pipeline
     // Status table's clipboard buttons, which every flow drawing that table runs —
     // `fetchStageToClipboard` because a `post` drops the body it needs, and
     // `copySchemaEvent` because it reads one column of a query result. Neither is
@@ -650,26 +648,26 @@ describe("the flows' action documents", () => {
     const verbs = Object.values(all).flatMap((doc) =>
       Object.values((doc as ActionDocument).actions).flatMap((a) => a.steps.map((s) => s.do)),
     );
-    // `query` and the `insertRows` transport are I-23's additions; if a future
+    // `query` and the `insertRows` transport are the coverage pass's additions; if a future
     // edit removes their only user, this says so rather than leaving dead
     // grammar behind.
     expect(verbs).toContain("query");
-    // F.2's `when`. **One site until F.6 and nine now**, which is the answer to
-    // the question F.2 left open — it argued the guard was justified beyond the
+    // The `when` guard. **One site at first and nine later**, which is the answer to
+    // the question its introduction left open — it argued the guard was justified beyond the
     // one arm that needed it, and named `scSelectSourceConfigUF` as the arm that
-    // would want it most. That is still F.7's to say. What F.6 adds is a
+    // would want it most. That was the source configuration port's to say. What `pipelineConfigUF` adds is a
     // different shape from either: three arms whose *whole structure* is a
     // branch, two of them choosing between an insert target and its update twin
-    // (I-115) and one clearing two keys when any of four is absent. A predicate
+    // and one clearing two keys when any of four is absent. A predicate
     // over form state was enough for all three, so the grammar gained nothing.
     //
-    // **Nineteen after F.7, and ten of them are one flow's.** That is the answer
-    // F.2 left open when it named `scSelectSourceConfigUF` as the arm that wanted
+    // **Nineteen after the source configuration port, and ten of them are one flow's.** That is the
+    // answer left open when the guard's introduction named `scSelectSourceConfigUF` as the arm that wanted
     // this construct most: eight guards in that arm — a two-way mapping of
     // `is_part_files`, a five-way file-type inference and the guard on the one
-    // escape that survives — and two more on `scAddSourceConfigUF` (I-130).
+    // escape that survives — and two more on `scAddSourceConfigUF`.
     // `and`, `or`, `not` and `isNull` all have their first use here, and none of
-    // them is new: `ConditionSchema` has carried all seven forms since S.1, kept
+    // them is new: `ConditionSchema` has carried all seven forms from the start, kept
     // "although the corpus exercises four" on the argument that their absence
     // would be a silent behaviour change the first time a flow wanted one. This is
     // that flow.
@@ -679,7 +677,7 @@ describe("the flows' action documents", () => {
       ),
     );
     expect(guarded).toHaveLength(19);
-    // And F.2's `csvFromKey`. **Two sites in the Dart and three here**, because
+    // And `csvFromKey`. **Two sites in the Dart and three here**, because
     // `loadConfigInternal` is a helper two arms call and the documents have no
     // helper — `wpLoadConfigOkUF` and `wpLoadAllClientConfigUF` each spell it.
     // Every one of the three writes `updateDbClients`.
@@ -698,22 +696,22 @@ describe("every form-state key is a declared constant's value", () => {
   /**
    * Extracted from `constants.dart` at test time rather than from a fixture.
    *
-   * **This block was headed *every form-state key exists in the Dart* until F.9,
-   * 2026-08-24.** I-135 established that the guarantee is narrower — a key the
+   * **This block was headed *every form-state key exists in the Dart* until
+   * 2026-08-24.** It turned out that the guarantee is narrower — a key the
    * Dart never declares as a constant is invisible here, and there is one — and
    * recorded the gap in the `is_part_files` note below while leaving the heading
    * saying the wider thing. The heading is now the guarantee. Nothing about the
    * check changed, which is the point: **widening the extraction would start
    * matching column names**, and that is why the exemption list is enumerated.
    *
-   * **The constant-name-versus-value trap has now caught this project four
-   * times** — A.3's `scFileTypeOption`, S.1's `FormConfig.key`, the sizing's
-   * `ActionKeys.deleteClient`, and S.2a's `input_registry.session_id`. Every one
+   * **The constant-name-versus-value trap has now caught this port four
+   * times** — `scFileTypeOption`, `FormConfig.key`,
+   * `ActionKeys.deleteClient`, and `input_registry.session_id`. Every one
    * was a name written where the app uses a value. This check makes the fifth
    * impossible: a key that is not a declared constant's *value* fails here.
    */
   /**
-   * **A frozen fixture since X.1, and the check survives its source.**
+   * **A frozen fixture since the Flutter app was deleted, and the check survives its source.**
    *
    * This read `constants.dart` and extracted every `static const … = "…"`. That
    * file was deleted with the Flutter app on 2026-08-26, so the 455 values it
@@ -748,7 +746,7 @@ describe("every form-state key is a declared constant's value", () => {
     // unused exemption costs nothing and the field is still the endpoint's.
     "event",
     /**
-     * **A real form-state key the Dart does not name, and the first one.** F.7.
+     * **A real form-state key the Dart does not name, and the first one.**
      *
      * `is_part_files` is column 11 of `scSourceConfigKey`'s `formStateBinding`
      * and is removed by `deleteSourceConfig`
@@ -759,13 +757,13 @@ describe("every form-state key is a declared constant's value", () => {
      *
      * So the guarantee is *every key is a declared constant's value*, which
      * catches the name-for-value trap it was built for and cannot see a key the
-     * Dart never declared. Recorded as I-135, and the block heading was corrected
-     * to say it by F.9.
+     * Dart never declared. The block heading was corrected
+     * to say it on 2026-08-24.
      */
     "is_part_files",
     /**
-     * **The clipboard escape's parameters** (`jetstore_maintenance_02` `D04`,
-     * `AE.4`, 2026-10-01). Real form-state keys, written by `set` steps and
+     * **The clipboard escape's parameters** (added
+     * 2026-10-01). Real form-state keys, written by `set` steps and
      * consumed by `fetchStageToClipboard` (`stageClipboard.ts`,
      * `STAGE_CLIPBOARD_KEYS`); new with the port, so no Dart constant declares
      * them. `main_input_registry_key` needs no entry — it is a declared value.
@@ -774,8 +772,8 @@ describe("every form-state key is a declared constant's value", () => {
     "stage_clipboard.label",
     "stage_clipboard.missing_message",
     /**
-     * **Two keys `D06` brought, both deliberate.** `jetstore_maintenance_02`
-     * `AF.2`/`AF.4`, 2026-10-01 — and both are the *new key* reading of a failure
+     * **Two keys the wizards' *+ Add* brought, both deliberate.** Added
+     * 2026-10-01 — and both are the *new key* reading of a failure
      * here, not the name-for-value one.
      *
      * `ufNewClient` is the *Add Client* dialog's name field. It cannot be

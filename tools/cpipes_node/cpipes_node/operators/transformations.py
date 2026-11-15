@@ -1,10 +1,9 @@
 """Transformation tokens this node declares, and the three that are built.
 
 Three of JetStore's nineteen. The other sixteen are out of scope and abort by
-name, which is X6, and **whether that subset is ever permanent is not decided
-here**: the charter's §1.3 says in terms that parity with the built-ins is not
-this phase's to answer, the question is P9-I04, and the number reserved for the
-ruling is D-206. What this module does is make the subset a fact a reader can
+name, which is the scope rule, and **whether that subset is ever permanent is not
+decided here**: the charter says in terms that parity with the built-ins is not
+its to answer, and the question is open with a ruling reserved for it. What this module does is make the subset a fact a reader can
 check rather than a sentence in a plan.
 
 The site operator is not one of these. See `operators/__init__.py`.
@@ -14,12 +13,12 @@ The site operator is not one of these. See `operators/__init__.py`.
 `map_record` and `filter` are here entire. `partition_writer` is here as far as
 the *policy* goes — partition rollover, sampling, the record's shape — and its
 two device encoders are `writers.py`, because CSV and Parquet are one subject
-and X3 is a statement about them: one column list, two containers. The authored
+and the cell-for-cell criterion is a statement about them: one column list, two containers. The authored
 column vocabulary is `columns.py`, for the same reason: it is shared by all
 three of these operators and by `OperatorEnv.column_evaluator`, which a site
 operator reaches.
 
-# The seam a built-in needs, and how it got it (P9-I55, D-226)
+# The seam a built-in needs, and how it got it
 
 `graph._transformation_factory` gave a built-in transformation **a site
 factory's signature** — `factory(env, args)` — deliberately, on the ground that
@@ -46,11 +45,11 @@ no `site_config`:
    `ctx.s3DeviceManager`, reached from the `BuilderContext`. Nothing on
    `OperatorEnv` or `OperatorArgs` reached `NodeContext.store`, and adding it to
    `OperatorEnv` would hand **every site operator** the node's store, which is
-   the one thing §12.6 is about withholding. So `partition_writer` could not be
+   the one thing the site contract is about withholding. So `partition_writer` could not be
    reached from a `.pc.json` at all.
 
 **The repair is the Go asymmetry restored, in the type of `env` rather than in
-the number of arguments** (D-226): a built-in is handed `runtime.BuilderEnv`,
+the number of arguments**: a built-in is handed `runtime.BuilderEnv`,
 which carries the node context, the channel registry and the authored spec, and
 a site factory is handed `GraphOperatorEnv`, which carries none of them. The
 call shape stays `factory(env, args)` for both, so a token added later still
@@ -109,7 +108,7 @@ class SeamNotWired(StartupError):
     authored document: a caller that could not tell it from `ConfigInvalid`
     would send the reader to the `.pc.json`.
 
-    Two subjects since P9-I55's repair, and both are about how the operator was
+    Two subjects since the builder-context repair, and both are about how the operator was
     *built* rather than about what it was asked to do: an env that is not a
     `BuilderEnv`, and a node with no object store.
     """
@@ -198,7 +197,7 @@ class MapRecord(Transformation):
     def build(cls, env: Any, args: Any) -> Any:
         """`NewMapRecordTransformationPipe`.
 
-        **The cap is read off `args` and not off the block** (P9-I55): the two
+        **The cap is read off `args` and not off the block**: the two
         carry the same number for a built-in, because `graph._builtin_config`
         fills `args.max_error_count` from `map_record_config.max_error_count` —
         and reading it here is what gives the field a reader in this node rather
@@ -349,9 +348,9 @@ class PartitionWriterPipe:
     for a partition writer's output channel, because nothing is ever sent to it.
     The volume this operator moved is `total_rows` and `parts` on this object,
     which is the pair the Go engine reports through `ComputePipesResult`'s
-    `CopyRowCount` and `PartsCount` — a different path, and P9-T09's.
+    `CopyRowCount` and `PartsCount` — a different path, and the side effects'.
 
-    **`store` is already bound to the destination bucket** (D-242). The Go
+    **`store` is already bound to the destination bucket**. The Go
     writer holds an `externalBucket` string and names it on every upload; here
     the resolution happens once, where the destination is computed, so there is
     no second place for a key and a bucket to be paired. `bucket` beside it is
@@ -383,7 +382,7 @@ class PartitionWriterPipe:
     batch_size: int = 0
     file_name: str = ""
     #: `put_headers_on_first_partition` resolved against this node's id; see
-    #: `headers_on_this_node` and P9-I117. `True` is the ordinary case — every
+    #: `headers_on_this_node`. `True` is the ordinary case — every
     #: part carries its own header — and is the Go writer's default too.
     headers_on_this_node: bool = True
     #: What Go's `Finally()` reports this writer as, in its `ComputePipesResult`
@@ -465,7 +464,7 @@ class PartitionWriterPipe:
         an empty partition never starts one.
 
         **`stream_data_out` decides where the encoder's bytes land** and nothing
-        else (D-243). `S3DeviceWriter.WritePartition` branches on the same flag
+        else. `S3DeviceWriter.WritePartition` branches on the same flag
         at `s3_device_writter.go:40`, and the two arms there produce the same
         object at the same key in the same bucket — which is why the assertion
         that matters is not about bytes: it is that the streaming arm never
@@ -530,7 +529,7 @@ class PartitionWriterPipe:
 class PartitionWriter(Transformation):
     """Write the input channel's records to partition files.
 
-    The `device_writer_type` enum is where §7's *Parquet and CSV writers* is
+    The `device_writer_type` enum is where the charter's *Parquet and CSV writers* is
     answered by something that already exists; this node has to honour the
     value, not invent an encoder.
     """
@@ -543,7 +542,7 @@ class PartitionWriter(Transformation):
     def build(cls, env: Any, args: Any) -> Any:
         """`NewPartitionWriterTransformationPipe`, through the builder env.
 
-        **Reachable from a `.pc.json` since P9-I55's repair.** The two things it
+        **Reachable from a `.pc.json` since the builder-context repair.** The two things it
         needs beyond `OperatorEnv` are the ones Go reads off `BuilderContext`:
         `config` — now `args.config`, filled by `graph._builtin_config` from the
         step's own `partition_writer_config` — and the object store, which is
@@ -626,7 +625,7 @@ class PartitionWriter(Transformation):
         ChannelConfig` fills `format`, `compression` and `delimiter` only where
         they are empty, and a document that came from a starter has them filled
         already — so the same code is right for the local driver, which has no
-        starter in front of it (D-219's shape one field over).
+        starter in front of it (the node-as-starter shape one field over).
         """
         source = _source(args, "partition_writer")
         out = _output(args, "partition_writer")
@@ -693,8 +692,8 @@ def headers_on_this_node(output_channel: Any, node_id: int) -> bool:
     what this returns: with the flag set, only node 0 writes a header; with it
     unset, every part carries one, which is what a partition-aware reader wants.
 
-    **The flag had zero references in this package** (**P9-I117**), which is the
-    same shape as `jets_partition_key` (P9-I132) in the same operator and was
+    **The flag had zero references in this package**, which is the
+    same shape as `jets_partition_key` in the same operator and was
     found by the same run: at four nodes the merged `member` carried **four**
     header lines over 200 rows where Go writes one, and a csv reader takes the
     other three as data. The document that authors the flag is the one that then
@@ -750,7 +749,7 @@ def partition_label(builder: Any, config: Any) -> str:
 
     This node read `node.jets_partition_label` — the node's own `jp`, defaulted
     to `%04dP` of the node id — and **`jets_partition_key` had zero references in
-    the package** (**P9-I132**). That is right for the 53 authored writers that
+    the package**. That is right for the 53 authored writers that
     spell the key `$JETS_PARTITION_LABEL`, because substitution resolves it to
     exactly that value, and wrong for every other document: a key naming a fixed
     label makes all N nodes write under **one** partition, and the node wrote
@@ -788,7 +787,7 @@ def partition_label(builder: Any, config: Any) -> str:
     the **53** authored `.pc.json` in `workspaces/` on 2026-09-19 there are 121
     partition writers; 44 sit under a splitter and take the split key, 63 author
     a key, and the **14** that are keyless and not under a splitter are all in
-    `healthcare_corpus.pc.json` — twelve writing to `output` channels whose key
+    one corpus-generator document — twelve writing to `output` channels whose key
     prefix never references `$CURRENT_PARTITION_LABEL`, so the label reaches no
     key at all. Refusing would therefore refuse a document Go runs and runs
     **correctly**, which is the one thing this package's divergences are not
@@ -823,7 +822,7 @@ def _refuse_a_splitter_supplied_partition_key() -> None:
     default, so every branch of a splitter would otherwise be written under one
     label and collapse into one partition. The subject is derived from the
     operator registry rather than listed, which is the same shape as
-    `_refuse_streaming_beside_a_splitter` and for the same reason (P7-I88).
+    `_refuse_streaming_beside_a_splitter` and for the same reason.
     """
     if declaration(TokenKind.PIPE, SPLITTER_PIPE_TOKEN) is None:
         return
@@ -850,7 +849,7 @@ def _partition_destination(
     partition label, returned rather than recomputed by the caller because
     resolving it logs.
 
-    # The bucket, and the three arms that never look at it (D-242)
+    # The bucket, and the three arms that never look at it
 
     Go resolves the bucket in **one** place, and it is not the top of this
     switch: it is inside `case "output":`, inside that case's `default:` arm
@@ -866,8 +865,8 @@ def _partition_destination(
     every row correct.
 
     **This node refuses that rather than reproducing the silence.** The refusal
-    is narrower than Go and is the same judgement D-224 already made one pipe
-    kind over: a document Go runs is refused here, at startup, by name. Measured
+    is narrower than Go and is the same judgement the merge-pipe decision made one
+    pipe kind over: a document Go runs is refused here, at startup, by name. Measured
     over the 51 authored `.pc.json` in `workspaces/` on 2026-09-19, **no
     partition writer authors a bucket on a `stage` channel**, so the refusal
     costs nothing today and fires on the first document that makes the mistake.
@@ -893,7 +892,7 @@ def _partition_destination(
     `NewPartitionWriterTransformationPipe` does. It was `node.jets_partition_label`
     — the node's own `jp` — until 2026-09-19, which agrees with Go exactly when
     the document spells the key `$JETS_PARTITION_LABEL` and diverges on every
-    other document by writing N partitions where Go writes one (**P9-I132**).
+    other document by writing N partitions where Go writes one.
     """
     kind = getattr(output_channel, "type", None) or "memory"
     node = builder.node
@@ -1033,13 +1032,13 @@ def _refuse_streaming_beside_a_splitter(stream_data_out: bool) -> None:
     into is measured in the AWS SDK's HTTP transport rather than in anything the
     contract says.
 
-    **The subject is derived rather than listed** (P3-I20). This node declares no
+    **The subject is derived rather than listed**. This node declares no
     splitter — `declared_scope()[PIPE]` is `fan_out` and `merge_files` — so a
     document pairing the two cannot be authored here at all today and this guard
     cannot fire. It is written anyway, against the operator registry the
     `Operator` subclasses put themselves into, so the day somebody adds a
     `Splitter(Pipe)` class the pairing fails loudly instead of being remembered.
-    A comment saying *do not do this* is what stopped nobody before (P7-I88).
+    A comment saying *do not do this* is what stopped nobody before.
 
     **It is a `StartupError` and never a warning**, for `enforce`'s own reason:
     a run that half-writes a corpus and then exhausts its connections leaves
@@ -1062,7 +1061,7 @@ def _refuse_streaming_beside_a_splitter(stream_data_out: bool) -> None:
 
 
 def _refuse_an_unreachable_bucket(output_channel: Any, where: str) -> None:
-    """Refuse a `bucket` on a destination arm Go never reads it on (D-242)."""
+    """Refuse a `bucket` on a destination arm Go never reads it on."""
     authored = str(getattr(output_channel, "bucket", None) or "")
     if store_module.is_own_bucket(authored):
         return
@@ -1206,7 +1205,7 @@ def _evaluators(
     method still refuses by name: it is `runtime.py`'s and this wave does not
     own that file. The delegation is one line — `return columns.build(...)` —
     and until it lands a **site** operator honouring its own authored `columns`
-    cannot get an evaluator, which is the other half of P9-I57.
+    cannot get an evaluator, which is the other half of the recorded duplication.
     """
     source = _source(args, token)
     output = _output(args, token)

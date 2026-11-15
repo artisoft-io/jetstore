@@ -3,7 +3,7 @@
 //
 // **It imports only the standard library, pipesmodel and wsvalidate, and that is
 // a constraint rather than a preference.** The workspace compile records every
-// test definition it finds (rules_unit_test_harness AD.1), so the compile must
+// test definition it finds, so the compile must
 // import this package's validator, and compute_pipes imports jets/workspace
 // (actions_start_common.go, actions_coordinate_cp.go). A validator that imported
 // compute_pipes would close the cycle. The code that runs a test — the engine,
@@ -26,26 +26,26 @@ import (
 )
 
 // TestDefinition is one .tst.json file. Its identity is its path in the
-// workspace; TestName is a label (project definition Q-6).
+// workspace; TestName is a label.
 type TestDefinition struct {
 	TestName string `json:"test_name"`
 	Comment  string `json:"comment,omitempty"`
 	// Legacy selected the engine's retraction behaviour for this test until the
 	// LEGACY retraction mode was deleted (LegacyConfig). A switch set true is
-	// refused by validation. Top level only (definition §8.5.2).
+	// refused by validation. Top level only.
 	Legacy *LegacyConfig `json:"legacy,omitempty"`
 	// CompareEngines ran the test on both engines, C++ and Go, and failed when they
-	// differed (definition Q-11). The Go engine is retired, so true is refused by
+	// differed. The Go engine is retired, so true is refused by
 	// validation (GoEngineRetired); the field is decoded so that the refusal can
 	// name it. Top level only.
 	CompareEngines bool `json:"compare_engines,omitzero"`
-	// Expect turns a run ending in an error into the expected outcome
-	// (definition §6). Top level only.
+	// Expect turns a run ending in an error into the expected outcome.
+	// Top level only.
 	Expect         *Expectation   `json:"expect,omitempty"`
 	JetrulesConfig JetrulesConfig `json:"jetrules_config"`
 	InputSessions  []InputSession `json:"input_sessions"`
-	// ExpectedTriples and ExcludedTriples apply to every input session
-	// (definition Q-2); a session may add its own.
+	// ExpectedTriples and ExcludedTriples apply to every input session;
+	// a session may add its own.
 	ExpectedTriples []Check `json:"expected_triples,omitempty"`
 	ExcludedTriples []Check `json:"excluded_triples,omitempty"`
 }
@@ -55,8 +55,8 @@ type TestDefinition struct {
 // and the C++ engine kept one retraction behaviour, the one these switches turned
 // on by setting them false (docs/src/content/docs/developer/engine/rule-engine/). The object is still decoded, so
 // that validation can refuse a switch set true, naming the change; one whose every
-// present switch is false names the behaviour that remains and selects nothing
-// (rules_benchmark Q-102). The names are the project definition's (§8.5.1).
+// present switch is false names the behaviour that remains and selects nothing.
+// The names are the project definition's.
 type LegacyConfig struct {
 	// Defect 1: a consequent that reads the graph was recomputed on retraction.
 	RecomputeOnRetraction *bool `json:"recompute_on_retraction,omitempty"`
@@ -66,8 +66,7 @@ type LegacyConfig struct {
 
 // LegacyModeFixed is the legacy_mode every result records since the LEGACY
 // retraction mode was deleted: the one behaviour, which the mode called fixed.
-// Results and rows written before may record legacy, fixed-1 or fixed-2
-// (definition §8.5.6).
+// Results and rows written before may record legacy, fixed-1 or fixed-2.
 const LegacyModeFixed = "fixed"
 
 // LegacyRetractionDeleted names the deletion of the LEGACY retraction mode, in the
@@ -105,7 +104,7 @@ type Expectation struct {
 }
 
 // JetrulesConfig is the part of compute_pipes.JetrulesSpec a test uses, under
-// the same JSON names (definition §3.2). The pipeline-only fields are refused
+// the same JSON names. The pipeline-only fields are refused
 // by name; see refusedFields. use_jet_rules_go asked for the Go engine, retired:
 // true is refused by validation, as compare_engines is.
 type JetrulesConfig struct {
@@ -123,7 +122,7 @@ type JetrulesConfig struct {
 }
 
 // refusedFields are the JetrulesSpec fields that mean something only in a
-// pipeline, with the reason a test refuses each (definition §3.2, Q-9).
+// pipeline, with the reason a test refuses each.
 func (JetrulesConfig) refusedFields() map[string]string {
 	const throughput = "is a pipeline throughput setting; a test runs one engine on its own input sessions"
 	const reporting = "is pipeline output; a test reports through its result file"
@@ -222,7 +221,7 @@ type Triple struct {
 }
 
 // ObjectTerm is the object of a triple: a ?variable, a typed value
-// {"value": "...", "type": "..."} as rule_config writes it (definition F30), or a
+// {"value": "...", "type": "..."} as rule_config writes it, or a
 // bare string, which is text — ExtractRdfNodeInfoJson's rule. A text value that
 // begins with "?" is written in the typed form.
 type ObjectTerm struct {

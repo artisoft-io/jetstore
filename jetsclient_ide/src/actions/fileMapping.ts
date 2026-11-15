@@ -1,28 +1,27 @@
 /**
  * The `file_mapping/` directory's escapes — two of `mapFileUF`'s and two of
- * `fileMappingUF`'s. Tasks F.1 and F.8.
+ * `fileMappingUF`'s.
  *
  * **The header said "`mapFileUF`'s two escapes" for seven tasks, and the module
- * is named for the *directory*.** `file_mapping/` defines two flows (I-61), and
- * both put a body here: F.1's pair are the worksheet's, F.8's pair belong to the
- * flow above it. They share a directory, a table and nothing else — which is
- * exactly the split I-61 was written about, arriving in this file.
+ * is named for the *directory*.** `file_mapping/` defines two flows, and
+ * both put a body here: one pair are the worksheet's, the other pair belong to the
+ * flow above it. They share a directory, a table and nothing else.
  *
- * The file mapping worksheet is the corpus's hardest form and the one Phase 2
+ * The file mapping worksheet is the corpus's hardest form and the one the port
  * deliberately kept out of the proof flows: one state, zero declared fields, a
- * row builder, two exotic field types and a 222-line validator (I-61). What is
+ * row builder, two exotic field types and a 222-line validator. What is
  * here is the part of it that does not become data — and the measurement of what
  * that turned out to be is the point of this comment.
  *
  * ## The action half became data after all, and no escape was needed
  *
  * `actions/coverage/fileMappingUF.ua.json` had `mapperOk` and `mapperDraft`
- * reaching a `saveProcessMapping` escape, from I-22's coverage pass. Writing the
+ * reaching a `saveProcessMapping` escape, from the coverage pass. Writing the
  * runtime document showed the grammar can express both, given two additions that
  * are justified beyond this flow: `rows: "everyGroup"` (the Dart's
  * `getInternalState()`, which is what a repeating form posts) and a `require`
  * step (sixteen arms across the delegates open with the same missing-key guard).
- * **So the escape count for this flow is two, not three**, and §4's risk —
+ * **So the escape count for this flow is two, not three**, and the sizing's risk —
  * *"an eighth escape is an acceptable outcome rather than a failure"* — is
  * discharged at seven.
  *
@@ -39,7 +38,7 @@
  * reaches is a relation between sibling values, which the `required`/`json` rules
  * cannot state and which four bespoke rule kinds would only state for this form.
  *
- * ## The 222 lines are not 222 lines, and the plan should know it
+ * ## The 222 lines are not 222 lines, and the count should say so
  *
  * `mappingFormValidator` has **one** consumer — `fmMappingFormUF`, the grep is
  * one line — and a form validator is only ever called with its own form's field
@@ -59,9 +58,9 @@
  * is never there and the block never runs.
  *
  * **So the live surface is five cases of twelve, about 99 lines of 222.** That is
- * I-39 and I-63's shape a third time — dead configuration found only by asking a
+ * a familiar shape — dead configuration found only by asking a
  * reachability question — and it is why the port below is shorter than the
- * original rather than a translation of it. Recorded as I-73.
+ * original rather than a translation of it.
  */
 
 import type { JetsRow } from "../datatable/types";
@@ -89,7 +88,7 @@ const MAPPING_FUNCTIONS = "mappingFunctions";
  *
  * `FSK.isRequiredFlag` is **`"flag.is_required"`**, not `is_required_flag`
  * (`jetsclient/lib/utils/constants.dart`, `isRequiredFlag`). The
- * constant-name-versus-value trap has caught this project five times now —
+ * constant-name-versus-value trap has caught this port five times now —
  * `flowActions.test.ts` extracts `constants.dart` at test time for exactly this
  * reason — and it is worth a named constant because nothing else in this file
  * reads it and a typo would simply make every property look optional.
@@ -219,7 +218,7 @@ export const mappingFormValidator: ValidatorEscape = (context, key, value) => {
       // whether the argument is required is column 1 of the row naming it.
       const row = (formState.queryRows(MAPPING_FUNCTIONS) ?? []).find((r) => r[0] === functionName);
       // Absent rather than asserting: the Dart asserts, and Dart strips asserts
-      // in release (I-47), so its production behaviour on a missing cache is to
+      // in release, so its production behaviour on a missing cache is to
       // throw inside `firstWhere`. Treating it as "not required" keeps the form
       // usable while the query is in flight.
       if (row === undefined) return null;
@@ -273,14 +272,14 @@ const MAPPING_COLUMNS = [
  * commas between (`downloadMapping`). It does **not** escape an embedded quote,
  * and neither does this: a mapping value containing `"` produces the same
  * malformed row in both apps, which is a divergence not worth introducing — see
- * I-123.
+ *
  */
 function csvRow(cells: readonly (string | null)[]): string {
   return cells.map((cell) => (cell === null ? "" : `"${cell}"`)).join(",");
 }
 
 /**
- * `downloadMapping` — the flow's table button. Task F.8.
+ * `downloadMapping` — the flow's table button.
  *
  * **The one escape of the corpus that is an escape for the reason the mechanism
  * was designed for.** It issues a `read` whose shape no `post` step can express —
@@ -341,14 +340,14 @@ export const downloadMapping: ActionEscape = async (context, host) => {
 };
 
 /**
- * `loadRawRows` — the Save button of `loadRawRowsDialog`. Task F.8.
+ * `loadRawRows` — the Save button of `loadRawRowsDialog`.
  *
  * **This one is an escape on a security ground rather than an expressive one,
- * and the distinction is the whole of I-121.** The arm is four lines: write
+ * and the distinction is the whole point.** The arm is four lines: write
  * `user_email` into form state and post the state as one row
  * (`file_mapping/form_action_helpers.dart`, `loadRawRows`). A `set` step and a
- * `post` with `transport: "insertRows"` say exactly that — I-74's question, asked
- * and answered *yes*. What refuses it is S.7's allowlist: `insert_raw_rows`
+ * `post` with `transport: "insertRows"` say exactly that — *can the grammar say it*,
+ * asked and answered *yes*. What refuses it is the schema's allowlist: `insert_raw_rows`
  * parses the pasted text and runs `DELETE FROM jetsapi.process_mapping` in a
  * pre-processing hook **before** `InsertRows` calls `VerifyUserPermission`
  * (`jets/datatable/data_table_action.go`, `InsertRawRows`). Adding it to

@@ -11,7 +11,7 @@
       a relative href would resolve against the current document and break on a
       deep client route, which is served this same html from a different path.
 
-      **The JetStore mark rather than the editor's, since D.9 (I-267).** This was
+      **The JetStore mark rather than the editor's.** This was
       `favicon.svg`, and a static document cannot vary by route, so the editor's
       icon was served on all twenty-one of them. `src/shell/favicon.ts` swaps in
       `favicon.svg` on the two routes that are the editor; this line is what every
@@ -23,7 +23,7 @@
     -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <!--
-      **The product, not a screen, since D.10 (I-272).** This was `JetStore
+      **The product, not a screen.** This was `JetStore
       Workspace IDE`, and a static document cannot vary by route, so one screen's
       name was the tab of all twenty-two of them. `src/shell/documentTitle.ts`
       names each route; this line is what a tab shows before the bundle hydrates,

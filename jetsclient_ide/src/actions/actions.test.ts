@@ -1,9 +1,9 @@
 /**
- * Tests for the action grammar and interpreter (task S.2a).
+ * Tests for the action grammar and interpreter.
  *
  * The assertion that matters is the last one: **the payload the interpreter
  * produces for `lfLoadFilesUF` is byte-for-byte the payload the Dart produces**,
- * checked against the same audit-log capture A.4a used to close I-4. Everything
+ * checked against the audit-log capture of the Flutter app. Everything
  * else here is scaffolding for that claim.
  */
 
@@ -56,7 +56,7 @@ function makeHost(overrides: Partial<ActionHost> = {}) {
  * Runs an action and returns what it said, which is what most cases here assert.
  *
  * **`runCompleting` is the one that asserts the other half.** `runAction` returns
- * `{completed, message}` since I-29, because a step can stop an action without
+ * `{completed, message}`, because a step can stop an action without
  * saying anything — a `validate` that does not pass, a refused `confirm` — and
  * the flow engine may only advance when the action ran to the end. A test that
  * looks at the message alone cannot tell those apart, which is the defect in one
@@ -100,9 +100,9 @@ describe("the emitted JSON Schema", () => {
 
 /**
  * **One proof flow since 2026-10-01.** `registerFileKeyUF` was the other, and was
- * retired by `jetstore_maintenance_02` (`Q-6`, task `AD.4`): its schema event is
- * submitted from the Pipeline Status table's *Put Schema Event* dialog now
- * (`D01`). The control-flow case below that used its `validate` step uses
+ * retired: its schema event is
+ * submitted from the Pipeline Status table's *Put Schema Event* dialog now.
+ * The control-flow case below that used its `validate` step uses
  * `loadFilesUF`'s `lfLoadFilesUF`, which opens the same way.
  */
 describe("the proof flow's documents", () => {
@@ -172,7 +172,7 @@ describe("control flow", () => {
       host,
     );
     expect(result.message).toBeNull();
-    // **And it says it stopped, which the message cannot** (I-29). This action is
+    // **And it says it stopped, which the message cannot**. This action is
     // one of eleven in the corpus that opens with a `validate` step (fourteen
     // under `user_flows/` on 2026-10-01, counted after `rfkSubmitSchemaEventUF`,
     // which this case used until then, was retired with its flow); while
@@ -209,7 +209,7 @@ describe("control flow", () => {
   });
 
   /*
-    `detailFromKey`, `session_registry` Phase 2 (2026-11-08): the text an earlier
+    `detailFromKey` (2026-11-08): the text an earlier
     step wrote is handed to the host beside the static message, and a key holding
     nothing asks the static question alone.
   */
@@ -320,7 +320,7 @@ describe("lfLoadFilesUF against the Dart's own payload", () => {
   /**
    * The capture is `../datatable/fixtures/load_files_flutter_audit.log` — the
    * apiserver's stdout while the Flutter app was driven through `load_files`,
-   * which is what closed I-4 for the read side. It contains the write too, and
+   * which is what verified the read side. It contains the write too, and
    * that is what this checks.
    */
   const captured = (() => {

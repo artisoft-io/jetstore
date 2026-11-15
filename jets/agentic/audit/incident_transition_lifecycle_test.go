@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// Appendix A.5's Incident machine, asserted edge by edge. A transition table
+// The design's Incident machine, asserted edge by edge. A transition table
 // that is never tested against the diagram it transcribes is a diagram
 // transcribed once.
 func TestIncidentTransitionsFollowAppendixA5(t *testing.T) {
@@ -14,20 +14,20 @@ func TestIncidentTransitionsFollowAppendixA5(t *testing.T) {
 		want []string
 	}{
 		{IncidentDetected, []string{IncidentTriaged}},
-		// Three successors, all three adjudications — which is why plan §10.7
+		// Three successors, all three adjudications — which is why the supervision design
 		// calls the supervision screen the labelling instrument.
 		{IncidentTriaged, []string{IncidentDiagnosed, IncidentReclassified, IncidentSuppressedAsBenign}},
 		{IncidentDiagnosed, []string{IncidentRemediationProposed}},
-		// The back edge A.5 draws across the top of the figure.
+		// The back edge the design draws across the top of the figure.
 		{IncidentRemediationProposed, []string{IncidentAwaitingApproval, IncidentTriaged}},
 		{IncidentAwaitingApproval, []string{IncidentRemediating}},
 		{IncidentRemediating, []string{IncidentResolved}},
 		// The prose, not the ASCII: "reclassified returns to triaged with a new
-		// classification and a recorded reason" (I-298).
+		// classification and a recorded reason".
 		{IncidentReclassified, []string{IncidentTriaged}},
 		{IncidentResolved, []string{IncidentVerified}},
 		{IncidentVerified, []string{IncidentClosed}},
-		// A.5: "suppressed_as_benign and closed are terminal."
+		// "suppressed_as_benign and closed are terminal."
 		{IncidentClosed, nil},
 		{IncidentSuppressedAsBenign, nil},
 		{"compacted", nil},
@@ -35,7 +35,7 @@ func TestIncidentTransitionsFollowAppendixA5(t *testing.T) {
 		got := IncidentTransitions(tc.from)
 		want := append([]string(nil), tc.want...)
 		if len(want) > 1 {
-			// IncidentTransitions sorts; the table above is written in A.5's
+			// IncidentTransitions sorts; the table above is written in the design's
 			// reading order, which is the order a human checks it in.
 			want = sortedCopy(want)
 		}
@@ -55,12 +55,12 @@ func sortedCopy(in []string) []string {
 	return out
 }
 
-// A.5 names one illegal transition explicitly. It is the cheapest possible
+// The design names one illegal transition explicitly. It is the cheapest possible
 // assertion that the table is a permitted-transitions-only graph rather than a
 // list of suggestions.
 func TestDetectedToResolvedIsIllegal(t *testing.T) {
 	if IncidentTransitionAllowed(IncidentDetected, IncidentResolved) {
-		t.Fatal("A.5 says in terms that detected -> resolved is illegal")
+		t.Fatal("the lifecycle design says in terms that detected -> resolved is illegal")
 	}
 }
 
@@ -92,7 +92,7 @@ func TestIncidentForwardTableUsesOnlyKnownStatuses(t *testing.T) {
 		}
 	}
 	if len(IncidentStatuses) != 11 {
-		t.Errorf("A.4 lists eleven IncidentStatus values; this file has %d", len(IncidentStatuses))
+		t.Errorf("the model lists eleven IncidentStatus values; this file has %d", len(IncidentStatuses))
 	}
 }
 

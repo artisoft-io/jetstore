@@ -1,13 +1,13 @@
 /**
  * The application shell: session, chrome, navigation, and the banner region.
  *
- * Task A.1 — the piece that turns Phase 1's single-screen editor into an
+ * The piece that turns the original single-screen editor into an
  * application that can host screens. Everything a screen should not have to
  * reimplement lives here; everything specific to a screen stays in it.
  *
  * ## The `/ide/` question, settled here
  *
- * The plan required A.1 to decide the relationship between this bundle and the
+ * The shell had to decide the relationship between this bundle and the
  * IDE's url space rather than inherit it, because vite bakes `base` into every
  * asset url at build time and a bundle cannot be moved without rebuilding.
  *
@@ -21,11 +21,11 @@
  *    build, and no second copy of the api client.
  *  - The cost of renaming the prefix later does **not** grow with the number of
  *    screens. Routes inside this app are relative to the router's `basename`, so
- *    Phase 3 adding twenty screens adds no new mentions of `/ide/`. Today the
+ *    adding twenty screens adds no new mentions of `/ide/`. Today the
  *    prefix is named in one Go constant, one Dart line that opens this app
  *    (`jetsclient/lib/modules/workspace_ide/screen_delegates_helpers.dart:94`),
  *    the vite `base`, and the `basename` below. It will be named in the same
- *    places after Phase 3.
+ *    places after more screens are added.
  *
  * So the name is now inaccurate — this is the React application, not only the
  * IDE — and that is a cosmetic debt with a bounded, non-growing price. The
@@ -62,7 +62,7 @@ import {
 
 export type Theme = "light" | "dark";
 
-/** Kept under the Phase 1 key so a returning user keeps their choice. */
+/** Kept under the original editor's key so a returning user keeps their choice. */
 const THEME_KEY = "jetstore-ide-theme";
 
 export interface NavItem {
@@ -74,7 +74,7 @@ export interface NavItem {
 
 /**
  * The client filter's slot in the row, as a nav entry rather than a fixed
- * position. Task D.3, from **I-259**, which specifies the order as
+ * position. From a defect report, which specifies the order as
  * *Home | Filter Client | Workspaces | Workspace IDE | Proposals | Query Tool |
  * Infer Server Admin* — the filter sits second, between two links.
  *
@@ -93,12 +93,12 @@ const isClientFilter = (e: NavEntry): e is ClientFilterSlot =>
   "kind" in e && e.kind === "client-filter";
 
 /**
- * One entry of the flow menu the brand becomes. Task D.3, from **I-261**.
+ * One entry of the flow menu the brand becomes.
  *
  * `to` is a full route rather than a flow key, because **one of the five entries
  * is not a flow**: *Rules Config* is `screens/RuleConfig.tsx` at `/ruleConfig`,
  * which the report listed among the missing flows because nothing in the
- * navigation named it (**I-268**). Keying on flow ids would have forced that one
+ * navigation named it. Keying on flow ids would have forced that one
  * to be a special case.
  *
  * `capability`, when set, is what the entry needs: without it the entry is shown
@@ -131,13 +131,13 @@ export function AppShell(props: AppShellProps) {
   return (
     <ApiProvider api={props.api}>
       <NotificationsProvider>
-        {/* Task D.9 (I-267). Above `ShellChrome` rather than inside it because
+        {/* Above `ShellChrome` rather than inside it because
             `ShellChrome` returns `<Login>` when there is no user, and the icon
             belongs to the url rather than to the session. See `favicon.ts`. */}
         <RouteFavicon />
-        {/* D.10, from **I-272** — the same shape one element over. */}
+        {/* The page title — the same shape one element over. */}
         <RouteTitle />
-        {/* I-39 (jetstore_maintenance_02, 2026-10-02): the app's own `confirm`
+        {/* Since 2026-10-02: the app's own `confirm`
             and `prompt`, which every screen asks instead of the browser's. See
             `prompts.tsx`. */}
         <PromptsProvider>
@@ -152,7 +152,7 @@ export function AppShell(props: AppShellProps) {
  * A nav item the user cannot reach: visible and inert, not absent.
  *
  * See `capabilities.tsx` — every gated control in the Flutter app disables
- * rather than hides, and A.1 diverged from that here without noticing.
+ * rather than hides, and the shell first diverged from that here without noticing.
  */
 function DisabledNavItem({ label, reason }: { label: string; reason?: string }) {
   return (
@@ -216,7 +216,7 @@ function ShellNavItem({
 }
 
 /**
- * The client filter, which every screen's tables are queried against. Task C.6.
+ * The client filter, which every screen's tables are queried against.
  *
  * **In the shell because it is the shell's in Flutter too** — a dropdown in the
  * left menu that `base_screen.dart` draws on every screen, writing to a router
@@ -280,11 +280,11 @@ function ClientPicker({ api }: { api: ApiClient }) {
 }
 
 /**
- * The brand, as the way into the flows. Task D.3, from **I-261**.
+ * The brand, as the way into the flows, as a defect report asked.
  *
  * **The Flutter left panel's menu tree held twenty distinct labels and this row
- * holds six**, which is why the flows became unreachable when X.1 retired that
- * app: they were started from the tree, not from a screen. I-266 settled that
+ * holds six**, which is why the flows became unreachable when that app was
+ * retired: they were started from the tree, not from a screen. It was settled that
  * the panel does not come back, so the launcher lives here.
  *
  * **A `<details>` rather than a popover built out of state**, and two thirds of
@@ -296,18 +296,18 @@ function ClientPicker({ api }: { api: ApiClient }) {
  * one behaviour — a click on the `<summary>` toggles `open` — and no user-agent
  * closes it on `Escape` or on a click elsewhere; that is `<dialog>`, and the
  * popover API. So the menu stayed open until it was clicked shut, which is what
- * the second report on **I-261** describes.
+ * the second report on describes.
  *
  * The third clause held: it is keyboard-reachable as it stands. The element is
  * still the right choice — open state, focus order and the disclosure semantics
  * come with it, and what it does not come with is 12 lines below rather than the
- * 60 a from-scratch menu would need. D.11.
+ * 60 a from-scratch menu would need.
  */
 function FlowMenu({ items }: { items: FlowMenuItem[] }) {
   const ref = useRef<HTMLDetailsElement>(null);
 
   /**
-   * The two dismissals the element does not supply. D.11.
+   * The two dismissals the element does not supply.
    *
    * **`pointerdown` and not `click`**: a menu should be gone before the press it
    * was dismissed by lands on whatever is underneath, and a `click` listener
@@ -341,7 +341,7 @@ function FlowMenu({ items }: { items: FlowMenuItem[] }) {
 
   /**
    * **Where the user was when they opened the menu, so the flow can send them
-   * back** (D.8, I-265). The menu is the launch point for four flows
+   * back**. The menu is the launch point for four flows
    * (`FLOW_MENU`; "four of the eleven" until 2026-10-27) and it is reachable
    * from every screen, so without this the four would
    * exit to the same place wherever they were started — which is the defect,
@@ -454,7 +454,7 @@ function ShellChrome({ api, nav, flowMenu }: AppShellProps) {
   useEffect(() => api.subscribe(setUser), [api]);
 
   /*
-    The build information, D05 (jetstore_maintenance_02 AC.3). Above the
+    The build information. Above the
     session gate because hooks may not follow an early return; there is no user
     before sign-in, and the login screen shows no version (`version=""` below)
     because the value arrives with the login response.
@@ -502,7 +502,7 @@ function ShellChrome({ api, nav, flowMenu }: AppShellProps) {
           </span>
         )}
 
-        {/* The client filter is inside the row now, at the position I-259 gives
+        {/* The client filter is inside the row now, at the position the report gives
             it, rather than after the row. See `ClientFilterSlot`. */}
         <nav className="mainnav" aria-label="Screens">
           {nav.map((entry) =>
@@ -520,7 +520,7 @@ function ShellChrome({ api, nav, flowMenu }: AppShellProps) {
           The user's name is the way to the git profile screen, which is where
           the Flutter app bar puts it: an `ElevatedButton` labelled with the
           user's name that navigates to `userGitProfilePath`
-          (`jetsclient/lib/components/app_bar.dart`). Task C.14 — it is a link
+          (`jetsclient/lib/components/app_bar.dart`). It is a link
           rather than a nav item because no menu names that screen, in either
           app.
         */}

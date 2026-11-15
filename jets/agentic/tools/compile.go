@@ -18,7 +18,7 @@ import (
 // Tool 4 — compile_rule_file: the real compiler, on a throwaway workspace.
 // ---------------------------------------------------------------------------
 //
-// The second of gap 6's two verifiers. validate_cpipes_config covers .pc.json;
+// The second of the two verifiers. validate_cpipes_config covers .pc.json;
 // this covers .jr, and it is the one that could not be written until the
 // compiler reported diagnostics as data — before that, a failing compile
 // returned the constant string "compilation failed with errors" and a repair
@@ -30,15 +30,15 @@ import (
 //     against a throwaway copy. Nothing is saved: the compiler runs with
 //     saveJson false, so SaveModel is never called and workspace.db is neither
 //     rewritten nor deleted. That last part matters — a full compile deletes
-//     workspace.db first (Phase 0's F4), which is exactly what a validation
+//     workspace.db first, which is exactly what a validation
 //     tool must not do to a workspace someone is using.
 //   - **Imports resolve.** A rule file is textually inlined with its data model
-//     before parsing and its class declarations generate rete nodes (F1, F2),
+//     before parsing and its class declarations generate rete nodes,
 //     so a rule compiled without its workspace's vocabulary is not the same
 //     rule. The throwaway carries the workspace's rule sources for that reason,
 //     and copying only .jr files keeps it cheap.
 //   - **Diagnostics name the authored file.** Which is the whole point, and is
-//     what E.1-E.5 built.
+//     what the compiler's diagnostics work built.
 
 // CompileReport is what the tool returns. It mirrors ValidationReport's shape
 // deliberately — the loop treats verifiers alike, and two report shapes for the
@@ -65,8 +65,8 @@ type RuleDiagnostic struct {
 
 type compileArgs struct {
 	RuleText string `json:"rule_text"`
-	// RulePath is I-94's remedy: name a workspace file instead of carrying its
-	// text (T.2). J.2 measured the model reproducing a rule file correctly 9
+	// RulePath is the path remedy: name a workspace file instead of carrying its
+	// text. The tool-conformance run measured the model reproducing a rule file correctly 9
 	// times in 18, deterministically, with a verbatim-copy instruction making
 	// it worse — and `rule_text` is `{"type":"string"}`, so no schema anywhere
 	// can see a dropped import line. A path removes the failure rather than
@@ -75,12 +75,12 @@ type compileArgs struct {
 	// **Exactly one of the two, not a precedence rule.** A caller sending both
 	// has two different intentions and the tool cannot know which, so it says
 	// so instead of quietly preferring one. Silently ignoring `rule_text`
-	// beside a path would reproduce I-68's own defect — a call that looks
+	// beside a path would reproduce the defect it fixes — a call that looks
 	// answered and compiled something else.
 	RulePath string `json:"rule_path"`
-	// Rules is I-250's arm: the rules as a symbolic document
+	// Rules is the symbolic arm: the rules as a symbolic document
 	// (jets/compilerv2/symbolic), rendered to JetRules source by the tool.
-	// F176 measured the model carrying a cpipes config through this tool
+	// A measurement found the model carrying a cpipes config through this tool
 	// family intact 17 and 16 times in 18 and a rule file 6 and 4 times, with
 	// every dropped fragment a JetRules construct — a label, an import line.
 	// In this arm the model writes none of them: the renderer does. It serves
@@ -93,7 +93,7 @@ type compileArgs struct {
 	// as the argument 10 times of 10 — the right rules in the wrong place —
 	// and, shown an inline example, sent the document as a string, whose
 	// quotes around ?variables it rewrote as curly quotes 11 times of 14
-	// (I-250, 2026-10-12). A whole document, and a string holding either
+	// (2026-10-12). A whole document, and a string holding either
 	// form, are still accepted, since each has one reading.
 	Rules    json.RawMessage `json:"rules"`
 	Imports  []string        `json:"imports"`
@@ -266,7 +266,7 @@ func renderRules(raw json.RawMessage, imports []string) (*symbolic.Rendered, *Co
 //
 // The canonical form is 'rules' an array of rules with 'imports' beside it.
 // Three other forms are accepted because each has one reading, and the
-// measurement found a model sending all three (I-250, 2026-10-12):
+// measurement found a model sending all three (2026-10-12):
 //
 //   - a whole document, {"imports": [...], "rules": [...]}, under 'rules';
 //   - a string holding the array or the document;

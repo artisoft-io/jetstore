@@ -1,11 +1,11 @@
 /**
  * The `cpipesTemplateApply` escape: what a projected template flow does at its end.
  *
- * **Task M.5 of the agentic_ai project, living in this repository by agreement rather
- * than by drift.** The registry slot and the registration site belong to `ui_refresh`;
- * the body belongs to the project whose contract it assembles, because it changes when
+ * **Living in this directory by agreement rather
+ * than by drift.** The registry slot and the registration site belong to the IDE;
+ * the body belongs to the owners of the contract it assembles, because it changes when
  * that contract changes and neither side wants the other's pull request in the way.
- * That is the division `userflow_template_sharing_assessment.md` set for the schema,
+ * That is the division already set for the schema,
  * pointed the other way — and it is the reason this file imports `actions/escapes` for
  * a type and nothing else of `jetsclient_ide`'s.
  *
@@ -17,7 +17,7 @@
  *
  * **It does not expand the template.** Expansion is author-time and lives in
  * `tools/cpipes_contract`; there is no expander in Go and none in TypeScript, and
- * writing a second one here is exactly the drift M.4 refused when it made the
+ * writing a second one here is exactly the drift avoided by making the
  * projection a *consumer* of `expand`'s traversal rather than a second traversal beside
  * it. Instead the generator emits a **skeleton** — the expanded config with a marker
  * wherever a collected value belongs — and this file substitutes into it. So the
@@ -131,7 +131,7 @@ export function assembleAt(
       const child = `${prefix}.${head}`;
       if (child === key) {
         // A leaf. **Empty is absent, not empty string** — a projected form offers every
-        // declarable property (I-80) and a config that carried all 43 of
+        // declarable property and a config that carried all 43 of
         // `InputChannelConfigStage`'s as `""` would be a different config from the one
         // the author meant, and would fail the contract rather than the wizard.
         const text = read(key);
@@ -225,7 +225,7 @@ const serialise = (document: unknown): string => `${JSON.stringify(document, nul
  *
  * `EscapeContext` is `{formState, group, flowKey}` and nothing else — narrow on purpose,
  * per `escapes.ts` — so an escape that needs the workspace has to be closed over it. That
- * is why this is a factory rather than the function itself: `ui_refresh` registers
+ * is why this is a factory rather than the function itself: `registry.ts` registers
  * `cpipesTemplateApply: createCpipesTemplateApply({workspaceName, api})`, and the name in
  * the registry is the name the projected `.ua.json` escapes to.
  */
@@ -234,7 +234,7 @@ export function createCpipesTemplateApply(deps: TemplateApplyDeps): ActionEscape
     let plan: ApplyPlan;
     try {
       // **`readWorkspaceFile` rather than `readFile`, and the difference is not
-      // cosmetic** (I-147, 2026-08-25). `readFile` takes a tree node and asks
+      // cosmetic** (2026-08-25). `readFile` takes a tree node and asks
       // `fileNameOf` for the path, which returns null unless `node.type` is
       // `"file"`; this line used to synthesise `{label, key} as never` — a shape
       // with no `type` — so the escape would have thrown *"…is not a file"*
@@ -242,14 +242,14 @@ export function createCpipesTemplateApply(deps: TemplateApplyDeps): ActionEscape
       // test beside this file stubs `readFile` and its stub matches on `label`.
       //
       // **The same defect, in the same shape, had already been found and fixed
-      // one directory over**: `FlowStore.readText` carried it, `ui_refresh` found
-      // it as their I-65 and added `readWorkspaceFile` for exactly this caller.
+      // one directory over**: `FlowStore.readText` carried it, and the fix
+      // added `readWorkspaceFile` for exactly this caller.
       // The fix did not reach here because it was made in the caller rather than
       // by removing the shape, and a second copy of a defect is invisible to the
       // party who fixed the first.
       //
-      // **`readWorkspaceDocument` since 2026-08-26**, changed here by a
-      // `ui_refresh` session rather than handed over, on the convention that the
+      // **`readWorkspaceDocument` since 2026-08-26**, changed here by the
+      // IDE's own work rather than handed over, on the convention that the
       // editor fixes the call site: `readWorkspaceFile` gates on `workspace_ide`,
       // so leaving this line would have left a projected flow openable by an
       // `ops_user` and unable to apply. The `.apply.json` is one of the four
@@ -309,7 +309,7 @@ export function createCpipesTemplateApply(deps: TemplateApplyDeps): ActionEscape
 /**
  * The deps the registered escape closes over, and why they are a module variable.
  *
- * **Task U.3, 2026-08-25.** `productionRegistry` is a constant — one build, one registry,
+ * **Added 2026-08-25.** `productionRegistry` is a constant — one build, one registry,
  * for the reason `registry.ts` gives: the *documents* are checked against it at load, so a
  * registry assembled per screen would make "does this flow load?" depend on which screen
  * asked. That rules out registering `createCpipesTemplateApply({workspaceName, api})`

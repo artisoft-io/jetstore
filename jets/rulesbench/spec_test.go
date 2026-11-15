@@ -51,11 +51,11 @@ func TestParseSpec(t *testing.T) {
 		{"no_process", `{"bench_name":"b","jetrules_config":{},"input_sessions":[{"name":"m","input":["x"]}]}`, "process_name"},
 		{"no_input", `{"bench_name":"b","jetrules_config":{"process_name":"p"}}`, "input_sessions or input_dir"},
 		{"bad_engine", `{"bench_name":"b","jetrules_config":{"process_name":"p"},"input_sessions":[{"name":"m","input":["x"]}],"engines":["cpp"]}`, "unknown engine"},
-		// The Go engine is retired (rules_benchmark Q-77): asking for it is refused.
+		// The Go engine is retired: asking for it is refused.
 		{"go_engine", `{"bench_name":"b","jetrules_config":{"process_name":"p"},"input_sessions":[{"name":"m","input":["x"]}],"engines":["native","go"]}`, rulestest.GoEngineRetired},
 		{"compare_engines", `{"bench_name":"b","compare_engines":true,"jetrules_config":{"process_name":"p"},"input_sessions":[{"name":"m","input":["x"]}]}`, rulestest.GoEngineRetired},
 		{"use_jet_rules_go", `{"bench_name":"b","jetrules_config":{"process_name":"p","use_jet_rules_go":true},"input_sessions":[{"name":"m","input":["x"]}]}`, rulestest.GoEngineRetired},
-		// The LEGACY retraction mode is deleted (rules_benchmark Q-95, Q-96, Q-102).
+		// The LEGACY retraction mode is deleted.
 		{"legacy_switch_on", `{"bench_name":"b","legacy":{"withdrawn_row_stays":true},"jetrules_config":{"process_name":"p"},"input_sessions":[{"name":"m","input":["x"]}]}`, rulestest.LegacyRetractionDeleted},
 		{"no_truth_main_on_exist", `{"bench_name":"b","jetrules_config":{"process_name":"p","rule_config":[{"jets:key":"jets:iState","_0:no_truth_main_on_exist":{"value":"1","type":"int"}}]},"input_sessions":[{"name":"m","input":["x"]}]}`, rulestest.LegacyRetractionDeleted},
 		{"bad_regex", `{"bench_name":"b","jetrules_config":{"process_name":"p"},"input_dir":{"path":"d","name_regex":"("}}`, "name_regex"},

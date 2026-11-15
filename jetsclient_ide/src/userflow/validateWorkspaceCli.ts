@@ -1,6 +1,6 @@
 /**
  * `node jets_validate_workspace.mjs <workspace-dir> [--json]` —
- * `jetstore_maintenance_02` tasks AG.2 and AG.3 (`R12`).
+ *
  *
  * The Node entry to `validateWorkspace`, bundled into one script by
  * `vite.validator.config.ts` so that it runs with nothing beside it: no

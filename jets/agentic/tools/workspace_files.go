@@ -14,10 +14,10 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// Tools 5 and 6 — list_workspace_files, read_workspace_file (T.1).
+// Tools 5 and 6 — list_workspace_files, read_workspace_file.
 // ---------------------------------------------------------------------------
 //
-// J.1 decided these two in Phase 2 and built neither (F34). A§5.2 names
+// These two were decided early and built later. The source proposal names
 // *Read — workspace* as a tool class and no tool read a workspace file, so an
 // MCP client authoring against the live workspace could neither fetch a source
 // nor discover a path — while compile_rule_file and validate_cpipes_config both
@@ -34,17 +34,17 @@ import (
 // resolves it. So these signatures take one, and the root still arrives the way
 // it always did.
 //
-// That distinction is also what T.2 negotiates one file over: it is why
+// That distinction is also what the path arguments negotiate one file over: it is why
 // compile_rule_file can take a rule_path instead of a rule_text.
 //
 // **What confinement means here, and what it does not.** resolveWorkspacePath
 // refuses an absolute path, a path with a `..` segment, and — after resolving
 // symlinks — anything landing outside the workspace root. It is a guard against
-// a *mistaken* path, not a security boundary: J.3 already priced that, and the
-// answer is I-69's deferral. Over stdio the client is the party that chose the
+// a *mistaken* path, not a security boundary: that was already priced, and the
+// answer was to defer it. Over stdio the client is the party that chose the
 // workspace, so a path bounded by that workspace grants nothing it did not
 // already have. The moment the catalogue is exposed over HTTP it becomes
-// A§5.2's open-proxy hazard, and I-69's trigger is unchanged.
+// the open-proxy hazard, and the trigger for revisiting it is unchanged.
 
 // listableSuffixes is what a workspace's *authored* content is written in.
 //
@@ -67,7 +67,7 @@ var listableSuffixes = map[string]bool{
 }
 
 // skipDirs are the directories a listing never descends into. `build` holds
-// compiled output (F4: a full compile deletes and rewrites it), `.git` is
+// compiled output (a full compile deletes and rewrites it), `.git` is
 // version-control metadata, and neither is workspace content an author edits.
 var skipDirs = map[string]bool{
 	".git":  true,

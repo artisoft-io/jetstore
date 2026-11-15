@@ -1,4 +1,4 @@
-"""The entry and the local driver: the order of the refusals, and X6's place.
+"""The entry and the local driver: the order of the refusals, and the scope rule's place.
 
 The order matters more than any individual refusal. `coordinate` judges the
 document's tokens **before** it resolves the schema provider, builds the
@@ -104,7 +104,7 @@ def _source(tmp_path: Path, doc: dict) -> FileConfigSource:
 def test_an_out_of_scope_token_aborts_before_anything_else(tmp_path: Path):
     # The document has no schema provider either, so if the scope gate ran
     # second this would raise the provider's refusal instead. That is the
-    # assertion: X6 is first.
+    # assertion: the scope rule is first.
     doc = runtime_document([out_of_scope_step()])
     doc["schema_providers"] = []
     with pytest.raises(OperatorOutOfScope) as exc:
@@ -116,7 +116,7 @@ def test_an_out_of_scope_token_aborts_before_anything_else(tmp_path: Path):
 def test_a_declared_but_unbuilt_token_aborts_distinguishably(
     tmp_path: Path, declared_and_unbuilt
 ):
-    """It named `map_record` until P9-T06 built it; see the fixture's docstring."""
+    """It named `map_record` until that was built; see the fixture's docstring."""
     doc = runtime_document([out_of_scope_step()])
     with pytest.raises(OperatorNotImplemented) as exc:
         coordinate(NodeArgs(id=0, pe=1), _source(tmp_path, doc), store=Local(tmp_path))
@@ -126,8 +126,8 @@ def test_a_declared_but_unbuilt_token_aborts_distinguishably(
 def test_a_clean_document_reaches_the_graph_and_runs(tmp_path: Path):
     """Every token in scope and built: the node runs the document end to end.
 
-    **This test asserted the opposite until P9-T04**: it required
-    `GraphNotBuilt` naming the task, because reaching the seam was P9-T03's whole
+    **This test asserted the opposite at first**: it required
+    `GraphNotBuilt` naming the task, because reaching the seam was then the whole
     deliverable. Inverted rather than deleted, so the property it stood for — the
     scope gate passes a clean document *through* — is still checked by something,
     and by something that now goes red if the graph stops running.
@@ -203,15 +203,15 @@ def test_the_scope_command_prints_the_declaration(capsys):
     listed**.
 
     This test pinned a list twice and was wrong twice, each time correctly about
-    its own branch: it asserted `partition_writer` owed by P9-T07 until P9-T07
-    built it, and `merge_files` owed by P9-T08 until P9-T08 built it. **The two
+    its own branch: it asserted `partition_writer` owed until it was
+    built, and `merge_files` owed until it was built. **The two
     repairs were on branches that could not see each other**, so each passed alone
-    and the merged state failed (P7-I87). A list of who owes what is P3-I20's
+    and the merged state failed. A list of who owes what has a known
     shape — omission and completion print the same thing — so the subject is now
     the registry's own answer and this test needs no edit when the next token
     lands.
 
-    **As of the merge of P9-T06/T07 and P9-T08/T09 nothing is owed**: all seven
+    **As of the merge of those branches nothing is owed**: all seven
     declared tokens are built. That is asserted as a consequence of the derivation
     rather than written down, so it stops being true the moment somebody declares
     an eighth.
@@ -273,7 +273,7 @@ def test_the_check_command_is_deterministic(tmp_path: Path, capsys):
 def test_the_run_command_refuses_and_says_why(
     tmp_path: Path, capsys, declared_and_unbuilt
 ):
-    """It ran `map_record` until P9-T06 built it, and then exited 0.
+    """It ran `map_record` until that was built, and then exited 0.
 
     Inverted rather than deleted: the refusal path is still the subject, so the
     exemplar is the fixture's declared-and-unbuilt token — and the *other*
@@ -368,7 +368,7 @@ def test_a_node_with_no_connection_refuses_at_invocation():
         node.handler({"id": 0, "pe": 1})
 
 
-# --- the local driver's bucket map (D-242) ----------------------------------
+# --- the local driver's bucket map ----------------------------------
 
 
 def test_the_bucket_map_reads_name_equals_dir():
@@ -392,7 +392,7 @@ def test_a_malformed_bucket_pair_is_refused(pair):
 
 
 def test_a_bucket_named_twice_is_refused():
-    """Never resolved by argument order, which is the ambiguity D-242 removes."""
+    """Never resolved by argument order, which is the ambiguity the bucket map removes."""
     from cpipes_node.errors import ConfigInvalid
     from cpipes_node.main import _bucket_map
 

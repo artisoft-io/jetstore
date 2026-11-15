@@ -1,6 +1,6 @@
 /**
- * The typeahead widget. Task I.2b, and the one widget the flow corpus needed
- * that track A did not build (F21, I-60).
+ * The typeahead widget, and the one widget the flow corpus needed
+ * that the first set of widgets did not include.
  *
  * **One field, in one form, in one state** — `fmMappingFormUF`'s `input_column`
  * (`jetsclient/lib/modules/user_flows/file_mapping/form_config.dart`, the
@@ -8,7 +8,7 @@
  * `widgets.test.tsx` and to the form-field corpus for the same reason: `allFields`
  * does not walk `inputFieldRowBuilder` (`jetsclient/test/corpus_support.dart`,
  * `allFields`), so the corpus reported the form as empty — truthfully, and
- * uselessly for the question F.0b was asking.
+ * uselessly for the question of which widgets the flows need.
  *
  * ## It is a text input with a listbox, not a select
  *

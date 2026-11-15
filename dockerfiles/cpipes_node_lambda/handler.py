@@ -50,9 +50,8 @@ string; a password lands in the URI's *userinfo*, where libpq reads `+`
 literally. So a password containing a space produces a DSN that fails to
 authenticate — in Go today, and here, identically. Mirroring is the deliberate
 choice: a Python node that connected where the Go node could not would be a
-silent divergence between two engines, which is the one thing P9-I02 exists to
-worry about. The defect is JetStore's and is reported rather than repaired
-(P9-I52).
+silent divergence between two engines, which is the one thing a second engine has
+to worry about. The defect is JetStore's and is reported rather than repaired.
 
 **Two things the Go path has that this does not, both deliberate.** It does not
 poll `jetsapi.secret_rotation` to reopen the pool after a rotation: that is a

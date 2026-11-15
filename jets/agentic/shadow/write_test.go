@@ -12,9 +12,9 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/triage"
 )
 
-// TestTriageWritesAnIncidentPerLocusWithItsHypotheses is the whole of AC.3's
-// forward path against a real database, and it is the first time in this project
-// that anything other than a test fixture has written jetsapi.incident (F288).
+// TestTriageWritesAnIncidentPerLocusWithItsHypotheses is the whole of the shadow
+// writer's forward path against a real database, and it is the first time
+// that anything other than a test fixture has written jetsapi.incident.
 func TestTriageWritesAnIncidentPerLocusWithItsHypotheses(t *testing.T) {
 	pool := freshDB(t, "shadow_write", migratedTables, true)
 	ctx := context.Background()
@@ -65,14 +65,14 @@ func TestTriageWritesAnIncidentPerLocusWithItsHypotheses(t *testing.T) {
 		// the ranker names a top class and the incident does not claim it.
 		if s.Classification != "" {
 			t.Errorf("incident %s claims classification %q; a deterministic triage step evidences a "+
-				"locus and never a cause (§9.5, I-289)", s.IncidentId, s.Classification)
+				"locus and never a cause", s.IncidentId, s.Classification)
 		}
 		if s.Severity != SeverityInfo {
 			t.Errorf("incident %s has severity %q, want %q: shadow mode's severity is a posture and "+
-				"no locus determines one (I-306)", s.IncidentId, s.Severity, SeverityInfo)
+				"no locus determines one", s.IncidentId, s.Severity, SeverityInfo)
 		}
 		if s.RunRef != "" {
-			t.Errorf("incident %s names run %q; a deterministic classifier is not an AgentRun (R-44)",
+			t.Errorf("incident %s names run %q; a deterministic classifier is not an AgentRun",
 				s.IncidentId, s.RunRef)
 		}
 		if !IsShadowStatus(s.Status) {
@@ -87,7 +87,7 @@ func TestTriageWritesAnIncidentPerLocusWithItsHypotheses(t *testing.T) {
 		if s.Status == audit.IncidentTriaged && s.HypothesisCount != 0 {
 			t.Errorf("incident %s is only triaged and carries %d hypotheses", s.IncidentId, s.HypothesisCount)
 		}
-		// §9.6's invariant, enforced by CHECK and asserted here so the write path
+		// The step-confounder invariant, enforced by CHECK and asserted here so the write path
 		// is seen to satisfy it rather than assumed to.
 		if s.StepRef != "" {
 			found := false
@@ -116,7 +116,7 @@ func TestTriageWritesAnIncidentPerLocusWithItsHypotheses(t *testing.T) {
 		}
 		for i, h := range inc.Hypotheses {
 			if h.Rank != int64(i+1) {
-				t.Errorf("%s hypothesis %d has rank %d; §A.2.8's ranks are 1-based and dense within an incident",
+				t.Errorf("%s hypothesis %d has rank %d; ranks are 1-based and dense within an incident",
 					s.IncidentId, i, h.Rank)
 			}
 			if len(h.SupportingEvidence) == 0 {
@@ -124,7 +124,7 @@ func TestTriageWritesAnIncidentPerLocusWithItsHypotheses(t *testing.T) {
 			}
 			if h.ContradictingEvidence == nil {
 				t.Errorf("%s hypothesis %s came back with nil contradicting evidence; the column is NOT NULL "+
-					"and an empty array is the assertion §A.2.8 asks for", s.IncidentId, h.HypothesisId)
+					"and an empty array is the assertion the model asks for", s.IncidentId, h.HypothesisId)
 			}
 			for _, e := range append(append([]audit.Evidence{}, h.SupportingEvidence...), h.ContradictingEvidence...) {
 				if e.Statement == "" || e.Source == "" || e.SourceRef == "" {
@@ -138,8 +138,8 @@ func TestTriageWritesAnIncidentPerLocusWithItsHypotheses(t *testing.T) {
 
 // TestTheBasisReachesTheRecord is criterion 45's last clause meeting the write.
 //
-// jetsapi.hypothesis has no basis column and no locus column (F402), which §19.7
-// grades as *met for what AC.2 emits and not surviving the write*. Two of the
+// jetsapi.hypothesis has no basis column and no locus column, which an assessment
+// graded as *met for what the ranker emits and not surviving the write*. Two of the
 // three losses are repaired by where things are written rather than by a schema
 // change, and this asserts both.
 func TestTheBasisReachesTheRecord(t *testing.T) {
@@ -193,7 +193,7 @@ func TestTheBasisReachesTheRecord(t *testing.T) {
 			t.Errorf("%s's ranking basis does not mention a locus: %s", got.IncidentId, last.Rationale)
 		}
 		// Every transition on an incident nothing agentic raised is outside the
-		// hash chain. Asserted rather than left to be assumed closed (R-44).
+		// hash chain. Asserted rather than left to be assumed closed.
 		if last.RunRef != "" {
 			t.Errorf("%s's transition names run %q; nothing agentic raised it", got.IncidentId, last.RunRef)
 		}
@@ -216,7 +216,7 @@ func TestTheBasisReachesTheRecord(t *testing.T) {
 	}
 }
 
-// TestASecondRunAddsAndDoesNotRetract is Q-34, with the "can see less" case
+// TestASecondRunAddsAndDoesNotRetract is the add-never-retract rule, with the "can see less" case
 // produced rather than described: the table locus per_record_failures_reported
 // reads is dropped between the two runs, so the second classification answers
 // not_evaluable where the first answered present.
@@ -238,7 +238,7 @@ func TestASecondRunAddsAndDoesNotRetract(t *testing.T) {
 		t.Fatalf("ListIncidents: %v", err)
 	}
 
-	// The deployment now sees less than it did. This is F273's shape produced by
+	// The deployment now sees less than it did. This is the partial-purge shape produced by
 	// a table rather than by a purge, and it is the case the question asks about.
 	if _, err := pool.Exec(ctx, `DROP TABLE jetsapi.process_errors`); err != nil {
 		t.Fatalf("dropping process_errors: %v", err)
@@ -248,7 +248,7 @@ func TestASecondRunAddsAndDoesNotRetract(t *testing.T) {
 		t.Fatalf("second Run: %v", err)
 	}
 	if v := verdict(second.Report, triage.LocusPerRecordFailuresReported); v != triage.NotEvaluable {
-		t.Fatalf("after dropping the table the locus answers %q; the fixture no longer produces Q-34's case", v)
+		t.Fatalf("after dropping the table the locus answers %q; the fixture no longer produces the can-see-less case", v)
 	}
 	if len(second.Written) != 0 {
 		t.Errorf("the second run wrote %d further incidents: %v", len(second.Written), second.Written)
@@ -263,7 +263,7 @@ func TestASecondRunAddsAndDoesNotRetract(t *testing.T) {
 	}
 	if len(after) != len(before) {
 		t.Errorf("the incident count moved from %d to %d across a run that could see less; "+
-			"this writer adds and never retracts (Q-34)", len(before), len(after))
+			"this writer adds and never retracts", len(before), len(after))
 	}
 	for i := range before {
 		if before[i].IncidentId != after[i].IncidentId || before[i].Status != after[i].Status {
@@ -271,7 +271,7 @@ func TestASecondRunAddsAndDoesNotRetract(t *testing.T) {
 				before[i].IncidentId, before[i].Status, after[i].Status)
 		}
 	}
-	t.Logf("Q-34: %d incidents before, %d after a run that answered not_evaluable where the first "+
+	t.Logf("can see less: %d incidents before, %d after a run that answered not_evaluable where the first "+
 		"answered present; %d already raised", len(before), len(after), len(second.AlreadyRaised))
 }
 
@@ -296,10 +296,10 @@ func TestTheCeilingRefusesToAct(t *testing.T) {
 		t.Fatal("no incident reached `diagnosed`, so the ceiling cannot be tested from below it")
 	}
 
-	// A.5 permits diagnosed -> remediation_proposed. The lifecycle would allow
+	// The lifecycle permits diagnosed -> remediation_proposed. The lifecycle would allow
 	// it and the CHECK would accept it; this package will not.
 	if !audit.IncidentTransitionAllowed(audit.IncidentDiagnosed, ActingFrontier) {
-		t.Fatalf("A.5 no longer permits %s -> %s, so this test is asserting nothing",
+		t.Fatalf("the lifecycle no longer permits %s -> %s, so this test is asserting nothing",
 			audit.IncidentDiagnosed, ActingFrontier)
 	}
 	err = w.moveTo(ctx, pool, diagnosed, audit.IncidentDiagnosed, ActingFrontier, fixtureNow, "because")
@@ -320,9 +320,9 @@ func TestTheCeilingRefusesToAct(t *testing.T) {
 	}
 }
 
-// TestAnUnmigratedDatabaseIsRefusedByName is F107's lesson at the write end.
+// TestAnUnmigratedDatabaseIsRefusedByName is the precondition lesson at the write end.
 //
-// Every deployment measured on 2026-08-25 is in this state (I-132): the execution
+// Every deployment measured on 2026-08-25 is in this state: the execution
 // record is there and the agentic tables are not. Untreated, the first symptom is
 // an insert failing on a missing relation, which reads as a defect in the
 // classifier rather than as a migration nobody has run.
@@ -370,17 +370,17 @@ func verdict(r *triage.Report, locus string) triage.Verdict {
 	return ""
 }
 
-// TestTheBasisAndLocusAreWritableAndCheckable is Q-46's two columns, answered by
+// TestTheBasisAndLocusAreWritableAndCheckable is the two columns decided by
 // the user 2026-09-04 and applied before the first row was written.
 //
 // **Three claims, and the third is the one the columns exist for.** The counts
 // on `basis` are the lengths of the two evidence arrays on the same row, so the
 // stored confidence can be checked against them without the run. The
-// evidenceability tier is §9.5's for the hypothesis's cause class, which is the
+// evidenceability tier is the gate table's for the hypothesis's cause class, which is the
 // ranker's primary sort key and cannot be recomputed once the gate's table moves.
 // And **the locus a hypothesis was raised from is stored, so a hypothesis raised
 // at a locus triage did not find present is distinguishable in stored data from
-// one raised at a locus it did** — which is `AC.2`'s headline finding (20 of 29
+// one raised at a locus it did** — which is the ranker's headline finding (20 of 29
 // on its model arm) made detectable rather than persisted invisibly.
 func TestTheBasisAndLocusAreWritableAndCheckable(t *testing.T) {
 	pool := freshDB(t, "shadow_basis_cols", migratedTables, true)
@@ -429,7 +429,7 @@ func TestTheBasisAndLocusAreWritableAndCheckable(t *testing.T) {
 					h.HypothesisId, h.Basis.Evidenceability)
 			}
 			if h.Basis.Evidenceability != string(rca.EvidenceabilityOf(h.CauseCategory)) {
-				t.Errorf("%s: basis says %q and §9.5 says %q for class %q", h.HypothesisId,
+				t.Errorf("%s: basis says %q and the gate's table says %q for class %q", h.HypothesisId,
 					h.Basis.Evidenceability, rca.EvidenceabilityOf(h.CauseCategory), h.CauseCategory)
 			}
 			// The claim the column exists for.

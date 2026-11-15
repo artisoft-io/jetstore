@@ -195,7 +195,7 @@ func (jsComp *JetStoreStackComponents) buildCpipesSMInternal(stack awscdk.Stack,
 	// A node reads {id, jp, pe} and takes everything else out of jetsapi.cpipes_execution_status,
 	// so the Python worker and the Go worker are handed the same three fields.
 	//
-	// **Both state machines get it, because buildCpipesSMInternal is shared.** That is F1536's
+	// **Both state machines get it, because buildCpipesSMInternal is shared.** That is the
 	// reason for the ECS half being in both: the machines differ only in their node Lambda, and a
 	// deployment running the native machine and owning Python operators wants them on the same
 	// reducing iterations it would want them on in the other one.

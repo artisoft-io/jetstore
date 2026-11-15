@@ -8,7 +8,7 @@ import (
 
 // shippedNotice is the text `BP_Disclaimer10` asserts in
 // `workspaces/jets_ws/jet_rules/clinical_intel/briefing_projection.jr`, and it
-// is what plan §1.10.6 prints above the rule. It is reproduced here rather than
+// is what the specification prints above the rule. It is reproduced here rather than
 // imported because `jets/agentic/briefing`'s copy is in a test file of another
 // package.
 const shippedNotice = "Informational only. Prepared from claims data for a call-centre representative, " +
@@ -20,7 +20,7 @@ func d(y, m, day int) time.Time {
 	return time.Date(y, time.Month(m), day, 0, 0, 0, 0, time.UTC)
 }
 
-// section1106Entity is the entity plan §1.10.6 prints, transcribed property for
+// section1106Entity is the entity the specification prints, transcribed property for
 // property.
 //
 // **The types are the ones `extractAsEntity` produces, not the ones the plan's
@@ -38,7 +38,7 @@ func section1106Entity() map[string]any {
 		"Briefing_Disclaimer": shippedNotice,
 		// Ordered as the encoder now orders it: lexicographic on the canonical
 		// JSON of each element, so a coded condition sorts by its code
-		// (agentic_ai I-574, jetstore#2122). The plan's transcription order stood
+		// (jetstore#2122). The specification's transcription order stood
 		// here until 2026-09-10; it was the unsorted walk's order and is one the
 		// pipeline can no longer produce.
 		"Condition_Summary": []any{
@@ -66,7 +66,7 @@ func section1106Entity() map[string]any {
 		// the whole canonical JSON of the element, so the first differing property
 		// name decides it - "Adherence" against "Drug_Name", A before D. That it
 		// agrees with alphabetical order here is a coincidence of this fixture, and
-		// F846 records that a legible order would need a per-property sort key the
+		// a legible order would need a per-property sort key the
 		// channel spec does not have.
 		"has_Briefing_Pharmacy_Events": []any{
 			map[string]any{
@@ -89,7 +89,7 @@ func section1106Entity() map[string]any {
 	}
 }
 
-// section1106Rendered is the block plan §1.10.6 prints under "Rendered over the
+// section1106Rendered is the block the specification prints under "Rendered over the
 // entity above", byte for byte.
 const section1106Rendered = `Informational only. Prepared from claims data for a call-centre
 representative, who is not a clinician. This is not medical advice, not a
@@ -110,20 +110,20 @@ Medications: lisinopril, a maintenance medication, three fills, most recently
 
 // TestRendersSection1106Verbatim is the single most load-bearing assertion in
 // this package: the plan prints the briefing it decided on, so the plan is the
-// assertion and drift between §1.10.6 and this renderer fails here.
+// assertion and drift between the specification and this renderer fails here.
 func TestRendersSection1106Verbatim(t *testing.T) {
 	got, err := Render(section1106Entity())
 	if err != nil {
 		t.Fatalf("Render: %v", err)
 	}
 	if got != section1106Rendered {
-		t.Errorf("rendered output differs from plan §1.10.6.\n--- want ---\n%s\n--- got ---\n%s",
+		t.Errorf("rendered output differs from the specification.\n--- want ---\n%s\n--- got ---\n%s",
 			section1106Rendered, got)
 	}
 }
 
 // The renderer never reads `Medication`, so removing it changes nothing. This is
-// I-544's resolution asserted rather than commented: the joined value is the
+// a design rule asserted rather than commented: the joined value is the
 // prompt's and the components are the template's, and a renderer that quietly
 // fell back to parsing the joined value would pass every other test in this file.
 func TestJoinedMedicationValueIsNeverRead(t *testing.T) {
@@ -160,18 +160,18 @@ func TestAdherenceAppearsNowhereInTheProse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Render: %v", err)
 	}
-	// §1.10.4: as a number and as a flag. The ratio is on the entity - it
+	// As a number and as a flag. The ratio is on the entity - it
 	// reaches the model arm - and the prose says three fills and a date instead.
 	for _, forbidden := range []string{"0.89", "adherence", "Adherence", "0.9", "coverage"} {
 		if strings.Contains(got, forbidden) {
-			t.Errorf("the prose carries %q; §1.10.4 keeps the adherence ratio out of it entirely", forbidden)
+			t.Errorf("the prose carries %q; the specification keeps the adherence ratio out of it entirely", forbidden)
 		}
 	}
 	// Compared with the line breaks collapsed, deliberately. What this asserts
 	// is that the count and the latest fill are what replaces the ratio; where
 	// the greedy wrap happens to break the sentence is a property of the wrap
 	// width and of the list order, and both moved on 2026-09-10 when the encoder
-	// started sorting (agentic_ai I-574). An assertion that pins a wrap point is
+	// started sorting. An assertion that pins a wrap point is
 	// asserting the wrong thing, and it failed for the right reason once.
 	if !strings.Contains(unwrapped(got), "three fills, most recently 24 August") {
 		t.Error("what replaces the ratio is the count and the latest fill, and it is missing")
@@ -184,7 +184,7 @@ func TestTheMemberIdAndTheCodesAreNotInTheProse(t *testing.T) {
 		t.Fatalf("Render: %v", err)
 	}
 	if strings.Contains(got, "900123456") {
-		t.Error("the member id is on the record and is not in the briefing (§1.10.4)")
+		t.Error("the member id is on the record and is not in the briefing")
 	}
 	for _, code := range []string{"(F1120)", "(L0390)", "(B182)"} {
 		if strings.Contains(got, code) {
@@ -193,7 +193,7 @@ func TestTheMemberIdAndTheCodesAreNotInTheProse(t *testing.T) {
 	}
 }
 
-// The notice is above the prose and the rule is between them (§1.10.5). A notice
+// The notice is above the prose and the rule is between them. A notice
 // a representative reaches after the content is a notice that arrives after they
 // have started talking.
 func TestTheNoticeIsAboveTheProse(t *testing.T) {
@@ -249,8 +249,8 @@ func TestRenderCases(t *testing.T) {
 		want string
 	}{
 		{
-			// §1.10.6's empty case. A blank briefing under a notice reads as a
-			// rendering failure, and I-515's whole subject is a briefing that is
+			// The specification's empty case. A blank briefing under a notice reads as a
+			// rendering failure, and a known defect was a briefing that is
 			// empty when it should not be.
 			name: "no events at all",
 			mut: func(e map[string]any) {
@@ -281,7 +281,7 @@ func TestRenderCases(t *testing.T) {
 		},
 		{
 			// The pharmacy count reaches the prose only through the medication
-			// list; §1.10.6's template renders it nowhere else.
+			// list; the specification's template renders it nowhere else.
 			name: "pharmacy only",
 			mut: func(e map[string]any) {
 				e["Medical_Event_Count"] = 0
@@ -337,9 +337,9 @@ func TestRenderCases(t *testing.T) {
 	}
 }
 
-// Forty conditions is where §1.10.6 says the template visibly runs out. The
+// Forty conditions is where the specification says the template visibly runs out. The
 // assertion is what it *does* rather than that it is good: it emits forty, in
-// the projection's order, and that is the salience gap Q-94 is about.
+// the projection's order, and that is the salience gap left open.
 func TestFortyConditionsAreAllEmitted(t *testing.T) {
 	entity := map[string]any{
 		"Briefing_Disclaimer":  shippedNotice,

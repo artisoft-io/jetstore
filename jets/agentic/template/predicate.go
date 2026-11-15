@@ -4,7 +4,7 @@ import (
 	"strings"
 )
 
-// A predicate decides whether an element or a span is emitted (§10.4):
+// A predicate decides whether an element or a span is emitted:
 //
 //	pred := term ( ("and"|"or") term )*   with parentheses, `and` binding tighter
 //	term := chain op literal
@@ -23,8 +23,8 @@ import (
 // `Event_Count > 0` is *it is there and reads as a number greater than zero*,
 // which is what the accessors of the package this generalises do (`AsInt`,
 // `jets/agentic/briefing/value.go:90`, which this package and
-// `jets/agentic/briefing/prose` both read through since `AY.5` merged the three
-// copies of it).
+// `jets/agentic/briefing/prose` both read through since the three copies of it
+// were merged).
 //
 // **The literal's form is what C11 checks, and the two rules differ by
 // operator.** A quoted literal after `>` is refused and a bare word after `==`

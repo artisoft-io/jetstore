@@ -39,7 +39,7 @@ import (
 // Normalised labels name variables by position and resources by id, so they
 // compare the rules and not the keys, which differ between the two compiles
 // by construction. The rule-level label is not compared: its property order
-// was a map iteration (makeRuleLabel) until Q-49 sorted it, and the properties
+// was a map iteration (makeRuleLabel) until it was sorted, and the properties
 // are compared as a map instead.
 //
 // The workspaces are not this repository's, so the test reads them where the

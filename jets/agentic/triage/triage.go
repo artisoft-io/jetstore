@@ -1,33 +1,33 @@
-// Package triage is the deterministic half of Phase 4's agent track (task
-// AC.1): it classifies one run into the nine loci of the Phase 4 plan's
-// section 9.4, from the execution record and nothing else.
+// Package triage is the deterministic half of the incident agent: it
+// classifies one run into nine loci, from the execution record and
+// nothing else.
 //
 // # A locus is not a cause, and this package emits only loci
 //
-// AA.1 read the record for what supports a *cause* and found that it supports
+// A review of the record for what supports a *cause* and found that it supports
 // a taxonomy of *locus* instead: where in the record a failure left its
 // evidence, rather than what produced it. The nine values here are the
 // jetsapi.incident.incident_locus vocabulary, and the ten-value
 // IncidentClassification that sits beside them in the same table is a claim
-// this package never makes. Reading a locus as a diagnosis is R-27, and the
+// this package never makes. Reading a locus as a diagnosis is the known risk, and the
 // structural defence is that nothing in this package can write one: a Finding
 // has no classification field.
 //
-// # Why this is deterministic, which is Q-22 and is not inherited from N.3
+// # Why this is deterministic, which is not inherited from the detectors
 //
-// N.3 decided the detectors are SQL rather than rules or a model, on the
+// The detectors were decided as SQL rather than rules or a model, on the
 // argument that every derivable failure mode is a GROUP BY or a predicate that
-// Postgres already computes. Q-22 asked whether that argument transfers to
+// Postgres already computes. The question was whether that argument transfers to
 // triage and warned that it might not, because a taxonomy with a *benign*
 // class has a boundary that is judgement.
 //
-// It transfers, and by a stronger route than N.3's rather than the same one.
+// It transfers, and by a stronger route than the detectors' rather than the same one.
 // Benign is a member of the *cause* taxonomy and not of the locus taxonomy, so
 // the contested boundary is not in this package at all. What is left is nine
 // predicates over the structural position of rows — which table holds a row,
 // which status it holds, whether a row exists — and eight of the nine carry no
 // numeric threshold whatever. The ninth does: locus rows_lost_silently is
-// observe.VolumeCollapse, whose MinRatio and MinInput are unsourced (R-21),
+// observe.VolumeCollapse, whose MinRatio and MinInput are unsourced,
 // and it is run here rather than reimplemented so that there is one threshold
 // to source rather than two. So the honest form of the answer is that triage
 // is *more* clearly rule work than detection was, and the one place it is not
@@ -39,7 +39,7 @@
 // the reason this package is shaped the way it is. Two of the nine loci cannot
 // be evaluated on an ordinary deployment: sink_failed_under_completed_worker
 // reads jetsapi.pipeline_execution_channel_details, which no production
-// environment measured on 2026-08-25 had (I-132), and written_not_arrived is a
+// environment measured on 2026-08-25 had, and written_not_arrived is a
 // check against S3 or a database rather than a query, so it is NotEvaluable
 // everywhere and always here. A boolean predicate would report both as *no
 // failure of that kind*, which is a claim the record does not support. This is
@@ -58,10 +58,10 @@
 //
 // # What this package does not do
 //
-// It does not write jetsapi.incident. AC.3 is the shadow-mode wiring and this
+// It does not write jetsapi.incident. The shadow package is the wiring and this
 // is deliberately upstream of it: an Incident carries a severity that is
-// NOT NULL and that no locus determines (I-306), and its classification
-// transitions want an actor that AB.2 is adding.
+// NOT NULL and that no locus determines, and its classification
+// transitions want an actor, which the incident transition record carries.
 package triage
 
 import (
@@ -71,17 +71,17 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/observe"
 )
 
-// The nine loci of the Phase 4 plan's section 9.4. These are the members of
+// The nine loci. These are the members of
 // jetsapi.incident's incident_locus_ck; TestLociMatchDDL asserts them against
 // the generated DDL so a regeneration that adds or removes one fails the suite
 // rather than an insert, which is the guard observe.TestVocabulariesMatchDDL
 // gives the anomaly vocabularies.
 //
-// The order is section 9.4's: how early the failure occurs, which is also
+// The order is how early the failure occurs, which is also
 // roughly the order of how little the record retains about it.
 const (
 	// LocusRunNotStarted — the run header is terminal and there is no worker
-	// row at all (P3 F76).
+	// row at all.
 	LocusRunNotStarted = "run_not_started"
 	// LocusStepNeverStarted — a step other runs of this source have is absent
 	// from this one.
@@ -144,7 +144,7 @@ var verdicts = []Verdict{Present, Absent, NotEvaluable}
 //
 // It deliberately has no severity and no classification. Severity is an
 // Incident property that no locus determines and that the record carries no
-// signal for (I-306); classification is the cause taxonomy and is AC.2's.
+// signal for; classification is the cause taxonomy and is the rca package's.
 type Finding struct {
 	SessionId string
 	Locus     string
@@ -208,7 +208,7 @@ func (f *Finding) Validate() error {
 		}
 	}
 	// jetsapi.incident's incident_step_confounder_ck, enforced here so the
-	// message names the field. F52's reason does not depend on which step is
+	// message names the field. The reason does not depend on which step is
 	// named: cpipes_step_id is a stage location rather than a step identity, so
 	// any finding naming one inherits the ambiguity unconditionally.
 	if f.StepRef != "" && !slices.Contains(f.Confounders, observe.ConfounderStepLabelAmbiguous) {
@@ -239,8 +239,8 @@ func (r *Report) Fired() []Finding {
 }
 
 // Loci returns the names of the loci that hold, which is what a caller writing
-// one incident per (session, locus) iterates. Q-30 asked what splits a session
-// and left it to this task; the answer this package takes is that it does not
+// one incident per (session, locus) iterates. What splits a session
+// was left open; the answer this package takes is that it does not
 // choose: a session that exhibits three loci yields three findings and the
 // caller writes three incidents, because incident_locus is single-valued and
 // collapsing three verdicts into one would be a judgement the record does not

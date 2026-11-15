@@ -3,9 +3,9 @@
 Three things are asserted here that no unit test of a part could reach: that a
 record crosses two pipes in the order the document fixes, that every channel a
 pipe read is closed when the run ends, and that two runs of one document produce
-the same figures. The first two are the properties P9-I13 is about — one from the
-writing side and one from the reading side — and the third is what X2 will rest
-on.
+the same figures. The first two are the close-every-channel properties — one from the
+writing side and one from the reading side — and the third is what the
+run-to-run comparison will rest on.
 """
 
 from __future__ import annotations
@@ -515,7 +515,7 @@ def test_the_output_channel_is_resolved_before_the_when_is_evaluated():
     two orders in either engine**: `StartComputePipes` registers a channel for
     every name a step writes, taking its shape from `channel_spec_name`, so
     `GetOutputChannel` on a step's own output channel cannot miss. A behavioural
-    test would therefore be a test that passes both ways round (P7-I88's lesson),
+    test would therefore be a test that passes both ways round (an earlier lesson),
     so the claim is made where it can be checked — in the source order.
     """
     import inspect
@@ -669,7 +669,7 @@ def test_records_emitted_from_done_reach_the_next_pipe(tmp_path: Path):
     assert result.pipe_rows == {0: 10, 1: 1}
 
 
-# --- conditional_config (D-219) ---------------------------------------------
+# --- conditional_config ---------------------------------------------
 
 
 def _authored(step: dict) -> dict:
@@ -704,7 +704,7 @@ def test_an_authored_documents_conditional_config_is_applied(tmp_path: Path):
 
 
 def test_a_starters_document_is_not_conditioned_a_second_time(tmp_path: Path):
-    """D-219's discriminator, asserted from both sides.
+    """The starter-has-run discriminator, asserted from both sides.
 
     `ApplyAllConditionalTransformationSpec` runs in the starters, so a document
     carrying a flat `pipes_config` has been through one. Applying it again would
@@ -782,7 +782,7 @@ def test_a_conditional_setting_a_field_the_host_does_not_declare_is_refused(
 
 
 def test_two_runs_of_one_document_produce_the_same_figures(tmp_path: Path):
-    """What X2 will rest on, at the graph's own level.
+    """What the run-to-run comparison will rest on, at the graph's own level.
 
     The execution order is derived from the document rather than from a
     scheduler, so a second run of one document has to report the same per-channel
@@ -803,7 +803,7 @@ def test_two_runs_of_one_document_produce_the_same_figures(tmp_path: Path):
 
 
 def test_a_channel_never_holds_more_than_one_source_records_worth(tmp_path: Path):
-    """§1.3's *a household's rows, not a corpus's*, as a property of the graph.
+    """The charter's *a household's rows, not a corpus's*, as a property of the graph.
 
     The driver drains after every source record, so a channel's deque never
     grows past what one record produced. Measured by watching the deque from
@@ -839,7 +839,7 @@ def test_the_error_channel_arm_covers_every_token_this_node_can_reach():
     `check_scope` refuses the document before `run` — or handled by
     `graph._error_channel_config`. An arm missing for a token the scope *stopped*
     refusing would be a channel registered by nothing and closed by nothing,
-    which is P9-I13 one file over.
+    which is the close-every-channel defect one file over.
     """
     source = go_source("jets/compute_pipes/actions_start_common.go")
     body = source.split("func errorChannelConfig", 1)[1].split("\n}\n", 1)[0]
@@ -866,7 +866,7 @@ def test_the_site_config_field_name_is_the_one_the_contract_declares():
 
 
 def test_a_builtin_transformation_wins_over_a_registration(monkeypatch, tmp_path: Path):
-    """Go's order: the built-in cases first, the registry in `default:` (Q-140).
+    """Go's order: the built-in cases first, the registry in `default:`.
 
     A site token cannot shadow a built-in, so a deployment registering
     `map_record` never has its factory called. Asserted by implementing the
@@ -898,7 +898,7 @@ def test_a_builtin_transformation_wins_over_a_registration(monkeypatch, tmp_path
 def test_an_unimplemented_builtin_names_the_task_that_owes_it(
     tmp_path: Path, declared_and_unbuilt
 ):
-    """It named `map_record` until P9-T06 built it; see the fixture's docstring.
+    """It named `map_record` until that was built; see the fixture's docstring.
 
     `aggregate` is a token the contract declares, so the document validates, and
     the fixture makes it a declaration with no `build` — which is the state this

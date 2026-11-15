@@ -1,6 +1,6 @@
 package compute_pipes
 
-// The `render` operator (agentic_ai Phase 8, `AZ.1`): a configured text template
+// The `render` operator: a configured text template
 // applied to a serialised entity column, writing the rendered text to another
 // column of the same record.
 //
@@ -13,7 +13,7 @@ package compute_pipes
 // operator cannot hang there: what crosses a channel is a record -- a `[]any` of
 // column values -- and the RDF session that map was walked from is gone by the
 // time any downstream operator sees anything. So the input is the **serialised
-// entity as a column**, decoded back to a `map[string]any` (plan §1.3, F1127).
+// entity as a column**, decoded back to a `map[string]any`.
 //
 // Decoding costs nothing, because the renderer already accepts decoded
 // documents: `scalar`'s doc block names the shape explicitly -- *"From a decoded
@@ -28,7 +28,7 @@ package compute_pipes
 //
 // `Compile` is the only function of `jets/agentic/template` that returns an
 // error and `Template.Render` returns none at all, so the engine's twelve
-// compile failures (plan §10.8's C1 to C12) are the compiler's to enforce. This
+// compile failures (C1 to C12) are the compiler's to enforce. This
 // file owes the three that are the *operator's* rather than the engine's:
 //
 //	C13  two entries of `text_templates` sharing a `key`
@@ -52,7 +52,7 @@ package compute_pipes
 // error channel and then governed by `on_error`, which is the vocabulary
 // `map_record`, `jetrules` and the infer operators already share.
 //
-// **A violation fails the row, and that is Q-107 answered at `AZ.3`.** The
+// **A violation fails the row, and that is a decision.** The
 // engine returns `(string, []Violation)` and leaves the cost to the caller
 // (`Violation`, `jets/agentic/template/render.go:9`). Failing the row is chosen
 // over writing the column and reporting separately for `prose.Render`'s own
@@ -73,7 +73,7 @@ package compute_pipes
 // stopped writes `fail`.
 //
 // **And it forwards the record once, which nobody specified and which was wrong
-// until 2026-09-11** (I-721, raised by `BB.2`). A failure writes one error row
+// until 2026-09-11**. A failure writes one error row
 // per `Violation` and the record continues once: the row count belongs to
 // diagnosis and the send count belongs to the policy. They were the same
 // function, so a record with two violations arrived twice on the output channel
@@ -97,7 +97,7 @@ const (
 	// already taken by gap 20's *configuration* templates
 	// (`tools/cpipes_contract/templates/`), and a reader meeting
 	// `"type": "template"` in a `pipes_config` would have no way to tell which
-	// sense was meant (plan §1.8, F1140/F1141). The operator *renders*; what it
+	// sense was meant. The operator *renders*; what it
 	// applies is a *text template*.
 	RenderOperatorType = "render"
 
@@ -161,7 +161,7 @@ func (ctx *RenderTransformationPipe) Apply(input *[]any) error {
 		// constant of the template and the iteration is not. Collapsing them
 		// into one row would throw away exactly that.
 		//
-		// **And one *record* per record whatever it did wrong**, which is I-721:
+		// **And one *record* per record whatever it did wrong**:
 		// reporting is per violation and the policy is per record, so the loop
 		// reports and `applyOnError` runs once after it. See `reportError`.
 		var first error
@@ -276,7 +276,7 @@ func (ctx *RenderTransformationPipe) failedRecord(input *[]any, err error) error
 }
 
 // reportError writes one row to the error channel and counts one error against
-// `max_error_count`. **It applies no policy**, and that separation is I-721.
+// `max_error_count`. **It applies no policy**, and that separation is deliberate.
 //
 // The two were one function until 2026-09-11, which was correct for the failures
 // that fail a record once and wrong for the one that does not: `Apply` calls it
@@ -335,7 +335,7 @@ func (ctx *RenderTransformationPipe) applyOnError(input *[]any, err error) error
 	default: // OnErrorPassThrough
 		// The record continues without this operator's enrichment: the output
 		// column is left as it arrived. See the head comment -- this is the half
-		// of Q-107's answer that keeps the default safe.
+		// of the decision that keeps the default safe.
 		ctx.sendRecord(input)
 		return nil
 	}
@@ -494,9 +494,9 @@ func (ctx *BuilderContext) NewRenderTransformationPipe(source *InputChannel, out
 // noticed: there is **no inline alternative**. `prompt_template` beside
 // `prompt_template_name` exists because a prompt is a string a step can
 // reasonably carry; a template document is a nested structure, and inlining one
-// in a transformation spec would put the phase's whole notation inside a
+// in a transformation spec would put the template's whole notation inside a
 // `pipes_config` step where no second step could share it. Whether a document
-// should instead live in a *workspace file* is Q-104, settled as inline at the
+// should instead live in a *workspace file* was settled as inline at the
 // configuration root and recorded rather than dissolved.
 func resolveRenderTemplate(cpConfig *ComputePipesConfig, config *RenderSpec) (*template.Template, error) {
 	if len(config.TemplateName) == 0 {

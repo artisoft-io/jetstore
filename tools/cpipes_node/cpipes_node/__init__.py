@@ -22,26 +22,26 @@ arriving. See `scope.py`.
 What is built, and what is a seam:
 
 ===========================  =============================================
-built (P9-T03)               `args`, `settings`, `contract`, `config`,
+built               `args`, `settings`, `contract`, `config`,
                              `scope`, `operators`, `site`, `store`, `node`,
                              `main`
-built (P9-T04)               `graph`, `runtime`, `expressions`, and `build`
+built               `graph`, `runtime`, `expressions`, and `build`
                              on `generator`, `memory` and `fan_out`
 `map_record`, `filter`,
-the column evaluators        `operators/transformations.py` — P9-T06,
+the column evaluators        `operators/transformations.py`,
                              reached at `OperatorEnv.column_evaluator`
-the partition writer         `operators/transformations.py` — P9-T07
-built (P9-T08)               `merge`, and `build` on `merge_files`
-built (P9-T09)               `side_effects` — the node's **four** DB writes,
+the partition writer         `operators/transformations.py`
+built               `merge`, and `build` on `merge_files`
+built               `side_effects` — the node's **four** DB writes,
                              the metrics reporter and the process-error row
-the site operator itself     the deployment's, registered — P9-T05
+the site operator itself     the deployment's, registered
 ===========================  =============================================
 
 **A deployment's own operator is written against `runtime`**, which is
 `pipesmodel/operator.go`'s Python half: an evaluator is the three of `apply`,
 `done` and `finally_`, and a factory is
 `(OperatorEnv, OperatorArgs) -> PipeTransformationEvaluator`. Nothing in
-`runtime` reaches the channel registry, which is §12.6's line drawn in Python —
+`runtime` reaches the channel registry, which is the site contract's line drawn in Python —
 an operator is handed the channels its own step declared and can name no other.
 """
 

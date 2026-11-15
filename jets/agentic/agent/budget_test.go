@@ -32,7 +32,7 @@ func (s *slowInfer) Chat(ctx context.Context, _ *infer.Request) (*infer.Response
 }
 
 // The iteration cap, already enforced by the loop and asserted here as part of
-// the criterion rather than left implicit in the D.3 tests.
+// the criterion rather than left implicit in the loop's own tests.
 func TestCriterion17_IterationCapEndsTheRunExhausted(t *testing.T) {
 	in := &stubInfer{answers: []string{`{"a":1}`, `{"b":2}`, `{"c":3}`}}
 	reg := &stubRegistry{reports: []any{&tools.ValidationReport{Valid: false}}}
@@ -148,7 +148,7 @@ func TestCriterion17_TokenSpendIsRecordedOnEveryOutcome(t *testing.T) {
 				t.Fatalf("outcome = %q, want %q", res.Outcome, tc.want)
 			}
 			if res.TokenSpend == 0 {
-				t.Error("no token spend recorded; §4.3 compares sampling policies at equal spend and cannot")
+				t.Error("no token spend recorded; the sampling comparison is made at equal spend and cannot")
 			}
 			// And it is on the terminal event, so the transcript carries it
 			// without a join to the run row.
@@ -182,7 +182,7 @@ func TestBudget_ZeroWallClockIsUnbounded(t *testing.T) {
 	}
 }
 
-// E.7: a task whose schema cannot fit the serving context is refused before a
+// A task whose schema cannot fit the serving context is refused before a
 // token is spent. Discovering it at the server means either a silent truncation
 // — which changes what constrains generation without saying so — or a rejection
 // after the request has been paid for.
@@ -205,7 +205,7 @@ func TestE7_TaskWithAnOverBudgetSchemaIsRefused(t *testing.T) {
 	}
 }
 
-// And a task may say what context it will run against, because gap 12 may move
+// And a task may say what context it will run against, because the deployment may move
 // it and a task sized for a larger server should not be refused on the old
 // number.
 func TestE7_TaskMayDeclareItsOwnContext(t *testing.T) {

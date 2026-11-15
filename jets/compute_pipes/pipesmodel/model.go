@@ -5,8 +5,8 @@
 // **It is 13 types and it imports only the standard library**, which is the
 // whole point. `jets/compute_pipes` is 144 files and 51,212 lines and reaches
 // Apache Arrow, the AWS SDK, pgx and the jsii runtime; a package implementing a
-// three-method interface should inherit none of that. Phase 9's `BC.1` decided
-// the surface and `BC.2` moved it.
+// three-method interface should inherit none of that. The surface was
+// decided first and moved after.
 //
 // **Every name here is aliased back into `compute_pipes`**, so no file outside
 // that package changed when this one was created, and every reference in
@@ -16,7 +16,7 @@
 // keeps code compiling; it says nothing about the line numbers of the file the
 // types left. 148 lines came out of `pipes_model.go` and everything below them
 // moved up, displacing 88 `file:line` citations across 23 documents and all
-// three projects in the parent repository. 78 were repaired at `BC.2`; the rest
+// three projects in the parent repository. 78 were repaired with the move; the rest
 // are struck-through text or the rows of a past audit's repair table, where the
 // old number is the record. Budget that audit before moving types out of a file
 // this documented.
@@ -26,10 +26,10 @@
 // `TransformationSpec` does not cross. It is a union carrying one pointer per
 // built-in operator, so 38 of the 57 types reachable from it are configuration
 // a site can neither use nor extend -- and it has no field a site's own
-// configuration could occupy (`I-766`).
+// configuration could occupy.
 //
-// `OutputChannelConfig` does not cross either, and that is `BC.2`'s correction
-// to `BC.1`: a factory receives the *resolved* `*OutputChannel`, never the spec
+// `OutputChannelConfig` does not cross either, and that is the move's correction
+// to the first decision: a factory receives the *resolved* `*OutputChannel`, never the spec
 // the builder resolved it from. Dropping it takes the surface from 19 types to
 // 13 and removes `parquet_schema_info.go` from the closure -- which is what
 // makes the stdlib-only property reachable at all, because
@@ -128,8 +128,8 @@ type ChannelSpec struct {
 // `ParquetSchemaInfo` holds an unexported `*arrow.Schema` and could not cross
 // at all without bringing Apache Arrow. That one was removed from the surface;
 // this one is reachable from `InputChannel.Config` and had to be kept, so it is
-// kept behind two methods instead. `I-767` asks whether the field belongs on
-// the spec at all.
+// kept behind two methods instead. Whether the field belongs on
+// the spec at all is an open question.
 func (s *ChannelSpec) ColumnsMap() *map[string]int { return s.columnsMap }
 
 func (s *ChannelSpec) SetColumnsMap(m *map[string]int) { s.columnsMap = m }

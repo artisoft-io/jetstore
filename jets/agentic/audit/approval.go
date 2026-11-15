@@ -9,15 +9,15 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// Who approved what (task K.1, gap 7a) — the supervision seam of plan §7.2,
-// and criterion 28's "durable, joined to the audit chain, survives restart".
+// Who approved what — the supervision seam of the audit store,
+// and the requirement that it be "durable, joined to the audit chain, survives restart".
 //
 // **The schema answered "event type or table" with both, and neither half was
 // a new idea.** `agent_audit` has carried an `approval` event type since Phase
 // 0 — declared, CHECK-constrained, exercised by TestEventTypes, and written by
 // nothing. `ApprovalEvent` has been a modelled entity just as long, with nine
 // typed properties and no table, because `jr_as_table` is a JetRules property
-// and says nothing about Postgres (I-24). So K.1 wrote no new concepts; it
+// and says nothing about Postgres. So this file adds no new concepts; it
 // connected two that had been waiting for each other.
 //
 // **Why both rather than the event alone.** The event is what makes a decision
@@ -38,7 +38,7 @@ import (
 // **The state guard is not decoration.** The UPDATE matches on the expected
 // `from_state`, so two approvers acting on one proposal cannot both transition
 // it — the second finds no row and is told so, rather than silently overwriting
-// a decision that is already recorded in the chain. That is I-25's lesson
+// a decision that is already recorded in the chain. That is the same lesson
 // (idempotent is not concurrency-safe) applied where the cost of losing is a
 // governance record rather than a schema.
 

@@ -1,17 +1,17 @@
 /**
- * A form document, rendered over the current screen. Task C.2b, and the debt
- * **I-68** filed for whoever needed one first.
+ * A form document, rendered over the current screen, and the debt
+ * left for whoever needed one first.
  *
  * ## What was missing, exactly
  *
  * `showDialog` and `doActionShowDialog` open a `configForm` in a modal, and
  * `actionDispatch.requestFor` has resolved both — with their parameters, and with
- * S.2b's precedence rule (I-24) — since Phase 2. `FormRenderer` has drawn a form
- * document since F.0a. **Neither end was missing; the thing between them was.**
- * I-68 filed it as debt rather than as a task on the stated ground that a
+ * the action grammar's precedence rule — for some time. `FormRenderer` has drawn a
+ * form document since the flow runner. **Neither end was missing; the thing between
+ * them was.** It was filed as debt rather than as a task on the stated ground that a
  * speculative host built against no consumer is worse than none, and that the
  * first screen needing one should build it. `/workspaces` has seven, which is
- * more dialogs than the rest of track C's screens have between them.
+ * more dialogs than the rest of the ported screens have between them.
  *
  * ## Why it lives here
  *
@@ -23,9 +23,9 @@
  * *flow* is not a screen — the consumer that most needs this is the one that
  * would then be importing sideways.
  *
- * Agreed with track C's other wave-1 sessions before it was built, because
- * C.6, C.9, C.10 and C.13 all need it and a placement decided twice is a
- * placement decided wrongly once.
+ * Agreed with the other screens' authors before it was built, because Home,
+ * Process Errors, Rules Configuration and User Administration all need it, and a
+ * placement decided twice is a placement decided wrongly once.
  *
  * ## It is a `<dialog>`, and the browser owns the hard parts
  *
@@ -124,16 +124,16 @@ export interface ModalDialogProps {
 }
 
 /**
- * The one `<dialog>` element in the app. jetstore_maintenance_02 `AB.2`,
+ * The one `<dialog>` element in the app. Since
  * 2026-10-01.
  *
  * **Split out of `FormDialog` so a confirmation that is not a form document
  * does not grow a second dialog system.** The Infer Server Admin screen's stop
- * confirmation (D07) is two buttons and a sentence, one of them gated on a
+ * confirmation is two buttons and a sentence, one of them gated on a
  * capability through `ActionButton`; expressing it as a form document would have
  * meant a document for a sentence. Everything that made `FormDialog` a modal
  * lives here unchanged — `showModal`, the jsdom fallback, Escape as dismissal —
- * and the `.uf-dialog` class that `styles.css` sizes (D08) is set in exactly one
+ * and the `.uf-dialog` class that `styles.css` sizes is set in exactly one
  * place, which is what lets that rule say it reaches every dialog.
  */
 export function ModalDialog({
@@ -196,7 +196,7 @@ export function ModalDialog({
       className="uf-dialog"
       aria-label={label}
       // Escape lands here. ~~Escape and a backdrop click both land here.~~
-      // **Corrected 2026-10-01 (jetstore_maintenance_02 `AB.2`): a backdrop
+      // **Corrected 2026-10-01: a backdrop
       // click does not.** A modal `<dialog>` with no `closedby` attribute
       // treats only a close request — Escape, or a phone's back gesture — as
       // dismissal, and a click on its backdrop does nothing at all. So form
@@ -248,7 +248,7 @@ export interface OpenDialog {
  * **One at a time is the corpus, not a simplification.** No `configForm` in
  * either corpus opens a second dialog: the seven of `workspaceRegistryTable` are
  * all terminal, and `pipelineExecStatusTable`'s one is a viewer. A stack would be
- * machinery with no consumer, which is the argument I-68 made about this whole
+ * machinery with no consumer, which is the argument made about this whole
  * component.
  *
  * The resolver is held in a ref rather than in state because settling a promise

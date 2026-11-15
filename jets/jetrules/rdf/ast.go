@@ -425,7 +425,7 @@ var ErrNullBool = errors.New("empty value, null")
 // exactly true, t, yes, y, 1 and false, f, no, n, 0. An empty value returns
 // ErrNullBool; anything else is an error naming the value. It decides nothing
 // about what an error means: each caller does, which is the specification of
-// rules_unit_test_harness I-45 (2026-10-11). Until then this returned 0 for
+// bool parsing settled on 2026-10-11. Until then this returned 0 for
 // anything it did not recognise, and the C++ engine read the same text the
 // other way round, true for anything but a few spellings of false.
 //

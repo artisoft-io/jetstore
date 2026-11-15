@@ -1,7 +1,6 @@
 package main
 
-// ONE RETRACTION BEHAVIOUR AND THE VERTEX VISIT LIMIT (rules_unit_test_harness Phase 1,
-// task AF.6; rules_benchmark Phase 8, BQ.2).
+// ONE RETRACTION BEHAVIOUR AND THE VERTEX VISIT LIMIT.
 //
 // harness.Run with the C++ adaptor, as this command runs it, over a scratch copy of
 // jets/jetrules/test_ws with three fixtures added:
@@ -187,7 +186,7 @@ func TestOneRetractionBehaviourAndVisitLimit(t *testing.T) {
 	// The same rules expecting the legacy answer, the total that stays, fail.
 	want(run("defect1_legacy_answer.tst.json"), rulestest.StatusFail, rulestest.LegacyModeFixed, "checks failed")
 	// A legacy object whose switches are false names the one behaviour: accepted, the
-	// same answer (rules_benchmark Q-102).
+	// same answer.
 	want(run("defect1_switches_off.tst.json"), rulestest.StatusPass, rulestest.LegacyModeFixed, "")
 	// A switch set true asks for a deleted behaviour, and is refused before any session.
 	r = run("defect1_switch_on.tst.json")
@@ -273,8 +272,8 @@ func stageAndRerun(t *testing.T) {
 	}
 }
 
-// -engine names the only engine or is refused: go naming the retirement
-// (rules_benchmark Q-77), anything else as unknown.
+// -engine names the only engine or is refused: go naming the retirement,
+// anything else as unknown.
 func TestEngineFlag(t *testing.T) {
 	for _, ok := range []string{"", rulestest.EngineNative} {
 		if err := checkEngineFlag(ok); err != nil {

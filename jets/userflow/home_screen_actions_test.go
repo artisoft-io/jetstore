@@ -10,7 +10,7 @@ import (
 )
 
 // The Home screen's bundled action document, against the copy of the action
-// schema the server embeds. session_registry Phase 2 (JM-081), 2026-11-08: its
+// schema the server embeds. Since 2026-11-08 its
 // deleteSessions action is the first to use confirm's detailFromKey and the two
 // server actions preview_session_deletion and delete_sessions, so it is the
 // document that shows the Go half of the grammar admits them.

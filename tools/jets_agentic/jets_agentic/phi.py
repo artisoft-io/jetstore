@@ -1,8 +1,8 @@
-"""The data-classification manifest emitter (AE.2, I-311).
+"""The data-classification manifest emitter.
 
 **A marker nothing reads is worse than no marker**, because it reads as a
 control to anyone auditing the model. `Evidence.statement` has carried
-`data_classification = "PHI"` since Phase 0 and it was, until this emitter, the
+`data_classification = "PHI"` from the start and it was, until this emitter, the
 only property in the domain model to carry one — surviving the whole toolchain
 (stripped from the JSON Schema, kept in the sidecar, emitted into every client
 workspace as a rule-visible triple) and consumed by nothing. No rule matched on
@@ -23,7 +23,7 @@ package that already holds the generated DDL, listing every marked property as
 **What it deliberately does not do is decide policy.** The list says which
 properties are classified; what a classification obliges a reader to do is the
 audit package's `PHIAccess` and the apiserver's capability check, and *who*
-holds that capability was decided by the user on 2026-09-04 (Q-42):
+holds that capability was decided by the user on 2026-09-04:
 `knowledge_engineer` alone. The `.jr` triple stays
 where it is and is still read by no rule — this emitter adds a consumer for the
 marker, not for the triple.

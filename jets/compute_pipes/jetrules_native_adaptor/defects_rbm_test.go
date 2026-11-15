@@ -1,12 +1,12 @@
 package jetrules_native_adaptor
 
-// DEFECTS READ FROM THE CODE, PINNED ON THE C++ ENGINE (rules_benchmark Phase 1, task AF.3).
+// DEFECTS READ FROM THE CODE, PINNED ON THE C++ ENGINE.
 //
-// projects/rules_benchmark in artisoft-io/jetstore_agentic_ai read these engine
-// differences from the code and registered them in its plan, §10.1, without running
+// A benchmark review read these engine
+// differences from the code and registered them without running
 // them. Each test ran the C++ engine and the Go engine through the adaptor interface
-// (compute_pipes.JetRulesFactory) and asserted their behaviour; both were resolved in
-// Phase 4 to C++'s meaning. The Go engine was retired in Phase 6 (2026-10-22), so
+// (compute_pipes.JetRulesFactory) and asserted their behaviour; both were resolved
+// to C++'s meaning. The Go engine was retired on 2026-10-22, so
 // the tests now run the C++ engine alone and pin what it does.
 //
 // Needs the cgo environment, as engine_mode_test.go does: CGO_CFLAGS, CGO_LDFLAGS and
@@ -122,22 +122,22 @@ func rbmEngine(t *testing.T) compute_pipes.JetRuleEngine {
 }
 
 // TestRegression_I6_RetractDeletes was TestDefect_I6_NativeRetractErases, which
-// reproduced rules_benchmark I-6 (F25): the adaptors' Retract disagreed. The native
-// adaptor's erased every support of the triple without telling the rete (F331); the
+// reproduced a defect: the adaptors' Retract disagreed. The native
+// adaptor's erased every support of the triple without telling the rete; the
 // Go adaptor's called the session's inferred-only retraction, so it never removed a
 // triple asserted through the adaptor.
 //
-// Decided in Phase 4 (Q-63): the engines retract an inferred triple themselves,
-// through the session's inferred-only retraction (F333); the adaptor's Retract is
+// Decided: the engines retract an inferred triple themselves,
+// through the session's inferred-only retraction; the adaptor's Retract is
 // for an asserted fact and means delete. Both adaptors then erased (the Go one
 // through its session's Erase; JetRdfSessionNative.Retract through the bridge's
-// erase, which since I-103 tells the rete), and the rete withdraws what
+// erase, which now tells the rete), and the rete withdraws what
 // depended on the fact at the next ExecuteRules.
 //
 // The rule [RBM_I6] (?x rbm:i6Flag "on") -> (?x rbm:i6Out 1): assert the flag
 // twice, run the rules, Retract the flag once, run them again. The flag is gone at
 // once, whatever the count, and its consequent after the second run (both engines
-// agreed from Phase 4 until the Go engine's retirement).
+// agreed from then until the Go engine's retirement).
 //
 // Reachability: nothing outside tests calls the adaptor's Retract (searched
 // 2026-10-20 across jets/ and the four workspaces).
@@ -203,10 +203,10 @@ func describe(n compute_pipes.RdfNode) string {
 	}
 }
 
-// TestDefect_I12_LiteralRegexEngines holds rules_benchmark I-12 (F53) fixed
+// TestDefect_I12_LiteralRegexEngines holds a defect fixed
 // through a compiled rule: literal_regex returns capture group 1, or null on no
-// match, C++'s meaning (RegexVisitor, jets/rete/expr_op_strings.h; Q-11). Until
-// Phase 4 the Go engine, retired in Phase 6, returned the whole match, or an empty
+// match, C++'s meaning (RegexVisitor, jets/rete/expr_op_strings.h). Until
+// the fix the Go engine, since retired, returned the whole match, or an empty
 // string on no match.
 //
 // Inputs: the zip-code rule's "^(\d\d\d)" on "12345" and "N/A", and the name splitters' ",\s+(\w+)"
@@ -258,6 +258,6 @@ func TestDefect_I12_LiteralRegexEngines(t *testing.T) {
 	}
 	want := []string{"123", "<absent>", "JOHN", "DOE"}
 	if !slices.Equal(got, want) {
-		t.Errorf("%q, want %q, C++'s meaning (I-12)", got, want)
+		t.Errorf("%q, want %q, C++'s meaning", got, want)
 	}
 }

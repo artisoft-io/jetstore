@@ -36,7 +36,7 @@ func TestShippingFlowsHaveNoReferenceErrors(t *testing.T) {
 }
 
 // withOrphan returns a flow with one state nothing reaches. The corpus no longer
-// has one, which is the correction of I-18; the check still has to work.
+// has one; the check still has to work.
 func withOrphan(t *testing.T) *Flow {
 	t.Helper()
 	flow := readFlow(t, "loadFilesUF")
@@ -68,12 +68,12 @@ func TestStrictReachabilityChangesTheOutcome(t *testing.T) {
 }
 
 // TestStrictReachabilityRefusesNothingShipping is the reverse of the assertion
-// S.1 shipped, and the reversal is the finding.
+// first shipped, and the reversal is the finding.
 //
 // The switch was introduced believing a strict deployment could not save
 // pipelineConfigUF. That was true of the check rather than of the flow: two of
 // its states are reached by a button, and the document did not declare the edge.
-// It does now, so the switch costs a deployment nothing today — see I-18.
+// It does now, so the switch costs a deployment nothing today.
 func TestStrictReachabilityRefusesNothingShipping(t *testing.T) {
 	t.Setenv(StrictReachabilityEnvVar, "true")
 	policy := PolicyFromEnv()
@@ -114,13 +114,13 @@ func TestGoToStatesCountAsReaching(t *testing.T) {
 	}
 }
 
-// TestFindingsCarryAPath pins the JSON Pointer the agentic_ai stream asked for.
+// TestFindingsCarryAPath pins the JSON Pointer the agentic layer asked for.
 // The three transition shapes produce three different paths, and a document-wide
 // finding still points at the field that caused it rather than at nothing.
 //
 // On startPipelineUF since 2026-10-01, and on clientRegistryUF until then:
-// jetstore_maintenance_02's D06 removed the two-way choice this test broke (task
-// AF.1/AF.2). On workspacePullUF since 2026-10-15 (Release 4.0.4), when
+// a UI change removed the two-way choice this test broke. On workspacePullUF since
+// 2026-10-15 (Release 4.0.4), when
 // startPipelineUF lost its merged-sources step and with it the state its choice
 // led to: workspacePullUF is the shipping flow left with a state that has both a
 // choice and a default, whose choice target nothing else reaches. That target

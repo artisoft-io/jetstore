@@ -11,8 +11,7 @@ import (
 	"testing"
 )
 
-// The half of the write-path sweep that cannot live in jets/datatable. I-125,
-// I-126.
+// The half of the write-path sweep that cannot live in jets/datatable.
 //
 // jets/datatable/write_capability_test.go asserts that every write *method* on
 // the /dataTable dispatch gates before it acts. It cannot see two things:
@@ -22,7 +21,7 @@ import (
 //     to jetsapi.pipeline_execution_status and starts pipelines, and
 //     fetch_file_from_stage reads an object out of the S3 stage;
 //  2. **a new arm added to the switch**, which a watched map of function names
-//     cannot notice at all. That is the failure mode I-125 named: "a per-function
+//     cannot notice at all. That is the failure mode named at the time: "a per-function
 //     fix leaves the next one uncovered".
 //
 // So this file is organised around the *switch* rather than around a list of
@@ -81,11 +80,11 @@ var inlineGatedActions = map[string]string{
 	// (2026-11-05, the Pipeline Status screen's Check Pending button).
 	"start_pending_tasks": "CapabilityRunPipelines",
 	// Copies the selected sessions' runs into pending ones and starts nothing
-	// (JM-185, 2026-11-12). It inserts what resubmit_pipeline inserts, so it asks
+	// (2026-11-12). It inserts what resubmit_pipeline inserts, so it asks
 	// for the same authority; the work is a DataTableContext method, gated here.
 	"resubmit_sessions_as_pending": "CapabilityRunPipelines",
 	// Read the closure of the selected sessions, and queue it for deletion and
-	// start the executor (session_registry Phase 2, 2026-11-08). The work is a
+	// start the executor (added 2026-11-08). The work is a
 	// method on DataTableContext that does not gate itself: the arm does, so the
 	// capability and the runner's trigger are in one place.
 	"preview_session_deletion": "CapabilityDeleteSession",
@@ -122,7 +121,7 @@ const dataTableActionCount = 28
 // same note in jets/datatable/write_capability_test.go.
 //
 // They are matched against a statement's *source*, printed by go/printer
-// (sourceOf), so a selector is written as it is in the code. **Until JM-091 they
+// (sourceOf), so a selector is written as it is in the code. **Until a later fix they
 // were matched against ast.Fprint's dump**, which renders server.dbpool as two
 // Ident nodes on separate lines: "server.dbpool" and "awsi." could never match,
 // and the effect-order check was vacuous for the database and S3 halves of what
@@ -234,7 +233,7 @@ func dispatchArms(t *testing.T) (map[string]string, *token.FileSet) {
 	return arms, fset
 }
 
-// TestEveryDataTableActionIsClassified is the assertion I-125 asked for in place
+// TestEveryDataTableActionIsClassified is the assertion asked for in place
 // of a per-function fix. An action added to the dispatch and left out of all
 // three maps fails here, whether it writes or not — deciding which map it goes
 // in is the work, and this test is what makes somebody do it.
@@ -323,7 +322,7 @@ func TestInlineArmsGateBeforeTheyAct(t *testing.T) {
 	}
 }
 
-// TestEveryEffectMarkerMatchesTheDispatch is JM-091's guard against the check
+// TestEveryEffectMarkerMatchesTheDispatch is the guard against the check
 // above going vacuous again: a marker that matches no statement of any
 // inline-gated arm is either misspelt for the renderer, which is what
 // "server.dbpool" and "awsi." were under ast.Fprint, or names an effect no arm
@@ -397,8 +396,7 @@ func TestStartPendingTasksArmOnlyStartsPendingTasks(t *testing.T) {
 	if !ok {
 		t.Fatal("no start_pending_tasks arm in DoDataTableAction; this test is stale")
 	}
-	// Source rather than ast.Fprint's dump, so that "server.dbpool" can match
-	// (JM-091).
+	// Source rather than ast.Fprint's dump, so that "server.dbpool" can match.
 	var body strings.Builder
 	for _, stmt := range clause.Body {
 		body.WriteString(sourceOf(t, fset, stmt))
@@ -415,7 +413,7 @@ func TestStartPendingTasksArmOnlyStartsPendingTasks(t *testing.T) {
 	}
 }
 
-// TestPurgeDataAuthorizesBeforeItDispatches is I-126.
+// TestPurgeDataAuthorizesBeforeItDispatches pins the gate on /purgeData.
 //
 // **The gate belongs at the entry point and that is not a convenience.**
 // ResetDomainTables has two callers inside this package that are not HTTP
@@ -486,11 +484,11 @@ func TestPurgeDataCapabilityIsSeeded(t *testing.T) {
 // caller cannot tell which endpoint refused it or why beyond the two states the
 // others already reveal.
 //
-// **It asserts the status beside the message as of ui_refresh C.17, and that is a
+// **It asserts the status beside the message as of a later change, and that is a
 // widening rather than a second test.** The two messages already separated "we
 // cannot say who is asking" from "we know and the answer is no"; what they could
 // not do was let a client act on the difference, so every client treated both as a
-// dead session and signed the user out on a capability refusal (I-189). The pairing
+// dead session and signed the user out on a capability refusal. The pairing
 // -- 401 with the first message, 403 with the second -- is what makes that
 // distinction machine-readable.
 //
@@ -527,16 +525,16 @@ func TestPurgeDataRefusalIsIndistinguishableFromTheOtherEndpoints(t *testing.T) 
 			if !strings.Contains(head[open:], want.status) {
 				t.Errorf("%s pairs %s with a status other than %s; the four gates must answer "+
 					"the same status for the same refusal, or the status becomes the oracle "+
-					"the message is not (I-189)", name, want.message, want.status)
+					"the message is not", name, want.message, want.status)
 			}
 		}
 	}
 }
 
-// TestRegisterFileKeyAuthorizesBeforeItDispatches is I-138.
+// TestRegisterFileKeyAuthorizesBeforeItDispatches pins the gate on /registerFileKey.
 //
 // **The three handlers behind this endpoint each take a token and, until
-// 2026-08-25, none of them read it.** The shape is I-126's rather than I-125's:
+// 2026-08-25, none of them read it.** The shape is the /purgeData one rather than a missing switch arm:
 // the endpoint sat behind authh and used its token for the audit line alone.
 //
 // **The gate is asserted at the entry point on purpose.** Every one of the three
@@ -589,7 +587,7 @@ func TestRegisterFileKeyAuthorizesBeforeItDispatches(t *testing.T) {
 
 // TestRegisterFileKeyCapabilityIsSeeded follows TestPurgeDataCapabilityIsSeeded.
 //
-// **It also pins the half of I-138's decision that is easy to lose.**
+// **It also pins the half of the decision that is easy to lose.**
 // run_pipelines was chosen because system_role holds it, so the lambda would pass
 // this gate if it ever stopped calling RegisterFileKeys in process. If a later
 // edit narrows the capability to one system_role does not hold, that property
@@ -605,12 +603,12 @@ func TestRegisterFileKeyCapabilityIsSeeded(t *testing.T) {
 	}
 	if !strings.Contains(text, fmt.Sprintf("('system_role', '%s')", RegisterFileKeyCapability)) {
 		t.Errorf("system_role no longer holds %q; the lambda would fail this gate if it "+
-			"ever came through HTTP, which is why this capability was chosen (ui_refresh I-138)",
+			"ever came through HTTP, which is why this capability was chosen",
 			RegisterFileKeyCapability)
 	}
 }
 
-// TestPurgeDataGatesOnAdminRatherThanCapability is I-139, settled 2026-08-25.
+// TestPurgeDataGatesOnAdminRatherThanCapability pins a decision settled 2026-08-25.
 //
 // **It pins a negative, which is the only way this decision stays made.**
 // HasCapability returns true for the admin account unconditionally, so a gate on
@@ -630,12 +628,12 @@ func TestPurgeDataGatesOnAdminRatherThanCapability(t *testing.T) {
 	}
 	text := string(src)
 	if !strings.Contains(text, "!jetsUser.IsAdmin()") {
-		t.Error("DoPurgeDataAction no longer gates on IsAdmin; ui_refresh I-139 settled that " +
+		t.Error("DoPurgeDataAction no longer gates on IsAdmin; it was settled that " +
 			"/purgeData requires the admin account, not a capability")
 	}
 	if strings.Contains(text, "HasCapability(PurgeDataCapability)") {
 		t.Error("DoPurgeDataAction gates on PurgeDataCapability again; HasCapability is true for " +
-			"admin unconditionally, so this widens the gate rather than narrowing it (I-139)")
+			"admin unconditionally, so this widens the gate rather than narrowing it")
 	}
 }
 

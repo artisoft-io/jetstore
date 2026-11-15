@@ -23,10 +23,9 @@
 # the container is not a convenience taken to leave headroom, it is the only
 # packaging in which the node fits. Against the container limit the image was 5.7%
 # of 10 GB. The number that decides whether the lambda arm is *usable* is not
-# this one but the per-invocation reference load, which is P9-T16's to measure
-# (P9-I03, P9-R04).
+# this one but the per-invocation reference load, which is still to be measured.
 #
-# **Re-measured 2026-09-19 at P9-T07: 735.0 MB, and the whole of the 163.0 MB
+# **Re-measured 2026-09-19: 735.0 MB, and the whole of the 163.0 MB
 # rise is pyarrow.** The install layer goes 46.2 MB -> 208 MB and no other layer
 # moves; the image is 7.35% of the 10 GB limit where it was 5.7%. pyarrow is
 # `cpipes_node`'s parquet device writer and is a dependency rather than an extra,
@@ -36,8 +35,8 @@
 # runtime check below was re-run on that image and is unchanged: INIT success, the
 # event accepted, and the first thing missing still the AWS account.
 #
-# **A second measurement the same day, and it is a finding rather than a figure**
-# (P9-I61): this file copies `tools/cpipes_node` **whole**, and the root
+# **A second measurement the same day, and it is a finding rather than a figure**:
+# this file copies `tools/cpipes_node` **whole**, and the root
 # `.dockerignore` did not exclude a virtual environment. On a checkout where
 # anybody had run `uv run`, that COPY layer was **183 MB** of the developer's own
 # wheels -- platform-native extension modules included -- and the image built to
@@ -62,8 +61,8 @@
 # So the site half of the pattern is a site-authored Dockerfile deriving
 # `FROM cpipes_python_lambda:latest`, installing its own distribution and
 # shipping its own handler. **Writing that file before a site distribution
-# exists would be a knob with no consumer**, which is the shape `I-820`'s own
-# argument refuses. §20.4's rule -- a `_ws` image inherits the selection its
+# exists would be a knob with no consumer**, which is the shape the same
+# argument refuses. The rule -- a `_ws` image inherits the selection its
 # parent made, and only the image naming the source needs the ARG -- holds here
 # with the source being a pip requirement.
 #
@@ -95,7 +94,7 @@
 # same image. The mitigation here is disclosure rather than a pin: `pip freeze`
 # is written into /VERSION.txt, so a deployed image can be asked what it
 # contains. A constraints file is the repair and it belongs with the packaging
-# rather than with the image (P9-I53).
+# rather than with the image.
 
 FROM public.ecr.aws/lambda/python:3.12
 
@@ -116,7 +115,7 @@ RUN echo "----------------JetStore-Version------------------" >> /VERSION.txt &&
 # The two source trees, copied whole.
 #
 # **`cpipes_contract` ships as a tree and not as a wheel alone, and that is
-# P9-I27 rather than a preference.** `cpipes_model.py` -- the Pydantic model that
+# a requirement rather than a preference.** `cpipes_model.py` -- the Pydantic model that
 # is the source of truth for the whole `.pc.json` -- is a *sibling file* of the
 # `cpipes_contract` package, and that package's wheel declares
 # `packages = ["cpipes_contract"]`, so an installed wheel does not carry the
@@ -164,7 +163,7 @@ RUN JETS_BUCKET=layout-check JETS_REGION=layout-check JETS_DSN_SECRET=layout-che
 # **`/src` is kept rather than removed, because removing it buys nothing.** A
 # `RUN rm -rf /src` deletes the files in a new layer and leaves the two COPY
 # layers exactly where they were, so the line would cost a layer and reclaim no
-# bytes while reading as if it had. What the trees earn in place is P9-I27's
+# bytes while reading as if it had. What the trees earn in place is that
 # requirement read literally: a reader of a deployed image can see the model file
 # the node loads and the sibling-file layout that makes the `cp` necessary.
 

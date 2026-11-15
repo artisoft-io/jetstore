@@ -22,7 +22,7 @@
 //   - a keyed create_entity re-inserted jets:key on every retraction, so its reference
 //     count never came back to zero.
 //
-// Found by a client workspace's assessment (jetstore_agentic_ai, its Q-37 / R-13),
+// Found by a client workspace's assessment,
 // where one rule's create_entity was keyed as a workaround.
 //
 // THE FIX: a node vertex with a consequent that mints a resource -- create_entity,

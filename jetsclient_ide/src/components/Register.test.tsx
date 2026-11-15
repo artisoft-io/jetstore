@@ -1,12 +1,12 @@
 /**
  * @vitest-environment jsdom
  *
- * Registration. Task X.4.
+ * Registration.
  *
  * Three things are worth testing here and only one of them is the form. The
  * rules are the Dart's and are stricter than they look; the status codes decide
  * where a person goes next; and the route must work with **no session**, which is
- * the property that makes this screen X.4's rather than track C's.
+ * the property that makes this screen a retirement task rather than a design one.
  */
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -177,7 +177,7 @@ describe("the api client", () => {
 
 describe("reachability", () => {
   /**
-   * **The property that makes this X.4's.** Every other screen is inside
+   * **The property that makes this a retirement task.** Every other screen is inside
    * `AppShell`, which renders the sign-in form for anyone without a user. A
    * person registering has no account, so this route has to render with no
    * session at all — and it is the only one in the app that does.

@@ -132,7 +132,7 @@ struct NodeVertex {
   ExprBasePtr              filter_expr;
   std::string              normalized_label;
   BetaRowInitializerPtr    beta_row_initializer;
-  int                      antecedent_query_key;     // set by ReteMetaStore::initialize (I-86)
+  int                      antecedent_query_key;     // set by ReteMetaStore::initialize
   mutable int              tid_;
   // Set by ReteMetaStore::initialize when a consequent term of this vertex mints a
   // resource (AlphaNode::mints_resource). A beta row of such a vertex records the

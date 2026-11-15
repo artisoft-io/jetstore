@@ -9,7 +9,7 @@ import (
 // nothing. The filter is part of the antecedent before it, and the grammar used
 // to admit a comment only between whole antecedents, so commenting out the
 // line above a filter turned the filter into a stray '[' that the parser read
-// as the start of a new rule (rules_unit_test_harness I-37, 2026-10-11).
+// as the start of a new rule (2026-10-11).
 //
 // Every variant must compile to the same rule as the version with no comments,
 // with the filter still attached to the antecedent it follows.

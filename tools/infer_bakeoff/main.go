@@ -1,28 +1,28 @@
-// AG.2: the backend bake-off, measured as first-shot schema validity.
+// The backend bake-off, measured as first-shot schema validity.
 //
 // **What this measures, and why it is not a throughput benchmark.** vLLM was
 // wanted for two reasons: it constrains the decoder with the output schema, and
 // its batching was expected to return a valid answer on the first attempt. So
 // the primary figure here is **the fraction of requests whose first response
 // validates against the schema**, per operator, with denominators and no
-// aggregate (decision 13); wall-clock to a first *valid* answer is secondary,
+// aggregate, per the evaluation rules; wall-clock to a first *valid* answer is secondary,
 // and tokens per second is a component of that rather than a headline. A
 // backend that answers correctly on the first attempt at half the tokens per
 // second is the better backend for this workload, and a report led by tok/s
-// would obscure it (plan §20.2, §20.8).
+// would obscure it.
 //
 // **The metric has a predicted value, which is what makes this an experiment.**
 // Under true constrained decoding a non-conformant response is not unlikely, it
 // is ungrammatical — so arm 3's predicted score is **100%**, and any shortfall
 // is a finding about the wiring rather than about the model. The Ollama side has
-// a published prior in the other direction: I-41 measured the deployed shape at
+// a published prior in the other direction: one measurement found the deployed shape at
 // nine parseable, non-conformant fragments out of nine.
 //
-// **Three arms, because two would confound the result** (plan §20.3), and the
+// **Three arms, because two would confound the result**, and the
 // third turned into two on contact with a server:
 //
 //	1   ollama_format     Ollama, the schema in `format` only        the deployed shape
-//	2   ollama_prompt     Ollama, `format` *and* I-180's remedy      the unported fix
+//	2   ollama_prompt     Ollama, `format` *and* the remedy         the unported fix
 //	3a  vllm_guided       vLLM, `guided_json`                        the operator's DEFAULT arm
 //	3b  vllm_json_schema  vLLM, a named `response_format`, strict    the operator's other arm
 //
@@ -32,12 +32,12 @@
 // would have reported whichever the pinned server happens to honour, and on
 // vLLM 0.28.0 the answer is that `guided_json` is accepted and discarded while
 // the OpenAI-compatible arm constrains: 0 of 24 against 23 of 24, same server,
-// same model, same prompts, one request field different (plan §24.5).
+// same model, same prompts, one request field different.
 //
 // Arm 2 is the one that makes the result mean something. Benchmarking arm 1
 // against arm 3 cannot attribute a vLLM win between *constrained decoding beats
-// prompting* and *we never ported the fix*: F422 says the Go client puts the
-// schema in `format` and never in the prompt, and I-41 measured that at 0 of 9
+// prompting* and *we never ported the fix*: the Go client puts the
+// schema in `format` and never in the prompt, and that measured 0 of 9
 // while the same model with the schema rendered as TypeScript and one worked
 // example per variant scored 9 of 9. If arm 2 closes most of the gap to arm 3,
 // vLLM is wanted for parallelism and not for conformance, and those have
@@ -90,7 +90,7 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
-// The arms, by the names the report prints. The numbers are plan §20.3's.
+// The arms, by the names the report prints, numbered as the plan numbers them.
 const (
 	armOllamaFormat = "ollama_format"
 	armOllamaPrompt = "ollama_prompt"
@@ -253,7 +253,7 @@ func run(c config) error {
 		len(corpus.Files), len(corpus.Instances), c.everyNth, len(split.HeldOut), len(split.Train))
 
 	// One sub-schema per operator, resolved once. The unit a hole addresses is
-	// the operator's *bundle* and not the flat leaf (F112): the leaf's
+	// the operator's *bundle* and not the flat leaf: the leaf's
 	// conditional_config re-admits every operator's config and blows the
 	// window, and the bundle ranges that field to itself.
 	schemas := map[string]json.RawMessage{}
@@ -495,12 +495,12 @@ func examplesByOperator(c config, corpus *eval.Corpus, split *eval.Split) (map[s
 	return out, nil
 }
 
-// remedy is I-180's, assembled: the schema as TypeScript declarations, the legal
+// remedy is the prompt-side remedy, assembled: the schema as TypeScript declarations, the legal
 // discriminator token named, and worked examples one per file.
 //
-// **Three changes, because I-41 measured all three and only the third moved the
+// **Three changes, because all three were measured and only the third moved the
 // number to 9 of 9.** Its table is the reason arm 2 is not simply "the JSON
-// Schema pasted into the prompt" — P.1 ran that in Phase 3 and the figure moved
+// Schema pasted into the prompt" — that was run earlier and the figure moved
 // by nothing.
 func remedy(op, ts, examples string, count int) string {
 	var b strings.Builder
@@ -700,8 +700,8 @@ func compileOne(doc []byte) (*jsonschema.Schema, error) {
 // **It is a second implementation of that envelope and that is worth saying
 // out loud.** jets/agentic/infer is an /api/chat client and has no vLLM arm at
 // all — the operator is the only vLLM caller in the tree — so an agentic-side
-// harness has nothing to reuse. Q-13 asked whether the schema belongs in the
-// shared seam; this file is one more piece of evidence that it is the envelope
+// harness has nothing to reuse. Whether the schema belongs in the shared seam
+// is an open question; this file is one more piece of evidence that it is the envelope
 // rather than the schema that keeps being rewritten.
 type vllmClient struct {
 	host, model string
@@ -879,7 +879,7 @@ func probe(ctx context.Context, host string, timeout time.Duration) (string, str
 // render prints the run per operator and per arm, with denominators and no
 // aggregate.
 //
-// **There is deliberately no total.** Decision 13 bans one, and here it would do
+// **There is deliberately no total.** The evaluation rules ban one, and here it would do
 // specific damage: two operators are most of the corpus, so a total is those two
 // wearing a coat, and the number that would travel is the one that cannot be
 // read.

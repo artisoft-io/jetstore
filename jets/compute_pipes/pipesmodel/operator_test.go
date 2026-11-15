@@ -7,13 +7,13 @@ import (
 	"testing"
 )
 
-// Criterion 93: OperatorEnv exposes exactly the list `BD.1` decided, and this
+// OperatorEnv exposes exactly the list decided for it, and this
 // test fails if it grows.
 //
-// **Six until `Q-148` on 2026-09-15, seven since**, and the growth is the point
+// **Six until 2026-09-15, seven since**, and the growth is the point
 // rather than an exception to it. The seventh is ReportError, and the test is
 // what made adding it a decision somebody took: the list was edited in the same
-// commit as the interface, with plan §22 as the argument. A method that arrives
+// commit as the interface, with the argument written down. A method that arrives
 // without this test going red is a method nobody weighed.
 //
 // **It pins full method signatures rather than method names**, and the
@@ -22,15 +22,15 @@ import (
 // added and misses a parameter widened -- `EnvValue(string) (any, bool)`
 // becoming `EnvValue(string) (any, error)`, or ColumnEvaluator taking a
 // `*TransformationSpec` instead of a `*TransformationColumnSpec`. Either would
-// hand a site operator something §12.6 withheld, under a name the list already
+// hand a site operator something the interface withheld, under a name the list already
 // approves of.
 //
-// Mutation-checked the way `BC.3` checked its two: a seventh method added to the
+// Mutation-checked the way the surface tests were checked: a seventh method added to the
 // interface fails it by name, and a widened parameter fails it by signature.
 //
 // The comparison runs both ways on purpose. A one-way check would let the
 // interface grow as long as the six were still there, which is exactly the
-// failure R-149 names: a public surface is hard to shrink, so the moment to
+// known failure: a public surface is hard to shrink, so the moment to
 // notice a method is the moment it is added.
 func TestOperatorEnvExposesExactlyTheDecidedList(t *testing.T) {
 	typ := reflect.TypeOf((*OperatorEnv)(nil)).Elem()
@@ -66,7 +66,7 @@ func TestOperatorEnvExposesExactlyTheDecidedList(t *testing.T) {
 	}
 	for name, gotSig := range got {
 		if _, ok := want[name]; !ok {
-			t.Errorf("OperatorEnv has gained %s %s; §12.6 withheld everything not on the list, "+
+			t.Errorf("OperatorEnv has gained %s %s; the interface withheld everything not on the list, "+
 				"so adding one is a decision to record rather than a field to add", name, gotSig)
 		}
 	}
@@ -88,11 +88,11 @@ func TestOperatorEnvExposesExactlyTheDecidedList(t *testing.T) {
 // `conditional_config` are consumed before a factory can be reached, and
 // `*TransformationSpec` itself never crosses.
 //
-// **Nine until Phase 9, eleven since.** `Outputs` (P9-T01) and `Lookups`
-// (P9-T02) are the two extensions D-202 rules, and each is ErrorChannel's move
-// repeated on one of the two things §12.6 withholds -- `channelRegistry` and
+// **Nine at first, eleven since.** `Outputs` and `Lookups`
+// are the two sanctioned extensions, and each is ErrorChannel's move
+// repeated on one of the two things the interface withholds -- `channelRegistry` and
 // `lookupTableManager`. The builder
-// resolves what the step itself declared and hands the result over, so §12.6's
+// resolves what the step itself declared and hands the result over, so the withholding
 // argument is intact -- the operator still cannot reach `channelRegistry` and
 // still names nothing its own step did not. That it arrives as a *field* here
 // rather than as a method on OperatorEnv is the whole of the shape: this struct
@@ -141,7 +141,7 @@ func TestOperatorArgsCarriesExactlyTheDecidedFields(t *testing.T) {
 // `Config` is json.RawMessage and not `map[string]any`, and the difference is
 // that the site owns its own schema: it unmarshals into a typed struct of its
 // own and validates it, which is the whole benefit of the platform not knowing
-// what is in there (`I-777`).
+// what is in there.
 //
 // The property under test is that the bytes survive verbatim. The document
 // crosses a process boundary as JSON twice before a factory sees it, and a field
@@ -178,7 +178,7 @@ func TestOperatorArgsConfigSurvivesAJSONRoundTrip(t *testing.T) {
 	}
 }
 
-// The test-double remedy of `I-781`, compiled rather than described. A site that
+// The test-double remedy, compiled rather than described. A site that
 // implements OperatorEnv is broken by a seventh method; a site that *embeds* it
 // is not, and gets a panic on first use of the method it did not write instead
 // of a build failure it cannot fix without a release.
@@ -243,7 +243,7 @@ func TestRowLevelErrorCarriesExactlyTheDecidedFields(t *testing.T) {
 
 // Lookup is written by JetStore and read by a site, like OperatorArgs, so the
 // pin is against the same invisible widening -- and against the shape question
-// D-209 settled, which no compiler checks: the key travels *with* the table
+// settled earlier, which no compiler checks: the key travels *with* the table
 // because LookupTable has no accessor for its own name, and the container is a
 // slice rather than a map because a map's range order is unspecified and an
 // operator that iterated its lookups would do so differently from run to run.
@@ -284,7 +284,7 @@ func TestLookupCarriesItsKeyBesideTheTableTheBuiltinsHold(t *testing.T) {
 		t.Fatal("OperatorArgs has no Lookups field")
 	}
 	if field.Type.Kind() != reflect.Slice {
-		t.Errorf("OperatorArgs.Lookups is a %s; D-209 rules it a slice, because a map's "+
+		t.Errorf("OperatorArgs.Lookups is a %s; the design rules it a slice, because a map's "+
 			"range order is unspecified and authored order is the operator's only handle",
 			field.Type.Kind())
 	}

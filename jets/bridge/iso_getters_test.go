@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// I-162: GetDatetimeIsoString and GetDateIsoString from many goroutines at once.
+// GetDatetimeIsoString and GetDateIsoString from many goroutines at once.
 // The library's ISO getters returned text in a buffer of the calling C thread, which
 // the bridge copied with C.GoString after the cgo call returned. By then the
 // goroutine could have moved, and another goroutine's call on the first thread could

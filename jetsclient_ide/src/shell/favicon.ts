@@ -1,5 +1,5 @@
 /**
- * Which favicon a route gets. Task D.9, from **I-267**.
+ * Which favicon a route gets.
  *
  * **The report is that the Workspace IDE's icon is served everywhere**, and it
  * is: `index.html` declares one `<link rel="icon">` and a static document cannot
@@ -52,7 +52,7 @@ import { matchPath, useLocation } from "react-router-dom";
  * The routes that render `WorkspaceIde`, as templates rather than strings.
  *
  * Both of them, because both are the editor: `/workspace` is the bare screen and
- * the other is the same screen addressed at a workspace (`App.tsx`, task C.3).
+ * the other is the same screen addressed at a workspace (`App.tsx`).
  * `/workspaces` is **not** here — it is the registry, a different screen.
  *
  * Matched with `matchPath` rather than compared, because the second carries a
@@ -66,7 +66,7 @@ export const IDE_ROUTES = ["/workspace", "/workspaces/:workspace_name/home"];
  * The original JetStore favicon, recovered rather than redrawn.
  *
  * It is `jetsclient/web/favicon.ico` byte for byte, taken from the commit before
- * X.1 deleted the Flutter app. It was added deliberately in `5c94ff7c` (*"new
+ * the Flutter app was deleted. It was added deliberately in `5c94ff7c` (*"new
  * favicon Fixes #420"*) and never touched again — so it is the mark the product
  * shipped with, not the Flutter template's default. The template's default is
  * still in that history as `web/favicon.png`, unmodified and unused, which is

@@ -1,6 +1,6 @@
 package datatable
 
-// Session Registry's Resubmit as Pending (JM-185), against a real PostgreSQL.
+// Session Registry's Resubmit as Pending, against a real PostgreSQL.
 // Needs JETS_TEST_DSN; skipped otherwise. Locally:
 //
 //	docker run -d --rm --name srg-e-pg -e POSTGRES_PASSWORD=pw -p 55432:5432 postgres:16

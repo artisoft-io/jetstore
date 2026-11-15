@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-// The same sources compile to the same workspace.db, byte for byte (Q-49).
+// The same sources compile to the same workspace.db, byte for byte.
 // rule_properties, jetstore_config, the rule label's extra properties and the
 // workspace_control rows were written in map order, so two compiles differed.
 // Twelve rule properties, a config with three keys and eight imported files,

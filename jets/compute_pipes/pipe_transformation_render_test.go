@@ -1,7 +1,6 @@
 package compute_pipes
 
-// Tests for the render transformation operator, see pipe_transformation_render.go
-// (agentic_ai Phase 8 `AZ.3`).
+// Tests for the render transformation operator, see pipe_transformation_render.go.
 //
 // **The division of labour with `jets/agentic/template` is deliberate and it is
 // what these tests do not cover.** The notation, the ten constructs, the twelve
@@ -10,7 +9,7 @@ package compute_pipes
 // four questions the engine cannot answer: does a name resolve, does a column
 // exist, what does a record that is not a document cost, and what does a
 // violated `require` cost. The templates below are therefore as small as the
-// question allows -- a briefing-shaped document here would be testing `AY.3`.
+// question allows -- a briefing-shaped document here would be testing the briefing template.
 
 import (
 	"database/sql"
@@ -280,7 +279,7 @@ func TestRenderMissingPathRendersTheEmptyForm(t *testing.T) {
 // **The array case is the one worth the row.** `[1,2]` is valid json and decodes
 // without complaint; every path then resolves to nothing and the template
 // renders its empty form, which is a briefing saying a member has no events.
-// That is I-515's shape -- an empty artefact indistinguishable from a broken
+// That is a known shape -- an empty artefact indistinguishable from a broken
 // one -- and it is why the type assertion is in `decodeRenderJson` rather than
 // left to the engine.
 func TestRenderRejectsARecordThatIsNotADocument(t *testing.T) {
@@ -362,10 +361,10 @@ func TestRenderShortRecordIsReported(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// The error channel path, and Q-107
+// The error channel path, and what a violation costs
 // ---------------------------------------------------------------------------
 
-// TestRenderViolationFailsTheRow is Q-107 asserted rather than described.
+// TestRenderViolationFailsTheRow is that decision asserted rather than described.
 //
 // The record carries no `Disclaimer`, the template declares one required, and
 // the three `on_error` policies give the three answers. **Under every one of
@@ -437,8 +436,8 @@ func TestRenderViolationFailsTheRow(t *testing.T) {
 // renderTwoViolationsTemplate and renderTwoViolationsDoc are one record that
 // fails **twice**: three events, two of them carrying no `code`, against a
 // template whose `each` body requires one. It is the smallest input that
-// separates *per violation* from *per record*, which is the distinction I-721
-// turned out to rest on -- and it is shared by the two tests below because they
+// separates *per violation* from *per record*, which is the distinction the
+// forwarding defect turned out to rest on -- and it is shared by the two tests below because they
 // assert the two halves of what one such record costs: how many error rows it
 // writes, and how many times it is sent.
 func renderTwoViolationsTemplate() TextTemplateSpec {
@@ -482,7 +481,7 @@ func TestRenderReportsEachViolationSeparately(t *testing.T) {
 	}
 }
 
-// TestRenderSendsAFailedRecordOnce is I-721, and it is the assertion the suite
+// TestRenderSendsAFailedRecordOnce is the forwarding defect, and it is the assertion the suite
 // was missing rather than a new requirement.
 //
 // **A record is one record whatever it did wrong.** How many error rows a
@@ -540,7 +539,7 @@ func TestRenderSendsAFailedRecordOnce(t *testing.T) {
 // TestRenderSendsADecodeFailureOnce is the neighbouring path asserted rather
 // than assumed. A decode failure is one failure per record by construction --
 // `documentOf` returns at the first thing wrong -- so this test would pass
-// against the defect. It is here because I-721's mechanism was *reporting and
+// against the defect. It is here because the defect's mechanism was *reporting and
 // forwarding sharing a function*, and a path that calls that function once is
 // evidence only while somebody checks that it still does.
 func TestRenderSendsADecodeFailureOnce(t *testing.T) {
@@ -761,7 +760,7 @@ func TestRenderRefusesMismatchedChannels(t *testing.T) {
 // TestTextTemplatesReachAWorkerNode is criterion 85, and it asserts the two
 // halves separately because they fail separately.
 //
-// **F1130 is the failure it exists to prevent**, and that failure has already
+// **A build error on a worker is the failure it exists to prevent**, and that failure has already
 // happened once: `PromptTemplates` was missing from both node-config literals
 // from the day they were written, every named prompt template resolved to
 // nothing on the node, an inline one worked, and nothing failed until a live run
@@ -779,7 +778,7 @@ func TestTextTemplatesReachAWorkerNode(t *testing.T) {
 		if !literalFields(t, file)["TextTemplates"] {
 			t.Errorf("%s does not give the node TextTemplates; a text_templates array declared at "+
 				"the configuration root would reach no render operator, and the failure would be a "+
-				"build error on a worker node in a deployed run (F1130)", file)
+				"build error on a worker node in a deployed run", file)
 		}
 	}
 

@@ -1,9 +1,9 @@
 /**
- * The escape registry this build actually ships. Tasks F.0a and I.3b.
+ * The escape registry this build actually ships.
  *
  * `escapes.ts` designed the mechanism and shipped exactly one **value** —
  * `emptyRegistry` — so until now every escape name in every authored document
- * resolved to nothing outside a test. That was I-50's fourth row: *no production
+ * resolved to nothing outside a test: there was *no production
  * escape registry*.
  *
  * ## Why this is a module rather than a constant in the screen
@@ -15,17 +15,17 @@
  * "does this flow load?" depend on which screen asked. There is one build, so
  * there is one registry.
  *
- * And **the registration site is ui_refresh's while some of the bodies are not**.
- * The repository `CLAUDE.md` records the arrangement agreed on 2026-08-23: the
- * agentic_ai project owns `src/cpipes/`, and this file owns the slot its escape
- * is registered into. Their domain logic should not need a pull request here, and
+ * And **the registration site is this file's while some of the bodies are not**.
+ * The arrangement was agreed on 2026-08-23: the
+ * agentic layer owns `src/cpipes/`, and this file owns the slot its escape
+ * is registered into. Its domain logic should not need a change here, and
  * this wiring should not need one there.
  *
- * **`cpipesTemplateApply` is registered as of 2026-08-25 — agentic_ai's task U.3,
+ * **`cpipesTemplateApply` is registered as of 2026-08-25,
  * and the first exercise of that arrangement in this direction.** This paragraph
  * used to end *"Nothing of theirs is registered yet — `templateApply.ts` is reached
  * by a projected flow, and no projected flow is in a workspace this app reads"*.
- * Their U.2 made the second clause false: `cpipes-contract` now writes its
+ * The second clause is false now: `cpipes-contract` writes its
  * projected document sets into `jets/workspace_assets/user_flows/`, a third
  * `AssetGroup`, so `install_workspace_assets` puts them in every workspace.
  *
@@ -35,12 +35,12 @@
  *
  * ## What is here, and what is deliberately not
  *
- * I-54's two bodies, plus F.1's two — a row seeder and a form validator, both in
+ * The first two bodies, plus the file mapping flow's two — a row seeder and a form validator, both in
  * `fileMapping.ts` because they are one flow's and belong together.
  *
- * **And `homeFilters.ts`'s six, as of F.5, which fills the last empty namespace.**
+ * **And `homeFilters.ts`'s six, which fill the last empty namespace.**
  * `actions` was `{}` through four migrated flows and this comment used to explain
- * why: *the remaining action escapes belong to flows track F has not migrated
+ * why: *the remaining action escapes belong to flows not yet migrated
  * (`homeFiltersUF` carries one)*. That flow is migrated, so the entry is here —
  * `updateHomeFilters`, which compiles the flow's answers into `WhereClause`
  * objects, and `clearHomeFilters`, which `actionDispatch` names for every
@@ -52,7 +52,7 @@
  * sent every closure to it — true of the 37 flow tables and false of all three on
  * `pipelineExecStatusTable`. See that file's header for the mapping.
  *
- * **And `queries`, F.6's seventh namespace, holds the corpus's one registered
+ * **And `queries`, the seventh namespace, holds the corpus's one registered
  * statement** — `processInputRdfTypes`, in `queries.ts` because it is one flow's
  * and belongs beside nothing else. It is data rather than a body, which is the
  * one way it differs from the six above and is argued in `escapes.ts`.
@@ -80,7 +80,7 @@ import {
 } from "./homeFilters";
 import { noSessionDeletionRequested, previewSessionDeletion } from "./sessionDeletion";
 import { cpipesTemplateApply } from "../cpipes/templateApply";
-// C.5's two, and the first escape bodies this project owns that live outside
+// The inference server screen's two, and the first escape bodies that live outside
 // this directory. The screen's domain module is beside its screen, on the same
 // terms as `src/cpipes/` above: **the registration site is this file's and the
 // body is the screen's.** A registry that imported a React component would be
@@ -108,7 +108,7 @@ import type { EscapeRegistry } from "./escapes";
  * and this app has no equivalent bootstrap. The fallback below is the same branch
  * the Dart takes when the variable is unset or the pattern does not compile, so
  * an unconfigured deployment is *identical* and a configured one loses the
- * client-specific label until the bootstrap exists. Recorded as I-67.
+ * client-specific label until the bootstrap exists.
  */
 let fileKeyLabelRe: RegExp | null = null;
 
@@ -132,7 +132,7 @@ export function setFileKeyLabelPattern(pattern: string | null): void {
  *
  * A port of the closure at
  * `jetsclient/lib/modules/user_flows/start_pipeline/data_table_config.dart:86`,
- * which I-54 found written three times — the other two are
+ * which is written three times — the other two are
  * `modules/data_table_config_impl.dart:127` and `:379`. All three agree, which is
  * the argument for one name rather than three ports.
  *
@@ -154,7 +154,7 @@ export const fileKeyLabel = (value: string | null): string | null => {
 };
 
 /**
- * Strips the prefix a recovered load error carries. Task C.6.
+ * Strips the prefix a recovered load error carries.
  *
  * `text?.replaceFirst('File contains 0 bad rows,recovered error: ', '')`
  * (`jetsclient/lib/modules/data_table_config_impl.dart`, the `error_message`
@@ -178,19 +178,19 @@ export const errorMessageLabel = (value: string | null): string | null =>
  * Whether the data-registry filters are set.
  *
  * `JetsRouterDelegate().dataRegistryFilters != null && …isNotEmpty`, the gate on
- * the three `clearFilters` buttons (I-54). ~~**In this app the answer is always
+ * the three `clearFilters` buttons. ~~**In this app the answer is always
  * false, and the honest thing is to say so here rather than to leave the name
  * unregistered.**~~
  *
  * The filters are router state in the Flutter app —
  * `jets_router_delegate.dart:36` declares `List<WhereClause>? dataRegistryFilters`
- * — ~~set by the data-registry screens, which are track C's and not ported. So the
- * button correctly renders disabled: there is nothing to clear.~~ When C ports
- * those screens the filters acquire a home and this body reads it; until then a
+ * — ~~set by the data-registry screens, which are not ported. So the
+ * button correctly renders disabled: there is nothing to clear.~~ When those
+ * screens are ported the filters acquire a home and this body reads it; until then a
  * registered `false` is a working button in its empty state, and an unregistered
  * name is a flow that will not load.
  *
- * **Corrected 2026-10-01 (`jetstore_maintenance_02`, `D02`'s neighbour): the
+ * **Corrected 2026-10-01: the
  * trigger this paragraph names had fired, and nothing re-read it.** The filters
  * acquired their home when Home was ported — `homeFilters.ts`'s store, written
  * by `updateHomeFilters`, `setIdFilter` and `clearHomeFilters` and read by
@@ -226,7 +226,7 @@ export const hasDataRegistryFilters = (_formState: FormState, _group: number): b
  */
 let activeWorkspace: { name: string; branch: string; uri: string } = { name: "", branch: "", uri: "" };
 
-/** Records the deployment's workspace. Task C.2b. */
+/** Records the deployment's workspace. */
 export function setActiveWorkspace(next: { name: string; branch: string; uri: string }): void {
   activeWorkspace = next;
 }
@@ -262,7 +262,7 @@ export const isActiveWorkspace = (formState: FormState, group: number): boolean 
  * the user may not substitute one.
  *
  * So the four `isReadOnlyEval` sites in either corpus are two bodies, which is
- * I-54's finding on a third surface.
+ * the cell filters' finding on a third surface.
  */
 export const hasWorkspaceUri = (_formState: FormState, _group: number): boolean =>
   activeWorkspace.uri !== "";
@@ -277,30 +277,30 @@ const scalar = (value: unknown): string | null => {
 /**
  * The registry the application runs with.
  *
- * **Every namespace has an entry as of F.5**, and the last two to fill were the
+ * **Every namespace has an entry now**, and the last two to fill were the
  * two `escapes.ts` was designed around: `actions`, which stayed empty through four
  * migrated flows because the grammar kept swallowing what the coverage pass had
- * transcribed as escapes (I-74), and `initializers`, which has exactly one member
+ * transcribed as escapes, and `initializers`, which has exactly one member
  * in the whole corpus.
  *
- * **`actions` filling is not evidence the grammar fell short.** F.1's finding was
+ * **`actions` filling is not evidence the grammar fell short.** The file mapping finding was
  * that a transcription says what the grammar could express when it was written;
  * this one survived the same question — a step that builds `LIKE` patterns and
  * `now() - interval '…'` bounds for another screen's `WHERE` is not a missing
  * primitive. See `homeFilters.ts`.
  *
- * **`actions` has four as of F.8, and the two it gained answer that question two
+ * **`actions` then reached four, and the two it gained answer that question two
  * different ways.** `downloadMapping` is an escape because no step can express a
  * two-table joined read whose thousand rows become a file the browser saves.
  * `loadRawRows` is an escape although the grammar *can* express it — a `set` and
- * a `post` — because S.7's allowlist refuses the target: `insert_raw_rows`
- * deletes before it authorises (I-121). **So the escape count is an upper bound
+ * a `post` — because the schema's allowlist refuses the target: `insert_raw_rows`
+ * deletes before it authorises. **So the escape count is an upper bound
  * on what the grammar cannot say and not on what stays a body**, which is a
- * narrowing of I-74 rather than an instance of it.
+ * narrowing of the rule rather than an instance of it.
  *
- * **Six as of F.7, and one of the two it adds is a *replacement* for a bigger one.**
+ * **Then six, and one of the two added is a *replacement* for a bigger one.**
  * The coverage fixture transcribed the whole of `scSelectSourceConfigUF` as
- * `loadSourceConfigWithFileTypeInference`; F.2's `when` guard expresses all but one
+ * `loadSourceConfigWithFileTypeInference`; the `when` guard expresses all but one
  * step of it, so what is registered is `readXlsxSheetOption` — a `JSON.parse` of a
  * value held in form state, which no value form can say. `saveSourceConfigForFileType`
  * stays whole for a third reason again: the payload projection `wholeState` offers
@@ -314,27 +314,27 @@ export const productionRegistry: EscapeRegistry = {
     loadRawRows,
     readXlsxSheetOption,
     saveSourceConfigForFileType,
-    // agentic_ai's, per the arrangement in this file's header. The body is in
-    // `src/cpipes/`; this line is the whole of the wiring (their U.3).
+    // The agentic layer's, per the arrangement in this file's header. The body is in
+    // `src/cpipes/`; this line is the whole of the wiring.
     cpipesTemplateApply,
-    // **The first escape a non-flow screen registers.** C.2b's, and it is an
+    // **The first escape a non-flow screen registers**, and it is an
     // escape for the third reason the header lists rather than either of the
     // first two: the grammar could express what the Dart does, and its
     // destination screen does not exist yet. See `workspaceRegistry.ts`.
     openWorkspace,
-    // **Nine as of C.9, and the count moved by one where the Dart had two arms.**
+    // **Nine with this one, and the count moved by one where the Dart had two arms.**
     // `/processErrors` has three live delegate arms; `reteSession.VisitEntity` is
     // a guarded `set` in its action document and the deleted v1 arm is nothing at
     // all, so only the rete-session load needs a body — it decodes a JSON document
     // two levels deep, which no step reaches into. See `processErrors.ts`.
     loadReteSession,
-    // **Ten as of C.10.** The one thing `rulesConfigv2Dialog` does that no value
+    // **Ten.** The one thing `rulesConfigv2Dialog` does that no value
     // in `ValueSchema` can say: read a *query result* rather than form state. See
     // `ruleConfig.ts` for why a sixth `ValueSchema` member was the alternative and
     // was declined.
     resolveProcessConfigKey,
-    // **Eleven as of 2026-10-01** (jetstore_maintenance_02, `D04`, task AE.3), and
-    // the reason is F.8's first one again: the grammar's `post` keeps a status and
+    // **Eleven as of 2026-10-01**, and
+    // the reason is `downloadMapping`'s again: the grammar's `post` keeps a status and
     // drops the body, and this escape's whole point is the body — a file out of the
     // S3 stage, onto the clipboard. *Get Run Manifest* and a deployment's custom
     // buttons are both instances of it. See `stageClipboard.ts`.
@@ -343,7 +343,7 @@ export const productionRegistry: EscapeRegistry = {
     // column of the registry row the selected run names, which is
     // `loadReteSession`'s shape, and ends on the same clipboard. See `schemaEvent.ts`.
     copySchemaEvent,
-    // **Fifteen as of `session_registry` Phase 2** (2026-11-08). The Session
+    // **Fifteen as of 2026-11-08.** The Session
     // Registry tab's filters are `updateHomeFilters`' shape over a list of their
     // own, and its *Delete* reads the server's preview of what it reaches, which
     // a `post` step cannot — the reason `downloadMapping` gave first. See
@@ -353,31 +353,31 @@ export const productionRegistry: EscapeRegistry = {
     previewSessionDeletion,
   },
   initializers: { seedFromHomeFilters },
-  // **Two as of C.9, and the second is the first outside a flow.** F.1 built the
-  // repeating form for `fmMappingFormUF`; `viewInputRecordsDialog` is the same
+  // **Two, and the second is the first outside a flow.** The repeating form was
+  // built for `fmMappingFormUF`; `viewInputRecordsDialog` is the same
   // construct on a screen's dialog, needing nothing that was not already here —
-  // which is the only evidence available that F.1's mechanism generalised.
+  // which is the only evidence available that the mechanism generalised.
   rowInitializers: { seedMappingRow, seedInputRecordsRow },
   validators: {
     mappingFormValidator,
     homeFiltersFormValidator,
     sourceConfigFormValidator,
-    // The Session Registry *Set Filters* dialog's, `session_registry` Phase 2.
+    // The Session Registry *Set Filters* dialog's (2026-11-08).
     sessionRegistryFiltersValidator,
   },
-  // **Two as of C.6, and the second is why the mapping is a lookup.** I-103 moved
+  // **Two, and the second is why the mapping is a lookup.** An earlier change moved
   // the *`isEnabled`* mapping out of a constant and stated the lesson; the cell
   // filter beside it in the same function stayed a constant, sending every
   // `hasCellFilter` to `fileKeyLabel`. Five of the six sites agree and the sixth
   // is `inputLoaderStatusTable`'s `error_message`, which would have rendered a
   // load error as a file-key label. `cellFilterEscapeFor` is keyed by table and
-  // column now (**I-219**).
+  // column now.
   cellFilters: { fileKeyLabel, errorMessageLabel },
-  // **Seven as of C.5, and they no longer divide by consumer.** Five arrived with
-  // C.2b, two of them read by a *form field* rather than by a table action —
+  // **Seven, and they no longer divide by consumer.** Five arrived with
+  // the workspace screens, two of them read by a *form field* rather than by a table action —
   // `isReadOnlyFrom` resolves out of this namespace because the signature is the
   // same `(formState, group) => boolean`, and a second namespace holding
-  // functions of one type would be a distinction nothing draws. C.5 adds
+  // functions of one type would be a distinction nothing draws. The last two are
   // `inferServerNotRunning` and `inferServerNotStopped`, **the first entries here
   // that no flow reaches**, and the first users of `FormActionSchema`'s
   // `enabledWhen`. The namespace was built for a table action's `isEnabled` and
@@ -392,7 +392,7 @@ export const productionRegistry: EscapeRegistry = {
     inferServerNotRunning,
     inferServerNotStopped,
     // The Session Registry tab's two gates (`tableTranslate.ts`,
-    // `isEnabledEscapeFor`), `session_registry` Phase 2, 2026-11-08.
+    // `isEnabledEscapeFor`), 2026-11-08.
     hasSessionRegistryFilters,
     noSessionDeletionRequested,
   },

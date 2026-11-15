@@ -1,6 +1,6 @@
-// Package observe is the extraction step of the anomaly detectors (Phase 3
-// item 9, task N.3): it reads JetStore's execution record out of Postgres and
-// hands a detector typed rows, and it writes the resulting jetsa:Anomaly back.
+// Package observe is the extraction step of the anomaly detectors: it reads
+// JetStore's execution record out of Postgres and hands a detector typed
+// rows, and it writes the resulting jetsa:Anomaly back.
 //
 // # Why this is a Go package and not a cpipes pipeline
 //
@@ -10,7 +10,7 @@
 // read jetsapi.pipeline_execution_details at all. Three shapes were tabled for
 // getting past that: export the record to S3 and read it as a file input; add
 // a third sourceType arm reading jetsapi; or skip cpipes and compute the
-// detectors as SQL with a Go emitter. The third was taken (N.3, 2026-08-27).
+// detectors as SQL with a Go emitter. The third was taken (2026-08-27).
 //
 // The reason is where the aggregate is computed. The execution record supports
 // five derivable failure modes and every one of them is a GROUP BY or a

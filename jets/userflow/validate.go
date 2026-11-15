@@ -6,10 +6,10 @@
 // implementations of one rule stay in agreement only if a reader can put them
 // side by side, so structural improvements to one belong in both or in neither.
 //
-// **What is here and what is still S.4's.** These are the checks a JSON Schema
+// **What is here and what is the save path's.** These are the checks a JSON Schema
 // cannot express — schema.ts absorbs everything expressible in the document's
 // shape. Wiring them into SaveWorkspaceFileContent, beside the existing
-// well-formed-JSON check, is S.4's task and is deliberately not done here.
+// well-formed-JSON check, is the save path's task and is deliberately not done here.
 package userflow
 
 import (
@@ -24,7 +24,7 @@ import (
 
 // Severity and Finding are aliases, not copies.
 //
-// They moved to jets/wsvalidate when S.4 wired the save path, because the
+// They moved to jets/wsvalidate when the save path was wired, because the
 // cpipes validator needs the same types and neither package should import the
 // other. Aliases rather than a rename so that every caller here keeps working
 // and there is still exactly one type — `userflow.Finding` and
@@ -53,8 +53,8 @@ type Policy struct {
 
 // StrictReachabilityEnvVar is the deployment-time switch.
 //
-// **The trade this was introduced with turned out not to exist, and the entry
-// that describes it is I-18.** It was added believing that pipelineConfigUF
+// **The trade this was introduced with turned out not to exist.** It was added
+// believing that pipelineConfigUF
 // shipped two dead states, so that a strict deployment could not save a flow it
 // already runs. Those two states are reached by a button — an action that jumps
 // the flow — and the walk could not see the edge because the document did not
@@ -114,8 +114,8 @@ type Choice struct {
 //
 // GoToStates are transitions an action of this state makes rather than ones the
 // Next button makes. They are edges of the state machine all the same, and
-// omitting them is what made S.1 report two live states as dead — see I-18 and
-// the comment on targetsOf.
+// omitting them is what made the first check report two live states as dead —
+// see the comment on targetsOf.
 type State struct {
 	IsEnd            bool     `json:"isEnd"`
 	Choices          []Choice `json:"choices"`

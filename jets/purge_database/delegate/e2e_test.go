@@ -306,7 +306,7 @@ func reportRowsWithoutArchive(r e2eReport) map[string]int64 {
 	return out
 }
 
-// C.1. Each way rows outlive their session is swept by one real run once older
+// Each way rows outlive their session is swept by one real run once older
 // than the retention window; the same shapes recent are kept; a live session
 // with rows in the same domain tables is untouched; a session with a run pending
 // or submitted on it, or reading it, is refused and stays queued until the run
@@ -428,7 +428,7 @@ func TestE2EOrphansSweptByOneRun(t *testing.T) {
 	}
 }
 
-// C.1, M3 (after A.6). A session that left rows only in session_reservation,
+// A session that left rows only in session_reservation,
 // pipeline_lock and the coordinator tables, none of which has a last_update, is
 // dated by its id: an old numeric id is swept with client (unknown), a recent one
 // is kept, and an id that is not numeric is never a candidate and is counted in
@@ -587,10 +587,10 @@ func diffCounts(t *testing.T, what string, before, after map[string]int64) {
 	}
 }
 
-// C.2. The first run at a site, replayed: about six months of runs across many
+// The first run at a site, replayed: about six months of runs across many
 // sessions, a third of them for sessions whose session_registry rows the old
 // purge already removed, some registered past the retention window, some recent,
-// one past the window with a run still submitted, and the orphan backlog of C.1.
+// one past the window with a run still submitted, and the orphan backlog above.
 // A dry run (PURGE_DRY_RUN unset) writes nothing and its report is the real
 // run's, field by field; after the real run the live table holds only the runs of
 // registered or recent sessions, every removed run is in the archive with its key
@@ -914,7 +914,7 @@ func TestE2ECoordinatorRequestSharedBySessions(t *testing.T) {
 
 // An archived run already past 180 days when its session is deleted is archived
 // and purged in the same run: the plan keeps an archived run as long as the live
-// table would have (§3.4, Q-2), so it is gone from the view too. This records the
+// table would have, so it is gone from the view too. This records the
 // behaviour; it is what the plan asks for.
 func TestE2EArchivedPast180DaysPurgedSameRun(t *testing.T) {
 	pool := purgetest.DB(t, e2eDB)

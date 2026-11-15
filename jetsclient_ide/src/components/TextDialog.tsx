@@ -1,8 +1,8 @@
 /**
  * A modal holding text the user can select and copy by hand.
- * jetstore_maintenance_02, defect `D04`, task `AE.3` (2026-10-01).
+ * Added 2026-10-01.
  *
- * **It exists for one failure, and it is the mitigation for `R-2`.** A clipboard
+ * **It exists for one failure, and it is the mitigation for it.** A clipboard
  * button writes the clipboard *after* an awaited fetch, and a browser may refuse
  * that write: the user gesture that permitted it can have expired by the time the
  * file arrives, and outside a secure context there is no `navigator.clipboard` at
@@ -10,11 +10,11 @@
  * escape hands the text to the host's `showText` and the screen renders this.
  *
  * **Built on `ModalDialog`, which is the one `<dialog>` element in the app**
- * (`userflow/FormDialog.tsx`, `AB.2`). The first version of this component
- * rendered its own `<dialog>`; that was a second dialog system the same day `AB.2`
+ * (`userflow/FormDialog.tsx`). The first version of this component
+ * rendered its own `<dialog>`; that was a second dialog system the same day `ModalDialog`
  * removed the need for one, and `dialogStyles.test.ts` refuses it by name. What
  * `ModalDialog` carries — `showModal`, the jsdom fallback, Escape as dismissal,
- * `.uf-dialog` and so the width rule `D08` gave every dialog — this gets for free.
+ * `.uf-dialog` and so the width rule every dialog shares — this gets for free.
  *
  * **It opts into `dismissOnBackdrop`**, which a form dialog does not: nothing is
  * typed here, so a click outside loses nothing, and a viewer you cannot click

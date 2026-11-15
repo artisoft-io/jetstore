@@ -367,7 +367,7 @@ func TestEntryConfinedToMemberAndFile(t *testing.T) {
 }
 
 // The built-in list classifies doubles that differ in their last bits, across engines and within one, and no more:
-// a cent stays unclassified (rules_benchmark Phase 4).
+// a cent stays unclassified.
 func TestSummationLastBits(t *testing.T) {
 	root := t.TempDir()
 	a := tree(t, filepath.Join(root, "a"), "go", map[string][]string{"m1/01_r.tsv": {

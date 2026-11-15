@@ -158,7 +158,7 @@ func TestCastToRdfTypeFromTxt(t *testing.T) {
 	}
 }
 
-// A bool cell read from text (I-45): the accepted spellings become 1 or 0,
+// A bool cell read from text: the accepted spellings become 1 or 0,
 // empty is null (nil), and anything else is an error the caller turns into its
 // own policy -- map_record's on_error, or a failed read of a typed file.
 func TestCastBoolFromText(t *testing.T) {

@@ -2,7 +2,7 @@ package datatable
 
 // The runbook executor's two tables, jetsapi.runbook_run and
 // jetsapi.runbook_step_run (jets_schema.json), and how a row reads and how it is
-// shown. Project runbooks, Phase 1, track AB.
+// shown.
 //
 // **The tables are the whole of a run's state.** The executor holds nothing in
 // memory that it cannot rebuild from them: which step comes next is derived from
@@ -65,7 +65,7 @@ type rbRun struct {
 	Revisions     []runbook.Revision
 	// RevisionFiles maps a revision number ("1") to its files' content, by
 	// path relative to runbooks/. It is what the executor runs, so an edit on
-	// disk takes effect only when a person resumes the run (§4.4).
+	// disk takes effect only when a person resumes the run.
 	RevisionFiles map[string]map[string]string
 	Environment   runbook.Environment
 	StartedBy     string
@@ -233,7 +233,7 @@ func rbStepActive(s *rbStep) bool {
 
 // rbStepExecuted reports whether a step row may have taken effect: completed,
 // or interrupted while it ran. Its definition may not change in a later
-// revision (§4.4: history cannot be rewritten).
+// revision (history cannot be rewritten).
 func rbStepExecuted(s *rbStep) bool {
 	return s.Status == runbook.StepCompleted || s.Status == runbook.StepInterrupted
 }
@@ -316,7 +316,7 @@ func runView(r *rbRun, steps []*rbStep) map[string]any {
 	return v
 }
 
-// stepView is a step row as /runbook answers it: every column of §3.3, plus
+// stepView is a step row as /runbook answers it: every column of the step, plus
 // `statements` (each statement as sent, with the parameter name each $n
 // stands for), `columns` (the result's column order) and `history`.
 func stepView(s *rbStep) map[string]any {
@@ -365,7 +365,7 @@ func utcOrNil(t *time.Time) *time.Time {
 	return &u
 }
 
-// resultOf is the `.rbr.json` document of a run (§3.5). Every time in it is
+// resultOf is the `.rbr.json` document of a run. Every time in it is
 // UTC, as /runbook's views write them.
 func resultOf(r *rbRun, steps []*rbStep) (*runbook.Result, error) {
 	res := &runbook.Result{

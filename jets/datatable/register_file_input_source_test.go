@@ -1,7 +1,7 @@
-// A manual load registers its origin session (JM-083).
+// A manual load registers its origin session.
 //
 // RegisterFileInputSource writes the loaded file's input_registry row under
-// $ORIGIN_SESSIONID, the load request's own session id. Until JM-083 nothing
+// $ORIGIN_SESSIONID, the load request's own session id. Until a fix nothing
 // registered that session in session_registry: the loader run registers a
 // session of its own, so the retention purge never saw the origin session and
 // the orphan sweep removed its rows instead.
@@ -166,7 +166,7 @@ func TestALoadRegistersItsOriginSession(t *testing.T) {
 					"month_period %d", got, periodKey, wantMonth)
 			}
 
-			// The file's input_registry row is what it was before JM-083.
+			// The file's input_registry row is what it was before the fix.
 			want := []fileRegistration{{
 				client: "acme", objectType: "claim", fileKey: "in/claims.csv", tableName: "acme_claims",
 				sourceType: "file", sourcePeriodKey: periodKey,
@@ -179,7 +179,7 @@ func TestALoadRegistersItsOriginSession(t *testing.T) {
 			// A second registration is harmless: the session_registry row is
 			// neither duplicated nor rewritten. It is called directly because a
 			// second RegisterFileInputSource stops earlier, as it did before
-			// JM-083: its input_registry insert meets input_registry's unique
+			// Its input_registry insert meets input_registry's unique
 			// constraint.
 			env := ca.CpipesEnv
 			if err := registerOriginSession(pool, env["$CLIENT"], env["$ORIGIN_SESSIONID"],
@@ -230,7 +230,7 @@ func TestAnOriginSessionArrivesFromJson(t *testing.T) {
 // TestARegisteredOriginSessionIsARetentionCandidate: once past retention, a
 // load's origin session is found by RetentionCandidates and not by
 // OrphanCandidates. An origin session registered by nothing, as every one was
-// before JM-083, is the control: it is an orphan and not a retention candidate.
+// before the fix, is the control: it is an orphan and not a retention candidate.
 func TestARegisteredOriginSessionIsARetentionCandidate(t *testing.T) {
 	pool := widenedTestPool(t, originSessionTables...)
 	ctx := context.Background()

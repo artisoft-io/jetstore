@@ -45,7 +45,7 @@ func (w Window) until() time.Time {
 }
 
 // Extent is what a deployment's own retention settings have left of the
-// record. It is the code form of the first of N.1's six queries, and it exists
+// record. It is the code form of the first of the extraction's six queries, and it exists
 // because RETENTION_DAYS is a site-global environment variable with no default
 // (DoPurgeSessions, jets/purge_database/delegate/delegate.go:26): which of its
 // three regimes a deployment is in has to be read off the deployment, not off
@@ -60,8 +60,8 @@ type Extent struct {
 	// numbers above are zero because there was nothing to count, not because
 	// the record is empty, and no detector can run at all.
 	//
-	// It was added at N.4 (2026-08-27) because the first caller found the
-	// claim in section 18.7 to be narrower than written: this function reported
+	// It was added 2026-08-27 because the first caller found the
+	// design's claim to be narrower than written: this function reported
 	// the two tables below and did so from the same statement that counted the
 	// header rows, so on a database where nothing had been migrated the query
 	// failed on the missing header table and reported neither. The precondition
@@ -159,7 +159,7 @@ type WorkerRow struct {
 	SourcePeriodKey    int
 	ShardId            int
 	JetsPartition      string
-	StepId             string // cpipes_step_id; legitimately empty (F52)
+	StepId             string // cpipes_step_id; legitimately empty
 	Status             string
 	ErrorMessage       string
 
@@ -425,7 +425,7 @@ func StepBaselines(ctx context.Context, db DB, w Window) (*BaselineSet, error) {
 func baselineConfounders(b *StepBaseline, set *BaselineSet) []string {
 	var out []string
 	if b.StepId == "" {
-		// F52: cpipes_step_id is a stage location and ten reducing steps in
+		// cpipes_step_id is a stage location and ten reducing steps in
 		// the corpus carry an empty one, so this baseline may be two steps.
 		out = append(out, ConfounderStepLabelAmbiguous)
 	}
@@ -438,8 +438,8 @@ func baselineConfounders(b *StepBaseline, set *BaselineSet) []string {
 	return out
 }
 
-// Describe renders a window for an Anomaly's expected_basis, which section
-// A.2.6 asks to be human-readable and which is the field a triage step reads
+// Describe renders a window for an Anomaly's expected_basis, which the
+// anomaly design asks to be human-readable and which is the field a triage step reads
 // to know what the comparison was against.
 func (s *BaselineSet) Describe(b *StepBaseline) string {
 	var sb strings.Builder

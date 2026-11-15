@@ -6,7 +6,7 @@ interface Props {
   /**
    * Where *Create an account* goes, or absent for a build with no registration.
    *
-   * Optional rather than required (task X.4) because this component is the
+   * Optional rather than required because this component is the
    * session gate and is rendered by `AppShell`, which has a router above it and
    * no reason to know about one. The link is a plain href for the same reason:
    * `/register` is outside the shell's route tree, so a `<Link>` here would be
@@ -41,7 +41,7 @@ export function Login({ onSubmit, version, registerHref }: Props) {
           **JetStore, not Workspace IDE.** The app was named after one of its
           screens while it *was* one screen; it now serves the whole product and
           this is the first thing anyone sees. The url is still `/ide/` — that is
-          I-26 and task X.2 — so this heading is half of the rename and says so
+          a separate change — so this heading is half of the rename and says so
           rather than waiting for the other half.
         */}
         <h1>JetStore</h1>
@@ -54,7 +54,7 @@ export function Login({ onSubmit, version, registerHref }: Props) {
           before the request was ever sent. Whether a login and password are
           valid is the database's to say (`Server.Login`); only registration
           requires an email address (`Register.tsx`, and `User.Validate` on the
-          server). rules_unit_test_harness I-32, 2026-10-11.
+          server). Changed 2026-10-11.
         */}
         <label htmlFor="email">Email or login</label>
         <input

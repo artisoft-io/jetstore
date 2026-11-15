@@ -2,15 +2,14 @@ package audit
 
 import "fmt"
 
-// Making the domain model's data_classification marker load-bearing (task AE.2,
-// I-311).
+// Making the domain model's data_classification marker load-bearing.
 //
 // **The defect this closes is not a missing control; it is a marker that read
 // like one.** `Evidence.statement` has carried `data_classification = "PHI"`
-// since Phase 0. The marker survived the whole toolchain — stripped from the
+// from the start. The marker survived the whole toolchain — stripped from the
 // JSON Schema, kept in the sidecar, emitted into every client workspace as a
 // rule-visible triple — and was read by nothing: no rule matched on it, no Go
-// code consulted it, and AE.1's detail screen rendered the field it marks to any
+// code consulted it, and the incident detail screen rendered the field it marks to any
 // holder of `agent_supervision`. A reader auditing the model would have counted
 // it as a handling control. The user's decision of 2026-09-04 was to make it one
 // rather than to remove it, the modelling intent being real.
@@ -23,8 +22,8 @@ import "fmt"
 // agent did rather than client data (`AgentSupervisionCapability`,
 // `jets/apiserver/api_agentic.go`). A PHI-marked property is the exception that
 // argument does not cover — it is client data sitting inside a governance
-// record, and the two authorities are different for the same reason K.3 said
-// they were.
+// record, and the two authorities are different for the same reason the approval
+// lifecycle said they were.
 //
 // **So the shape is both halves rather than either**, and the reason each is
 // insufficient alone is worth stating:
@@ -40,9 +39,9 @@ import "fmt"
 //     disclosure a decision somebody took rather than a side effect of holding
 //     a supervision role.
 //
-// **Who holds that capability was decided by the user on 2026-09-04** (**Q-42**):
+// **Who holds that capability was decided by the user on 2026-09-04**:
 // `knowledge_engineer`, and no other role. It is a policy about client data in a
-// healthcare deployment, which I-311 itself says is the user's.
+// healthcare deployment, and so the user's to decide.
 // ~~`jets_init_db.sql` grants it to no role, so the default is redacted for
 // everybody.~~ The default is still redaction; one role now opts out of it, and
 // that role is the same one holding `agent_supervision` in the seed — so the
@@ -59,7 +58,7 @@ import "fmt"
 // to redaction, and that is the one design choice here that costs a caller
 // something. A default would let a new caller inherit disclosure by writing
 // nothing, and *the caller that forgets* is exactly the failure this entry is
-// about — AE.1's screen did not forget so much as never have the question put to
+// about — the incident detail screen did not forget so much as never have the question put to
 // it. A parameter makes the compiler put it to every call site, present and
 // future. It is `event_actor_kind`'s argument one package over: where there is no
 // honest default, make the caller say.
@@ -110,8 +109,8 @@ const (
 //
 // **This map is the hand-written half and the generated list is the other**, and
 // nothing but a test connects them — which is the same arrangement, and the same
-// hazard, as `jr_as_table` against the emitted `CREATE TABLE` before AB.1 gave
-// it `_assert_tables_agree`. Here the assertion is
+// hazard, as `jr_as_table` against the emitted `CREATE TABLE` before the generator gained
+// `_assert_tables_agree`. Here the assertion is
 // TestEveryClassifiedPropertyHasARedactor, in both directions: a marked property
 // with no redactor is a marker that means nothing again, and a redactor for a
 // property nothing marks is code defending a field the model does not classify.

@@ -11,7 +11,7 @@ import (
 //
 // EvalUseEcsTask, the function this one mirrors, has no coverage at all on jets_ai, so
 // these stand alone rather than extending a table. The claims under test are the five
-// the phase plan's AA.8 names, plus two the 2x2 comment in build_cpipes_sm.go asserts
+// the design names, plus two the 2x2 comment in build_cpipes_sm.go asserts
 // and nothing had checked: that the two axes are independent, and that a step index past
 // the end of conditional_pipes_config yields false rather than panicking.
 

@@ -87,7 +87,7 @@ type Dependent struct {
 var ErrSessionNotRegistered = errors.New("not registered in session_registry")
 
 // Closure returns the selected sessions and, transitively, every session whose
-// pipeline_execution_status row has input_session_id in the set (Q-4): selected
+// pipeline_execution_status row has input_session_id in the set: selected
 // first, then by depth, then by session id. A selected session absent from
 // session_registry is an error naming it, wrapping ErrSessionNotRegistered.
 //

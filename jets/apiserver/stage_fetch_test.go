@@ -14,7 +14,7 @@ type stageAPIError struct{ code string }
 func (e *stageAPIError) Error() string     { return e.code }
 func (e *stageAPIError) ErrorCode() string { return e.code }
 
-// TestStageFetchStatus is jetstore_maintenance_02 I-23: a missing stage object is
+// TestStageFetchStatus pins that a missing stage object is
 // a 404, so the client can say "no manifest for this run" without matching text,
 // and every other failure stays the 400 it always was.
 func TestStageFetchStatus(t *testing.T) {

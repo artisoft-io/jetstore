@@ -18,7 +18,7 @@ const (
 
 // The action grammar's Go half, on the same argument as the flow schema's: the
 // schema is authored in TypeScript and the claim that Go can enforce it is worth
-// nothing until Go has. S.4 wires both checks into SaveWorkspaceFileContent.
+// nothing until Go has. SaveWorkspaceFileContent runs both checks.
 func compileActionSchema(t *testing.T) *jsonschema.Schema {
 	t.Helper()
 	fh, err := os.Open(actionSchemaPath)
@@ -47,18 +47,17 @@ func TestProofFlowActionsValidate(t *testing.T) {
 	if err != nil || len(names) == 0 {
 		t.Fatalf("no action documents at %s (err %v)", actionsDir, err)
 	}
-	// The migrated flows: Phase 2's two proof flows plus each one track F lands.
+	// The migrated flows: the two proof flows plus each one migrated since.
 	// A document appearing here without this count moving would mean somebody
 	// added a document and not a decision — which is why the number is written
 	// down rather than derived from the glob.
 	//
-	// 3 as of F.1 (mapFileUF, 2026-08-23); 5 as of F.2 (loadConfigUF and
-	// workspacePullUF, 2026-08-23 — one task, because they are one delegate file);
-	// 6 as of F.3 (clientRegistryUF, 2026-08-23); 7 as of F.4 (startPipelineUF,
-	// 2026-08-24); 8 as of F.5 (homeFiltersUF, 2026-08-24); 9 as of F.6
-	// (pipelineConfigUF, 2026-08-24); 10 as of F.8 (fileMappingUF, 2026-08-24);
-	// 11 as of F.7 (sourceConfigUF, 2026-08-24), which was then all eleven flows
-	// and the end of track F's migration.
+	// 3 with mapFileUF (2026-08-23); 5 with loadConfigUF and workspacePullUF
+	// (2026-08-23 — one step, because they are one delegate file); 6 with
+	// clientRegistryUF (2026-08-23); 7 with startPipelineUF (2026-08-24); 8 with
+	// homeFiltersUF (2026-08-24); 9 with pipelineConfigUF (2026-08-24); 10 with
+	// fileMappingUF (2026-08-24); 11 with sourceConfigUF (2026-08-24), which was
+	// then all eleven flows and the end of the migration.
 	//
 	// **14 rather than 11 since the flows moved to workspace assets**, and the
 	// three added are not migrations: they are the projections
@@ -67,11 +66,11 @@ func TestProofFlowActionsValidate(t *testing.T) {
 	// same schema, so validating them here is coverage the split would otherwise
 	// have lost — nothing else runs the Go validator over a generated .ua.json.
 	//
-	// **13 since 2026-10-01**: registerFileKeyUF was retired by
-	// jetstore_maintenance_02 (Q-6, task AD.4), and ten ported flows remain.
+	// **13 since 2026-10-01**: registerFileKeyUF was retired,
+	// and ten ported flows remain.
 	//
 	// **14 since 2026-10-11**: rulesUnitTestUF, written for
-	// rules_unit_test_harness (task AD.4) rather than ported.
+	// the rules unit tests rather than ported.
 	const flowDocuments = 14
 	if len(names) != flowDocuments {
 		t.Fatalf("expected %d flow action documents, found %d: %v", flowDocuments, len(names), names)
@@ -95,16 +94,16 @@ func TestProofFlowActionsValidate(t *testing.T) {
 }
 
 // **There is no coverage-document test any more, and its absence is the record
-// of what F.7 finished.** `TestCoverageActionsValidate` stood here and globbed
+// of the migration finishing.** `TestCoverageActionsValidate` stood here and globbed
 // `../../jetsclient_ide/src/actions/coverage`, asserting a count that fell as
-// track F promoted each transcription into a runtime document: seven, then six,
-// five, four, three, two, one. F.7 promoted the last of them and the directory is
+// the migration promoted each transcription into a runtime document: seven, then
+// six, five, four, three, two, one. It promoted the last of them and the directory is
 // gone, so the glob would match nothing and the test would be a check on an empty
 // set. Every `.ua.json` in this repository is now a document some flow runs, which
 // is what `TestProofFlowActionsValidate` above covers.
 
 // TestActionSchemaRejects probes the grammar from the other side. The negative
-// suite proper is S.6's; these five are the minimum that makes the positive test
+// suite proper is TestNegativeSuite; these five are the minimum that makes the positive test
 // above mean anything.
 func TestActionSchemaRejects(t *testing.T) {
 	schema := compileActionSchema(t)

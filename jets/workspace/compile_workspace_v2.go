@@ -105,8 +105,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 		// the error log, which only a failed compile wrote here; the ones the
 		// compiler also writes to the parse log (an identifier created as a
 		// resource) were shown, and the rest -- the aggregate and salience
-		// warnings -- reached the process log only, until 2026-10-12
-		// (rules_unit_test_harness I-55).
+		// warnings -- reached the process log only, until 2026-10-12.
 		buf.WriteString(compileWarnings(jrCompiler.ErrorLog().String(), jrCompiler.ParseLog().String()))
 		// Perform predicate dependency
 		analyzer := analyzer.NewAnalyzer(workspacePath, name, "predicates", "", true, jrCompiler)
@@ -231,7 +230,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 		return buf.String(), fmt.Errorf("failed to save rule sequences: %w", err)
 	}
 
-	// Record the rules unit tests (rules_unit_test_harness AD.1). A test file
+	// Record the rules unit tests. A test file
 	// that fails validation is recorded with its findings rather than failing
 	// the compile: a broken test must not stop a workspace deploying.
 	recorded, invalid, err := SaveUnitTests(context.TODO(), wdb.DB, workspacePath)

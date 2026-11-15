@@ -192,7 +192,7 @@ func TestRun_RepairsFromDiagnosticsAndSucceeds(t *testing.T) {
 
 // Exhausted is a legitimate answer, not an error: it is the denominator of the
 // compile-pass rate, and a loop that returned an error here would make the
-// measurement of §4.4 awkward to collect.
+// measurement awkward to collect.
 func TestRun_ExhaustsWithoutError(t *testing.T) {
 	in := &stubInfer{answers: []string{`{"a":1}`, `{"b":2}`}}
 	reg := &stubRegistry{reports: []any{&tools.ValidationReport{
@@ -254,7 +254,7 @@ func TestRun_SchemaFailureIsRepairedNotFatal(t *testing.T) {
 	}
 	// The rejected answer cost tokens and they count. A budget that charged
 	// only for accepted answers would undercount exactly the runs a repair
-	// loop produces, which is the population §4.3 compares at equal spend.
+	// loop produces, which is the population the sampling comparison measures at equal spend.
 	if res.TokenSpend != 20 {
 		t.Errorf("token spend = %d, want 20 (10 for the rejected answer, 10 for the accepted one)",
 			res.TokenSpend)
@@ -333,7 +333,7 @@ func TestRun_RejectsRunsItCannotConduct(t *testing.T) {
 }
 
 // Every event of a run carries the same run id, actor and tier. Tier is
-// recorded and not enforced in Phase 1; recording it now is what makes gap 7's
+// recorded here and enforced by the tier gate; recording it is what makes that
 // enforcement possible without backfilling a transcript that never had it.
 func TestRun_EventsCarryTheRunIdentity(t *testing.T) {
 	in := &stubInfer{answers: []string{`{"a":1}`}}

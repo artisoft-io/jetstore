@@ -1,9 +1,9 @@
 /**
- * Which app serves which flow, while both exist. Task S.8.
+ * Which app serves which flow, while both exist.
  *
  * ## The finding that decides this, and it was not what the plan assumed
  *
- * §2.6 anticipated deciding "which app serves which flow, per route", implying a
+ * The plan anticipated deciding "which app serves which flow, per route", implying a
  * dispatch somewhere on the request path. **There is nothing to dispatch: the two
  * apps' URL spaces cannot collide.**
  *
@@ -30,21 +30,21 @@
  * a list compiled into either app.
  *
  * That matters more than it sounds. Migrating a flow is already an act of
- * authoring: someone writes the documents and saves them, which S.3 stores and
- * S.4 validates. Making the routing follow the same fact means there is no
+ * authoring: someone writes the documents and saves them, which the store reads and
+ * the Go validator checks. Making the routing follow the same fact means there is no
  * second place to update and no window in which the two disagree — the failure
  * that a compiled list produces is a flow that is migrated but still opens the
  * Flutter version, or worse the reverse.
  *
  * It also means migration is reversible: delete the documents and the flow is
  * Flutter's again. A cutover has no such property, which is the whole reason
- * §2.6 asked for this.
+ * the plan asked for this.
  */
 
 /** The two apps, as a value rather than a boolean, so a third is expressible. */
 export type FlowApp = "react" | "flutter";
 
-/** Where React serves a flow. Relative to the router's basename — decision 4. */
+/** Where React serves a flow. Relative to the router's basename. */
 export const reactFlowPath = (flowKey: string): string => `/flow/${flowKey}`;
 
 /** Where Flutter serves one. The `#` is the whole point; see the header. */

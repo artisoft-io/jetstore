@@ -1,13 +1,13 @@
 // Package infer is the agent loop's inference client: one call, one answer,
 // constrained by a JSON Schema and validated against the same schema.
 //
-// **Why this is not the cpipes inference plumbing** (plan §3.2, decision 11).
+// **Why this is not the cpipes inference plumbing**.
 // jets/compute_pipes has a well-built inference layer, and reusing it was the
 // obvious move. Two things argue against it, and only the first is an accident:
 //
 //   - It exports nothing. inferBackend, newInferTransformationPipe and the
 //     rest are package-private, and NewOllamaTransformationPipe is a method on
-//     BuilderContext returning an unexported type (F12). That is a one-line
+//     BuilderContext returning an unexported type. That is a one-line
 //     change and not the real reason.
 //   - The shapes differ. That layer is a *record-stream* operator: a worker
 //     pool fed by Apply, an on_error policy routing failed rows to an error
@@ -18,7 +18,7 @@
 //     one question.
 //
 // **What changed since, and it matters before you extend this file.** cpipes
-// gap 15a split that operator behind an inferBackend seam
+// later split that operator behind an inferBackend seam
 // (pipe_transformation_infer.go:54), and the seam is prompt-in / bytes-out:
 // BuildRequest(prompt) and CallOnce(ctx, payload), with no records, no channels
 // and no pool in it. The second bullet above is therefore still true of the
@@ -29,11 +29,11 @@
 // rather than in the seam.
 //
 // The honest cost is two request/response envelope implementations against one
-// server, recorded as Q-13. The recommendation there was to revisit when gap
-// 15b's vLLM operator lands, on the narrower question of whether the schema
+// server, recorded as an open question. The recommendation was to revisit when
+// the vLLM operator lands, on the narrower question of whether the schema
 // belongs in the seam — guided_json is not format.
 //
-// **15b landed 2026-09-04 as AG.1, so that trigger has fired and this paragraph
+// **It landed 2026-09-04, so that trigger has fired and this paragraph
 // has stopped waiting for it.** What the vLLM operator settles is the narrower
 // half, and it settles it against putting the schema in the seam:
 // pipe_transformation_vllm.go translates the operator's response_format into
@@ -48,18 +48,18 @@
 // which is what makes a build-time translation possible; here it varies per
 // call, and BuildRequest takes one prompt string where this package varies
 // System and User. Sharing the seam would therefore still mean widening it for
-// a caller that has no records. Q-13's remaining question is whether that is
-// worth doing, and AG.2 is where it is answered from the bake-off rather than
+// a caller that has no records. The remaining question is whether that is
+// worth doing, and the bake-off is where it is answered rather than
 // from an argument.
 //
 // **The size to watch is the envelope, not the file.** Of this file's 247 code
 // lines about 86 are envelope; the rest is schema compilation, validation and
 // the SchemaError the repair loop acts on, which the cpipes side has never had
-// and 15b will not give it. An earlier version of this comment said "a few
+// and the vLLM operator will not give it. An earlier version of this comment said "a few
 // hundred lines", which measured the file and concluded about the duplication.
 //
 // **What this is a copy of.** tools/sample_projects/tasks_go demonstrates the
-// whole of Rung 1 (analysis §7) in Go: send a JSON Schema as Ollama's `format`,
+// whole of the first rung, schema-constrained generation, in Go: send a JSON Schema as Ollama's `format`,
 // then validate the response against the same schema with
 // santhosh-tekuri/jsonschema/v6, which is already in go.mod — including the
 // failure mode where a model ignores `format` and client-side validation
@@ -90,7 +90,7 @@ const (
 )
 
 // Client calls one inference server. It is safe for concurrent use — the
-// generate-and-filter mode of §4.3 fans out K candidates — because it holds no
+// generate-and-filter mode fans out K candidates — because it holds no
 // per-call state; everything mutable lives in the Request and the response.
 type Client struct {
 	Host  string
@@ -123,10 +123,10 @@ type Client struct {
 type Request struct {
 	System string
 	User   string
-	// Schema is a JSON Schema document. For the narrow tasks of Phase 1 this
+	// Schema is a JSON Schema document. For the narrow authoring tasks this
 	// is one $defs entry of the cpipes contract — a lone TransformationSpec
 	// rather than the whole config — which is what makes the task narrow at
-	// the wire rather than only in the instruction text (plan §3.3).
+	// the wire rather than only in the instruction text.
 	Schema json.RawMessage
 }
 
@@ -138,7 +138,7 @@ type Response struct {
 	// Value is Content parsed as JSON. Validation has passed by the time a
 	// caller sees this.
 	Value any
-	// PromptTokens and EvalTokens feed AgentRun.token_spend (D.5). Recorded
+	// PromptTokens and EvalTokens feed AgentRun.token_spend. Recorded
 	// per call so a run's spend is a sum rather than an estimate.
 	PromptTokens int
 	EvalTokens   int
@@ -149,7 +149,7 @@ type Response struct {
 	Attempts int
 }
 
-// Tokens is the pair D.5 accumulates.
+// Tokens is the pair the loop accumulates.
 func (r *Response) Tokens() int { return r.PromptTokens + r.EvalTokens }
 
 // SchemaError is returned when the model answered but the answer does not
@@ -162,7 +162,7 @@ type SchemaError struct {
 	// PromptTokens and EvalTokens are what the rejected answer cost. They are
 	// on the error because the call still spent them: a budget that counted
 	// only accepted answers would undercount every run that had to repair,
-	// which is precisely the runs a repair loop produces. Found by D.3, which
+	// which is precisely the runs a repair loop produces. Found by the repair loop, which
 	// is the first caller in a position to notice.
 	PromptTokens int
 	EvalTokens   int
@@ -208,7 +208,7 @@ type chatResponse struct {
 // retried; a well-formed answer that fails the schema is *not*, because sending
 // the identical prompt again is unlikely to produce a different result and the
 // repair loop's structured feedback is the mechanism that should handle it
-// (analysis §7, Rung 3). Retrying a schema failure here would spend the token
+// (the diagnostic-repair rung). Retrying a schema failure here would spend the token
 // budget on the strategy the plan explicitly rejects.
 func (c *Client) Chat(ctx context.Context, req *Request) (*Response, error) {
 	if c.Model == "" {
@@ -264,7 +264,7 @@ func (c *Client) validate(raw *chatResponse, schema *jsonschema.Schema, attempts
 		Attempts:     attempts,
 	}
 	// Ollama's `format` is best-effort rather than a hard constraint — this is
-	// the failure mode tasks_go documents and the reason §7.1 prefers vLLM's
+	// the failure mode tasks_go documents and the reason to prefer vLLM's
 	// guided decoding. Client-side validation is what makes it safe to rely on
 	// in the meantime, so it is not optional here.
 	if err := json.Unmarshal([]byte(resp.Content), &resp.Value); err != nil {

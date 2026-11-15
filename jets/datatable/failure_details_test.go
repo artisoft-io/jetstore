@@ -116,7 +116,7 @@ func TestDecodeFailureDetails(t *testing.T) {
 }
 
 // The Error field is read on every arm, not only on the ones that carry no prose.
-// Written as its own test because it is the claim I-259 is about, and a table row
+// Written as its own test because it is the claim the fix is about, and a table row
 // asserting it once is easy to read past.
 func TestDecodeFailureDetailsReadsErrorOnEveryArm(t *testing.T) {
 	causes := []string{

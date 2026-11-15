@@ -1,7 +1,6 @@
 package jetrules_native_adaptor
 
-// THE RULE OPTIMIZER COMPUTES WHAT THE AUTHORED ORDER COMPUTES (rules_benchmark Phase 8,
-// task BS.1).
+// THE RULE OPTIMIZER COMPUTES WHAT THE AUTHORED ORDER COMPUTES.
 //
 // The compiler reorders a rule's antecedents unless the rule sets o=false
 // (OptimizeJetruleNode, jets/compilerv2/compiler/jet_rule_listener_optimization.go).
@@ -46,8 +45,8 @@ class rbm:OptItem {
 
 // Each pair: the rule as the optimizer orders it, and its twin as authored. OPT_NEG has a
 // negated term after an rdf:type term; OPT_NEG_AMOUNT's negated term scores above the
-// term binding ?c (rdf:type's bonus), and OPT_NEG_PLAN's above the terms binding ?p
-// (I-200); OPT_FLT's filter reads two variables bound by
+// term binding ?c (rdf:type's bonus), and OPT_NEG_PLAN's above the terms binding ?p;
+// OPT_FLT's filter reads two variables bound by
 // different terms.
 const optRules = `# Main rule file for the rule optimizer test (optimizer_rbm_test.go).
 import "data_model/jets_model.jr"

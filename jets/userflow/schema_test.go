@@ -1,13 +1,13 @@
 // Package userflow holds the Go side of the UserFlow configuration contract.
 //
-// Task S.1 puts only a test here, and that is the whole point of the package
-// existing this early: the schema is authored in TypeScript
+// The package began as only this test, and that was the whole point of its
+// existing early: the schema is authored in TypeScript
 // (jetsclient_ide/src/userflow/schema.ts) and emitted as JSON Schema, and the
 // claim that Go can enforce it is worth nothing until Go has actually done so.
 // If zod emits a construct santhosh-tekuri/jsonschema/v6 cannot compile, that is
-// a fact about the schema now, not a surprise waiting at S.4.
+// a fact about the schema now, not a surprise waiting at the save path.
 //
-// S.4 adds the production half — the check in SaveWorkspaceFileContent, beside
+// The save path adds the production half — the check in SaveWorkspaceFileContent, beside
 // the existing well-formed-JSON check — and ports the reference rules from
 // jetsclient_ide/src/userflow/validate.ts, which are the ones JSON Schema cannot
 // express.
@@ -15,8 +15,8 @@
 // This test reads the emitted artifact where it is written rather than through a
 // copy, so the two languages check one file rather than two readings of it. That
 // is deliberate and it does have a cost: //go:embed cannot reach outside its own
-// directory, so S.4 will need either a copy made by the build or a schema moved
-// under jets/. That choice is S.4's; recording it here so it is a decision and
+// directory, so the save path needs either a copy made by the build or a schema
+// moved under jets/. That choice is the save path's; recording it here so it is a decision and
 // not a discovery.
 package userflow
 
@@ -91,7 +91,7 @@ func instance(t *testing.T, path string) any {
 // configuration that fails means the schema is wrong, not the configuration.
 // The ported flows were converted from a corpus generated out of the running
 // Flutter app rather than transcribed: eleven when they were converted, ten since
-// 2026-10-01. The Flutter app itself was deleted on 2026-08-26 (X.1).
+// 2026-10-01. The Flutter app itself was deleted on 2026-08-26.
 func TestShippingFlowsValidate(t *testing.T) {
 	schema := compileSchema(t)
 	files := flowFiles(t)
@@ -99,9 +99,9 @@ func TestShippingFlowsValidate(t *testing.T) {
 	// directory — see flowsDir. A projection is a UserFlow document and passes the
 	// same schema; the count is of documents, not of migrations.
 	//
-	// Ten since 2026-10-01, when registerFileKeyUF was retired by
-	// jetstore_maintenance_02 (Q-6, task AD.4). Fourteen since 2026-10-11, with
-	// rulesUnitTestUF (rules_unit_test_harness, task AD.4), written rather than
+	// Ten since 2026-10-01, when registerFileKeyUF was retired.
+	// Fourteen since 2026-10-11, with
+	// rulesUnitTestUF, written rather than
 	// ported.
 	if len(files) != 14 {
 		t.Fatalf("expected the app's ten remaining flows, rulesUnitTestUF and three projections, found %d", len(files))
@@ -117,7 +117,7 @@ func TestShippingFlowsValidate(t *testing.T) {
 
 // TestSchemaRejects probes the schema from the other side. A schema exercised
 // only by documents that pass is one nobody has probed; the negative suite
-// proper is S.6's, and these four are the minimum that makes this test mean
+// proper is TestNegativeSuite, and these four are the minimum that makes this test mean
 // something.
 func TestSchemaRejects(t *testing.T) {
 	schema := compileSchema(t)

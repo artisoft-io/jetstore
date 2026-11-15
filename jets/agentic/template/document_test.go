@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-// **This is §10.9's document with every domain word replaced, and it is here
-// for one reason: the worked example is what `AY.3` has to be able to write.**
+// **This is the notation's worked example with every domain word replaced, and it is here
+// for one reason: the worked example is what the first real template has to be able to write.**
 // Nothing about the engine is demonstrated by this that the tests beside it do
 // not also cover piece by piece; what it demonstrates is that the pieces
 // compose into the shape the notation was specified from - a notice carrying a
@@ -15,7 +15,7 @@ import (
 // predicate with a parenthesis, a `with` that supplies its own guard, and an
 // `each` whose body nests three conditionals.
 //
-// It also fixes the whitespace question a reader of §10.9 cannot answer from
+// It also fixes the whitespace question a reader of the worked example cannot answer from
 // the page. **A line break in a `text` value is a space**, and the wrap
 // collapses runs - so the only decision at a markup boundary is whether there
 // is a space there at all, and this document makes each one deliberately. A
@@ -98,7 +98,7 @@ func TestTheWorkedDocument(t *testing.T) {
 
 // TestTheWorkedDocumentOverAnEmptyRecord is the fallback firing under a preamble
 // that emits regardless, which is the arrangement a flat element list cannot
-// express (§10.6).
+// express.
 func TestTheWorkedDocumentOverAnEmptyRecord(t *testing.T) {
 	tmpl, err := CompileJSON([]byte(workedDocument))
 	if err != nil {
@@ -132,7 +132,7 @@ func TestTheWorkedDocumentReportsWhatIsMissing(t *testing.T) {
 
 // TestNothingHereNamesADomain is criterion 81 asserted rather than claimed.
 // **It is a weak test and is worth having anyway**: it cannot know what a
-// domain word is, so it checks the four names plan §10 itself uses as the line
+// domain word is, so it checks the four names the notation itself uses as the line
 // between the notation and a briefing. A fifth domain word would pass it.
 func TestNothingHereNamesADomain(t *testing.T) {
 	for _, word := range []string{"cintel", "briefing", "medication", "member"} {

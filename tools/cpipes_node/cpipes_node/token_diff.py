@@ -1,7 +1,7 @@
 """The token diff: what JetStore's engine can run against what this node can.
 
-**This is `R10`, and it is the cheap half of `P9-I02` rather than its answer.**
-`P9-I02` asks for an instrument because *"JetStore adds a built-in; the Python
+**This is the cheap half of the token-drift risk rather than its answer.**
+The risk asks for an instrument because *"JetStore adds a built-in; the Python
 node does not have it"*. Both sides already enumerate their tokens in one place
 each -- JetStore in `jets/compute_pipes/cpipes_contract_data.go`, this node in
 `scope._REGISTRY` -- so the difference is a set subtraction and the subtraction
@@ -11,14 +11,14 @@ is affordable today, before either engine is deployed anywhere.
 and this node does not is what a `use_python_node_when` expression must never
 route to Python: the step would reach `scope.classify`, be refused as out of
 scope, and abort the run at startup. That is the loud direction and it is by
-design (X6), but it is loud *at run time* and this instrument is what makes it
+design, but it is loud *at run time* and this instrument is what makes it
 visible at review time.
 
 **The posture is baseline-pinned, and neither of the two obvious postures would
 work.** A checker that failed on any difference would be red on its first run
-over a gap of sixteen that `D-206` makes deliberate -- `P9-I17` reproduced
-exactly, *a gate nobody can run green*. A checker that only reports never sees
-the risk `P9-I02` actually names, which is not the gap but the gap *growing*: a
+over a gap of sixteen that is deliberate -- reproducing exactly *a gate
+nobody can run green*. A checker that only reports never sees
+the risk actually named, which is not the gap but the gap *growing*: a
 twentieth JetStore token lands and nothing says so. So the difference is pinned
 to a declared baseline and `--check` fails only when it moves without the
 baseline moving with it. **This repository has already solved that shape once
@@ -36,7 +36,7 @@ on.
 **What it does not cover is printed on every run**, by `coverage()`, and that is
 a deliberate choice rather than a README paragraph. A named mitigation is a
 claim about what a test detects, and this one's claim is narrow: it compares
-token *names*. `P9-I117` (read 2026-09-20) is the worked example -- both
+token *names*. A defect read 2026-09-20 is the worked example -- both
 engines implement `partition_writer` and they wrote different bytes for one
 document. Somebody reading a green result here is exactly the person who needs
 to know that.
@@ -53,12 +53,12 @@ from . import contract
 from .scope import declared_scope
 
 #: The generated Go file that carries JetStore's side. It is the enumeration
-#: the Go engine compiles and the one `F24` names, keyed `"GoStruct/token"`.
+#: the Go engine compiles, keyed `"GoStruct/token"`.
 GO_CONTRACT_RELPATH = Path("jets") / "compute_pipes" / "cpipes_contract_data.go"
 
 #: Where the JetStore tree sits relative to this module: `<root>/tools/
 #: cpipes_node/cpipes_node/token_diff.py`. Only a default; `--jetstore`
-#: overrides it, and the mutation proof of `AG.3` uses `--go-contract`.
+#: overrides it, and the mutation proof uses `--go-contract`.
 _DEFAULT_JETSTORE_ROOT = Path(__file__).resolve().parents[3]
 
 BASELINE_PATH = Path(__file__).resolve().parent / "token_diff_baseline.json"
@@ -283,7 +283,7 @@ _SET_LABEL = {
 }
 
 #: What a token in each set means for routing. The failure message is the
-#: deliverable of `AG.3` and a count tells a reader nothing they can act on, so
+#: deliverable and a count tells a reader nothing they can act on, so
 #: every movement is printed with its consequence for `use_python_node_when`.
 _CONSEQUENCE = {
     ("go_only", "entered"): (
@@ -367,7 +367,7 @@ def _wrap(
     ]
 
 
-#: `AG.2` as a value rather than as a paragraph somewhere else.
+#: The coverage statement as a value rather than as a paragraph somewhere else.
 COVERAGE = """What this does NOT cover
 
   * It compares token NAMES. It says nothing about whether two
@@ -401,7 +401,7 @@ COVERAGE = """What this does NOT cover
 def coverage() -> str:
     """What this instrument does not cover. Printed on every run.
 
-    **`AG.2`, and it is output rather than documentation.** Whoever reads a
+    **It is output rather than documentation.** Whoever reads a
     green result is the person who needs to know how narrow the claim is, and
     they are not reading the README at that moment.
     """

@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * Sign in. rules_unit_test_harness I-32, 2026-10-11.
+ * Sign in. 2026-10-11.
  *
  * **The login is checked by the server, not by the form.** The built-in
  * administrator's login is `admin` by default, which is not an email address;

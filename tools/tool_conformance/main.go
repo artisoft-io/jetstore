@@ -1,14 +1,14 @@
-// J.2: measure whether the local model can drive the tool catalogue.
+// Measure whether the local model can drive the tool catalogue.
 //
-// **What A§10 asks for is "drivable by both Claude and the local model", and
+// **What the proposal asks for is "drivable by both Claude and the local model", and
 // only half of that has ever been true.** Claude drives the catalogue over
 // stdio through jets/agentic/mcp, doing its own selection and argument
 // population. Nothing in jets/agentic has ever asked the local model to select
 // a tool: jets/agentic/infer is an /api/chat client with a JSON Schema in
-// `format`, which is structured generation. The Phase-1 loop does not close the
-// gap either — it dispatches task.Verifier, a field set in Go (I-63). So this
+// `format`, which is structured generation. The authoring loop does not close the
+// gap either — it dispatches task.Verifier, a field set in Go. So this
 // tool builds the path that did not exist rather than instrumenting one that
-// did (I-64).
+// did.
 //
 // **The catalogue comes from the registry and the schemas from the adapter.**
 // tools.DefaultRegistry is the inventory an MCP client is served, and
@@ -21,14 +21,14 @@
 // inventing one and calling it a measurement would be the more expensive
 // mistake.
 //
-// **T.2 added an arm axis, 2026-08-31, and it is what makes I-94's remedy
+// **An arm axis was added 2026-08-31, and it is what makes the path remedy
 // falsifiable.** compile_rule_file and validate_cpipes_config now take a
 // workspace-relative path as an alternative to their content arguments, on the
 // argument that a model which never holds the text cannot mangle it. The
 // obvious way for that to be wrong is that the model fails to *name* a path as
 // often as it failed to *copy* a rule — so the two populations are reported as
 // separate rows with their own denominators, and the comparison is within one
-// model in one run rather than against J.2's granite4.1:3b figures.
+// model in one run rather than against earlier granite4.1:3b figures.
 //
 // **The paths in the path-arm prompts do not exist anywhere**, deliberately.
 // What is measured is whether the string the prompt gave survives into the
@@ -37,11 +37,11 @@
 // happened to exist would measure the same thing and invite the reader to think
 // otherwise.
 //
-// **I-250 added a third arm to compile_rule_file, 2026-10-12**: 'rules', the
+// **A third arm was added to compile_rule_file, 2026-10-12**: 'rules', the
 // rule as a symbolic JSON document the tool renders to JetRules. Its six
 // probes (crr-*) carry the same six rules as the content arm's (crf-*), so the
 // two rows compare one notation against the other on one model in one run —
-// F176 found the text arm's losses were all JetRules constructs, and this arm
+// the text arm's losses were all JetRules constructs, and this arm
 // asks the model for none. The arm's argument shape was changed twice on what
 // this harness found (the document's own fields are now the arguments), and a
 // rules-arm call is judged by tools.ReadRulesArgument — what the tool would
@@ -80,7 +80,7 @@ var casesJSON []byte
 type fidelitySpec struct {
 	Arg         string   `json:"arg"`
 	MustContain []string `json:"must_contain"`
-	// SameRules is I-250's stricter test, for the symbolic 'rules' arm: the
+	// SameRules is the stricter test, for the symbolic 'rules' arm: the
 	// argument must parse to the same document the prompt carried, not merely
 	// contain its fragments. Substrings are weak on JSON — every id can be
 	// present and attached to the wrong term — so the new arm is held to more
@@ -102,8 +102,8 @@ type testCase struct {
 	// tool answers it.
 	Expect string `json:"expect"`
 	// Arm partitions the cases for one tool into variants being compared.
-	// T.2 gives compile_rule_file and validate_cpipes_config a path-valued
-	// alternative to their content arguments (I-94's remedy), and the question
+	// compile_rule_file and validate_cpipes_config take a path-valued
+	// alternative to their content arguments (the path remedy), and the question
 	// the remedy has to answer is whether the model *names* a path as
 	// unreliably as it *copied* a rule. That comparison is only readable if the
 	// two populations are reported apart, which is what this field is for.
@@ -166,11 +166,11 @@ func main() {
 	repeats := flag.Int("repeats", 1, "how many times to run each case")
 	timeout := flag.Duration("timeout", 180*time.Second, "per-call timeout")
 	verbose := flag.Bool("v", false, "print every trial")
-	// **Added at T.2, because the rates could not be diagnosed from the rates.**
+	// **Added 2026-08-31, because the rates could not be diagnosed from the rates.**
 	// The path arm of one tool moved payload fidelity from 0 of 11 to 11 of 14
 	// and the other's did not, and nothing in the report could say whether the
 	// failing arm named a wrong path, named none, or filled the content
-	// argument instead. Those are three different verdicts on I-94's remedy.
+	// argument instead. Those are three different verdicts on the path remedy.
 	dump := flag.String("dump", "", "append every tool call's raw arguments to this JSONL file")
 	flag.Parse()
 
@@ -344,7 +344,7 @@ func run(host, model string, repeats int, timeout time.Duration, verbose bool, d
 								// The argument is absent, so nothing was mangled:
 								// the model answered through another argument of
 								// the same tool. Counted apart, because folding it
-								// in reads as I-68's corruption recurring.
+								// in reads as the earlier payload corruption recurring.
 								r.PayloadDiverted++
 								fmt.Printf("  > %s sent no %s at all\n", c.ID, c.Fidelity.Arg)
 							case len(missing) == 0:
@@ -392,7 +392,7 @@ func run(host, model string, repeats int, timeout time.Duration, verbose bool, d
 // string are judged the same way — the question is whether the content survived,
 // not how it was typed.
 //
-// **The second return value is T.2's, and it separates two things that had one
+// **The second return value separates two things that had one
 // number.** An argument that is absent is not a mangled payload; on a tool with
 // a path alternative it is usually the model choosing the other argument, which
 // is a different verdict on the remedy.

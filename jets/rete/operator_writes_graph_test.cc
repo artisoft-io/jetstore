@@ -14,7 +14,7 @@
 // see expr_operator_factory_test.cc. The definitions link out of libjets_static.
 #include "../rete/rete_meta_store_factory.h"
 
-// THE writes_graph MARKS OF THE COMPILER'S OPERATOR LIST ARE THE ENGINE'S (I-65).
+// THE writes_graph MARKS OF THE COMPILER'S OPERATOR LIST ARE THE ENGINE'S.
 //
 // The compiler refuses a filter that calls an operator marked writes_graph in
 // jets/compilerv2/compiler/operators.txt (jet_rule_listener_filter_writes.go), so a

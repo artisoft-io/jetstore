@@ -1,7 +1,7 @@
 package datatable
 
-// The runbook executor against a real PostgreSQL (project runbooks, Phase 1,
-// track AB): the plan's §5 criteria that the executor carries, each driven
+// The runbook executor against a real PostgreSQL: the requirements the
+// executor carries, each driven
 // through the operations /runbook calls and the executor's own step loop.
 //
 // Skipped unless JETS_TEST_DSN names a PostgreSQL. The tests create a database of
@@ -941,7 +941,7 @@ func TestRunbookListAndGet(t *testing.T) {
 	}
 }
 
-// The jets_ws example (plan AD.1) end to end: every step type that runs
+// The jets_ws example end to end: every step type that runs
 // without AWS, a manual record bound into a ddl, two previewed ddl steps.
 func TestRunbookExampleEndToEnd(t *testing.T) {
 	src := os.Getenv("JETS_RUNBOOK_EXAMPLE_DIR")

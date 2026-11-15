@@ -26,8 +26,8 @@ import (
 // are structural predicates with no threshold at all, and the ninth is
 // observe.VolumeCollapse.
 type Classifier struct {
-	// Volume is locus rows_lost_silently. It is N.4's detector run rather than
-	// reimplemented, so its two unsourced thresholds (R-21) are one number to
+	// Volume is locus rows_lost_silently. It is the volume detector run rather than
+	// reimplemented, so its two unsourced thresholds are one number to
 	// source rather than two, and a change to the detector moves the locus with
 	// it.
 	Volume observe.VolumeCollapse
@@ -93,7 +93,7 @@ func notEvaluable(locus, why string, confounders ...string) Finding {
 
 // recordUnavailable is the answer to all nine when the execution record itself
 // is not deployed. It is nine NotEvaluable verdicts rather than nine absent
-// ones, which is F107's lesson at the level of a classifier: a report about the
+// ones, which is the precondition lesson at the level of a classifier: a report about the
 // world that cannot fail on a missing relation is the only kind worth asking.
 func (c Classifier) recordUnavailable(locus string) Finding {
 	return notEvaluable(locus,
@@ -110,7 +110,7 @@ func (c Classifier) recordUnavailable(locus string) Finding {
 // leaves no cpipes_execution_status row either, so the two most informative
 // artefacts are absent at once. Implementing it found a second, which section
 // 9.4 does not carry: **the worker record is purged on a clock the header is
-// not** (F54), so in a header-outlives-detail deployment an old run whose
+// not**, so in a header-outlives-detail deployment an old run whose
 // worker rows have been purged is indistinguishable from a run that never
 // started. The verdict is NotEvaluable in that case rather than Present, and
 // observe.Extent.OldestWorker is what decides it.
@@ -180,15 +180,15 @@ func (c Classifier) runNotStarted(ev *Evidence) Finding {
 //
 // Row 2's *cannot see* is that this is indistinguishable from three other
 // things — a conditional step skipped by its `when`, a step not in this version
-// of the config, and a step whose label collides with another's — and that F196
-// makes the second uncheckable because no run names a workspace version.
+// of the config, and a step whose label collides with another's — and that the
+// record makes the second uncheckable because no run names a workspace version.
 //
-// **The confounder vocabulary has no member for that** (I-303). Its fourteen
+// **The confounder vocabulary has no member for that**. Its fourteen
 // members were derived for detection, step_label_ambiguous covers the third of
 // the three and nothing covers the second, so the basis carries in prose what
 // would otherwise be a qualifier. A member is proposed rather than added: the
 // vocabulary is a generated CHECK on two tables and widening it on this task's
-// authority is the unreviewed extraction gap 2b exists to prevent.
+// authority is the unreviewed extraction the gate exists to prevent.
 func (c Classifier) stepNeverStarted(ev *Evidence) Finding {
 	const locus = LocusStepNeverStarted
 	if ev.Extent == nil || !ev.Extent.ExecutionRecord {
@@ -257,7 +257,7 @@ func (c Classifier) stepNeverStarted(ev *Evidence) Finding {
 		subjects = append(subjects, "step "+label)
 	}
 	// A step named in a finding drags step_label_ambiguous in unconditionally,
-	// which is jetsapi.incident's incident_step_confounder_ck and F52's reason:
+	// which is jetsapi.incident's incident_step_confounder_ck and its reason:
 	// cpipes_step_id is a stage location rather than a step identity.
 	if !slices.Contains(conf, observe.ConfounderStepLabelAmbiguous) {
 		conf = append(conf, observe.ConfounderStepLabelAmbiguous)
@@ -308,7 +308,7 @@ func (ev *Evidence) baselineConfounders() []string {
 //
 // Row 3's *cannot see* is that nothing says why, and that the step aggregate
 // **hides** the row rather than merely omitting it: cpipes_execution_status_details
-// filters status != 'in progress' (F193), so the step's totals silently
+// filters status != 'in progress', so the step's totals silently
 // describe the workers that finished. That is carried in the basis because it
 // is the thing an operator reading a green step summary most needs told.
 func (c Classifier) workerNotTerminated(ev *Evidence) Finding {
@@ -371,7 +371,7 @@ func (c Classifier) workerNotTerminated(ev *Evidence) Finding {
 	}
 	// The label is ambiguous either way here, and for two different reasons: an
 	// empty one is unknowable by the paragraph above, and a non-empty one is a
-	// stage location rather than a step identity (F52).
+	// stage location rather than a step identity.
 	conf = append(conf, observe.ConfounderStepLabelAmbiguous)
 	f.Confounders = conf
 	return f
@@ -383,9 +383,9 @@ func (c Classifier) workerNotTerminated(ev *Evidence) Finding {
 //
 // This is the simplest predicate in the table and its *cannot see* is the
 // largest. error_message is strings.Join(processingErrors, ",") with eight
-// heterogeneous feeders and no escaping (F191), so it cannot be split back into
-// the errors that made it, and no column of the row carries a class (F199).
-// **The confounder vocabulary has no member for that either** (I-303), so the
+// heterogeneous feeders and no escaping, so it cannot be split back into
+// the errors that made it, and no column of the row carries a class.
+// **The confounder vocabulary has no member for that either**, so the
 // basis says it in prose and reports the comma count as the lower bound it is.
 func (c Classifier) workerFailed(ev *Evidence) Finding {
 	const locus = LocusWorkerFailed
@@ -453,7 +453,7 @@ func (c Classifier) workerFailed(ev *Evidence) Finding {
 // **It is NotEvaluable on an ordinary deployment**, and that is the strongest
 // case for this package being three-valued. jetsapi.pipeline_execution_channel_details
 // is created by `update_db -migrateDb` and was absent from all four production
-// environments measured on 2026-08-25 (I-132), so a boolean predicate would
+// environments measured on 2026-08-25, so a boolean predicate would
 // report *no sink failed* on every one of them.
 //
 // Row 5's own *cannot see* is that an empty child set has three producers the
@@ -534,7 +534,7 @@ func (c Classifier) sinkFailedUnderCompletedWorker(ev *Evidence) Finding {
 // **This is the one locus of the nine that is a detector rather than a
 // predicate**, and the one that carries a threshold. It runs
 // observe.VolumeCollapse rather than restating its rule, so the two unsourced
-// numbers (R-21) stay one thing to source, and the confounders on the finding
+// numbers stay one thing to source, and the confounders on the finding
 // are the ones the detector would have written on the anomaly — including the
 // four it reads from the run's configuration, which no structural predicate
 // here needs.
@@ -623,13 +623,13 @@ func (c Classifier) rowsLostSilently(ev *Evidence) Finding {
 // the run.
 //
 // Row 7's *cannot see* is dense and none of it is expressible as a confounder.
-// The table carries no cpipes_step_id and no pipeline_execution_details_key
-// (F190), so an error row joins to one row per step of the run; six sites
-// construct one and no column says which (F186); a single configuration can
-// route two operators into it (F189); the count is censored at a cap that
+// The table carries no cpipes_step_id and no pipeline_execution_details_key,
+// so an error row joins to one row per step of the run; six sites
+// construct one and no column says which; a single configuration can
+// route two operators into it; the count is censored at a cap that
 // differs by operator, 20 for jetrules and map_record and 50 for the inference
-// operators (F187); and grouping_key is written by the jetrules operator only,
-// and by nothing before 2026-10-13 (F185).
+// operators; and grouping_key is written by the jetrules operator only,
+// and by nothing before 2026-10-13.
 //
 // The count is therefore reported as the lower bound it is, with the two
 // columns a single operator family writes counted separately so a reader can
@@ -675,12 +675,12 @@ func (c Classifier) perRecordFailuresReported(ev *Evidence) Finding {
 // report per-record errors is configured without an error channel, so its
 // failures have nowhere to go.
 //
-// **Section 9.5 says eight of the nine loci are computable in SQL of the shape
-// N.3 decided, and this row is the reason that is narrower than it reads.** Row
+// **The gate's analysis says eight of the nine loci are computable in SQL of the shape
+// the detectors use, and this row is the reason that is narrower than it reads.** Row
 // 8's predicate is not over the execution record at all: it is over the run's
 // stored *configuration*, a JSON document in a jetsapi column, and it is
 // answered by walking that document in Go rather than by a GROUP BY. The count
-// that survives is **seven** predicates in N.3's shape, this one in Go over a
+// that survives is **seven** predicates in the detectors' shape, this one in Go over a
 // jetsapi column, and one — locus written_not_arrived — outside the database
 // entirely.
 //
@@ -688,7 +688,7 @@ func (c Classifier) perRecordFailuresReported(ev *Evidence) Finding {
 // here is ever anything but NotEvaluable is that the configuration is a second
 // substrate the record does not have. What it inherits instead is the
 // configuration's own three limits: at most one step's config, no row at all
-// for a run that failed at sharding validation, and no environment (F195).
+// for a run that failed at sharding validation, and no environment.
 func (c Classifier) perRecordFailuresUnreportable(ev *Evidence) Finding {
 	const locus = LocusPerRecordFailuresUnreportable
 	if ev.Extent == nil || !ev.Extent.ExecutionRecord {

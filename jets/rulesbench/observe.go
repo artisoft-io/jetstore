@@ -12,7 +12,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// What the network holds, observed (rules_benchmark Q-98, BU.2). With
+// What the network holds, observed. With
 // Options.ObserveDir set, each session writes one JSON file: per rule set, per
 // vertex, the rows of its beta relation when the rule set ended and at their most,
 // the times its consequents were computed and retracted, and the rules the vertex

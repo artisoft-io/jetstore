@@ -150,10 +150,10 @@ get_aggregate_operands(char const* op, rdf::RManager * rmgr,
 // NullWhenOutOfRange: + - * / on two integer types convert the right operand to the left
 // operand's type with boost::numeric_cast, which throws when it does not fit (int32 plus
 // a large int64, uint32 plus -1). The exception failed the session; the operation is null
-// instead, and the rule's consequent sees no value (Q-85, I-134, 2026-10-23), as an
-// integer division by zero has been since Q-69. Each of the four operators below is its
+// instead, and the rule's consequent sees no value (2026-10-23), as an
+// integer division by zero already was. Each of the four operators below is its
 // Impl wrapped in this, and so is to_int, whose number out of int32's range threw the
-// same way (BL.1b); the Impl's overloads are unchanged.
+// same way; the Impl's overloads are unchanged.
 template<class Op>
 struct NullWhenOutOfRange: public Op
 {
@@ -170,16 +170,16 @@ struct NullWhenOutOfRange: public Op
 
 // A type mismatch is null: + - * / and abs give null for operands they do not take, a
 // number with text, a named resource, a blank node or null, either way round, or two
-// operands neither of which they take (Q-93, 2026-10-24). Each catch-all below says so.
+// operands neither of which they take (2026-10-24). Each catch-all below says so.
 // Until then a catch-all gave null only with no beta row, as the shared tables call a
-// visitor, and threw in a session's rule, which failed the session (I-184); Q-85 and
-// BL.1b had made a few of those mixes null one overload at a time. Text first in + is
+// visitor, and threw in a session's rule, which failed the session; earlier
+// changes had made a few of those mixes null one overload at a time. Text first in + is
 // not a mismatch: it concatenates, by design.
 
-// An integer quotient. Division by zero is null (Q-69), and so is the minimum signed
+// An integer quotient. Division by zero is null, and so is the minimum signed
 // integer divided by -1, whose quotient does not fit its type: it raised SIGFPE, which
-// killed the process, for int32 and int64 and through the mixed integer types (Q-85,
-// I-126, 2026-10-23).
+// killed the process, for int32 and int64 and through the mixed integer types
+// (2026-10-23).
 template<class L, class T>
 inline RDFTTYPE
 integer_quotient(T lhs, T rhs)
@@ -201,7 +201,7 @@ struct AddVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallback
 {
   AddVisitorImpl(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   AddVisitorImpl(): rs(nullptr), br(nullptr) {}
-  template<class T, class U> RDFTTYPE operator()(T, U) const {return rdf::Null();}   // a type mismatch (Q-93)
+  template<class T, class U> RDFTTYPE operator()(T, U) const {return rdf::Null();}   // a type mismatch
 
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data+rhs.data};}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{return rdf::LInt32{lhs.data+boost::numeric_cast<int32_t>(rhs.data)};}
@@ -276,7 +276,7 @@ struct AddVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallback
 struct SubsVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   SubsVisitorImpl(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T, class U> RDFTTYPE operator()(T, U) const {return rdf::Null();}   // a type mismatch (Q-93)
+  template<class T, class U> RDFTTYPE operator()(T, U) const {return rdf::Null();}   // a type mismatch
 
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data-rhs.data};}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{return rdf::LInt32{lhs.data-boost::numeric_cast<int32_t>(rhs.data)};}
@@ -333,7 +333,7 @@ struct SubsVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallbac
 struct MultVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   MultVisitorImpl(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T, class U> RDFTTYPE operator()(T, U) const {return rdf::Null();}   // a type mismatch (Q-93)
+  template<class T, class U> RDFTTYPE operator()(T, U) const {return rdf::Null();}   // a type mismatch
 
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data*rhs.data};}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{return rdf::LInt32{lhs.data*boost::numeric_cast<int32_t>(rhs.data)};}
@@ -371,13 +371,13 @@ struct MultVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallbac
 
 // DivVisitor
 // --------------------------------------------------------------------------------------
-// An integer divided by an integer zero is null (Q-69); until 2026-10 it raised SIGFPE,
+// An integer divided by an integer zero is null; until 2026-10 it raised SIGFPE,
 // which killed the process. A division with a double operand follows IEEE: +inf, -inf,
 // and NaN for 0/0. The retired Go engine followed the same table.
 struct DivVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   DivVisitorImpl(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T, class U> RDFTTYPE operator()(T, U) const {return rdf::Null();}   // a type mismatch (Q-93)
+  template<class T, class U> RDFTTYPE operator()(T, U) const {return rdf::Null();}   // a type mismatch
 
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return integer_quotient<rdf::LInt32>(lhs.data, rhs.data);}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{if(rhs.data == 0) return rdf::Null(); return rdf::LInt32{lhs.data/boost::numeric_cast<int32_t>(rhs.data)};}
@@ -423,7 +423,7 @@ using DivVisitor  = NullWhenOutOfRange<DivVisitorImpl>;
 struct AbsVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   AbsVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T> RDFTTYPE operator()(T) const {return rdf::Null();}   // a type mismatch (Q-93)
+  template<class T> RDFTTYPE operator()(T) const {return rdf::Null();}   // a type mismatch
 
   RDFTTYPE operator()(rdf::LInt32  lhs)const{return rdf::LInt32{abs(lhs.data)};}
   RDFTTYPE operator()(rdf::LUInt32 lhs)const{return lhs;}
@@ -559,7 +559,7 @@ struct ApplyMinMaxVisitor
                     tie_break_less(currentObj, resultObj)) {
             // equal values, by the rules' own == (EqVisitor): the object first in the
             // tie-break order, whatever the order they are met in. Until 2026-10 the first
-            // met won (I-33). A tie is equality, not "neither is greater", which is not
+            // met won. A tie is equality, not "neither is greater", which is not
             // transitive: a NaN or an infinity never ties, and values that cannot be
             // compared (text and a number) keep the first met, a known limit.
             resultObj = currentObj;
@@ -1102,15 +1102,15 @@ struct JoinValuesVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGr
 
 // ToIntVisitor
 // --------------------------------------------------------------------------------------
-// to_int and to_double of what they cannot read are null (Q-93, 2026-10-24): text that
+// to_int and to_double of what they cannot read are null (2026-10-24): text that
 // does not read as their type, empty or blank text, null, a named resource, a blank node
-// or a date; and to_int of a NaN. Until then each threw in a session's rule (I-185),
+// or a date; and to_int of a NaN. Until then each threw in a session's rule,
 // lexical_cast's bad_lexical_cast or "NULL arguments for to_int", and a NaN was converted
-// to int32 by undefined behaviour, which numeric_cast does not check (I-186).
+// to int32 by undefined behaviour, which numeric_cast does not check.
 struct ToIntVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   ToIntVisitorImpl(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T> RDFTTYPE operator()(T) const {return rdf::Null();}   // nothing to read (Q-93)
+  template<class T> RDFTTYPE operator()(T) const {return rdf::Null();}   // nothing to read
 
   RDFTTYPE operator()(rdf::LInt32  lhs)const{return lhs;}
   RDFTTYPE operator()(rdf::LUInt32 lhs)const{return rdf::LInt32{boost::numeric_cast<int32_t>(lhs.data)};}
@@ -1133,7 +1133,7 @@ struct ToIntVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallba
   BetaRow const* br;
 };
 
-// a number out of int32's range is null (Q-85, BL.1b)
+// a number out of int32's range is null
 using ToIntVisitor = NullWhenOutOfRange<ToIntVisitorImpl>;
 
 // ToDoubleVisitor
@@ -1141,7 +1141,7 @@ using ToIntVisitor = NullWhenOutOfRange<ToIntVisitorImpl>;
 struct ToDoubleVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   ToDoubleVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T> RDFTTYPE operator()(T) const {return rdf::Null();}   // nothing to read (Q-93)
+  template<class T> RDFTTYPE operator()(T) const {return rdf::Null();}   // nothing to read
 
   RDFTTYPE operator()(rdf::LInt32  lhs)const{return rdf::LDouble{boost::numeric_cast<double_t>(lhs.data)};}
   RDFTTYPE operator()(rdf::LUInt32 lhs)const{return rdf::LDouble{boost::numeric_cast<double_t>(lhs.data)};}

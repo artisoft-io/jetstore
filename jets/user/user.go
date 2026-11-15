@@ -107,7 +107,7 @@ func (u *User) Validate(action string) error {
 		// the built-in administrator's login need not be an email (-adminEmail
 		// defaults to "admin"), and a login nobody registered fails the lookup
 		// in Server.Login like any other. Registration still requires an email
-		// (the default case below). rules_unit_test_harness I-32, 2026-10-11.
+		// (the default case below). 2026-10-11.
 		return nil
 
 	default:

@@ -388,7 +388,6 @@ func (js *JetStore) InsertRuleConfig(s *Resource, p *Resource, o *Resource) (int
 
 // New session-based Resource & Literals, on the RDF session: they need its
 // handle only, so an RDF session makes them before any rete session exists
-// (rules_unit_test_harness I-15)
 func (rdfs *RDFSession) NewNull() (*Resource, error) {
 	var r Resource
 	ret := int(C.create_null(rdfs.hdl, &r.hdl))
@@ -706,7 +705,7 @@ func (r *Resource) GetDateIsoString() (string, error) {
 	}
 	// The text is written into this buffer, not read from the library's: a buffer
 	// of the C thread could be overwritten by another goroutine's call before
-	// C.GoString copied it, once this goroutine had moved (I-162)
+	// C.GoString copied it, once this goroutine had moved
 	var buf [64]C.char
 	ret := int(C.get_date_iso_string3(r.hdl, &buf[0], C.int(len(buf))))
 	if ret == -2 {
@@ -726,7 +725,7 @@ func (r *Resource) GetDatetimeIsoString() (string, error) {
 	}
 	// The text is written into this buffer, not read from the library's: a buffer
 	// of the C thread could be overwritten by another goroutine's call before
-	// C.GoString copied it, once this goroutine had moved (I-162)
+	// C.GoString copied it, once this goroutine had moved
 	var buf [64]C.char
 	ret := int(C.get_datetime_iso_string3(r.hdl, &buf[0], C.int(len(buf))))
 	if ret == -2 {

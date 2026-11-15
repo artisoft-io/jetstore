@@ -1,9 +1,9 @@
 package main
 
-// Tests for the infer_server backend toggle (item 15b, task AG.3).
+// Tests for the infer_server backend toggle.
 //
 // What is testable here and what is not is worth stating, because the gap is the whole of
-// risk R-29. inferServerCommand is a pure reading of the environment, so every assertion
+// the risk. inferServerCommand is a pure reading of the environment, so every assertion
 // below is real: the command, the arguments, the directories that must exist before
 // privileges are dropped, and the errors. What no test in this package can reach is
 // whether the resulting process starts, whether the image carries the binary it names, or

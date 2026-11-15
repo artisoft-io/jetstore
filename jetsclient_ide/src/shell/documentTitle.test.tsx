@@ -1,14 +1,14 @@
 /**
  * @vitest-environment jsdom
  *
- * The per-route tab title. Task D.10, from **I-272**.
+ * The per-route tab title.
  *
  * **The interesting assertion is the one that reads `App.tsx`, in both
  * directions.** `favicon.test.tsx` has the same shape for two routes; this table
  * claims to cover *every* route, so the check has to be able to see a route with
  * no title as well as a title with no route. A one-directional check meeting the
- * direction it cannot see is the failure C.6 recorded and `routes.test.ts` fixed
- * three tasks late; there is no reason to write a fresh one.
+ * direction it cannot see is a failure already recorded once, and `routes.test.ts`
+ * fixed it late; there is no reason to write a fresh one.
  */
 
 import { readFileSync } from "node:fs";

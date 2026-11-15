@@ -72,7 +72,7 @@ func stripNotice(f *FactSet, s string) string {
 // `prose.Render` wraps at 78 columns, so a sentence of the template arm carries
 // line breaks at arbitrary word boundaries. Any check that is **position
 // sensitive inside a clause** then reads a mid-sentence line break as the start
-// of a new one. `AK.3`'s imperative family is exactly that - a bare verb is
+// of a new one. The advisory lexicon's imperative family is exactly that - a bare verb is
 // guidance only when it opens a clause, which its own comment explains at length
 // - and the first run of this package over the template arm flagged `M030` on
 //
@@ -156,7 +156,7 @@ func (p *reading) has(phrase string) bool {
 }
 
 // hasWord reports a word - not a substring. This is the distinction that moves
-// `AT.5`'s omission count: `arthritis` is inside `osteoarthritis` and is not a
+// the side-by-side omission count: `arthritis` is inside `osteoarthritis` and is not a
 // word of it.
 func (p *reading) hasWord(w string) bool {
 	w = strings.ToLower(w)
@@ -362,7 +362,7 @@ func mentionEnds(ms []mention) map[int]bool {
 // non-maintenance indication"* - correct about a member with no maintenance
 // drug - and the tokeniser splits the hyphen, so without `non` the sentence
 // reads as an assertion that the drug is a maintenance drug. That member is
-// `AT.5`'s *5 of 6* rather than *6 of 6*, and this is why.
+// the side-by-side run's *5 of 6* rather than *6 of 6*, and this is why.
 func (p *reading) negated(at int) bool {
 	c := p.words[at].clause
 	for i := at - 1; i >= 0 && i >= at-3; i-- {
@@ -595,7 +595,7 @@ func firstInt(node any, sel briefing.Selector) (int, bool) {
 // scalar and asInt are this package's own, and they are **not**
 // [briefing.ValueText] and [briefing.AsInt].
 //
-// `AY.5` unified the three copies `I-643` recorded and left these two, which
+// Three copies were unified into the briefing package and these two left, which
 // makes this the place to say why rather than leave the next reader to find a
 // fourth copy and assume it was missed. **The default arm is the difference**:
 // a value that is neither a scalar nor a time reads as `""` here and as

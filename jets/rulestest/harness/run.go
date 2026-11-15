@@ -16,7 +16,7 @@ import (
 // Options says which test to run and how.
 type Options struct {
 	// WorkspaceRoot is $WORKSPACES_HOME/$WORKSPACE. The engines read the
-	// workspace from those variables themselves (definition F16); this is for
+	// workspace from those variables themselves; this is for
 	// resolving TestPath and reporting it relative to the workspace.
 	WorkspaceRoot string
 	// TestPath is the .tst.json, absolute or relative to WorkspaceRoot.
@@ -104,9 +104,8 @@ type engineRun struct {
 // is the pipeline's (NewJetrulesTransformationPipe, then executeRules): the
 // engine, its JetResources, the source period and rule_config into the meta
 // graph, and only then the first RDF session — the meta graph locks when it
-// opens (definition F31), and a new meta resource is refused after that: a nil
-// node on Go, an error on C++, where it aborted the process until 2026-10-11
-// (I-15).
+// opens, and a new meta resource is refused after that: a nil
+// node on Go, an error on C++, where it aborted the process until 2026-10-11.
 func runOnEngine(td *rulestest.TestDefinition, engine string, factory compute_pipes.JetRulesFactory,
 	tables [][]*InputTable) (run *engineRun) {
 	run = &engineRun{engine: engine}
@@ -254,7 +253,7 @@ func runSession(td *rulestest.TestDefinition, s *rulestest.InputSession, spec *c
 }
 
 // expectsException: an expected check about (jets:iState jets:exception ?)
-// makes an exception an ordinary check instead of an error (definition §6).
+// makes an exception an ordinary check instead of an error.
 func expectsException(td *rulestest.TestDefinition) bool {
 	about := func(list []rulestest.Check) bool {
 		for i := range list {
@@ -281,7 +280,7 @@ func expectsException(td *rulestest.TestDefinition) bool {
 	return false
 }
 
-// applyExpect is the expect field (definition §6, AB.7): a run ending in the
+// applyExpect is the expect field: a run ending in the
 // expected error passes when its checks do, a run ending in another error stays
 // an error, and a run whose rules terminate fails. Only an error from running a
 // session is matched; a test that cannot be loaded is not what expect is about.

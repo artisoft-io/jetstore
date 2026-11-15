@@ -1,6 +1,5 @@
 /**
- * Where the build information is drawn. jetstore_maintenance_02 Phase 1, task
- * AC.3, for defect D05.
+ * Where the build information is drawn.
  *
  * **One bottom bar per screen, not two.** The shell draws a footer at the
  * bottom left of its flex column on every screen — except one that has a bottom

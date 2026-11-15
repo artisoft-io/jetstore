@@ -1,11 +1,11 @@
 /**
  * Every dialog in the app, against the stylesheet rule that sizes it.
- * jetstore_maintenance_02 `AB.1` (D08), 2026-10-01.
+ * Added 2026-10-01.
  *
- * **Before that date nothing styled a `<dialog>`** (assessment F38), so every
+ * **Before that date nothing styled a `<dialog>`**, so every
  * dialog was as wide as its content and the failure viewer was a twenty-column
- * text box. The fix is one `.uf-dialog` rule in `styles.css`, and Michel's answer
- * to Q-7 is that it covers *every* dialog. That claim is only as good as the
+ * text box. The fix is one `.uf-dialog` rule in `styles.css`, and the decision
+ * was that it covers *every* dialog. That claim is only as good as the
  * premise under it — that every dialog carries the class — so this file asserts
  * the premise rather than trusting it:
  *

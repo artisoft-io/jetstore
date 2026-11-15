@@ -857,7 +857,7 @@ TEST_F(SumValuesOrderTest, IntegersTakeTheWidestTypePresent) {
     [](int i) { return RDFTTYPE(rdf::LUInt32(9 + i)); });
 }
 
-// I-16: a double as text is its shortest round-trip digits, in plain notation. This table
+// A double as text is its shortest round-trip digits, in plain notation. This table
 // is the specification of rdf::double_to_text. It was written as the Go engine's table and
 // shared with it, so that both engines wrote the same text, until the Go engine's retirement
 // (decided 2026-10-22).
@@ -920,7 +920,7 @@ TEST_F(ExprOpTest, EveryOperatorWritesADoubleTheSameWay) {
     RDFTTYPE(rdf::NamedResource("1234567.5")));
 }
 
-// I-33: sorted_head on equal values picks the object first in the tie-break order
+// sorted_head on equal values picks the object first in the tie-break order
 // (tie_break_less), not the first the graph meets. Equal weights, inserted from a
 // different object for each subject, so that some subject meets the later name first.
 TEST_F(ExprOpTest, SortedHeadBreaksATieByName) {
@@ -1166,7 +1166,7 @@ TEST(ArithmeticTypes, ADoubleOperandMakesADouble) {
 
 // A beta row, so that a visitor is evaluated as in a session's rule. With no row an
 // operator's catch-all gives null for operands it does not take; with one, it threw, and
-// the session failed (F517). Since Q-93 the catch-alls of + - * /, abs, to_int, to_double,
+// the session failed. Since 2026-10-24 the catch-alls of + - * /, abs, to_int, to_double,
 // lookup and multi_lookup give null either way; other operators' still differ. The rows
 // below that name `in_session`, and the tables that take a SessionRow, are about that
 // difference.
@@ -1194,8 +1194,8 @@ RDFTTYPE or_threw(V & op, RDFTTYPE a, RDFTTYPE b)
 // types. It was shared with the Go engine, since retired, whose int and uint were
 // 64-bit, hence int64 and uint64 here. "uint + negative int" and "int + uint past int"
 // gave no result on Go and threw in numeric_cast here, a recorded difference, until
-// Q-85 (2026-10-23): a mixed-integer operation whose right operand does not fit the left
-// operand's type is null (I-134), and so is text plus a named resource (I-109), which
+// 2026-10-23: a mixed-integer operation whose right operand does not fit the left
+// operand's type is null, and so is text plus a named resource, which
 // threw in a session. Each failed the session, and now the rule's consequent sees null.
 TEST(ArithmeticTypes, TheSharedTypingTable) {
   AddVisitor add(nullptr, nullptr);
@@ -1226,7 +1226,7 @@ TEST(ArithmeticTypes, TheSharedTypingTable) {
   EXPECT_EQ(ap(add, I(5), RDFTTYPE(rdf::LString("x"))).which(), rdf::rdf_null_t);
   EXPECT_EQ(ap(add, DD(2025, 1, 1), I(1)), DD(2025, 1, 2));
 
-  // Q-85, I-134: the right operand out of the left operand's range is null, in + - * /
+  // The right operand out of the left operand's range is null, in + - * /
   auto I32 = [](int32_t v) { return RDFTTYPE(rdf::LInt32(v)); };
   auto UI32 = [](uint32_t v) { return RDFTTYPE(rdf::LUInt32(v)); };
   auto null = [](RDFTTYPE r) { return r.which() == rdf::rdf_null_t; };
@@ -1246,7 +1246,7 @@ TEST(ArithmeticTypes, TheSharedTypingTable) {
   EXPECT_EQ(ap(add, UI32(5), I(big)), UI32(static_cast<uint32_t>(5 + big)));
   EXPECT_EQ(ap(sub, I32(5), UI32(7)), I32(-2));
 
-  // Q-85, I-109: text plus a named resource is null, in a session's rule as with no row
+  // Text plus a named resource is null, in a session's rule as with no row
   SessionRow sr;
   AddVisitor add_in_session(nullptr, sr.row.get());
   EXPECT_TRUE(null(ap(add_in_session, RDFTTYPE(rdf::LString("x")), RDFTTYPE(rdf::NamedResource("r")))));
@@ -1255,7 +1255,7 @@ TEST(ArithmeticTypes, TheSharedTypingTable) {
   // text plus a number still concatenates
   EXPECT_EQ(ap(add_in_session, RDFTTYPE(rdf::LString("x")), I32(5)), RDFTTYPE(rdf::LString("x5")));
 
-  // Q-85 (BL.1b): text with a blank node, null with text and a double with text are
+  // Text with a blank node, null with text and a double with text are
   // null in a session's rule, in either order and in each of + - * /; each threw. Text
   // plus null and text plus a double still concatenate, as they did
   SubsVisitor sub_in_session(nullptr, sr.row.get());
@@ -1280,7 +1280,7 @@ TEST(ArithmeticTypes, TheSharedTypingTable) {
   EXPECT_EQ(ap(add_in_session, text, dbl), RDFTTYPE(rdf::LString("x2.5")));
 }
 
-// Q-85 (BL.1b): to_int of a number out of int32's range is null; numeric_cast threw,
+// to_int of a number out of int32's range is null; numeric_cast threw,
 // in a session's rule as with no row. A number in range is truncated toward zero, as it was
 TEST(ArithmeticTypes, ToIntOutOfRangeIsNull) {
   SessionRow sr;
@@ -1302,10 +1302,10 @@ TEST(ArithmeticTypes, ToIntOutOfRangeIsNull) {
   EXPECT_EQ(ti(rdf::LString(" 42 ")), RDFTTYPE(rdf::LInt32(42)));
 }
 
-// Q-93: every type mismatch of + - * / is null, in a session's rule as with no row: a
+// Every type mismatch of + - * / is null, in a session's rule as with no row: a
 // number with text, a named resource, a blank node or null, either way round, and two
 // operands neither of which the operator takes. Each threw in a session's rule, and the
-// session failed (I-184). Text first in + is concatenation, by design, and is not a
+// session failed. Text first in + is concatenation, by design, and is not a
 // mismatch: "x" + 5 is "x5", while 5 + "x" is null.
 TEST(ArithmeticTypes, EveryTypeMismatchIsNull) {
   SessionRow sr;
@@ -1364,10 +1364,10 @@ TEST(ArithmeticTypes, EveryTypeMismatchIsNull) {
   EXPECT_EQ(or_threw(abs, RDFTTYPE(rdf::LInt32(-5))), RDFTTYPE(rdf::LInt32(5)));
 }
 
-// Q-93: to_int and to_double of what they cannot read are null, in a session's rule as
+// to_int and to_double of what they cannot read are null, in a session's rule as
 // with no row: text that does not read as their type, empty or blank text, null, a named
-// resource, a blank node or a date (I-185); and to_int of a NaN, which converted to
-// int32 by undefined behaviour, numeric_cast not checking it (I-186). Each threw in a
+// resource, a blank node or a date; and to_int of a NaN, which converted to
+// int32 by undefined behaviour, numeric_cast not checking it. Each threw in a
 // session's rule except the NaN, which gave whatever the conversion gave.
 TEST(ArithmeticTypes, ToIntAndToDoubleOfWhatTheyCannotReadIsNull) {
   SessionRow sr;
@@ -1406,7 +1406,7 @@ TEST(ArithmeticTypes, IntegersKeepTheLeftOperandsType) {
   EXPECT_EQ(boost::apply_visitor(div, RDFTTYPE(rdf::LInt32(7)), RDFTTYPE(rdf::LInt32(2))), RDFTTYPE(rdf::LInt32(3)));
 }
 
-// Q-68: == != < <= > >= over numbers. Integers with integers by value (std::cmp_*); any
+// == != < <= > >= over numbers. Integers with integers by value (std::cmp_*); any
 // double operand compares as two doubles, by rdf::is_eq, is_lt, ... (15 significant
 // digits); a NaN or an infinity is never equal or ordered. The table is the comparisons'
 // specification; it was shared with the Go engine, the same rows in both, until its retirement.
@@ -1453,7 +1453,7 @@ TEST(Comparisons, TheSharedTable) {
   }
 }
 
-// Q-69: division by zero. An integer divided by an integer zero is null; it raised
+// Division by zero. An integer divided by an integer zero is null; it raised
 // SIGFPE until 2026-10, which killed the process. A division that involves a double
 // follows IEEE: +inf, -inf, and NaN for 0/0. The table is division's specification: seven
 // rows shared with the Go engine until its retirement, then two mixed integer
@@ -1474,7 +1474,7 @@ TEST(ArithmeticTypes, DivisionByZero) {
   // and an integer divided by a nonzero integer is still integer division
   EXPECT_EQ(q(rdf::LInt32(7), rdf::LInt32(2)), RDFTTYPE(rdf::LInt32(3)));
 
-  // Q-85, I-126: the minimum signed integer divided by -1 is null, as by zero. Its
+  // The minimum signed integer divided by -1 is null, as by zero. Its
   // quotient does not fit the type, and it raised SIGFPE, which killed the process, for
   // int32 and int64 and through the mixed integer types
   auto const i32min = std::numeric_limits<int32_t>::min();
@@ -1490,9 +1490,9 @@ TEST(ArithmeticTypes, DivisionByZero) {
   EXPECT_EQ(q(rdf::LInt64(i64min), rdf::LInt64(2)), RDFTTYPE(rdf::LInt64(i64min / 2)));
 }
 
-// Q-85, I-104: a null lookup key is null, and the session goes on; in a session's rule
+// A null lookup key is null, and the session goes on; in a session's rule
 // it threw. The table is not read: a null key looks nothing up.
-// and so is a blank-node key (BL.1b), which threw likewise
+// and so is a blank-node key, which threw likewise
 TEST(Lookups, ANullKeyIsNull) {
   SessionRow sr;
   LookupVisitor lookup(nullptr, sr.row.get());
@@ -1510,10 +1510,10 @@ TEST(Lookups, ANullKeyIsNull) {
   EXPECT_EQ(ap(multi_lookup, RDFTTYPE(rdf::LString("acme:ProcedureLookup")), bnode_key).which(), rdf::rdf_null_t);
 }
 
-// Q-93: lookup and multi_lookup with a key or a table of a type they do not take are null,
+// Lookup and multi_lookup with a key or a table of a type they do not take are null,
 // in a session's rule as with no row, and look nothing up: a double, a date or a datetime
 // key, and a table named by anything but a resource or text. Each threw in a session's
-// rule (I-184). The rows need no lookup helper, since nothing is looked up.
+// rule. The rows need no lookup helper, since nothing is looked up.
 TEST(Lookups, AKeyOrTableOfAnotherTypeIsNull) {
   SessionRow sr;
   LookupVisitor lookup(nullptr, sr.row.get());

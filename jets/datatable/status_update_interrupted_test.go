@@ -1,4 +1,4 @@
-// What an interrupted run reports and registers (I-51).
+// What an interrupted run reports and registers.
 //
 // CoordinateWork's "interrupted" arm used to record "interrupted" in
 // pipeline_execution_status and leave ca.Status holding what the state machine

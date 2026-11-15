@@ -1,13 +1,13 @@
 /**
- * What the browser tab is called. Task D.10, from **I-272**.
+ * What the browser tab is called, from a defect report.
  *
  * ## The report, and why restoring the old string is not the answer
  *
  * `index.html` declared `<title>JetStore Workspace IDE</title>` and nothing in
  * the bundle wrote `document.title`, so the tab of every screen named one screen
- * of an application with twenty-two routes. That is the favicon defect of
- * **I-267** in the element four lines above, and it was raised rather than fixed
- * at D.9 because D.9's remit was the icon.
+ * of an application with twenty-two routes. That is the favicon defect
+ * in the element four lines above, and it was raised rather than fixed
+ * with the favicon because that fix's remit was the icon.
  *
  * **It differs from the favicon in the one way that matters: there is nothing to
  * restore.** The predecessor is `JetStore Platform`
@@ -17,7 +17,7 @@
  * Platform* back would leave the reporter looking at the same undifferentiated
  * tab they have now. **Taken 2026-08-27: a per-route title.**
  *
- * ## The static document names the default, which is D.9's argument reused
+ * ## The static document names the default, which is the favicon's argument reused
  *
  * `index.html` now says `JetStore`. Three consequences, and they are the three
  * that decided the favicon the same way round:
@@ -35,15 +35,15 @@
  * A row is a claim that a route exists, and `documentTitle.test.tsx` reads
  * `App.tsx` and requires the two to agree in **both** directions — a title for a
  * route that has gone, and a route with no title, both fail. That is deliberately
- * the check `routes.test.ts` was missing until C.6's *"a one-directional check
- * meeting the direction it cannot see"*, which is the shape Phase 3 recorded five
+ * the check `routes.test.ts` was once missing — *"a one-directional check
+ * meeting the direction it cannot see"*, a shape recorded five
  * times; there is no reason to reintroduce it here.
  *
  * ## `/flow/:key` has two writers, and they do not race
  *
  * A flow's name is in its document, not in its url, so the table can only say
  * *Flow* for `/flow/:key`. `FlowRunner` refines it to the flow's own `title` once
- * the document loads — the same string D.7 put in the heading. The two never
+ * the document loads — the same string the flow's heading shows. The two never
  * collide because `RouteTitle`'s effect is keyed on `pathname`, which does not
  * change while a flow loads: the runner's write is the last one until the user
  * navigates, and navigating is exactly when `RouteTitle` should win.
@@ -60,7 +60,7 @@ export const PRODUCT = "JetStore";
  *
  * **In `App.tsx`'s order**, which is a readability property rather than a
  * correctness one and is asserted as such. `matchPath` with a string pattern
- * matches to the end, so `/workspaces` does not match `/workspaces/cgt/home` and
+ * matches to the end, so `/workspaces` does not match `/workspaces/<name>/home` and
  * no row can swallow another — a first draft of this comment claimed it could,
  * and the test that would have caught the swallowing passes either way, which is
  * exactly why the order is checked against `App.tsx` instead of argued for.
@@ -80,10 +80,9 @@ export const ROUTE_TITLES: ReadonlyArray<readonly [pattern: string, title: strin
   ["/inferServerAdmin", "Infer Server Admin"],
   ["/proposals", "Proposals"],
   ["/proposals/:proposalId", "Proposal"],
-  // agentic_ai's incident screens (AE.1). Added here rather than left to their
-  // owner because this table's own test refuses a route with no title, and it
-  // fails on the route rather than on the screen — the seam rule the repository
-  // CLAUDE.md states for a break in the other direction, applied in this one.
+  // The incident screens. Added here with the screens because this table's own
+  // test refuses a route with no title, and it fails on the route rather than on
+  // the screen.
   ["/incidents", "Incidents"],
   ["/incidents/:incidentId", "Incident"],
   ["/detection", "Detection"],

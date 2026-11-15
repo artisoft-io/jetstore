@@ -1,5 +1,5 @@
-// Making the data_classification marker load-bearing (task AE.2, I-311), and
-// the additive half of a migration (task AB.4, I-337).
+// Making the data_classification marker load-bearing, and
+// the additive half of a migration.
 //
 // **What is worth testing here is that the marker and its enforcement cannot
 // drift apart**, which is the whole defect: the marker was correct, travelled
@@ -37,7 +37,7 @@ func TestEveryClassifiedPropertyHasARedactor(t *testing.T) {
 	unhandled, unknown := PHIRedactorCoverage()
 	if len(unhandled) > 0 {
 		t.Errorf("classified with no redactor: %v — a marker nothing reads is the defect "+
-			"I-311 was raised for, arriving again", unhandled)
+			"this check was written for, arriving again", unhandled)
 	}
 	if len(unknown) > 0 {
 		t.Errorf("redactors for properties the model does not classify: %v — either the "+
@@ -135,15 +135,15 @@ func TestHypothesesForTakesThePHIDecisionToo(t *testing.T) {
 	}
 }
 
-// AB.4, I-337 — the additive half of a migration.
+// The additive half of a migration.
 //
 // **`CREATE TABLE IF NOT EXISTS` does nothing to a table that already exists**,
 // so before this a column added to the domain model reached a fresh database and
 // no migrated one, silently: InstallSchema ran clean either way and the missing
 // column surfaced as a 42703 in whatever query touched it next. Every deployment
-// that installed the schema between AB.1 and AB.4 is in exactly that state.
+// that installed the schema before the column was added is in exactly that state.
 //
-// It builds a database holding jetsapi.incident at its pre-AB.4 shape, which is
+// It builds a database holding jetsapi.incident at its earlier shape, which is
 // what such a deployment looks like, and asserts that InstallSchema adds the
 // column rather than leaving it.
 func TestInstallSchemaAddsANullableColumnToAnAlreadyInstalledTable(t *testing.T) {
@@ -169,7 +169,7 @@ func TestInstallSchemaAddsANullableColumnToAnAlreadyInstalledTable(t *testing.T)
 	}
 	defer old.Close()
 
-	// The pre-AB.4 shape, written out rather than derived: a fixture generated
+	// The earlier shape, written out rather than derived: a fixture generated
 	// from today's model could not represent yesterday's.
 	for _, stmt := range []string{
 		"CREATE SCHEMA IF NOT EXISTS jetsapi",
@@ -187,7 +187,7 @@ func TestInstallSchemaAddsANullableColumnToAnAlreadyInstalledTable(t *testing.T)
 		   incident_model_version text NOT NULL)`,
 	} {
 		if _, err := old.Exec(ctx, stmt); err != nil {
-			t.Fatalf("building the pre-AB.4 schema: %v", err)
+			t.Fatalf("building the earlier schema: %v", err)
 		}
 	}
 	if hasIncidentRunRef(t, old) {
@@ -195,11 +195,11 @@ func TestInstallSchemaAddsANullableColumnToAnAlreadyInstalledTable(t *testing.T)
 	}
 
 	if err := InstallSchema(ctx, old); err != nil {
-		t.Fatalf("installing over the pre-AB.4 schema: %v", err)
+		t.Fatalf("installing over the earlier schema: %v", err)
 	}
 	if !hasIncidentRunRef(t, old) {
 		t.Fatal("InstallSchema left jetsapi.incident without incident_run_ref; a column " +
-			"added to the model reaches a fresh database and not a migrated one (I-337)")
+			"added to the model reaches a fresh database and not a migrated one")
 	}
 	// Idempotent: the second run is what a deployment actually does, every
 	// `update_db -migrateDb`.
@@ -230,20 +230,20 @@ func TestTheGeneratedDDLCarriesTheAdditiveMigration(t *testing.T) {
 		t.Errorf("the generated DDL does not contain %q", want)
 	}
 	// **This assertion was the opposite until 2026-09-04 and the reversal is
-	// deliberate.** `AB.4` wrote it as *never for a NOT NULL column*, on the
+	// deliberate.** It was first written as *never for a NOT NULL column*, on the
 	// argument that adding one to a populated table needs a default and that is a
 	// decision no emitter is entitled to take. That argument is intact and it was
 	// answering the wrong question: the emitter's alternative to a bad default is
-	// not silence. `AC.3` added two required columns to `Hypothesis` (Q-46) and
+	// not silence. A later change added two required columns to `Hypothesis` and
 	// under the old rule they would have reached a fresh database and no migrated
-	// one — I-337 with the loudness removed.
+	// one — the same defect with the loudness removed.
 	//
 	// So a NOT NULL column now carries its constraint on the same statement.
 	// `IF NOT EXISTS` makes it a no-op wherever the column already exists, which
 	// is every table this widening does not touch; it takes on a migrated empty
 	// table, which is every deployment of `jetsapi.hypothesis` there is; and on a
 	// populated table missing the column it fails, naming the column, which is a
-	// migration that stops rather than a 42703 in production later (**I-381**).
+	// migration that stops rather than a 42703 in production later.
 	for _, want := range []string{
 		"ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_session_id text NOT NULL;",
 		"ALTER TABLE jetsapi.hypothesis ADD COLUMN IF NOT EXISTS hypothesis_locus text NOT NULL;",

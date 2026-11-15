@@ -16,7 +16,7 @@
 // 2026-08-27 at three failures in four runs of `go test ./jets/agentic/...`,
 // zero with -p 1. The failure names a trigger append or a schema install rather
 // than the concurrency, so it reads as a defect in whichever test drew the
-// short straw. Tracked as I-175 in the agentic_ai project's Phase 3 register.
+// short straw. Tracked as a known issue.
 package observe
 
 import (
@@ -39,9 +39,9 @@ const schemaPath = "../../jets_schema.json"
 // absent is a case worth testing, and it is the state every production
 // environment measured on 2026-08-25 was in.
 //
-// cpipes_execution_status was added at N.4: it is where a run's configuration
+// cpipes_execution_status was added later: it is where a run's configuration
 // survives the run, and it is the only substrate for the five confounders the
-// execution record cannot establish (I-168, config.go).
+// execution record cannot establish (config.go).
 var executionTables = []string{
 	"pipeline_execution_status", "pipeline_execution_details", "cpipes_execution_status"}
 
@@ -244,7 +244,7 @@ func TestStepBaselinesAggregatesPerSourceAndStep(t *testing.T) {
 	// A second object type is a second source, and must not be folded in.
 	insertRun(t, pool, client, "p", "other", client+"_other", "completed", false, base,
 		[]worker{{stepId: "reducing01", status: StatusCompleted, in: i64(1), out: i64(1)}})
-	// An empty step label is one of F52's ten reducing steps, and the baseline
+	// An empty step label is one of the corpus's ten unlabelled reducing steps, and the baseline
 	// has to say it cannot tell them apart.
 	insertRun(t, pool, client, "p", "obj", client+"_nostep", "completed", false, base,
 		[]worker{{stepId: "", status: StatusCompleted, in: i64(1), out: i64(1)}})
@@ -369,7 +369,7 @@ func TestInsertAnomaly(t *testing.T) {
 		t.Errorf("confounders round-tripped as %v", conf)
 	}
 	// The three nullable properties are nullable because four of the six
-	// derivable rows are within-run predicates with no range (I-126).
+	// derivable rows are within-run predicates with no range.
 	if min != nil || max != nil {
 		t.Errorf("an unset expected range came back non-null: %v %v", min, max)
 	}

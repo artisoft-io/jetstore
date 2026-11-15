@@ -6,7 +6,7 @@ integrity between the three tables, and — with `--corpus` — that every exemp
 fragment library points at actually resolves.
 
 Two modes. The default runs the checks that hold while the matrix is still partial,
-which is the whole of B.2 through B.6. `--strict` adds the checks that only make sense
+which is the whole of the extraction work. `--strict` adds the checks that only make sense
 once extraction is complete, and is what the exit criteria run.
 """
 
@@ -41,7 +41,7 @@ def unfilled_report(matrix: Matrix) -> str | None:
     """One line naming how much of the matrix still awaits judgment, or None.
 
     Not a failure outside --strict: a blank cell is the extraction working as
-    designed. But it is the number R-1 watches, so `check` always prints it.
+    designed. But it is the number the review risk watches, so `check` always prints it.
     """
     rows = cells = 0
     for row in [*matrix.fields_, *matrix.constraints]:

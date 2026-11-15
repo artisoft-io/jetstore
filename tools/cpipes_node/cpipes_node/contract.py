@@ -2,7 +2,7 @@
 
 `tools/cpipes_contract/cpipes_model.py` is 1,740 lines of Pydantic v2 covering
 the whole document, it is the *source of truth* for the contract claims since
-the B.10 flip, and `cpipes-contract reflect --check` is the guard that keeps it
+the source-of-truth flip, and `cpipes-contract reflect --check` is the guard that keeps it
 honest against the matrix. **This package does not re-derive any of that.** A
 second schema here would be two readers of one rule, which is the failure mode
 the whole contract effort exists to remove.
@@ -17,7 +17,7 @@ carry it at all — `cpipes_contract.reflect` itself loads it through
 `_load_contract_model` states the search order in its error. **The fix belongs
 on the other side of the seam**: moving the file into the package costs one
 default path in `cpipes_contract/main.py`, and until that happens a container
-image for this node (P9-T14) must ship the contract tree and not only its
+image for this node must ship the contract tree and not only its
 wheel.
 
 **The model described the authored document and the node reads the runtime
@@ -38,12 +38,11 @@ validates.
 one**, and `PipesConfig` below is now an alias for it. The two fields stay
 `applicable=no` in the matrix and stay out of the emitted schema, because an
 authored schema admitting a runtime document is what `negative_suite.json`'s
-*root pipes_config (I-14 runtime shape)* case exists to refuse. So the
+*root pipes_config* runtime-shape case exists to refuse. So the
 thirteen-against-fifteen difference was never the defect on its own; the
 absence of any class on the runtime side of it was. `tests_config.py` derives
 the pair by parsing the Go struct's tags rather than repeating this paragraph.
-(`jetstore_maintenance_01` Phase 1 `AD`, closing `healthcare_corpus`'s
-`P9-I28`, read 2026-09-20.)
+(Repaired after the gap was reported on 2026-09-20.)
 
 **The union omitted the site operator, and that half is closed upstream as of
 2026-09-19.** `TransformationSpecSite` existed in the model, carried the right
@@ -189,7 +188,7 @@ SchemaProviderSpecDefault = model.SchemaProviderSpecDefault
 #: no call site and the next reader finds the shape under the name they already
 #: know. The current step's pipes arrive under `pipes_config` and not under
 #: `conditional_pipes_config`, which is why `when` on a *step* is the starter's
-#: to evaluate and `when` on an *operator* is the node's (P9-T04).
+#: to evaluate and `when` on an *operator* is the node's.
 PipesConfig = model.ComputePipesRuntimeConfig
 
 
@@ -250,8 +249,7 @@ def column_types() -> tuple[str, ...]:
     the way it dispatches an operator, so it has no place in `TOKEN_STRUCTS`.
     It is read off the same index for the same reason — `columns.py` implements
     a subset and refuses the rest, and the universe it is a subset **of** has to
-    be the contract's own or the two lists can drift with nothing going red
-    (P3-I20).
+    be the contract's own or the two lists can drift with nothing going red.
     """
     keys: dict[str, tuple[str, str]] = model._MATRIX_KEYS
     return tuple(

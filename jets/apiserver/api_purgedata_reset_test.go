@@ -1,6 +1,6 @@
 package main
 
-// The session tables of a /purgeData reset_domain_tables (JM-090).
+// The session tables of a /purgeData reset_domain_tables.
 //
 // The test needs JETS_TEST_DSN and is skipped otherwise; it rebuilds the
 // database jm_purgedata_reset. Locally:

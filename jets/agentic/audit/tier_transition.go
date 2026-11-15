@@ -10,10 +10,10 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// The autonomy tier transition (task AJ.2, gap 7b, criterion 51) — what raises
+// The autonomy tier transition — what raises
 // a run's tier, who may, and what the audit record shows.
 //
-// `AJ.1` built the comparison: a tool declares a tier, the run has one, and
+// The gate is the comparison: a tool declares a tier, the run has one, and
 // `TierGate` refuses below it. **A comparison whose losing operand can never
 // change is a ceiling, not a gate** — so this is the other half: the recorded,
 // attributable act that moves `jetsapi.agent_run.tier`.
@@ -28,9 +28,9 @@ import (
 //
 // **The one structural difference is in this act's favour.** An incident's
 // chain event is conditional — `agent_audit.run_id` is an AgentRun's key
-// (P4 F254) and an incident may name no run, so a person's correction of an
+// and an incident may name no run, so a person's correction of an
 // incident nothing agentic raised is durable, attributable and **not**
-// tamper-evident (R-44). A tier transition's subject *is* a run, so the chain
+// tamper-evident. A tier transition's subject *is* a run, so the chain
 // event is unconditional and there is no such case. The act this project was
 // least able to make tamper-evident and the act it was most able to are the same
 // shape, and the difference is a property of the subject rather than of either
@@ -46,8 +46,8 @@ import (
 // here too.
 //
 // It is asymmetric on purpose. A **raise** grants authority the run did not
-// have, so it requires `ActorHuman` and a rationale: A§4 defines the scale by
-// how much human involvement an action needs, and A.5's preamble says an agent
+// have, so it requires `ActorHuman` and a rationale: the tier scale is defined by
+// how much human involvement an action needs, and the lifecycle design says an agent
 // "may propose a transition; it cannot effect an illegal one". A **lowering** is
 // self-limitation — an agent that concludes it should not be acting at T3 may
 // write that down, and refusing it would mean the only way to reduce authority
@@ -56,28 +56,28 @@ import (
 // # What is deliberately not invented here
 //
 // **No per-step graph.** `lifecycle.go` and `incident_transition_lifecycle.go`
-// both carry a transition table because Appendix A.5 draws one. A.5 draws no
+// both carry a transition table because the lifecycle design draws one. It draws no
 // machine over AutonomyTier, and the vocabulary is an ordered scale rather than
 // a graph — `Reaches` is the whole of its structure. So T1 -> T4 in one act is
-// permitted, and whether it should be is asked as **Q-71** rather than answered
-// by this file. Inventing a one-step-at-a-time rule here would be gap 2b's
-// unreviewed extraction with an audit trail attached.
+// permitted, and whether it should be is asked as rather than answered
+// by this file. Inventing a one-step-at-a-time rule here would be an
+// unreviewed policy with an audit trail attached.
 //
 // **No ceiling.** Nothing in the model says what a given agent, identity or
 // deployment may be raised *to*; `guard.go` already records that which identity
-// runs at which tier is a deployment rule the code cannot enforce, and Q-57 is
-// where that is asked. A ceiling invented here would be a policy with no
+// runs at which tier is a deployment rule the code cannot enforce, and that
+// question is open. A ceiling invented here would be a policy with no
 // author.
 //
 // **No executor, and nothing acts.** This raises an authority; it does not use
 // one. `Remediation` remains tabled with no executor (criterion 47), and a
 // transition is an authority change rather than an execution.
 //
-// # No endpoint, and that is K.2's argument rather than an omission
+// # No endpoint, and that is the transcript's argument rather than an omission
 //
-// `api_agentic.go` opens by recording why K.2 built `audit.ReadTranscript` and
+// `api_agentic.go` opens by recording why `audit.ReadTranscript` was built and
 // registered no route: "a route registered before its consumer exists fixes its
-// shape by guess". There is no run supervision screen, and — F505 — nothing
+// shape by guess". There is no run supervision screen, and nothing
 // outside the `agent` package constructs a gated `Loop` at all, so an HTTP
 // action raising a tier would be authority over nothing. The verdict half of
 // this task *does* get an endpoint, because its consumer is the screen the same
@@ -196,8 +196,8 @@ func (t *TierTransition) validate() error {
 	if err := validateAttribution(what, t.Actor, t.ActorKind); err != nil {
 		return err
 	}
-	// Both operands are parsed before either is compared, which is AJ.1's rule
-	// at the gate applied here at the writer: an unreadable tier is reported as
+	// Both operands are parsed before either is compared, which is the gate's rule
+	// applied here at the writer: an unreadable tier is reported as
 	// one rather than as an authority failure. ParseTier refuses the empty
 	// string too, so a caller that did not set FromTier is told it did not
 	// rather than being guarded against "".
@@ -289,7 +289,7 @@ func RecordTierTransition(ctx context.Context, db Beginner, t *TierTransition) (
 	payload, err := json.Marshal(map[string]any{
 		// The discriminator. agent_audit has one taxonomy column and it says
 		// `decision` for both of this package's state changes, so what kind of
-		// decision this is has to travel in the payload — recorded as I-449.
+		// decision this is has to travel in the payload.
 		"state_change":    TierStateChange,
 		"run_ref":         t.RunId,
 		"tier_before":     t.TierBefore,
@@ -329,7 +329,7 @@ func RecordTierTransition(ctx context.Context, db Beginner, t *TierTransition) (
 }
 
 // TierStateChange is the payload discriminator that distinguishes a tier
-// transition from every other `decision` event in the chain. See I-449: the
+// transition from every other `decision` event in the chain. The
 // taxonomy column has six members and two of this package's writers share one
 // of them.
 const TierStateChange = "autonomy_tier"
@@ -338,7 +338,7 @@ const TierStateChange = "autonomy_tier"
 // out of the chain.
 //
 // **It exists because a write path with no read path is a store nobody can
-// check** — K.2's rule, which is also why HumanVerdicts exists with nothing to
+// check** — the transcript's rule, which is also why HumanVerdicts exists with nothing to
 // count. There is no `jetsapi.tier_event` table to read instead: the chain is
 // the record here, deliberately, because its key is the subject.
 func TierTransitionsFor(ctx context.Context, db Querier, runId string) ([]TierTransition, error) {

@@ -1,7 +1,7 @@
 """The local driver: a node run without AWS, and the scope printed.
 
-**Why a driver at all.** Four of the phase's seven exit criteria — X2, X3, X5
-and X7 — compare corpora, and a comparison needs something executable to
+**Why a driver at all.** Four of the seven exit criteria — the run-to-run, cell,
+findings and cross-engine comparisons — compare corpora, and a comparison needs something executable to
 produce them. There is no docker-compose in this repository and no local
 JetStore; the alternative to this is a deployment per measurement. So the S3
 access is behind one seam (`store.py`) with a directory implementation, the
@@ -10,14 +10,14 @@ run is **the same `coordinate` with different arguments** — not a second
 engine, which is the distinction that keeps the local result evidence about the
 deployed one.
 
-**What a local run does not cover**, said plainly so that nobody reads X1's
-*end to end* as met by it: no lambda invocation and so no `{id, jp, pe}` event
+**What a local run does not cover**, said plainly so that nobody reads the
+*end to end* criterion as met by it: no lambda invocation and so no `{id, jp, pe}` event
 crossing a process boundary, no `cpipes_execution_status` read and so no proof
 the query is right, no S3 and so no proof of the stage layout or the KMS
 settings, no state machine and so no proof that a Map step fans out to the
 partitions the pipeline declares, and **no side-effect row at all** — `run`
 passes no connection, so `side_effects.NONE` is what records the run and it
-records nothing. A local run is evidence about the *pipeline*; X1 asks about the
+records nothing. A local run is evidence about the *pipeline*; that criterion asks about the
 *integration*, and the reading is Michel's.
 
 Four subcommands:
@@ -27,7 +27,7 @@ Four subcommands:
     cpipes-node run --config FILE ... run the node against a local store
     cpipes-node tokens [--check]      JetStore's tokens against this node's scope
 
-`check` is the one to hang X6's evidence on: exit 0 clean, exit 1 out of scope,
+`check` is the one to hang the scope rule's evidence on: exit 0 clean, exit 1 out of scope,
 exit 2 declared and not implemented. Two exit codes rather than one, for the
 reason `errors.py` gives.
 
@@ -56,7 +56,7 @@ deployment's, and a flag naming an importable factory would make this package
 able to load a customer's code, which is the one thing its own docstring says it
 must never learn to do. **A driver that runs the corpus pipeline composes
 `coordinate` with its own registry**, the way `awslambda.Node` does; that driver
-is P9-T19's and this subcommand is what it copies.
+is separate and this subcommand is what it copies.
 """
 
 from __future__ import annotations
@@ -309,7 +309,7 @@ def _tokens(args) -> int:  # type: ignore[no-untyped-def]
 
     The three sets and the coverage statement print on every path, `--check`
     included, because whoever reads a green result is the person who needs to
-    know how narrow the claim is (`AG.2`).
+    know how narrow the claim is.
     """
     try:
         diff = compute(go_contract=args.go_contract, jetstore=args.jetstore)
@@ -377,8 +377,8 @@ def _bucket_map(pairs: list[str]) -> dict[str, Path]:
 
     A malformed pair is refused rather than skipped, and a repeated name is
     refused rather than resolved by order: a local run whose destination map
-    depended on argument order would be exactly the ambiguity D-242 exists to
-    remove, one layer out.
+    depended on argument order would be exactly the ambiguity the explicit
+    destination map exists to remove, one layer out.
     """
     mapping: dict[str, Path] = {}
     for pair in pairs:

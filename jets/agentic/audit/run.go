@@ -9,8 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// The run record and the write-before-act contract over it (plan §7.2, task
-// D.4).
+// The run record and the write-before-act contract over it.
 //
 // jetsapi.agent_run is the mutable summary of a run; jetsapi.agent_audit is the
 // immutable record of how it got there. That division is what makes the
@@ -138,7 +137,7 @@ func FinishRun(ctx context.Context, db Execer, runId, status string, tokenSpend 
 	return nil
 }
 
-// RunTier reads the autonomy tier a run was operating at (task K.3).
+// RunTier reads the autonomy tier a run was operating at.
 //
 // **It exists because `approval_event.tier_at_event` must not come from the
 // client.** The column is NOT NULL and CHECKed against T0–T4, and its docstring

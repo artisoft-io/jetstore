@@ -2,7 +2,7 @@
 
 Everything before this module is startup — the arguments, the document, the
 scope gate, the environment. Everything after it is the run. The split is where
-it is because X6 is a *startup* criterion: by the time `run` is called, every
+it is because the scope rule is a *startup* criterion: by the time `run` is called, every
 token the document names has been judged, so the graph runner never meets an
 unknown operator and never has to decide what to do about one.
 
@@ -35,23 +35,23 @@ one this phase is measured on:
 
 - **Determinism.** The order in which records reach a channel is a function of
   the document, not of a scheduler. `CLAUDE.md` forbids uncontrolled parallelism
-  affecting values, and X2 asks for byte identity across two different
+  affecting values, and the run-to-run comparison asks for byte identity across two different
   `nbr_nodes`; a thread per pipe would make both a property of the run.
-- **Bounded memory.** The charter's §1.3 says the node materialises a
+- **Bounded memory.** The charter says the node materialises a
   household's rows and not a corpus's. Draining after every source record is
   what makes that true of the *graph* as well as of the operator: what a channel
   holds is what one source record produced.
 - **No deadlock to reason about.** A Go pipeline whose channel nobody closes
   hangs; here every channel is closed by the pass that finishes its writer, and
   `run` asserts at the end that every channel some pipe read is closed. That is
-  P9-I13's property checked from the reading side rather than the writing one.
+  the close-every-channel property checked from the reading side rather than the writing one.
 
 What it costs is throughput, which is not what a node of forty is for, and the
 loss of any test of *concurrent* close semantics — stated here rather than
-discovered, because a conformance instrument comparing the two engines (P9-T22)
+discovered, because a conformance instrument comparing the two engines
 will see identical bytes and a different interleaving in the logs.
 
-# `conditional_config` and the two documents (D-219)
+# `conditional_config` and the two documents
 
 `ApplyAllConditionalTransformationSpec` runs in the **starters**, never in the Go
 node: `actions_start_sharding_cp.go` and `actions_start_reducing_cp.go` each call
@@ -62,7 +62,7 @@ at length.
 
 This node is handed both. Through `ExecutionStatusConfigSource` it gets a
 starter's document and must **not** apply it again; through
-`FileConfigSource` — the local driver, which is how X2, X3 and X7 are measured —
+`FileConfigSource` — the local driver, which is how the corpus comparisons are measured —
 it gets an authored one with no starter in front of it, and must apply it or
 diverge. The discriminator is the document's own shape: a flat `pipes_config` is
 a starter's work and `conditional_pipes_config` alone is an authored document.
@@ -129,7 +129,7 @@ class GraphInvalid(StartupError):
     A startup error, because every one of these is decidable before a record
     moves: a channel no step writes, a cycle, a source that is not reachable.
     Go meets each of them as a goroutine that never returns, so the run hangs
-    with nothing said; naming it here is the same act as X6's abort.
+    with nothing said; naming it here is the same act as the scope abort.
     """
 
 
@@ -160,8 +160,8 @@ def selected_pipes(config: Any) -> list[Any]:
     neither `$SHARD_ID` nor `$JETS_PARTITION_LABEL`; a node evaluating it would
     be answering a different question with a different environment, and could
     answer it differently per node. So the local driver gets step 0 and the
-    question of which step a driver should run is P9-T19's, where a run exists to
-    answer it against.
+    question of which step a driver should run belongs to the driver, where a run
+    exists to answer it against.
     """
     if _starter_has_run(config):
         return list(config.pipes_config)
@@ -343,8 +343,8 @@ def output_channel_configs(spec: Any) -> list[Any]:
     """`outputChannelConfigs`: every channel one step writes, error channel aside.
 
     The step's own `output_channel`, then a site step's declared
-    `site_config.output_channels` — which is the list P9-T01 added and P9-I13's
-    repair closes in the Go executors. The order is the Go function's, and it is
+    `site_config.output_channels` — which is the list the site contract added and the
+    close-every-channel repair closes in the Go executors. The order is the Go function's, and it is
     the order `OperatorArgs.outputs` arrives in.
     """
     configs: list[Any] = []
@@ -449,10 +449,10 @@ def generator_row_count(channel_config: Any, env: dict[str, Any]) -> int:
     """`nbr_rows`, resolved the way `LoadMainInput` resolves it.
 
     Substitution then parse, with **no arithmetic** — which is the measurement
-    D-217 rests on: every node of a generator step is told the same row count,
+    this rests on: every node of a generator step is told the same row count,
     because no expression a document can carry divides one number by another.
-    The per-node mapping and the drop of the overflow are the site operator's
-    (P9-T05); pushing the rows is this function's caller's.
+    The per-node mapping and the drop of the overflow are the site operator's;
+    pushing the rows is this function's caller's.
 
     A missing or non-positive count is refused rather than run as an empty
     partition: a node that generated nothing would write twelve empty files and
@@ -479,7 +479,7 @@ def generator_node_count(channel_config: Any, env: dict[str, Any]) -> int:
 
     `StartReducingComputePipes` reads it to make one `%04dP` partition per node;
     `CoordinateComputePipes` never looks at it. It is exposed here because the
-    Python node's local driver (P9-T19) has no Go starter in front of it and has
+    Python node's local driver has no Go starter in front of it and has
     to expand the partitions itself, and because a caller that read it as *this
     node's* row count would be reading the wrong field. The default is the
     starter's: `${NBR_PARTITIONS}` when the document names none.
@@ -554,7 +554,7 @@ def _closable_channel_names(spec: Any) -> tuple[str, ...]:
 
     `StartFanOutPipe`'s deferred close set: every step's own output channel,
     every channel a site step declared, and every error channel — the same three
-    sources the registry construction reads, which is what P9-I13's repair made
+    sources the registry construction reads, which is what the close-every-channel repair made
     true of the Go executors as well.
     """
     names: list[str] = []
@@ -611,8 +611,8 @@ def build_pipe_transformation_evaluator(
         "shard_id": ctx.args.node_id,
         "step_id": _step_id(ctx.config),
     }
-    # **A built-in is handed the builder context and a site factory is not**
-    # (D-226, P9-I55). The call shape stays one and the receiver differs, which
+    # **A built-in is handed the builder context and a site factory is not**.
+    # The call shape stays one and the receiver differs, which
     # is Go's own asymmetry: a built-in is a `*BuilderContext` method where a
     # site factory takes `(OperatorEnv, OperatorArgs)`.
     env: GraphOperatorEnv = (
@@ -640,12 +640,12 @@ def _transformation_factory(ctx: NodeContext, token: str) -> tuple[Any, bool]:
 
     `BuildPipeTransformationEvaluator` tries its eighteen cases and reaches
     `buildSiteOperator` only in the `default:` branch, which is what makes a site
-    token unable to shadow a built-in (Q-140). Here the declaration registry is
+    token unable to shadow a built-in. Here the declaration registry is
     asked first for the same reason, and `scope.classify` already asks in that
     order at startup, so the gate and the dispatch agree by construction.
 
     **Returns the factory and whether it is a built-in**, because that is what
-    decides which env it is handed (D-226). The call shape is one —
+    decides which env it is handed. The call shape is one —
     `factory(env, args)` for both — and the *receiver* differs: a built-in gets
     `BuilderEnv`, which carries the node context, the channel registry and the
     authored spec, and a site factory gets `GraphOperatorEnv`, which carries
@@ -653,8 +653,8 @@ def _transformation_factory(ctx: NodeContext, token: str) -> tuple[Any, bool]:
     `*BuilderContext` method and a site factory takes `(env, args)`.
 
     Unifying the two *call shapes* still costs nothing in conformance and still
-    means P9-T06 and P9-T07 add a `build` to their classes and touch nothing
-    here. What P9-I55 measured is that unifying the two *contexts* cost
+    means a new built-in adds a `build` to its class and touches nothing
+    here. What was measured is that unifying the two *contexts* cost
     something real: `partition_writer` writes files, nothing it was handed
     reached the object store, and the operator could not be reached from a
     `.pc.json` at all. A built-in reads its own configuration off `args.config`,
@@ -700,7 +700,7 @@ def _site_operator_args(
     operator one channel at two indices with nothing to tell them apart. Both
     messages are the Go function's.
 
-    **A built-in's own `*_config` block is filled here too** (P9-I55). This
+    **A built-in's own `*_config` block is filled here too**. This
     function used to return before setting anything for a spec carrying no
     `site_config`, so every built-in reached its factory with `args.config`
     `None` whatever its step authored — a `filter` with `max_output_records: 4`
@@ -809,8 +809,8 @@ def _resolve_declared(
 def _resolve_lookups(ctx: NodeContext, site: Any, token: str) -> tuple[Lookup, ...]:
     """`resolveSiteLookups`' shape, over a loader this node does not have.
 
-    P9-T02 built `OperatorArgs.Lookups` **for the contract rather than for this
-    corpus** (D-202): the corpus operator keeps its own reference-table package.
+    `OperatorArgs.Lookups` was built **for the contract rather than for this
+    corpus**: the corpus operator keeps its own reference-table package.
     So a document declaring `site_config.lookups` is refused by name here rather
     than handed empty tables — the field resolving to nothing is the silent
     failure the whole extension exists to avoid, and the loader is nobody's task
@@ -853,7 +853,7 @@ def execution_order(pipes: list[Any]) -> tuple[int, ...]:
     whose source channel no step writes can never receive a record and is never
     closed, so its `range` never returns; and a cycle leaves every pipe in it
     waiting on the one behind. Both are decidable by reading, both name the
-    channel, and both are the same act as X6's abort: *never silently skip, and
+    channel, and both are the same act as the scope abort: *never silently skip, and
     never wait forever either*.
     """
     if pipes and pipes[0].input_channel.name != INPUT_ROW:
@@ -914,7 +914,7 @@ def _handler(kind: TokenKind, token: str, env: dict[str, Any], spec: Any) -> Any
     `if spec.type == "fan_out"` anywhere in this module: `Operator.build` is what
     makes a token implemented (`scope.Operator.implemented` derives that from the
     method existing), so a channel type or pipe kind this node grows is reached
-    by its class being written and by nothing being remembered here (P3-I20).
+    by its class being written and by nothing being remembered here.
 
     Every refusal below is unreachable through `coordinate`, because
     `config.check_scope` has already judged every token the document names. They
@@ -1020,7 +1020,7 @@ def drives_channel_graph(spec: Any) -> bool:
     are `LoadFiles` and `StartMergeFiles`, chosen in
     `ProcessFilesAndReportStatus` before `StartComputePipes` is entered, and the
     branch below is that choice made from the declaration rather than from an
-    `if` (D-224, P3-I20).
+    `if`.
     """
     declaration = scope.declaration(TokenKind.PIPE, getattr(spec, "type", "") or "")
     if declaration is None:
@@ -1043,7 +1043,7 @@ def run(ctx: NodeContext) -> Any:
 
     overrides = 0
     if not _starter_has_run(config):
-        # The node standing in for a starter; see D-219 and the module docstring.
+        # The node standing in for a starter; see the module docstring.
         overrides = apply_conditional_config(pipes, ctx.env)
 
     if not drives_channel_graph(pipes[0]):
@@ -1201,7 +1201,7 @@ def _warn_on_width_mismatch(source_row: InputChannel, width: int) -> None:
     **Warned rather than refused**, because the Go engine runs such a document
     and only fails if something indexes past the end; refusing would reject a
     pipeline that works today. What settles it is the authored document:
-    P9-T18's `.pc.json` should give the generator channel the same columns as
+    the pipeline's `.pc.json` should give the generator channel the same columns as
     the main input.
     """
     declared = len(source_row.config.columns)
@@ -1287,7 +1287,7 @@ def _assert_every_source_closed(
 ) -> None:
     """Every channel some pipe read must be closed by the end of the run.
 
-    **This is P9-I13's property, checked from the reading side.** A channel that
+    **This is the close-every-channel property, checked from the reading side.** A channel that
     is registered, resolved, written and closed by nothing is a reader that
     never sees EOF; in Go that is a goroutine that never returns and a run that
     hangs. Here the close is the graph's, so the invariant is checkable, and

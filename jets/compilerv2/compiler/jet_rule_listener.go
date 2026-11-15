@@ -24,7 +24,7 @@ func (j *JetRuleListener) LogError(msg string) {
 // logErrorf writes a formatted complaint to the text log byte for byte as the
 // fmt.Fprintf it replaces did, and records it as a diagnostic too. Before it,
 // the rule validation and class checks wrote to errorLog directly, so they
-// failed the compile and left CompilationError.Errors() empty (I-63).
+// failed the compile and left CompilationError.Errors() empty.
 func (j *JetRuleListener) logErrorf(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	j.errorLog.WriteString(msg)

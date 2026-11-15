@@ -26,14 +26,13 @@ import (
 // "load files & execute pipelines", which is exactly what registering a file key
 // starts.
 //
-// **Corrected 2026-10-01: registerFileKeyUF is retired** (jetstore_maintenance_02,
-// Q-6 and task AD.4). Its successor as put_schema_event_to_s3's human caller is
-// the Pipeline Status table's *Put Schema Event* dialog on the Home screen (D01),
-// added by task AD.3 of the same phase, which sends no file_key and lets
-// PutSchemaEventToS3 name the object (AD.1). The argument above is unchanged by
+// **Corrected 2026-10-01: registerFileKeyUF is retired.** Its successor as put_schema_event_to_s3's human caller is
+// the Pipeline Status table's *Put Schema Event* dialog on the Home screen,
+// added at the same time, which sends no file_key and lets
+// PutSchemaEventToS3 name the object. The argument above is unchanged by
 // it: the caller is still an ops screen, and the capability it needs is still
 // this one, which the retired flow's Save button had declared as client_config
-// instead (that project's I-2).
+// instead.
 //
 // **A system-only capability was proposed and declined, and the reason is worth
 // keeping.** The register_keys action is issued by the RegisterFileKeyV2 lambda
@@ -49,7 +48,7 @@ import (
 // token, so that function is mixed-population by construction.
 //
 // system_role holds run_pipelines (jets/jets_init_db.sql), so the lambda would
-// pass this gate unchanged if it ever did come through HTTP. ui_refresh I-138.
+// pass this gate unchanged if it ever did come through HTTP.
 const RegisterFileKeyCapability = "run_pipelines"
 
 // DoRegisterFileKeyAction ------------------------------------------------------
@@ -68,10 +67,10 @@ func (server *Server) DoRegisterFileKeyAction(w http.ResponseWriter, r *http.Req
 
 	// RBAC check, following DoPurgeDataAction, DoInferServerAction and DoAgenticAction.
 	//
-	// **This endpoint asked for nothing until 2026-08-25** (ui_refresh I-138). It is
+	// **This endpoint asked for nothing until 2026-08-25**. It is
 	// registered behind authh (server.go, the /registerFileKey POST route), which
 	// validates the token and nothing else, and it used the token only for the audit
-	// line above -- the same pairing I-126 named on /purgeData, careful about
+	// line above -- the same pairing found earlier on /purgeData, careful about
 	// attribution and silent about authorisation, arriving on an endpoint that
 	// registers file keys and can start an automated load.
 	//

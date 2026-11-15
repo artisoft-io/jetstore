@@ -26,7 +26,7 @@ import (
 // reaches an unset one gets a zero value, which is what an "unused in this
 // test" arm should look like.
 type fakeOps struct {
-	// AC.3's incident transition history; nil is a legitimate answer.
+	// The incident transition history; nil is a legitimate answer.
 	transitions    []audit.IncidentTransition
 	transitionsErr error
 
@@ -42,7 +42,7 @@ type fakeOps struct {
 	// server-side derivation of actor and tier is asserted.
 	recorded *audit.Approval
 
-	// The incident half (task AE.1). `incidentErr` is what makes the
+	// The incident half. `incidentErr` is what makes the
 	// unmigrated-database path testable here at all: the alternative is a
 	// database with no schema, which the audit package tests and this one
 	// cannot.
@@ -53,7 +53,7 @@ type fakeOps struct {
 	// assert the screen's filter reached the store rather than the wrong field.
 	statusFilter []string
 
-	// phiSeen captures the PHI decision ReadIncident was handed (task AE.2).
+	// phiSeen captures the PHI decision ReadIncident was handed.
 	// **The redaction itself is not testable here**: this fake stands where the
 	// audit package's read would be, and that read is where the withholding
 	// happens — which is the design rather than a limitation of the fake. What
@@ -62,13 +62,13 @@ type fakeOps struct {
 	phiSeen  audit.PHIAccess
 	phiAsked bool
 
-	// The verdict write (task AJ.2, Q-52).
+	// The verdict write.
 	recordedVerdict             *audit.IncidentTransition
 	verdictErr                  error
 	verdictClassificationBefore string
 	verdictRunRef               string
 
-	// The Detection screen (I-861); its methods are in
+	// The Detection screen; its methods are in
 	// api_agentic_detection_test.go.
 	detection detectionFake
 }
@@ -131,7 +131,7 @@ func (f *fakeOps) ReadIncident(_ context.Context, id string, phi audit.PHIAccess
 // passed explicitly by the tests that are about it** — deliberately the safe
 // value, on the same argument the production signature makes: a helper that
 // disclosed by default would let a future test inherit disclosure by writing
-// nothing, which is the failure AE.2 exists to close one layer down.
+// nothing, which is the failure the PHI gate exists to close one layer down.
 func dispatch(t *testing.T, ops agenticOps, a *AgenticAction, actor string, phi ...audit.PHIAccess) (map[string]any, int, error) {
 	t.Helper()
 	access := audit.RedactPHI
@@ -228,7 +228,7 @@ func TestGetProposalReturnsItsDecisionsAndItsNextStates(t *testing.T) {
 	}
 }
 
-// K.2's decision, enforced at the wire: there is no way to obtain the events
+// A design decision, enforced at the wire: there is no way to obtain the events
 // without the verdict on them. A viewer that renders a tamper-evident log
 // without checking the evidence offers the appearance of the property.
 func TestTranscriptCarriesItsVerdictAndItsDefects(t *testing.T) {
@@ -367,7 +367,7 @@ func TestAStaleFromStateIsAConflictBeforeTheWrite(t *testing.T) {
 }
 
 // And the race the read cannot close: two approvers pass the check and one of
-// them loses at the UPDATE. K.1 made that a distinct error so a caller could
+// them loses at the UPDATE. The audit package made that a distinct error so a caller could
 // act on it; this is where it becomes a status code the browser can branch on.
 func TestTheLostRaceReachesTheClientAs409(t *testing.T) {
 	ops := &fakeOps{
@@ -404,7 +404,7 @@ func TestAProposalWithNoRunCannotBeDecided(t *testing.T) {
 	}
 }
 
-// The incident half (task AE.1) --------------------------------------------
+// The incident half --------------------------------------------
 //
 // **What is worth asserting here is what the endpoint refuses to lose**, on the
 // same argument as the proposal tests above: both taxonomies travel together,
@@ -438,8 +438,8 @@ func TestListIncidentsCarriesBothTaxonomiesAndTheVocabulary(t *testing.T) {
 		t.Fatalf("got %d rows", len(rows))
 	}
 	row := rows[0]
-	// The row carries both columns. A response with only one of them is R-27
-	// arriving on the wire: a locus rendered under a heading that says cause.
+	// The row carries both columns. A response with only one of them is a known
+	// risk arriving on the wire: a locus rendered under a heading that says cause.
 	if row["locus"] != audit.LocusWorkerFailed {
 		t.Errorf("locus %v", row["locus"])
 	}
@@ -483,7 +483,7 @@ func TestGetIncidentReturnsBothEvidenceSides(t *testing.T) {
 	}
 	// An empty contradicting array must arrive as an array. A hypothesis that
 	// asserts nothing against itself and one that was never asked are different
-	// claims, and A.2.8 calls the difference a calibration control.
+	// claims, and the difference is a calibration control.
 	got, ok := hs[0]["contradictingEvidence"].([]map[string]any)
 	if !ok || got == nil {
 		t.Fatalf("contradictingEvidence is %T, want an array", hs[0]["contradictingEvidence"])
@@ -496,7 +496,7 @@ func TestGetIncidentReturnsBothEvidenceSides(t *testing.T) {
 	}
 }
 
-// AB.4, Q-32. The run reference is what decides whether a transition on this
+// The run reference is what decides whether a transition on this
 // incident reaches the hash chain, so a supervision surface that dropped it on
 // the way to the browser would leave the screen unable to say so.
 func TestIncidentRowCarriesTheRunReference(t *testing.T) {
@@ -512,7 +512,7 @@ func TestIncidentRowCarriesTheRunReference(t *testing.T) {
 		t.Errorf("runRef reached the wire as %v", rows[0]["runRef"])
 	}
 	// "" rather than absent for an incident nothing agentic raised, which is
-	// the ordinary case out of AC.1 and is a value the screen renders words for.
+	// the ordinary case and is a value the screen renders words for.
 	ops2 := &fakeOps{incidents: []audit.IncidentSummary{sampleIncident()}}
 	res2, _, err := dispatch(t, ops2, &AgenticAction{Action: "list_incidents"}, "a@b")
 	if err != nil {
@@ -524,7 +524,7 @@ func TestIncidentRowCarriesTheRunReference(t *testing.T) {
 	}
 }
 
-// AE.2, I-311. Two claims, and they are separate: the capability decision has to
+// Two claims, and they are separate: the capability decision has to
 // reach the read unchanged, and the caller has to be told what was withheld
 // rather than being left to infer it from a blank statement.
 func TestPHIAccessReachesTheReadAndIsReportedToTheCaller(t *testing.T) {
@@ -565,7 +565,7 @@ func TestPHIAccessReachesTheReadAndIsReportedToTheCaller(t *testing.T) {
 	}
 }
 
-// The grant was taken by the user on 2026-09-04 (Q-42): knowledge_engineer, the
+// The grant was taken by the user on 2026-09-04: knowledge_engineer, the
 // role jets_init_db.sql calls a super user and the only seeded role holding
 // agent_supervision. This test is the one the earlier version said would have to
 // be edited, and it is edited rather than deleted, because what it asserts is
@@ -575,7 +575,7 @@ func TestPHIAccessReachesTheReadAndIsReportedToTheCaller(t *testing.T) {
 // **What the grant costs is worth stating where somebody will read it.** In the
 // seeded deployment the set of principals who can supervise agents and the set
 // who can read PHI are now the same set, because knowledge_engineer is the only
-// member of the first. So I-311's floor — a PHI-marked field is not covered by
+// member of the first. So the PHI floor — a PHI-marked field is not covered by
 // agent_supervision alone — is true in the code and has no effect in the default
 // seed. It is not vacuous: it is what a *second* role granted agent_supervision
 // and not agent_phi_access will meet, and a deployment that wants supervision
@@ -583,7 +583,7 @@ func TestPHIAccessReachesTheReadAndIsReportedToTheCaller(t *testing.T) {
 //
 // **Widened deliberately on 2026-11-07, to designated_admin**, the role that holds
 // every knowledge_engineer capability plus delete_session and user_admin. The
-// session_registry assessment took it as a decision rather than a side effect, and
+// role's design took it as a decision rather than a side effect, and
 // the user accepted it: designated_admin is a knowledge engineer with more
 // authority, not less trusted with client data. So two roles, named, and still no
 // third without editing this test.
@@ -596,8 +596,8 @@ func TestAgentPHIAccessCapabilityIsGrantedToExactlyTheDecidedRoles(t *testing.T)
 		t.Errorf("jets_init_db.sql does not document the %q capability", AgentPHIAccessCapability)
 	}
 	decided := map[string]string{
-		"knowledge_engineer": "2026-09-04 (Q-42)",
-		"designated_admin":   "2026-11-07 (session_registry, R9)",
+		"knowledge_engineer": "2026-09-04",
+		"designated_admin":   "2026-11-07",
 	}
 	for role, when := range decided {
 		grant := fmt.Sprintf("('%s', '%s')", role, AgentPHIAccessCapability)
@@ -608,7 +608,7 @@ func TestAgentPHIAccessCapabilityIsGrantedToExactlyTheDecidedRoles(t *testing.T)
 	}
 	if n := strings.Count(string(sql), fmt.Sprintf("'%s')", AgentPHIAccessCapability)); n != len(decided) {
 		t.Errorf("jets_init_db.sql grants %q to %d roles, expected exactly %d (knowledge_engineer, "+
-			"designated_admin). Widening it is a policy decision (Q-42): take it deliberately and "+
+			"designated_admin). Widening it is a policy decision: take it deliberately and "+
 			"update this test", AgentPHIAccessCapability, n, len(decided))
 	}
 }
@@ -625,7 +625,7 @@ func TestAnUnknownIncidentIs404(t *testing.T) {
 
 // **The one a live database will not hand a test on demand**, and the reason
 // ErrTablesNotDeployed is a type rather than a message: on every deployment
-// older than AB.1 these tables are absent, and a 500 would put a missing
+// older than the incident tables, they are absent, and a 500 would put a missing
 // migration in the same bucket as an outage. 503 says the deployment is not
 // ready, which is both true and actionable.
 func TestAnUnmigratedDatabaseIs503RatherThan500(t *testing.T) {
@@ -647,14 +647,14 @@ func TestAnUnmigratedDatabaseIs503RatherThan500(t *testing.T) {
 	}
 }
 
-// IncidentTransitionsFor completes the agenticOps interface for the fake store
-// (task AC.3). The scripted value is `transitions`; nil is a legitimate answer
-// and is what a database migrated between AB.1 and AB.2 would give.
+// IncidentTransitionsFor completes the agenticOps interface for the fake store.
+// The scripted value is `transitions`; nil is a legitimate answer
+// and is what a database migrated between the two incident tables would give.
 func (f *fakeOps) IncidentTransitionsFor(context.Context, string) ([]audit.IncidentTransition, error) {
 	return f.transitions, f.transitionsErr
 }
 
-// RecordIncidentTransition is the verdict write (task AJ.2). `recordedVerdict`
+// RecordIncidentTransition is the verdict write. `recordedVerdict`
 // captures what the handler composed, which is how the two things the request
 // may not carry — the actor and the actor **kind** — are asserted to have been
 // derived server-side.
@@ -675,7 +675,7 @@ func (f *fakeOps) RecordIncidentTransition(_ context.Context, t *audit.IncidentT
 	return 11, nil
 }
 
-// The verdict control's server half (task AJ.2, Q-52) — the single change that
+// The verdict control's server half — the single change that
 // gives `HumanVerdicts` a writer.
 //
 // **Every test below is about something the request may not decide.** The
@@ -725,14 +725,14 @@ func TestAVerdictIsRecordedAsAHumanAndTheRequestCannotSayOtherwise(t *testing.T)
 		t.Errorf("classificationAfter = %v", res["classificationAfter"])
 	}
 	// The two ends of the label come back together — a pairing recovered later
-	// from a mutable column is one the next correction destroys (P4 §12.4).
+	// from a mutable column is one the next correction destroys.
 	if _, ok := res["classificationBefore"]; !ok {
 		t.Error("the response drops classificationBefore, which is half the label")
 	}
 }
 
 // A verdict on an incident nothing agentic raised is durable, attributable and
-// not hash-chained (AB.4, R-44). Seq 0 is that case and is not an error.
+// not hash-chained. Seq 0 is that case and is not an error.
 func TestAVerdictOnAnIncidentWithNoRunIsRecordedAndNotChained(t *testing.T) {
 	ops := &fakeOps{incident: &audit.Incident{IncidentSummary: sampleIncident()}}
 	res, code, err := dispatch(t, ops, &AgenticAction{
@@ -760,7 +760,7 @@ func TestAVerdictNeedsAnAuthenticatedActor(t *testing.T) {
 	}
 }
 
-// A.5's graph is enforced at the endpoint as well as in the primitive, so the
+// The incident lifecycle graph is enforced at the endpoint as well as in the primitive, so the
 // message can name the permitted set rather than the constraint that fired.
 func TestAnIllegalVerdictEdgeIsRefused(t *testing.T) {
 	ops := &fakeOps{incident: &audit.Incident{IncidentSummary: sampleIncident()}}
@@ -825,7 +825,7 @@ func TestAVerdictOnAMissingIncidentIs404(t *testing.T) {
 }
 
 // The detail response carries what may be done next and what a reclassification
-// may claim, both from the server (AJ.2).
+// may claim, both from the server.
 func TestGetIncidentCarriesThePermittedTransitionsAndTheCauses(t *testing.T) {
 	ops := &fakeOps{incident: &audit.Incident{IncidentSummary: sampleIncident()}}
 	res, code, err := dispatch(t, ops,
@@ -838,7 +838,7 @@ func TestGetIncidentCarriesThePermittedTransitionsAndTheCauses(t *testing.T) {
 		t.Fatalf("permittedTransitions = %#v", res["permittedTransitions"])
 	}
 	// `triaged` is the only status with three successors and all three are
-	// adjudications — which is why plan §10.7 calls this screen the labelling
+	// adjudications — which is why this screen is the labelling
 	// instrument.
 	if len(permitted) != 3 {
 		t.Errorf("permittedTransitions = %v, want the three adjudications of `triaged`", permitted)

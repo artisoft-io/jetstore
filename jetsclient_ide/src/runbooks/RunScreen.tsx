@@ -2,12 +2,10 @@
  * One run of a runbook: its steps in sequence, and the controls its state
  * allows.
  *
- * `runbooks` project, Phase 1, tasks AC.3.
- *
  * ## The rule this screen exists to keep
  *
  * **Every `ddl` step pauses for a person, and the person sees what they are
- * accepting** (the project's `Q-3`, widened by Michel on 2026-11-06). So a `ddl`
+ * accepting** (a rule widened on 2026-11-06). So a `ddl`
  * step awaiting confirmation shows, beside *Accept* and *Deny*, the exact
  * statement text the executor will send, the name and value of every bound
  * parameter, the hash of its `.sql` file, and each statement's command tag if
@@ -533,7 +531,7 @@ function StepCard({
  * *Accept* and *Deny*, with what is being accepted.
  *
  * For a `ddl` step that is the statement, every bound value, the file hash and
- * the preview: the project's safety rule (`Q-3`) is that the person sees the
+ * the preview: the project's safety rule is that the person sees the
  * statement before it runs as them.
  */
 function Confirmation({

@@ -4,7 +4,7 @@ import "encoding/json"
 
 // TransformationColumnEvaluator computes one column of an output record.
 //
-// It lived in `compute_pipes/pipes_runtime_model.go` until Phase 9's `BD.2` and
+// It lived in `compute_pipes/pipes_runtime_model.go` at first and
 // moved here because it is `OperatorEnv.ColumnEvaluator`'s return type: a site
 // operator that honours the step's authored `columns` has to be able to name
 // what it gets back. `compute_pipes` keeps a type alias, so nothing outside this
@@ -18,7 +18,7 @@ type TransformationColumnEvaluator interface {
 
 // LookupTable is one loaded lookup table, read-only and keyed.
 //
-// It lived in `compute_pipes/lookup_table_manager.go` until Phase 9's P9-T02 and
+// It lived in `compute_pipes/lookup_table_manager.go` at first and
 // moved here for TransformationColumnEvaluator's reason one field over: it is
 // what OperatorArgs.Lookups hands across, so a site operator has to be able to
 // name what it is given. `compute_pipes` keeps a type alias, so `LookupTableS3`,
@@ -63,7 +63,7 @@ type LookupTable interface {
 // table from another, so the pair is the smallest thing that makes the list
 // usable without widening the interface every implementation would have to grow.
 //
-// **A slice of pairs rather than a map, and the reason is order** (D-209). A
+// **A slice of pairs rather than a map, and the reason is order**. A
 // map's range order is unspecified, so an operator that iterated its lookups
 // would do so differently from run to run -- which is invisible in a keyed read
 // and fatal to anything downstream that must be a pure function of its inputs.
@@ -89,16 +89,16 @@ type Lookup struct {
 //
 // `BuilderContext` has 18 fields and the operator constructors reach into them
 // freely. Five of the six original methods are one of those reaches each; the
-// rest are withheld with a named reader and a stated reason in Phase 9 §12.6 of
-// the `agentic_ai` plan. The short form: the channel registry is withheld
+// rest are withheld, each with a named reader and a stated reason. The short
+// form: the channel registry is withheld
 // because an operator that can name any channel can read from or write into one
 // it does not own -- the one use it genuinely needs, the error channel, is
 // resolved by the builder and handed over on OperatorArgs; the pgx pool and the
 // S3 device manager are withheld because admitting them would put those
 // dependencies back into a package whose whole purpose is not to have them.
 //
-// **The seventh method, ReportError, is of a different kind and §22 is where it
-// was decided.** The six are accessors; this one is a service. It reads four
+// **The seventh method, ReportError, is of a different kind and it was decided
+// separately.** The six are accessors; this one is a service. It reads four
 // withheld fields -- `peKey`, `nodeId`, `sessionId` and the step id off
 // `cpConfig` -- and exposes none of them, which is what lets a site operator
 // write a row that joins to its worker row without being handed the node's
@@ -111,8 +111,7 @@ type Lookup struct {
 // A site that consumes this interface is not broken by a method being added; a
 // site that *implements* one is, and a test double is an implementation. **Embed
 // OperatorEnv in the fake and override only what the test needs**, so that a
-// method added later compiles and panics on use rather than failing the build
-// (`I-781`).
+// method added later compiles and panics on use rather than failing the build.
 //
 //	type fakeEnv struct {
 //		pipesmodel.OperatorEnv // nil; any method not overridden panics
@@ -233,7 +232,7 @@ type OperatorArgs struct {
 	// authored. It is nil when the step declared none.
 	//
 	// **This is ErrorChannel's move pluralised, and it preserves the same
-	// argument.** §12.6 withholds `channelRegistry` because an operator that can
+	// argument.** The interface withholds `channelRegistry` because an operator that can
 	// name any channel can read from or write into one it does not own. An
 	// operator handed the channels *its own step* declared can name nothing
 	// else: the registry is still unreachable, and what arrives here is a
@@ -269,7 +268,7 @@ type OperatorArgs struct {
 	// # Closing them is not the operator's job
 	//
 	// The graph closes a channel, not the operator that writes it:
-	// ChannelRegistry.CloseChannel is on the far side of §12.6's line for the
+	// ChannelRegistry.CloseChannel is on the far side of the withholding line for the
 	// same reason naming is. Write records and return; select every send against
 	// OperatorEnv.Done, which is the only termination signal this package hands
 	// over, the way every built-in does in Apply.
@@ -280,7 +279,7 @@ type OperatorArgs struct {
 	// none.
 	//
 	// **Outputs' move on the other withheld field, and the same argument
-	// carries it.** §12.6 withholds `lookupTableManager` beside
+	// carries it.** The interface withholds `lookupTableManager` beside
 	// `channelRegistry`; the reason is weaker for a lookup than for its
 	// neighbours in that row -- a lookup is a read-only keyed table with no
 	// write side and no effect on the graph -- but it is the same remedy
@@ -302,8 +301,8 @@ type OperatorArgs struct {
 	// operators. A name that no `lookup_tables` entry defines is refused there,
 	// by name, the way every other operator's reference is.
 	//
-	// **It is built for the contract rather than for its first consumer**
-	// (D-202). The corpus generator that motivated the operator contract does
+	// **It is built for the contract rather than for its first consumer**.
+	// The corpus generator that motivated the operator contract does
 	// not use this field: it keeps its own reference-table package, because a
 	// generic keyed map gives neither per-table declared key normalisation nor
 	// the refusals that make a table which quietly lost rows visible. An

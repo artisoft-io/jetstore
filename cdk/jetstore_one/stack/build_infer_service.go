@@ -144,7 +144,7 @@ func (jsComp *JetStoreStackComponents) inferContainerEnvironment() *map[string]*
 		// context_length 98304 — the same figure a single 98304-token request
 		// allocates. Multiplying would have wanted ~120 GiB and refused to start.
 		//
-		// **4 is safe at 98304 and would restore E.8's K**, at 24576 per request. It
+		// **4 is safe at 98304 and would restore the earlier K**, at 24576 per request. It
 		// is left at 2 only because raising it costs a deployment and nothing is
 		// waiting on it.
 		env["OLLAMA_NUM_PARALLEL"] = jsii.String(jsComp.InferEnvOrDefault("OLLAMA_NUM_PARALLEL", "2"))
@@ -157,7 +157,7 @@ func (jsComp *JetStoreStackComponents) inferContainerEnvironment() *map[string]*
 		// not at 98304 each, which is 2 x 32.26 = 64.5 GiB. Raising this to 2 requires
 		// lowering the context in the same change; leaving them inconsistent is safe
 		// only for as long as exactly one model exists, and the failure when a second
-		// arrives is a silent spill rather than a refusal. See I-47.
+		// arrives is a silent spill rather than a refusal.
 		env["OLLAMA_MAX_LOADED_MODELS"] = jsii.String(jsComp.InferEnvOrDefault("OLLAMA_MAX_LOADED_MODELS", "1"))
 		// Must carry a unit: Ollama parses a bare integer as seconds, so the previous
 		// "30" unloaded the model after 30s idle and paid a full VRAM reload on the
@@ -181,7 +181,7 @@ func (jsComp *JetStoreStackComponents) inferContainerEnvironment() *map[string]*
 		//
 		// **98304 with OLLAMA_NUM_PARALLEL=2 gives each request 49152 tokens** and
 		// costs 32.26 GiB, leaving ~15.7 GiB. The largest prompt the authoring loop
-		// actually builds is 13.5k (measured at F.6), so that is 3.6x headroom.
+		// actually builds is 13.5k (as measured), so that is 3.6x headroom.
 		//
 		// **How the division was established, because the first attempt did not.**
 		// tools/infer_capacity sets num_ctx per request, which overrides this variable

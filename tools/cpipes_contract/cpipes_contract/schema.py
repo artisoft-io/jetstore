@@ -1,9 +1,9 @@
-"""Emit the cpipes JSON Schema: one document, every type in `$defs` (B.11).
+"""Emit the cpipes JSON Schema: one document, every type in `$defs`.
 
 Every addressable type of the matrix — each (go_struct, token) class, the
 merged classes, and the discriminated-union aliases — lands as an independently
 addressable `$defs` entry. That is a hard requirement, not a convenience: the
-plan's §5.3 typed holes bind to exactly one `$defs` entry
+template model's typed holes bind to exactly one `$defs` entry
 (`{"$ref": "#/$defs/TransformationSpec"}` and the like) and have no other way
 to constrain what fills them. The document root is the full config schema via
 `$ref` to `#/$defs/ComputePipesConfig`, so the same file validates whole
@@ -43,7 +43,7 @@ def splice_complement_branches(defs: dict, types_csv: Path) -> None:
     a site operator - and Pydantic writes that as
     `anyOf: [<tagged oneOf>, <branch>]`. This function folds that two-member
     `anyOf` back into the single discriminated `oneOf` the schema has carried
-    since gap 2b, so the emitted document is unchanged by the model gaining the
+    since the site operator was added, so the emitted document is unchanged by the model gaining the
     branch. **Measured: byte-identical**, which is the check
     `tests_schema.py::test_the_committed_schema_is_what_the_current_model_emits`
     makes on every run.
@@ -51,7 +51,7 @@ def splice_complement_branches(defs: dict, types_csv: Path) -> None:
     Until 2026-09-19 this *added* the branch to a union that did not contain it,
     because the model's alias carried only the nineteen tagged members and
     `ComputePipesConfig.model_validate` refused every document naming a site
-    operator. That is the half of `I-778` gap 2b left behind: the schema said
+    operator. That is the half an earlier fix left behind: the schema said
     yes and the model said no, and the first authored `.pc.json` to contain a
     site operator made the two disagree out loud.
 

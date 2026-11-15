@@ -1,5 +1,5 @@
 /**
- * `copySchemaEvent` — jetstore_maintenance_02, `D04`, `AE.5`. The screen-level
+ * `copySchemaEvent` (2026-10-01). The screen-level
  * case is `screens/Home.test.tsx`; these are the edges a screen test would not
  * reach without a fixture per row.
  */

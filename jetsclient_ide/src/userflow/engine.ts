@@ -1,5 +1,5 @@
 /**
- * The flow engine. Task S.5.
+ * The flow engine.
  *
  * A port of `modules/actions/user_flow_actions.dart` — 187 lines of Dart, and
  * the smallest piece of this whole phase. It is a switch over six action keys
@@ -24,7 +24,7 @@
  * `next()` returns null when no choice matched and there is no default. The Dart
  * logs and returns an error string; the state machine stays where it is. That is
  * reproduced — a flow that cannot advance is not a flow that should advance
- * somewhere arbitrary — and S.1's schema makes it unreachable for a *non-end*
+ * somewhere arbitrary — and the schema makes it unreachable for a *non-end*
  * state by requiring choices or a default, so it can now only happen when every
  * choice evaluates false.
  */
@@ -146,7 +146,7 @@ export const startAt = (flow: UserFlow): FlowPosition => ({
 });
 
 /**
- * Where a run begins when the url names a state. Task D.10, from **I-260**.
+ * Where a run begins when the url names a state, from a defect report.
  *
  * **Two decisions, each made against a plausible alternative.**
  *
@@ -203,7 +203,7 @@ export interface StepRequest {
    * Runs the state's `stateAction`, if it has one.
    *
    * Returns whether the action completed as well as what to say, because the flow
-   * may only move when it did — see `step`, and I-29.
+   * may only move when it did — see `step`.
    */
   runStateAction(name: string): Promise<ActionResult>;
   /** Runs the form's validators. False stops without failing. */
@@ -225,7 +225,7 @@ export interface StepResult {
  * The order inside `ufNext` and `ufCompleted` is the Dart's and is load-bearing:
  * **validate, then run the state's action, then move.**
  *
- * ## A failed action no longer advances — I-29, fixed 2026-08-26
+ * ## A failed action no longer advances — fixed 2026-08-26
  *
  * It used to. The Dart logs the error and carries on
  * (`user_flow_actions.dart:62`), so a state whose action posts and gets a 500
@@ -235,7 +235,7 @@ export interface StepResult {
  * to be the Flutter app** and changing when a flow advances is a behaviour change
  * rather than a translation.
  *
- * **That reasoning expired when the Flutter app did** (track X, 2026-08-26).
+ * **That reasoning expired when the Flutter app did** (2026-08-26).
  * There is nothing left to be faithful to, and what remained was an application
  * that tells a user their work is saved when it is not — now in front of real
  * users, which it was not when the entry was written.
@@ -299,7 +299,7 @@ export async function step(action: StandardAction, request: StepRequest): Promis
         return stay(`No next step from "${position.stateKey}"`);
       }
       if (flow.states[to] === undefined) {
-        // S.4 refuses this at save time; reaching it means a flow was loaded
+        // The Go validator refuses this at save time; reaching it means a flow was loaded
         // from somewhere that did not check.
         throw new FlowError(`state "${position.stateKey}" transitions to "${to}", which does not exist`);
       }

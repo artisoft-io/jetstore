@@ -6,15 +6,15 @@ import (
 	"strings"
 )
 
-// Tool-call conformance: whether a local model can drive the catalogue (J.2,
-// criterion 27), under the same reporting rules decision 13 settled for
+// Tool-call conformance: whether a local model can drive the catalogue,
+// under the same reporting rules as
 // compile-pass.
 //
 // **The rules carry over unchanged, and one is added.** Per tool with
 // denominators visible; no aggregate; cases rather than rates below
 // RateThreshold. What compile-pass calls Era, this calls Mechanism, and for
 // the same reason: a figure that cannot say how the model was asked will be
-// compared with one produced the other way. R-14's closing note is explicit
+// compared with one produced the other way. The point is explicit
 // that the residue to state is which mechanism was measured, not only the
 // rates.
 //
@@ -32,7 +32,7 @@ type Mechanism string
 const (
 	// MechanismNativeTools is Ollama's `tools` request field and the
 	// `tool_calls` response field — what an MCP client uses, so it is the
-	// faithful measurement of A§10's "drivable by both".
+	// faithful measurement of "drivable by both".
 	MechanismNativeTools Mechanism = "native_tools"
 	// MechanismStructuredJSON is a `{tool, args}` object generated against a
 	// JSON Schema in `format` and validated client-side. Cheaper to build, and
@@ -50,15 +50,15 @@ const (
 type ToolResult struct {
 	Tool string
 	// Arm names a variant of the same tool being compared against another,
-	// empty when a tool has only one. Added at T.2 (2026-08-31), where
+	// empty when a tool has only one. Added 2026-08-31, when
 	// compile_rule_file and validate_cpipes_config each gained a path-valued
-	// alternative to a content argument (I-94's remedy) and the question is
+	// alternative to a content argument and the question is
 	// whether the model names a path as unreliably as it copied a rule.
 	//
 	// **A field rather than a suffix on Tool, because the two rows are one
 	// comparison.** Reporting "compile_rule_file [path]" beside
 	// "compile_rule_file [text]" would read as two tools and invite a total
-	// across them — which is exactly the aggregate decision 13 refuses, since
+	// across them — which is exactly the aggregate the rules refuse, since
 	// the denominators are equal by construction here and would make a total
 	// look defensible. Arm keeps the pair legible as a pair.
 	Arm string
@@ -87,12 +87,12 @@ type ToolResult struct {
 	// argument at all — the model answered through a *different* argument of the
 	// same tool.
 	//
-	// **Added at T.2 because without it the run said the wrong thing.** Giving
+	// **Added then because without it the run said the wrong thing.** Giving
 	// validate_cpipes_config a path alternative made the model reach for the path
 	// even when the prompt handed it a config inline: 5 of 8 content-arm calls in
 	// one dump filled `config_path` and nothing else. Those are schema-valid calls
 	// carrying no payload, and folding them into PayloadFaithful's complement reads
-	// as *the payload was mangled* — I-68's finding recurring — when what happened
+	// as *the payload was mangled* — an earlier finding recurring — when what happened
 	// is that the payload was never sent. Two different verdicts on the remedy, and
 	// the rate alone cannot tell them apart.
 	//
@@ -158,7 +158,7 @@ type AbstentionResult struct {
 
 // ToolReport is a whole conformance measurement.
 //
-// **No aggregate, and here the reason is sharper than decision 13's.** A total
+// **No aggregate, and here the reason is sharper than the rules' own.** A total
 // across tools would average a tool that takes no arguments against one whose
 // argument is a whole cpipes config, and the two are not the same task. The
 // denominators are equal by construction in this harness, which makes a total

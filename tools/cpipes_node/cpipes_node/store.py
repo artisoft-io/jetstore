@@ -1,6 +1,6 @@
 """The object store, behind one seam, with a local implementation and an S3 one.
 
-**The local store is not a test double.** X2, X3, X5 and X7 each need an
+**The local store is not a test double.** The corpus comparisons each need an
 executable oracle, this repository has no docker-compose, and a node that can
 only be run inside AWS is a node whose byte-for-byte comparisons are run by
 hand. So the local path is the same code with a different store, and `Local` is
@@ -12,7 +12,7 @@ operator hold a stream across the node's lifetime, and the second is meaningless
 for a local directory — having it would make the local path the degenerate one
 rather than the ordinary one.
 
-`put_stream` is the one thing the first paragraph used to rule out, and D-243 is
+`put_stream` is the one thing the first paragraph used to rule out, and this is
 why it is here: `stream_data_out` is a flag a document sets and the Go engine
 honours (`s3_device_writter.go:40`), and a flag this node accepted and ignored is
 this repository's standing class. It is deliberately **push**-shaped — the caller
@@ -27,17 +27,17 @@ that escapes the root resolves perfectly well on a filesystem and not at all in
 a bucket, and a run that works locally and fails deployed is the failure this
 seam exists to prevent.
 
-# A bucket that is not the node's own (D-242)
+# A bucket that is not the node's own
 
 `for_bucket` is the seam an authored `output_channel.bucket` reaches. **A store
 is bound to one bucket**, as Go's `S3DeviceWriter` is bound to one
 `externalBucket`, so the resolution happens once where the destination is
 computed and the writer holds a store that already points at the right place.
 
-The sentinel is Go's and it is spelled twice there — once in the builder's
-`spec.OutputChannel.Bucket != "jetstore_bucket"` guard and once at the upload in
-`awsi.UploadToS3FromReader` / `s3_device_worker.go:63` — so an empty value and
-the literal `jetstore_bucket` both mean *the node's own bucket*. Both spellings
+The sentinel is Go's, `awsi.JetStoreBucketSentinel`, and Go tests for it in one
+function, `awsi.IsJetStoreBucket`, which the partition writer, the upload in
+`awsi.UploadToS3FromReader` and the S3 device worker all call — so an empty
+value and the literal `jetstore_bucket` both mean *the node's own bucket*. Both spellings
 are honoured here, in `is_own_bucket`, because a document may carry either and a
 node that honoured one of them would write to a bucket named `jetstore_bucket`.
 """
@@ -52,10 +52,10 @@ from typing import IO, Any, Protocol, cast, runtime_checkable
 
 from .errors import ObjectNotFound, ObjectStoreError
 
-#: Go's literal for "the JetStore bucket", checked at two sites on both write
-#: paths (`pipe_transformation_partition_writer.go:486`, `awsi.go:598`,
-#: `s3_device_worker.go:63`). A document may spell the node's own bucket as the
-#: empty value or as this, and the two mean the same thing.
+#: Go's literal for "the JetStore bucket", `awsi.JetStoreBucketSentinel`,
+#: tested by `awsi.IsJetStoreBucket` on both write paths. A document may spell
+#: the node's own bucket as the empty value or as this, and the two mean the
+#: same thing.
 JETSTORE_BUCKET = "jetstore_bucket"
 
 
@@ -115,7 +115,7 @@ class ObjectStore(Protocol):
         ...
 
     def for_bucket(self, bucket: str | None) -> ObjectStore:
-        """This store, or one bound to `bucket` (D-242).
+        """This store, or one bound to `bucket`.
 
         `is_own_bucket(bucket)` returns `self`, so the ordinary case allocates
         nothing and the two spellings of "the node's own" are one branch.
@@ -207,7 +207,7 @@ class S3:
     package — which every test does — does not require the AWS SDK. **Nothing
     in this class is exercised by any check in this repository**, because there
     is no AWS to exercise it against; that is stated rather than papered over,
-    and what would settle it is the first deployment (P9-T15) or a moto
+    and what would settle it is the first deployment or a moto
     fixture, which is a dependency nobody has asked for yet.
     """
 

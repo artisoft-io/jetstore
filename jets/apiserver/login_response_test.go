@@ -5,8 +5,7 @@
 // it reads, seeds one active user, and asks the handler itself -- what the React
 // client parses is the JSON this writes, not the map it is built from.
 //
-// The build information is the first reason for it (jetstore_maintenance_02
-// Phase 1, D05): `jetstore_version` and `jetstore_git_sha` are what the UI footer
+// The build information is the first reason for it: `jetstore_version` and `jetstore_git_sha` are what the UI footer
 // renders, and each is an environment variable that is simply absent on a
 // workstation, so the test pins both the value and the presence of the key.
 //

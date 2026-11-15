@@ -1,4 +1,4 @@
-// Criterion 16 of the agentic_ai Phase 1 plan, tested against a real Postgres:
+// The audit criterion for an agent run, tested against a real Postgres:
 // one run produces intent, tool_call, decision and a terminal outcome with the
 // hash chain intact, and the intent row survives a kill between the commit and
 // the first model call.
@@ -209,7 +209,7 @@ func (failingRecorder) Propose(context.Context, json.RawMessage) (string, error)
 	return "", nil
 }
 
-// D.7: a successful run produces a proposal row, in draft, and writes nothing
+// A successful run produces a proposal row, in draft, and writes nothing
 // to git. The "nothing to git" half is not testable as an absence — what is
 // testable is that the only thing produced is a row, which is what this
 // asserts by reading it back.
@@ -262,11 +262,11 @@ func TestD7_SuccessfulRunProducesADraftProposal(t *testing.T) {
 			t.Errorf("%s is null; a draft carries empty arrays rather than nulls", name)
 		}
 		if len(arr) != 0 {
-			t.Errorf("%s = %v, want empty — Phase 1 produces none of these", name, arr)
+			t.Errorf("%s = %v, want empty — an authoring run produces none of these", name, arr)
 		}
 	}
 	if clinical {
-		t.Error("impact_clinical_relevance_touched is true; Phase 1 cannot judge this and must not guess it")
+		t.Error("impact_clinical_relevance_touched is true; an authoring run cannot judge this and must not guess it")
 	}
 }
 

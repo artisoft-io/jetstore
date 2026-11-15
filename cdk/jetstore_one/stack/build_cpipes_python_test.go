@@ -11,7 +11,7 @@ import (
 //
 // **This file is the weaker of the two instruments and knows it.** What decides the stack is
 // the synthesised template, and reaching it means running the whole CDK app. The byte
-// comparison of two synth runs is what establishes criterion 96, and it was run on §13.3's
+// comparison of two synth runs is what establishes the claim, and it was run on the synth
 // instrument -- measured 2026-09-18 on placeholder account 111111111111 in us-east-1, sixteen
 // seconds a run:
 //
@@ -31,10 +31,9 @@ import (
 // **The A/B must be run from one directory**, which cost this task a false positive: run from
 // two worktrees at different paths, six of the ten Lambda zips differ, because `go build`
 // embeds absolute source paths and neither `-buildvcs=false` nor `-ldflags "-s -w"` removes
-// them. Same tree, two checkouts, is the only form of this comparison that means anything
-// (P9-I50).
+// them. Same tree, two checkouts, is the only form of this comparison that means anything.
 //
-// These tests are kept for the reason §13.4 keeps their sibling: they run in milliseconds, and
+// These tests are kept for the reason their sibling is kept: they run in milliseconds, and
 // the regression they catch -- somebody changing the predicate or the flag literal -- is what a
 // string test catches and what nobody will re-run a synth to notice. The division is: the tests
 // hold the constants, the synth held the claim.
@@ -110,7 +109,7 @@ func TestCpipesPythonReducingFlagIsItsOwn(t *testing.T) {
 	if cpipesPythonReducingFlag != pythonReducingFlag {
 		t.Errorf("cpipesPythonReducingFlag is %q, want %q -- changing it changes which field of"+
 			" ComputePipesRun selects the Python worker, and the field has no producer yet"+
-			" (P9-I49), so nothing else would go red",
+			" so nothing else would go red",
 			cpipesPythonReducingFlag, pythonReducingFlag)
 	}
 	for _, taken := range []string{ecsReducingFlag, noMoreTaskFlag} {

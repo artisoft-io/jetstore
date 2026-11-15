@@ -28,7 +28,7 @@ the apiserver is started reaches the driver. Without it the Python step is refus
 ## Steps that run on the Python node
 
 A step with `use_python_node` cannot run in this process: the Python `cp_node` is a separate
-program, and the operators such a step names — a site's own, like `healthcare_corpus` — exist only
+program, and the operators such a step names — a site's own — exist only
 there. The reducing starter marks such a step with `UsePythonReducingTask`, the same flag the state
 machine switches on (`build_cpipes_sm.go`), and for it the driver sends each node's `{id, jp, pe}`
 over HTTP to a Python node given by **`-python_node_url`**. Without the flag the driver refuses the
@@ -66,8 +66,8 @@ and run the driver with
 ```
 
 or export `CPIPES_PYTHON_NODE_URL` with that value, which is the route for runs started from a
-dev-mode apiserver. On the machine this was written for, `build_jetstore_scripts/run_pynode.sh` runs
-this container in the foreground and `internal/run_env.sh` exports the variable.
+dev-mode apiserver. A deployment's own scripts can run this container in the foreground and
+export the variable.
 
 Why each non-obvious part is there:
 

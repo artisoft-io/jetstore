@@ -1,6 +1,6 @@
 package datatable
 
-// How a runbook's SQL reaches PostgreSQL. Project runbooks, Phase 1, track AB.
+// How a runbook's SQL reaches PostgreSQL.
 //
 // # Values only as bind parameters
 //
@@ -30,7 +30,7 @@ package datatable
 //
 // The step's timeout is `set_config('statement_timeout', <ms>, true)` — SET
 // LOCAL, with the value as a bind parameter — so the database cancels a
-// statement that runs past it (criterion 3). The client's context carries a
+// statement that runs past it. The client's context carries a
 // longer deadline as a backstop.
 //
 // # Read-only queries

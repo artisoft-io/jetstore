@@ -11,9 +11,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// What a tier transition does to a gate (task AJ.2, gap 7b, criterion 51).
+// What a tier transition does to a gate.
 //
-// **`AJ.1` built the comparison and this is what makes it more than a
+// **The gate is the comparison and this is what makes it more than a
 // ceiling.** These tests are in `agent` rather than in `audit` because the
 // claim is about the two packages together: `audit.RecordTierTransition` moves
 // the committed record, and `PgTierGate` re-reads it per check, so a grant
@@ -73,7 +73,7 @@ func TestATierRaiseUnblocksAGatedRunWithoutRestartingIt(t *testing.T) {
 	}
 
 	// And the record shows both halves in one chain: the refusal's operands are
-	// on the transcript at the loop's call site (AJ.1, F501), and the grant is
+	// on the transcript at the loop's call site, and the grant is
 	// here with its own.
 	ts, err := audit.TierTransitionsFor(ctx, pool, runId)
 	if err != nil {
@@ -92,7 +92,7 @@ func TestATierRaiseUnblocksAGatedRunWithoutRestartingIt(t *testing.T) {
 }
 
 // **A FixedTierGate does not notice, and that is a finding rather than a
-// caveat.** I-406 records that `Loop.Tier` and `PgRecorder.Run.Tier` are two
+// caveat.** `Loop.Tier` and `PgRecorder.Run.Tier` are two
 // fields nothing compares; a transition moves the second and cannot move the
 // first, so the weaker gate keeps refusing after a person has granted the
 // authority. That is the concrete cost of the divergence the issue describes,
@@ -118,7 +118,7 @@ func TestAFixedTierGateDoesNotSeeAGrant(t *testing.T) {
 
 	if err := fixed.Permit(ctx, "validate_cpipes_config", string(audit.TierT3)); err == nil {
 		t.Fatal("a FixedTierGate compares against the caller's own claim, which a grant does not touch; " +
-			"if this now passes, the two tiers have been reconciled and I-406 is closed")
+			"if this now passes, the two tiers have been reconciled and this finding is closed")
 	}
 	// The committed record did move, which is what separates "the grant did not
 	// happen" from "this gate cannot see it".

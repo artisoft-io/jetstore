@@ -75,7 +75,7 @@ func TestGroundedBriefingPasses(t *testing.T) {
 	if !res.OK() {
 		t.Fatalf("a grounded briefing was refused: %v", res.String())
 	}
-	// A§8.3 asks for a source reference per populated field. It is computed, so
+	// The guardrails ask for a source reference per populated field. It is computed, so
 	// there is one for every field a grounding rule passed.
 	for _, ptr := range []string{"/conditions/0/code", "/conditions/1/code", "/last_visit",
 		"/visit_count", "/disclaimer", "/last_fill"} {
@@ -93,9 +93,9 @@ func TestGroundedBriefingPasses(t *testing.T) {
 	}
 }
 
-// The headline case: a code the model invented. Phase 4 measured 20 of 29
+// The headline case: a code the model invented. An earlier measurement found 20 of 29
 // hypotheses sitting at loci triage did not find present, which is this failure
-// in the diagnostic half of the project.
+// in the diagnostic half of the agentic layer.
 func TestInventedCodeIsRefused(t *testing.T) {
 	res := check(t, `{
 	  "conditions": [{"code": "E119"}],
@@ -151,7 +151,7 @@ func TestWrongCountIsRefused(t *testing.T) {
 	}
 }
 
-// A§8.3 wants the disclaimer populated deterministically rather than by the
+// The guardrails want the disclaimer populated deterministically rather than by the
 // model. Nothing but a comparison establishes that it was.
 func TestRewrittenDisclaimerIsRefused(t *testing.T) {
 	res := check(t, `{

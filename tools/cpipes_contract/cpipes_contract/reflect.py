@@ -1,6 +1,6 @@
-"""Regenerate the matrix's claim columns from `cpipes_model.py` — the B.10 flip.
+"""Regenerate the matrix's claim columns from `cpipes_model.py` — the source-of-truth flip.
 
-After B.9 the Python model is the source of truth for the *contract claims*:
+Now the Python model is the source of truth for the *contract claims*:
 which fields exist per token (`applicable`), which are required, their value
 ranges, defaults, and descriptions. This module reflects the imported model and
 rewrites exactly those columns of `fields.csv`, carrying everything else — the
@@ -9,14 +9,14 @@ stamps, notes) and the Go binding (go_type, container, ref_struct, declared_in)
 — from the existing rows, keyed by (go_struct, type_token, json_key).
 
 `--check` compares instead of writing and exits nonzero on any difference: the
-divergence guard the plan's §5.2.2 asks for. The regeneration is a no-op when
+divergence guard the design asks for. The regeneration is a no-op when
 model and matrix agree, so `reflect --check` belongs wherever the matrix is
 consumed.
 
 What the model cannot express stays CSV-authoritative and is carried over
 unchanged: the merged classes (`ExpressionNode`, `ContextSpec` — their
 per-token claims are structural, weakened in the merge), rows for fields
-inapplicable on every token of their struct (a Go-binding fact; B.18's drift
+inapplicable on every token of their struct (a Go-binding fact; the drift
 check owns it), and `constraints.csv` entirely.
 """
 

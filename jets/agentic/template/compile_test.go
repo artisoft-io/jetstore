@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// The twelve compile failures of plan §10.8, one subtest each.
+// The twelve compile failures of the notation, one subtest each.
 //
 // **Every one of them is demonstrated by a failing *compile* rather than by a
 // render**, which is the whole of criterion 84: if any of these could be made
@@ -18,7 +18,7 @@ import (
 func TestCompileRefusals(t *testing.T) {
 	cases := []struct {
 		name string
-		code string // the C-number of §10.8
+		code string // the notation's C-number
 		spec *Spec
 		json string // used instead of spec when set, for the failures that are decoding ones
 		want string
@@ -313,7 +313,7 @@ func TestACompileFailureNamesItsPosition(t *testing.T) {
 }
 
 // TestPathsAreNeverRefusedForTheirKind is C9's boundary, and it is the half
-// that decides whether the check over-refuses (R-114). A chain of paths alone
+// that decides whether the check over-refuses. A chain of paths alone
 // says nothing about what it addressed, so every construct must accept it.
 func TestPathsAreNeverRefusedForTheirKind(t *testing.T) {
 	for _, markup := range []string{
@@ -334,7 +334,7 @@ func TestPathsAreNeverRefusedForTheirKind(t *testing.T) {
 	}
 }
 
-// TestAConstructNameIsReachableAsAProperty is I-642's escape hatch, asserted
+// TestAConstructNameIsReachableAsAProperty is the escape hatch, asserted
 // rather than described: a document whose property is spelled like a construct
 // is addressed by writing it as a path that no construct could be.
 func TestAConstructNameIsReachableAsAProperty(t *testing.T) {

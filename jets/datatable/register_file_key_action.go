@@ -110,7 +110,7 @@ var jetsS3SchemaTriggers string = os.Getenv("JETS_s3_SCHEMA_TRIGGERS")
 // SchemaEventFileKeyStem names the objects PutSchemaEventToS3 writes under
 // JETS_s3_SCHEMA_TRIGGERS when a request names no file_key: the stem, the time
 // in milliseconds and a UUID, e.g. jetstore_ui_event_1790905252288_<uuid>.json.
-// jetstore_maintenance_02, D01 (AD.1, 2026-10-01) and Phase 2 (2026-10-02).
+// Added 2026-10-01, made unique 2026-10-02.
 //
 // **Unique per row, and it was one fixed name until 2026-10-02.** Nothing
 // downstream keys on the name -- the register-keys lambda registers what the
@@ -141,8 +141,8 @@ type schemaEventUpload struct {
 // Submit Schema Event to S3 (which will call RegisterFileKEys as side effect)
 //
 // **Until 2026-10-01 a row without both an event and a file_key was skipped and
-// the action returned 200 having written nothing** (jetstore_maintenance_02 F3,
-// I-5). The React *Put Schema Event* dialog sends no file key, by design, so that
+// the action returned 200 having written nothing**. The React *Put Schema Event*
+// dialog sends no file key, by design, so that
 // silence would have been the dialog's normal outcome. Now:
 //
 //   - a missing, null or empty file_key means a new name, newSchemaEventFileKey;
@@ -243,7 +243,7 @@ var registerFileKeysReads = map[string]bool{
 
 // RegisterFileKeysReads reports whether RegisterFileKeys reads key from a row of
 // its request. A row's other keys are dropped without a word, so a caller adding
-// a key can check that it will be read (JM-096: the register-key lambda warns of
+// a key can check that it will be read (the register-key lambda warns of
 // a key its site hook adds that is not).
 func RegisterFileKeysReads(key string) bool {
 	return registerFileKeysReads[key]
@@ -252,7 +252,7 @@ func RegisterFileKeysReads(key string) bool {
 // readRegisterFileKeyRow copies the keys RegisterFileKeys reads from one row of
 // the request, converting them to the types it uses. An error is the request's
 // fault and is a 400. It writes nothing, so that RegisterFileKeys can read every
-// row before it writes any (JM-096).
+// row before it writes any.
 func readRegisterFileKeyRow(irow int, data map[string]any) (*registerFileKeyRow, error) {
 	var err error
 	r := &registerFileKeyRow{
@@ -287,7 +287,7 @@ func readRegisterFileKeyRow(irow int, data map[string]any) (*registerFileKeyRow,
 		case "year", "month", "day":
 			// A request decoded from JSON carries numbers as float64, which had
 			// no case here and was silently replaced by the 1970-01-01 default
-			// (JM-035 review). Nil keeps the default; anything ToInt cannot
+			// before a review. Nil keeps the default; anything ToInt cannot
 			// read is a 400, as a non-numeric string already was.
 			if v == nil {
 				continue
@@ -299,7 +299,7 @@ func readRegisterFileKeyRow(irow int, data map[string]any) (*registerFileKeyRow,
 		case "size", "file_size":
 			// size is the S3 object's, from the event that named it; file_size is
 			// a schema event's, SchemaProviderSpec.FileSize. file_size had no case
-			// and was dropped until JM-096.
+			// and was dropped until a fix.
 			n, ok, err := sizeOf(v)
 			if err != nil {
 				return nil, fmt.Errorf("while converting %s (%v) to int64: %v", k, v, err)
@@ -310,7 +310,7 @@ func readRegisterFileKeyRow(irow int, data map[string]any) (*registerFileKeyRow,
 				specFileSize, hasSpecFileSize = n, ok
 			}
 		case "schema_provider_json":
-			// Checked (JM-037): a non-string, which a register-key hook can
+			// Checked: a non-string, which a register-key hook can
 			// write, panicked the lambda here. Nil is an absent value.
 			switch vv := v.(type) {
 			case nil:
@@ -321,7 +321,7 @@ func readRegisterFileKeyRow(irow int, data map[string]any) (*registerFileKeyRow,
 			}
 		case "request_id":
 			// Per row: a row with no request_id must not inherit the previous
-			// row's (JM-035 review).
+			// row's.
 			r.requestId = v
 			fileKeyObject[k] = v
 		}
@@ -339,7 +339,7 @@ func readRegisterFileKeyRow(irow int, data map[string]any) (*registerFileKeyRow,
 }
 
 // fileKeySkip is a row of a register_keys request that registered no input, and
-// why. RegisterFileKeys returns them under "skipped" (JM-096).
+// why. RegisterFileKeys returns them under "skipped".
 type fileKeySkip struct {
 	Row     int    `json:"row"`
 	FileKey string `json:"file_key,omitempty"`
@@ -365,7 +365,7 @@ const maxReportedSkips = 100
 
 // Register file_key with file_key_staging table and handling schema events as well.
 //
-// Every row is read and checked before any is written (JM-096): a request whose
+// Every row is read and checked before any is written: a request whose
 // row N was refused with a 400 had already written rows 0 to N-1, started their
 // pipelines, and left the caller no way to tell which.
 func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyAction, token string) (*map[string]any, int, error) {
@@ -450,8 +450,8 @@ NextKey:
 		allOk = true
 		err = ctx.Dbpool.QueryRow(context.Background(), stmt, client, org, objectType).Scan(&tableName, &isPartFile, &domainKeys)
 		// No row is a file JetStore has no source_config for, which is staged and
-		// registers nothing; any other error is the database's (JM-096: the
-		// error was not checked, so it was treated as no row).
+		// registers nothing; any other error is the database's (the
+		// error was not checked once, so it was treated as no row).
 		hasSourceConfig := err == nil
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return nil, http.StatusInternalServerError, fmt.Errorf("while reading source_config: %v", err)
@@ -462,8 +462,8 @@ NextKey:
 			// log.Printf("*** source_config found: %v, is part file: %v\n", isPartFile)
 			if isPartFile == 1 {
 				// Multi Part File
-				// The gate reads the S3 object's size and never the spec's file_size
-				// (JM-096): a schema event has no size, so it is 0 and takes the
+				// The gate reads the S3 object's size and never the spec's file_size:
+				// a schema event has no size, so it is 0 and takes the
 				// sentinel branch, which is what a schema event wants, whatever
 				// file_size it carries.
 				if r.objectSize > 1 {
@@ -554,7 +554,7 @@ NextKey:
 			}
 		}
 		// Register the session before writing input_registry and starting
-		// pipelines (JM-084). Starting a pipeline can wait up to about 17 minutes
+		// pipelines. Starting a pipeline can wait up to about 17 minutes
 		// on the state machine lock (lockStateMachine), far past the register-key
 		// lambda's timeout, and the registration used to come after that wait, so
 		// a timeout left input_registry rows under a session nothing registered.
@@ -611,7 +611,7 @@ NextKey:
 // A source_config naming a domain key twice failed late: the second
 // input_registry insert met the table's unique constraint, ON CONFLICT DO NOTHING
 // returned no row, and the request was a 500 after the first was registered and
-// its pipelines started (JM-096).
+// its pipelines started.
 func uniqueDomainKeys(keys []string, client, org, objectType any) []string {
 	seen := make(map[string]bool, len(keys))
 	unique := make([]string, 0, len(keys))
@@ -641,7 +641,7 @@ func startPipelinesForInputRegistry(ctx *DataTableContext, inputRegistryKey, sou
 }
 
 // startPipelinesOverride, when set, replaces the pipeline start, so a test can
-// observe what is already written when the start begins (JM-084). It is nil in
+// observe what is already written when the start begins. It is nil in
 // production and production code must not set it. A hook rather than a variable
 // holding the call, because the call reaches RegisterFileKeys again (through
 // startLoader and RegisterSchemaEvent), which Go refuses as an initialization

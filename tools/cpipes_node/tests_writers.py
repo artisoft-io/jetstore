@@ -1,4 +1,4 @@
-"""The device writers, and X3's own property: one column list, two containers.
+"""The device writers, and the cell-for-cell property: one column list, two containers.
 
 **The file worth reading first is the Go one.** Three tests here take
 `jets/csv/writer.go`, `jets/compute_pipes/jetrules_rdf.go` and
@@ -6,7 +6,7 @@
 what they say into an assertion, so a change on the other side of the seam is
 caught here rather than at a deployment.
 
-**The X3 test is `test_the_two_writers_agree_cell_for_cell`.** It is the whole
+**The cell-for-cell test is `test_the_two_writers_agree_cell_for_cell`.** It is the whole
 criterion at the writer level: the same columns and the same rows through both
 encoders, read back, compared. It is written over a table containing every value
 shape the encoder distinguishes rather than over a plausible one, because a
@@ -59,25 +59,25 @@ def test_the_encoder_answers_what_the_go_function_answers(value: object, text: s
     assert writers.encode_rdf_type_to_txt(value) == text
 
 
-def test_the_midnight_date_rule_mirrors_the_function_and_not_its_stale_test():
-    """**P9-I58**: the Go *test* for this function is one of the eight red ones.
+def test_the_midnight_date_rule_mirrors_the_function_and_its_test():
+    """`encodeRdfTypeToTxt`'s `time.Time` arm prints a midnight value as a date.
 
-    `jetrules_rdf_test.go` line 39 asserts `2006-01-02T00:00:00` for a
-    `rdf.ParseDate` value, and `encodeRdfTypeToTxt`'s `time.Time` arm returns
-    `2006-01-02` for any value whose clock is exactly midnight. The function is
-    what the engine runs and is therefore what is mirrored; an encoder written
-    from that expectation would disagree with every byte the Go engine writes.
+    The Go test for that function used to expect `2006-01-02T00:00:00` for an
+    `rdf.ParseDate` value, which disagreed with the function, and this test
+    asserted the disagreement so that its repair would be noticed. It was
+    repaired on the Go test's side: `TestEncodeRdfTypeToTxt` now expects
+    `2006-01-02`, which is what the function returns and what is mirrored here.
 
-    Asserted against the Go source in both directions, so the day somebody
-    repairs the disagreement — in either file — this goes red and says which way
-    it was repaired.
+    Asserted against both Go files, so a change to either goes red here.
     """
     source = go_source("jets/compute_pipes/jetrules_rdf.go")
     arm = source.split("case time.Time:", 1)[1].split("case uint:", 1)[0]
     assert '"2006-01-02"' in arm
     assert '"2006-01-02T15:04:05"' in arm
     test_source = go_source("jets/compute_pipes/jetrules_rdf_test.go")
-    assert '!= "2006-01-02T00:00:00"' in test_source
+    date_case = test_source.split("rdf.ParseDate(", 1)[1].split("rdf.ParseDatetime(", 1)[0]
+    assert 'encodeRdfTypeToTxt(*d) != "2006-01-02"' in date_case
+    assert "00:00:00" not in test_source
 
     assert writers.encode_rdf_type_to_txt(dt.datetime(2006, 1, 2)) == "2006-01-02"
 
@@ -209,7 +209,7 @@ def read_parquet(data: bytes):
 def test_the_parquet_schema_is_the_column_list_all_string_and_nullable():
     """`BuildParquetSchemaInfo` makes every field a nullable string.
 
-    Read off the Go source as well as asserted here, because it is the fact X3
+    Read off the Go source as well as asserted here, because it is the fact the cell comparison
     rests on: the two writers cannot disagree about a *type* if there is only one
     type.
     """
@@ -235,7 +235,7 @@ def test_the_batch_size_defaults_to_the_go_writer_s():
     assert "nrowsInRec = 1024" in source
 
 
-# --- X3 ---------------------------------------------------------------------
+# --- Cell-for-cell agreement ------------------------------------------------
 
 #: A table containing every shape the encoder distinguishes, so that comparing
 #: the two writers compares something. The columns are the same tuple for both,
@@ -257,7 +257,7 @@ X3_ROWS = (
 
 
 def test_the_two_writers_agree_cell_for_cell():
-    """**X3 at the writer level.** One column list, two containers, same cells.
+    """**Cell-for-cell agreement at the writer level.** One column list, two containers, same cells.
 
     The CSV side is parsed back with Python's own reader rather than compared as
     text, because what the criterion asks about is cells. The one documented
@@ -298,7 +298,7 @@ def test_the_one_difference_is_the_null_and_it_is_the_normalisation_x3_allows():
 
 
 def test_neither_writer_derives_a_column_list_of_its_own():
-    """Asserted structurally, because a correct docstring stopped nobody (P7-I88).
+    """Asserted structurally, because a correct docstring stopped nobody.
 
     The module holds no tuple of column names, so a writer cannot disagree with
     its caller about the columns: both take the argument. The check is over the
@@ -363,7 +363,7 @@ def test_an_unknown_device_writer_names_the_two_that_exist():
 
 
 def test_snappy_is_refused_and_the_refusal_names_the_authored_consequence():
-    """**P9-I59**: the framing format, and what a stage channel defaults to."""
+    """The framing format, and what a stage channel defaults to."""
     writers.check_compression("none")
     with pytest.raises(WriterUnsupported) as exc:
         writers.check_compression("snappy")

@@ -240,7 +240,7 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 		if !ca.SkipCompileWorkspace {
 			version := strconv.FormatInt(time.Now().Unix(), 10)
 			// **No asset validation here, by decision rather than by omission**
-			// (jetstore_maintenance_02 Q-9, answered 2026-10-01; task AG.5). This
+			// (decided 2026-10-01). This
 			// recompile rebuilds the lookup tables a report has just written and
 			// changes no user-flow or table document, so the documents it would
 			// check are the ones the Docker build's compile and the IDE's compile

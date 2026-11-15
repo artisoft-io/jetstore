@@ -1,8 +1,7 @@
 package compute_pipes
 
 // The `AV` backend benchmark: latency, throughput and cold start, over the
-// evaluation population, through the infer operator's own worker pool
-// (agentic_ai Phase 7 `AV.1` and `AV.2`).
+// evaluation population, through the infer operator's own worker pool.
 //
 // # It drives the operator rather than the server
 //
@@ -15,10 +14,10 @@ package compute_pipes
 //
 // Everything else comes from the document too: the system prompt, the prompt
 // template (resolved by name out of `prompt_templates`, as the operator does),
-// the model, and the sampling `options` that `I-575` added. A benchmark that
+// the model, and the sampling `options` added for reproducibility. A benchmark that
 // restated any of them would drift from the pipeline the moment the pipeline
-// changed, which is exactly what the `AT.5` harness did on the day the operator
-// gained `options` (`I-588`).
+// changed, which is exactly what the side-by-side harness did on the day the operator
+// gained `options`.
 //
 // # What it does not do, said plainly
 //
@@ -48,7 +47,7 @@ package compute_pipes
 // keep. Where the two are comparable they agree: 2996ms average against a p50 of
 // 3.11s on the first pool-1 run.
 //
-// That split is not a workaround. `I-586` established that greedy decoding does
+// That split is not a workaround. It is established that greedy decoding does
 // not survive continuous batching, so an accuracy figure has to come from pool 1
 // anyway - and this makes the latency figure come from the same place, which
 // means one run answers both and the pool-4 run is left measuring the thing it

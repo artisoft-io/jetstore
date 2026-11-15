@@ -12,11 +12,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// The autonomy tier transition (task AJ.2, gap 7b, criterion 51) — what raises a
+// The autonomy tier transition — what raises a
 // run's tier, who may, and what the audit record shows.
 //
 // **The refusals are in the committed suite rather than in a throwaway script**,
-// which is §11.5's rule and P4 §12.6's practice: a negative control that lives in
+// on purpose: a negative control that lives in
 // a script runs once, on the day it was written.
 
 func startTierRun(t *testing.T, pool *pgxpool.Pool, tier string) string {
@@ -216,7 +216,7 @@ func TestATierTransitionOnAnUnrecordedRunIsRefused(t *testing.T) {
 	}
 }
 
-// The vocabulary is asserted at the boundary, which is Q-56's answer in
+// The vocabulary is asserted at the boundary, which is the settled answer in
 // practice: ParseTier is what catches an unknown value, and a named string type
 // would not have.
 func TestATierTransitionOutsideTheVocabularyIsRefused(t *testing.T) {
@@ -250,7 +250,7 @@ func TestATierTransitionThatChangesNothingIsRefused(t *testing.T) {
 	}
 }
 
-// K.2's rule: a write path with no read path is a store nobody can check. There
+// The transcript's rule: a write path with no read path is a store nobody can check. There
 // is no tier_event table — the chain is the record, its key being the subject —
 // so the read path reads the chain.
 func TestTierTransitionsForReadsTheChainBack(t *testing.T) {
@@ -293,8 +293,8 @@ func TestTierTransitionsForReadsTheChainBack(t *testing.T) {
 	}
 }
 
-// recordedActs is the two writers behind one shape. See state_change.go: Q-52
-// was answered on the argument that a human verdict on an incident and a tier
+// recordedActs is the two writers behind one shape. See state_change.go: the design
+// question was answered on the argument that a human verdict on an incident and a tier
 // transition are the same shape of act, and this is that claim as a test rather
 // than as a sentence.
 //

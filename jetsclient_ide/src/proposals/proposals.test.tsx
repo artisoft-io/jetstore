@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * The supervision screens (task K.3, criterion 31).
+ * The supervision screens.
  *
  * **What is worth testing here is what the screens refuse to do**, because the
  * refusals are the design and they are the things a later edit would undo
@@ -133,7 +133,7 @@ describe("the staging list", () => {
   // The default view is what still wants a human, not everything and not every
   // non-terminal state. `approved` and `deployed` are decided; leaving them in
   // the default meant a queue that never shed anything, because `deployed` is
-  // left only by `superseded` (I-249).
+  // left only by `superseded`.
   it("defaults to the states awaiting a decision, and widens on request", async () => {
     const { api, sent } = await clientWith({ list_proposals: { body: { proposals: [] } } });
     renderAt(api, "/proposals");
@@ -163,7 +163,7 @@ describe("the staging list", () => {
     expect(sent[2]!["states"]).toEqual([]);
   });
 
-  // A draft with no generated tests is the ordinary output of a Phase-1
+  // A draft with no generated tests is the ordinary output of an
   // authoring run, and it is the thing a reviewer most needs to see before
   // opening it. Marked, not hidden.
   it("marks a proposal with no generated tests", async () => {
@@ -337,7 +337,7 @@ describe("the transcript", () => {
     });
     renderAt(api, "/proposals/chg_1");
     await screen.findByText(/Chain verified/);
-    // I-73: tamper-evident is not complete, and the screen must not let a
+    // Tamper-evident is not complete, and the screen must not let a
     // verified chain be read as a complete one.
     await screen.findByText(/does not mean the run wrote every event it should have/);
   });

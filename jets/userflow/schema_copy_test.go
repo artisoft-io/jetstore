@@ -40,7 +40,7 @@ func expectedCopy(t *testing.T, name string) []byte {
 	return append(out, '\n')
 }
 
-// TestSchemaCopiesMatchSource is I-16's guard, and it is a test rather than a
+// TestSchemaCopiesMatchSource guards the copies, and it is a test rather than a
 // command because this repository has no CI and `go test ./...` is habitual.
 //
 //	UPDATE_SCHEMA=1 go test ./jets/userflow/
@@ -109,8 +109,8 @@ func contains(s, sub string) bool {
 
 // TestSchemaFindingsEscapeTheirPointer covers the segment escaping.
 //
-// **Unexercised by anything realistic**, which is the same reason S.3 needed a
-// written case: a *valid* state key cannot contain "/" or "~" because the schema
+// **Unexercised by anything realistic**, which is the same reason a schema case
+// needed writing: a *valid* state key cannot contain "/" or "~" because the schema
 // forbids it, and this code path exists for invalid documents. A key of `a/b`
 // would otherwise emit a pointer that reads as two segments.
 func TestSchemaFindingsEscapeTheirPointer(t *testing.T) {

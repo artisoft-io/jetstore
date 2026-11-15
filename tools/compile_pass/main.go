@@ -1,18 +1,18 @@
-// P.1: give the eval harness a caller.
+// Give the eval harness a caller.
 //
 // **What this is.** One compile-pass run end to end — load the live corpus,
-// split it at file level, cut a case by mutation, drive the Phase-1 authoring
-// loop against it, and report through eval.Report under decision 13's rules.
+// split it at file level, cut a case by mutation, drive the transformation-authoring
+// loop against it, and report through eval.Report under the evaluation rules.
 // Every part of that existed before this file and none of them had ever met:
 // LoadCorpus, SplitFiles, Coverage and MakeCase had no consumer outside
 // eval_test.go, and jets/agentic/agent had no non-test consumer anywhere in the
-// repository (F32, F111). Criterion 20 was met by the harness satisfying its
+// repository. The harness criterion was met by the harness satisfying its
 // own contract, which is what the criterion asked and is less than a
 // measurement.
 //
 // **What one run measures, and it is less than the number suggests.** A
 // compile-pass figure from this program is one model, one prompt, one context
-// length, one split and one repair budget. J.2 moved a hole from 0/9 to 9/9
+// length, one split and one repair budget. One hole moved from 0/9 to 9/9
 // with four prompt changes and no model change, so the first number out of this
 // harness measures the wiring at least as much as the model — which is why the
 // report names the model and the case source, and why there is no aggregate to
@@ -23,31 +23,31 @@
 // schema that constrains generation is one operator's TransformationSpec — and
 // on the emitted cpipes contract every one of the sixteen flat leaves closes
 // over the same shared substrate of channel specs and column evaluators, at
-// 28,277 to 30,542 estimated tokens (F112). Task.validate calls prompt.Fits,
+// 28,277 to 30,542 estimated tokens. Task.validate calls prompt.Fits,
 // which reserves 8,192 of a 32,768 window for the instruction and the answer,
 // so against the **leaf** entry point every held-out case is refused before a
 // model is called — every operator in the corpus, for the same reason.
 //
 // > **~~at the deployed context length the loop refuses all 134 held-out cases
 // > before a model is called~~ — that sentence was this comment's own and it is
-// > wrong about the program it heads. Corrected 2026-09-05 at AD.1 by running
+// > wrong about the program it heads. Corrected 2026-09-05 by running
 // > the documented invocation.** `bundleMembers` maps every operator to its
-// > `…Pipe` **bundle** rather than to the flat leaf, which is F112's third row
-// > and the entry point §20 concluded on — *every leaf is refused and every
+// > `…Pipe` **bundle** rather than to the flat leaf, which is the bundle
+// > entry point the size measurement concluded on — *every leaf is refused and every
 // > bundle fits*. So `go run ./tools/compile_pass -root .. -dry-run` reports
-// > **134 askable and 0 refused**, and the boundary is where F112's bundle sizes
+// > **134 askable and 0 refused**, and the boundary is where the measured bundle sizes
 // > put it: at a plan budget of 24,576 all 134 are askable, at 20,000 sixty-two
 // > are refused, at 12,288 all of them are.
 // >
 // > **This is authorship rot rather than accretion** — the paragraph was written
-// > about the version §20 records as wrong (*"the first version of this caller
+// > about the version the measurement records as wrong (*"the first version of this caller
 // > reported that the harness could not ask a single question"*), and the fix
 // > landed in the code and not in the comment above it. It is left struck rather
 // > than deleted because the leaf measurement is still true and is still the
 // > reason the bundle layer exists.
 //
-// **And the budget prompt.Fits enforces is not one this serving path spends
-// (F113).** The schema rides in Ollama's `format` field, where it is compiled
+// **And the budget prompt.Fits enforces is not one this serving path spends.
+// ** The schema rides in Ollama's `format` field, where it is compiled
 // into a sampling grammar; it is never sent as messages. Measured against the
 // running server on 2026-08-27: an 84-byte schema and a 119,038-byte schema
 // both report prompt_eval_count of 30 for the same prompt, and 23 for another.
@@ -87,8 +87,8 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/tools"
 )
 
-// systemPrompt and the instruction rendering moved to jets/agentic/eval at
-// AG.2, 2026-09-05, so that tools/infer_bakeoff sends the same prompt this tool
+// systemPrompt and the instruction rendering moved to jets/agentic/eval on
+// 2026-09-05, so that tools/infer_bakeoff sends the same prompt this tool
 // does. A second rendering of the same instruction would have made the two
 // harnesses incomparable in the way nobody notices, both still sending
 // something reasonable.
@@ -163,7 +163,7 @@ func run(root, schemaPath, bundlePath, host, model, era string, everyNth, maxCas
 		len(split.HeldOut), len(split.Train), everyNth)
 
 	// **Every operator the contract names, not only those the corpus uses.**
-	// Decision 13 reserves "untested" for an operator with no live instances,
+	// The evaluation rules reserve "untested" for an operator with no live instances,
 	// and a report built from ByOperator alone can never say it: an operator
 	// with nothing in the corpus is absent from that map, so it vanishes
 	// instead of reporting the absence of a measurement. The contract is the
@@ -217,7 +217,7 @@ func run(root, schemaPath, bundlePath, host, model, era string, everyNth, maxCas
 	// walk sorts its output because "a harness whose case list reshuffles
 	// between runs cannot be compared with itself" — and the determinism
 	// stopped at the corpus. At Ollama's default temperature the same 45 cases
-	// gave two passes on one run and none on the next (F118), so the figure had
+	// gave two passes on one run and none on the next, so the figure had
 	// a sampling variance nobody had measured and no run could be repeated.
 	// Greedy decoding with a fixed seed is the default here for that reason;
 	// -temperature is how a caller measures the variance deliberately.
@@ -230,7 +230,7 @@ func run(root, schemaPath, bundlePath, host, model, era string, everyNth, maxCas
 	// exists to prevent, arriving one layer below it.
 	// **Every case is checked against its own ground truth before the model
 	// sees it, and the ones that cannot be won are excluded from the
-	// denominator (F120).** A case whose removed instance does not validate
+	// denominator.** A case whose removed instance does not validate
 	// when put back is not a case: no answer can pass it, including the right
 	// one. Thirteen of the 134 are in that state — `anonymize_file.pc.json`
 	// reads `$CGT_MULTIPART_OUTPUT` and `$MAIN_INPUT_ROW_COUNT` in its `when`
@@ -292,7 +292,7 @@ func run(root, schemaPath, bundlePath, host, model, era string, everyNth, maxCas
 	var interrupted, harnessErrors, neverVerified int
 
 	// **What answered, not what was asked for.** ToolReport has recorded this
-	// since J.2 and Report could not; a tag resolves to whatever build the
+	// for some time and Report could not; a tag resolves to whatever build the
 	// server holds. One tiny probe is the cheapest way to learn it through the
 	// same client the run uses, and its failure is not fatal — the run then
 	// reports the tag it asked for, which is the weaker claim and says so.
@@ -350,7 +350,7 @@ func run(root, schemaPath, bundlePath, host, model, era string, everyNth, maxCas
 			Budget:   agent.Budget{MaxIterations: iterations, WallClock: wall},
 			RunId:    fmt.Sprintf("p1-%s-%d", inst.Operator, totalOf(attempted)+totalOf(errored)),
 			Actor:    "tools/compile_pass",
-			// **This read `"assisted"` until AJ.1, and that is not a member of
+			// **This read `"assisted"` once, and that is not a member of
 			// the vocabulary.** agent_audit.tier is CHECKed against T0-T4, so
 			// the value would have been refused at the INSERT; it never was,
 			// because this loop carries no Auditor and no Recorder and
@@ -358,7 +358,7 @@ func run(root, schemaPath, bundlePath, host, model, era string, everyNth, maxCas
 			// caller of the loop, invalid, and invisible for want of a reader
 			// is exactly the argument for the vocabulary now existing in Go.
 			//
-			// T2 is §9.2's *Propose* — "generate staged artifacts in a
+			// T2 is the tier vocabulary's *Propose* — "generate staged artifacts in a
 			// non-executing state" — which is what this harness measures: a
 			// proposal is produced, verified, counted, and nothing acts on it.
 			Tier: string(audit.TierT2),
@@ -387,7 +387,7 @@ func run(root, schemaPath, bundlePath, host, model, era string, everyNth, maxCas
 				inst.Operator, short(inst.File), result.Iterations, result.TokenSpend, took)
 			if verbose {
 				// **What passed, not only that something did.** Compile-pass is
-				// the gate decision 13 chose and it judges the config, not the
+				// the gate the evaluation rules chose and it judges the config, not the
 				// resemblance to what was removed — so an answer can pass while
 				// being nothing like the instance it replaced, and a reader
 				// sizing the number needs to see one.
@@ -401,8 +401,8 @@ func run(root, schemaPath, bundlePath, host, model, era string, everyNth, maxCas
 			// when every iteration failed client-side schema validation
 			// instead, so the config was never judged at all. That is the
 			// difference between "the model wrote a bad config" and "the model
-			// did not write a config", and I-41 says which to expect from a
-			// prompt that carries no schema.
+			// did not write a config", and an earlier measurement says which to
+			// expect from a prompt that carries no schema.
 			why := ""
 			if len(result.LastDiagnostics) == 0 {
 				neverVerified++
@@ -478,9 +478,9 @@ func run(root, schemaPath, bundlePath, host, model, era string, everyNth, maxCas
 
 // caseSource is the provenance line the report may not be published without.
 //
-// **It says mutation, and that is the whole of P.1's provenance decision.**
-// Plan §4 asked whether Case gains a provenance field or the two libraries stay
-// apart; they stay apart (I-115, I-136), so what a reader needs is not a label
+// **It says mutation, and that is the whole of the provenance decision.**
+// The question was whether Case gains a provenance field or the two libraries stay
+// apart; they stay apart, so what a reader needs is not a label
 // on each case but a statement of the population a figure was measured over.
 func caseSource(everyNth, planBudget, numCtx int, temperature float64, seed int, schemaInPrompt bool) string {
 	where := "schema in `format` only, as the Phase-1 loop sends it"
@@ -499,7 +499,7 @@ func caseSource(everyNth, planBudget, numCtx int, temperature float64, seed int,
 //
 // **Getting this wrong is the whole difference between a harness that runs and
 // one that refuses every case, and the first version of this file got it
-// wrong (F114).** The contract's own discriminator maps `map_record` to
+// wrong.** The contract's own discriminator maps `map_record` to
 // `TransformationSpecMapRecord`, which reads like the answer and is not: that
 // leaf's `conditional_config` reaches `ConditionalTransformationSpec`, which
 // re-admits every operator's config, so its closure is 61 definitions and
@@ -518,7 +518,7 @@ func caseSource(everyNth, planBudget, numCtx int, temperature float64, seed int,
 // authoritative by design because it expresses semantics the model cannot.
 // An operator with no bundle row falls back to the leaf and is reported as
 // doing so — `embed` is the one, added after the bundle layer was authored
-// and never given a row (F119).
+// and never given a row.
 func transformationSpecNames(contract []byte, bundlePath string) (map[string]string, error) {
 	var doc struct {
 		Defs map[string]struct {
@@ -740,7 +740,7 @@ func selfCheckCases(root string, candidates []eval.Instance, refusals map[string
 }
 
 // inventory prints what a run would attempt, and publishes no figure. A report
-// with no model behind it is exactly the thing decision 13's rules refuse.
+// with no model behind it is exactly the thing the evaluation rules refuse.
 func inventory(root string, candidates []eval.Instance, coverage, live map[string]int,
 	refusals map[string]string) error {
 

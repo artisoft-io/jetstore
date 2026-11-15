@@ -27,7 +27,7 @@ namespace jets::rete {
 
 using RDFTTYPE = rdf::RdfAstType;
 
-// The compiled patterns of literal_regex (rules_benchmark C15). Each evaluation compiled
+// The compiled patterns of literal_regex. Each evaluation compiled
 // its pattern, 1.7 to 2.3% of a production-shaped session, though a rule's pattern is
 // nearly always a constant. A cache of the calling thread: the sessions of a pool run on
 // their own threads, so nothing is shared and nothing is locked. It holds at most

@@ -1,4 +1,4 @@
-"""The B.18 field-inventory drift check (I-9: one command, exit code).
+"""The field-inventory drift check (one command, exit code).
 
 Reflects `pipes_model.go` through the Go runner in `inventory/` and compares
 the field inventory - Go names, json keys, Go types, nesting (the type
@@ -6,7 +6,7 @@ strings carry it) - against the matrix's Go-binding columns, which the
 Python model's claims are synced to. Fails on anything present in one and
 absent from the other: the common case it exists for is a field added to Go
 and forgotten in the contract. It does not check applicability - only the
-matrix knows that (§5.2.2, criterion 8).
+matrix knows that.
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ def alias_map(code_root: Path) -> dict[str, str]:
 
     **Reflection cannot see an alias, and that is the whole reason this exists.**
     A Go type alias is not a distinct type at runtime, so `reflect.Type` reports
-    the *declaring* package: after `BC.2` split the operator contract into
+    the *declaring* package: after the operator contract was split into
     `jets/compute_pipes/pipesmodel`, the runner says `pipesmodel.ExpressionNode`
     while `pipes_model.go` still declares the field as `*ExpressionNode`, through
     `type ExpressionNode = pipesmodel.ExpressionNode`. Both spellings are correct

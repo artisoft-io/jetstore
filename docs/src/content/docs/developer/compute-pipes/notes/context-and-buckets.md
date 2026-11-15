@@ -62,7 +62,7 @@ written.
 ## The corpus parameterises buckets in two spellings, and only one was being caught
 
 Measured 2026-09-21 across the four workspaces of the rule corpus: **34 bucket values
-carry a variable, in 5 documents** — 24 braced (`${CORPUS_OUT_BUCKET}`, `healthcare_corpus.pc.json`)
+carry a variable, in 5 documents** — 24 braced (`${CORPUS_OUT_BUCKET}`, in one site's pipeline)
 and 10 bare-dollar (two output-bucket keys, in four documents of client workspace C).
 **Nine of the ten env keys `prepareCpipesEnv` writes are bare-dollar**, so the bare form is the
 house spelling and the braced one is the exception.

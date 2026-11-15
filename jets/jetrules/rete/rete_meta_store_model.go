@@ -7,7 +7,7 @@ import (
 
 // Data model of a compiled rule set: what the compiler writes and the C++ engine's
 // adaptor, the workspace and compute_pipes read. It is the part of this package kept
-// when the Go engine was deleted (rules_benchmark Phase 6, October 2026); the Go
+// when the Go engine was deleted (October 2026); the Go
 // engine's ReteMetaStore was built from it, and the go-engine-final tag holds it.
 
 type JetruleModel struct {

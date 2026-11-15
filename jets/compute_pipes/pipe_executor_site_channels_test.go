@@ -6,15 +6,15 @@ import (
 	"testing"
 )
 
-// P9-I13: a channel declared in `site_config.output_channels` is registered by
-// StartComputePipes and resolved onto OperatorArgs.Outputs, and until P9-T04 it
-// was closed by nothing.
+// A channel declared in `site_config.output_channels` is registered by
+// StartComputePipes and resolved onto OperatorArgs.Outputs, and until it was fixed
+// it was closed by nothing.
 //
 // **Why that is a defect and not a shortfall.** Every reader of a compute
 // channel is `for row := range ch`, so a channel nobody closes is a reader that
 // never returns: twelve partition writers fed by one site operator would each
-// block forever, and the run would hang rather than fail. It is the class
-// P4-I43 names one level out -- a component whose own tests pass and which
+// block forever, and the run would hang rather than fail. It is a known class
+// one level out -- a component whose own tests pass and which
 // reaches no working path -- because the resolution half was complete and the
 // close half made it unusable.
 //
@@ -141,7 +141,7 @@ func TestSplitterClosesASiteStepsDeclaredChannels(t *testing.T) {
 	}
 }
 
-// The guard on the same three lines P9-I15 reports unguarded in the splitter:
+// The guard on the same three lines that are unguarded in the splitter:
 // `clustering` and `map_record` are dereferenced there without a nil check,
 // where fan_out checks. **That panic is out of scope and is deliberately not
 // repaired here**; this asserts only that the site arm did not extend it -- a

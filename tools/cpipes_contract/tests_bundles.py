@@ -3,8 +3,8 @@
 **The `bundles` command is a falsifier and not a check on the authoring.** It walks
 the live corpus and validates each `apply` fragment against its bundle, so it says
 nothing at all about an operator no `.pc.json` uses - which is exactly how `vllm`
-and `embed` sat in no bundle from the day each was built (I-512). `embed` only
-became visible on 2026-09-08, when Phase 6's asset install put the JetStore-owned
+and `embed` sat in no bundle from the day each was built. `embed` only
+became visible on 2026-09-08, when an asset install put the JetStore-owned
 `embed_input_parts.pc.json` into all four workspaces and the command started
 reporting `operator 'embed' is in no bundle` four times.
 
@@ -98,7 +98,7 @@ CONFIG_KEY = {
 
 
 def test_every_admitted_operator_has_a_bundle():
-    """The rule I-512 was the absence of.
+    """The rule whose absence let operators sit in no bundle.
 
     `TransformationSpec`'s discriminator is what the emitted schema admits as an
     `apply` step; `bundle_members.csv` is what the *bundle* tier admits. Nothing
@@ -271,8 +271,8 @@ def test_a_bundle_narrows_its_conditional_override_to_itself():
     `conditional_config` -> `ConditionalTransformationSpec<Bundle>` ->
     `TransformationSpecOverride<Bundle>` keeps only the host's own `_config` key, so
     an override carrying a sibling backend's config is refused. That the narrowing
-    also forbids a `then` that *replaces* the host outright is I-511, and is neither
-    tested nor decided here.
+    also forbids a `then` that *replaces* the host outright is an open question, and is
+    neither tested nor decided here.
     """
     for bundle, doc in VALID.items():
         foreign = next(CONFIG_KEY[b] for b in VALID if b != bundle)

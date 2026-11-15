@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// The readings that were three copies until `AY.5`. What is asserted here is
+// The readings that were three copies until they were merged. What is asserted here is
 // the **union**, because that is the decision the merge made: the checker's
 // date table was wider than the two renderers' and the wider one is what all
 // three now read.
@@ -22,7 +22,7 @@ func TestADateIsReadByEveryLayoutAnyCopyAccepted(t *testing.T) {
 		// The sixth layout, and the reason this test exists. It was in this
 		// package's table and in neither renderer's, so a value of this shape
 		// was a date to Check and not to a briefing: the clause would be
-		// omitted and nobody told. That is I-643's predicted divergence, found
+		// omitted and nobody told. That is the predicted divergence, found
 		// in the tree rather than argued about.
 		{"2025-08-14 10:30:00", time.Date(2025, 8, 14, 10, 30, 0, 0, time.UTC)},
 		{"2025-8-14", time.Date(2025, 8, 14, 0, 0, 0, 0, time.UTC)},

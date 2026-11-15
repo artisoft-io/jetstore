@@ -160,7 +160,7 @@ class ReteMetaStore {
     // Number each vertex's children by the index of its beta relation they query,
     // once, here, before any session: BetaRelation::initialize adds the indexes in
     // child order and only checks the key (AQVInitializeIndexesVisitor). Each
-    // session used to write it into this shared meta store (I-86).
+    // session used to write it into this shared meta store.
     for(auto const& nodeptr: this->node_vertexes_) {
       int count[4] = {0, 0, 0, 0};
       for(auto const* child: nodeptr->child_nodes) {

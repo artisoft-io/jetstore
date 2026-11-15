@@ -94,7 +94,7 @@ describe("jetrules stream parser", () => {
 
   it("styles neither toText as a function nor r? as an operator", () => {
     // The grammar dropped both (jetstore#2343) and the VS Code extension followed
-    // (#2351); jetstore_maintenance_02 AJ.4 (I-50, rules_benchmark I-160).
+    // (#2351).
     expect(tokenFor("(?x p toText ?y)", "toText")).not.toBe("function");
     expect(tokenFor("(?x p create_entity ?y)", "create_entity")).toBe("function");
     const toks = tokenize("?a r? ?b");

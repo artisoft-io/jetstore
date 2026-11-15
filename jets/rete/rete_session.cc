@@ -124,7 +124,7 @@ is_integer_zero(rdf::r_index v)
       
       // Get the max_vertex_visit_ from the rdf session (meta graph)
       // An integer of any width is the limit; anything else, or no triple, is the
-      // default, kDefaultMaxVertexVisits (Q-83)
+      // default, kDefaultMaxVertexVisits
       auto v = this->rdf_session_->get_object(rmgr->jets()->jets__istate, rmgr->jets()->jets__max_vertex_visits);
       std::optional<std::int64_t> limit;
       if(v != nullptr) {
@@ -316,7 +316,7 @@ is_integer_zero(rdf::r_index v)
         auto const* beta_row_initializer = child_meta_node->get_beta_row_initializer();
         // A filter evaluated in this scan can re-enter the session, and the re-entry can
         // remove a parent row the scan's candidates were built from, or change what
-        // another candidate's filter reads (I-91). A relation that is activated takes
+        // another candidate's filter reads. A relation that is activated takes
         // its candidates at once, each checked against the scan's mark (keep_candidate):
         // a re-entry reaches what it holds already. A relation's first scan is not
         // reached by a re-entry, so it holds its candidates until it ends, and scans
@@ -378,7 +378,7 @@ is_integer_zero(rdf::r_index v)
           }
         };
         // Iterated in place without allocating, by a scan the parent relation freezes
-        // if a filter re-enters the session and changes what it scans (I-90)
+        // if a filter re-enters the session and changes what it scans
         for(int rescans = 0; ; ++rescans) {
           mark = this->reentries_;
           if(need_all_rows) {

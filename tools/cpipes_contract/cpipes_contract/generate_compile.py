@@ -1,32 +1,32 @@
-"""T.3, criterion 38: generate-and-compile, per operator, one arm against another.
+"""Generate-and-compile, per operator, one arm against another.
 
 For each hole of each authored template: select candidate fragments by one method,
 generate, expand the template, and put the expanded configuration through the **real**
 startup validator - `ValidatePipeSpecConfig`, via the Go runner in `harness/`, which is
 the same gate `validate_cpipes_config` is. Report per operator with denominators.
 
-**Why this had to wait for T.2.** I-68 measured that a correctly selected tool call can
+**Why this had to wait for the path arm.** It was measured that a correctly selected tool call can
 arrive with its payload mangled, deterministically and invisibly to schema validation.
 Run generate-and-compile before that is fixed and a config that does not compile is
 ambiguous between bad retrieval and a corrupted payload, which is the single-number
-problem decision 13 refuses one level up (plan section 5.1). The path arm of T.2 removes
+problem the evaluation rules refuse one level up. The tools' path arm removes
 the payload from the wire; this run is what the removal was for.
 
 **Two gates, and they answer different questions.**
 
 - *fragment* - the generated value validates against the hole's own bundle subschema.
-  This is criterion 22's gate, and `from_model` already applies it, because Ollama's
+  This is the authoring test's gate, and `from_model` already applies it, because Ollama's
   `format` does not enforce the schema and a parseable response is no evidence at all.
 - *compile-pass* - the expanded config is accepted by the engine's own validator. This
-  is criterion 38's gate, and it is strictly harder: every hole has to be filled with
+  is this run's gate, and it is strictly harder: every hole has to be filled with
   something that validates *and* the assembled document has to hold together.
 
 A template whose fragments all fail cannot reach the second gate, and the report says
-`not reached` rather than `0 of 1` - the distinction P.1 had to draw the hard way, where
+`not reached` rather than `0 of 1` - the distinction the first compile-pass run had to draw the hard way, where
 121 of 121 failures never reached the verifier and a rate whose failures are all upstream
 of the gate is not a compile-pass rate.
 
-**No aggregate, and per operator rather than per hole.** Decision 13's rule, and
+**No aggregate, and per operator rather than per hole.** The evaluation rule, and
 `Report.per_operator` carries the argument.
 """
 
@@ -45,7 +45,7 @@ from .template import check as check_template
 from .template import load as load_template
 
 # `eval.RateThreshold`, restated here rather than imported across the Go/Python
-# boundary: decision 13 says four or fewer attempts report cases, inclusive.
+# boundary: the evaluation rules say four or fewer attempts report cases, inclusive.
 RATE_THRESHOLD = 5
 
 
@@ -129,7 +129,7 @@ def compile_pass(code_root: Path, arms: list[ArmResult]) -> None:
         # model, and the first run of this tool produced two of them.** `qc_report`
         # asks a filler for nothing - every one of its holes carries a `$body`, so
         # it is a loop rather than a blank and its configuration lives in its
-        # bindings (I-76, sharpened by I-78). Expanding it therefore assembles a
+        # bindings. Expanding it therefore assembles a
         # valid config from the bindings alone and the validator accepts it, which
         # renders as `pass` beside two genuine `not-reached`s and reads as the
         # arm's best result. It is the arm's *empty* result.
@@ -142,7 +142,7 @@ def compile_pass(code_root: Path, arms: list[ArmResult]) -> None:
 def render(arms: list[ArmResult], methods: list[str], unavailable: dict[str, str]) -> str:
     lines: list[str] = []
 
-    # --- the per-operator table, which is criterion 38's unit ------------------
+    # --- the per-operator table, which is this run's unit ----------------------
     per: dict[tuple[str, str], list[int]] = {}
     for arm in arms:
         for ref, (ok, n) in arm.report.per_operator().items():
@@ -157,7 +157,7 @@ def render(arms: list[ArmResult], methods: list[str], unavailable: dict[str, str
         for m in methods:
             row = per.get((ref, m))
             cells += f"{'-':>18s}" if row is None else f"{f'{row[0]} of {row[1]}':>18s}"
-        # Decision 13's threshold, applied here as it is in `eval`: below five
+        # The evaluation threshold, applied here as it is in `eval`: below five
         # attempts an operator reports cases and not a rate, and marking the row
         # is what stops a reader reading `1 of 3` against `2 of 3` as 33% against
         # 67%.

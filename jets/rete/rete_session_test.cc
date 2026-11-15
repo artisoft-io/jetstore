@@ -849,7 +849,7 @@ TEST(BetaRowScanTest, ReentrantVisitReachesARelationInItsFirstVisit)
   run_scan_growing_under_it(1000);
 }
 
-// I-85: removing a row from a relation removes its own index entries, not those of
+// Removing a row from a relation removes its own index entries, not those of
 // the other rows under the same key.
 //   rule0> (?s inGroup ?g).not(?s blocked ?b).(?g q ?v) -> (?s outP ?v)
 // The negation's relation holds [x1, g] and [x2, g], indexed under g for the last
@@ -940,7 +940,7 @@ TEST(BetaRowIndexTest, RemovingARowKeepsItsSiblingsUnderTheKey)
   EXPECT_EQ(run_a.x2_inferred, run_b.x2_inferred);
 }
 
-// I-91: a candidate whose filter re-enters the session and removes the candidate's
+// A candidate whose filter re-enters the session and removes the candidate's
 // own support is not inserted.
 //   rule0> (?s inGroup ?g).not(?s jets:key ?k).(?s q ?v).[create_entity(?v)] -> (?s outP ?v)
 // or, with `negated_child`, the filter on a negated antecedent below:
@@ -1852,7 +1852,7 @@ TEST(BetaRowScanTest, IndexScanSkipsARowThatLeftTheIndexButNotTheSet)
 
 // The row removed is the one the scan returned, whose filter is running: the scan
 // does not skip it from under its caller, and goes on to the next row. The first row's
-// candidate lost its parent row to its own filter, so it is not inserted (I-91; before
+// candidate lost its parent row to its own filter, so it is not inserted (before
 // the fix it was, and (first outP v) was inferred and never retracted)
 TEST(BetaRowScanTest, IndexScanSurvivesANegationRemovingTheRowItReturned)
 {

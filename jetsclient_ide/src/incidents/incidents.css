@@ -1,11 +1,11 @@
 /*
- * Styles for the incident screens (task AE.1).
+ * Styles for the incident screens.
  *
  * **A file of its own rather than a block in `styles.css`**, which belongs to the
- * ui_refresh project — the same division `src/proposals/proposals.css` made and
+ * application shell — the same division `src/proposals/proposals.css` made and
  * for the same reason: every colour below is one of their custom properties, so
  * light and dark follow the app's theme through the cascade without a second
- * switch, and nothing is added to a stylesheet this project does not own.
+ * switch, and nothing is added to a stylesheet this directory does not own.
  *
  * This is the third directory to take that arrangement, which is what makes it a
  * convention rather than a repeated one-off.
@@ -43,7 +43,7 @@
 }
 
 /* The word under a column heading that says whether it is evidence or a claim.
-   R-27 is that the two are read as one thing; this is where the page says they
+   The risk is that the two are read as one thing; this is where the page says they
    are not. */
 .col-note {
   display: block;
@@ -116,7 +116,7 @@
 }
 
 /* The blind spot is given a rule of its own so it cannot be skimmed past as a
-   caption. It is the half of the gate's finding that a summary drops. */
+   caption. It is the half of the finding that a summary drops. */
 .locus-blind {
   margin: 4px 0 0;
   padding: 6px 10px;
@@ -178,7 +178,7 @@
   display: block;
 }
 
-/* The verdict control (AJ.2). It sits below the history on purpose: a
+/* The verdict control. It sits below the history on purpose: a
    supervisor adjudicating an incident should have read how it got here before
    the buttons come into view, and a control at the top of a long screen is one
    that gets used without the evidence. */
@@ -195,7 +195,7 @@
   margin-top: 10px;
 }
 
-/* The transition history (AC.3). It is a reading surface rather than a table:
+/* The transition history. It is a reading surface rather than a table:
    the rationale is a paragraph of the ranker's own prose and is the only place
    the reasoning survives the write, jetsapi.hypothesis having no basis column. */
 .transitions {

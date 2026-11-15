@@ -383,7 +383,7 @@ func TestPruneIgnoredFileKeys(t *testing.T) {
 			wantKeys: []string{sentinel, property, part1, part2},
 		},
 		{
-			name:     "entries padded with whitespace are trimmed, not matched as written (JM-036)",
+			name:     "entries padded with whitespace are trimmed, not matched as written",
 			ignore:   " test_harness_filters.txt | _COMPLETE\t",
 			wantKeys: []string{part1, part2},
 		},
@@ -459,7 +459,7 @@ func TestPruneIgnoredFileKeysEmptyFolder(t *testing.T) {
 
 // TestPruneIgnoredFileKeysLogsSkippedEntries asserts that an entry skipped for being
 // empty, after trimming, is logged, so that a stray '|' or a blank entry in
-// ${JETS_IGNORE_FILE} is visible in the run's log rather than silent (JM-036).
+// ${JETS_IGNORE_FILE} is visible in the run's log rather than silent.
 func TestPruneIgnoredFileKeysLogsSkippedEntries(t *testing.T) {
 	var buf bytes.Buffer
 	log.SetOutput(&buf)

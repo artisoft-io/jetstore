@@ -61,7 +61,7 @@ TEST(LookupRowIdTest, EveryServedRowCarriesItsRowId) {
 }
 
 // A SQL NULL in a lookup column is served as rdf null, whatever the column's
-// type (I-45). The packager writes an empty bool cell as NULL; the numeric arms
+// type. The packager writes an empty bool cell as NULL; the numeric arms
 // read NULL as 0, so before this C++ served it as false where Go served null.
 TEST(LookupRowIdTest, ANullColumnIsServedAsNull) {
   auto db = std::filesystem::temp_directory_path() /

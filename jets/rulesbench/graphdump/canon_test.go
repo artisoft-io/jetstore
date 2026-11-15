@@ -91,8 +91,8 @@ func TestEqualUpToNamingGivesTheSameDump(t *testing.T) {
 	}
 }
 
-// The two forms of the lookup bookkeeping: a Go dump made before rules_benchmark
-// I-15 (2026-10-22) caches (jets:cache:<T> jets:lookup_row jets:lookup:<key>), and
+// The two forms of the lookup bookkeeping: a Go dump made before
+// 2026-10-22 caches (jets:cache:<T> jets:lookup_row jets:lookup:<key>), and
 // a multi-lookup with jets:lookup_multi_rows; both engines now cache
 // (<T> jets:lookup_row jets:<T>:<key>), a multi-lookup included. goSide is the
 // old Go form.

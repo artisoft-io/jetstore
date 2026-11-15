@@ -104,12 +104,12 @@ def test_nbr_rows_is_substituted_then_parsed():
 
 
 def test_nbr_rows_does_no_arithmetic_which_is_what_d_217_rests_on():
-    """The measurement D-217 is ruled on, asserted rather than described.
+    """The measurement the row-count ruling rests on, asserted rather than described.
 
     `ToIntWithEnv` is `String2Int(ReplaceEnvVars(v, env))`. There is no
     expression, so a document cannot divide a household count by a node count and
     every node of a generator step is told the same `nbr_rows`. If this ever
-    stops raising, the ceiling can move into the pipeline and D-217's shape is
+    stops raising, the ceiling can move into the pipeline and the ruling's shape is
     open again.
     """
     env = {"$HOUSEHOLDS": "1000", "$NODES": "4"}

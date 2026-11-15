@@ -1,6 +1,5 @@
 /**
- * Every flow on disk is a consistent set. `jetstore_maintenance_02` task AG.1
- * (`R12`, that project's `I-9`).
+ * Every flow on disk is a consistent set.
  *
  * ## Why this walks the directory rather than naming the flows
  *
@@ -10,7 +9,7 @@
  * tolerable while every document was either emitted from the legacy fixture or
  * projected by a tool, because each had an ancestor that had once worked. **It
  * stops being tolerable when documents are hand-authored or written by a
- * model** — the direction `ui_refresh`'s `I-299` was given on 2026-10-01 — since a
+ * model** — the direction set on 2026-10-01 — since a
  * new flow added to the directory and not to the list would be checked against
  * its schema (Go, on save) and never against its siblings. The Go corpus tests
  * already glob `user_flows/`; this is the TypeScript half doing the same.
@@ -26,7 +25,7 @@
  * 4. `validateTableActions` — a table's `doAction` and `showDialog` resolve in
  *    *this flow's* action and form documents.
  *
- * Escape resolution against the production registry is the validator's (AG.2),
+ * Escape resolution against the production registry is the validator's,
  * not this test's.
  */
 
@@ -99,7 +98,7 @@ describe("every shipping flow is a consistent set", () => {
 
   it("finds the flows on disk rather than from a list", () => {
     // A floor rather than an equality: the directory is allowed to grow and
-    // shrink (track AD of this phase retires one flow), and an exact count would
+    // shrink (one flow has already been retired), and an exact count would
     // make this a test of the news. What must not happen is the walk finding
     // nothing — a moved directory would turn every case below into a vacuous pass.
     expect(keys.length).toBeGreaterThan(0);

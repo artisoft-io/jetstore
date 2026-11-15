@@ -1,5 +1,5 @@
 /**
- * The two escape bodies I-54 named, and the registry that holds them.
+ * The first two escape bodies, and the registry that holds them.
  *
  * These are ports of Dart closures the corpus could not serialise, so there is no
  * fixture to check them against — a `hasCellFilter: true` says a closure existed
@@ -69,8 +69,8 @@ describe("hasDataRegistryFilters", () => {
     ~~"is false, because this app has nowhere to set the filters yet"~~ — that was
     this case's name until 2026-10-01, and it asserted the hard-coded `false`.
     The filters had a home by then (`homeFilters.ts`'s store), so the case was
-    pinning a defect: three *Clear Filters* buttons that could never enable
-    (`jetstore_maintenance_02`, `F8`, `F33`). It now asserts the Dart's body,
+    pinning a defect: three *Clear Filters* buttons that could never enable.
+    It now asserts the Dart's body,
     `dataRegistryFilters != null && …isNotEmpty`, across the store's three states.
   */
   const applied = (answers: Record<string, string | string[]>) => {
@@ -106,7 +106,7 @@ describe("the production registry", () => {
     ];
     expect(resolveEscapes(references, productionRegistry)).toEqual([]);
     // The same references against the empty registry are what a build without
-    // this file looks like, which is what every build looked like until F.0a.
+    // this file looks like, which is what every build looked like before this file.
     expect(resolveEscapes(references, emptyRegistry)).toHaveLength(2);
   });
 
@@ -114,34 +114,34 @@ describe("the production registry", () => {
     // **This test used to assert `actions` and `initializers` were empty**, and
     // the reason it gave was the right one: registering a name whose body is not
     // ported gives a document that loads and does nothing, which is the failure
-    // `escapes.ts` exists to prevent. F.5 ported `homeFiltersUF`, so its two
+    // `escapes.ts` exists to prevent. `homeFiltersUF` is ported, so its two
     // action escapes and the corpus's one initializer are here — and the rule the
     // old assertion stood for is now stated as what it always was, a *bound*
     // rather than a zero.
     //
-    // **F.8 added `fileMappingUF`'s two, and they are the first bodies here that
+    // **`fileMappingUF`'s two came next, and they are the first bodies here that
     // talk to the server.** That is what `EscapeHost` is for — an escape gets the
     // host as a second parameter, which is additive for the five bodies that
     // preceded it and for the one in another project's directory (`escapes.ts`).
     //
-    // **F.7 added `sourceConfigUF`'s, and the bound is now tight: every flow is
+    // **Then `sourceConfigUF`'s, and the bound is now tight: every flow is
     // migrated, so every escape any document names is here and there is nothing
     // left to be absent.** The two names are not the two the coverage document
     // transcribed — `loadSourceConfigWithFileTypeInference` was that arm read whole
-    // and F.2's `when` guard expresses all but one step of it, so what is
+    // and the `when` guard expresses all but one step of it, so what is
     // registered is `readXlsxSheetOption` (`sourceConfig.ts`).
     //
-    // **`cpipesTemplateApply` is the seventh and it is not this project's** —
-    // agentic_ai's U.3, 2026-08-25, registering the body that has lived in
-    // `src/cpipes/` since their M.5. The list above is *this* project's bound and
+    // **`cpipesTemplateApply` is the seventh and it is not the IDE's** —
+    // registered 2026-08-25, for the body that lives in
+    // `src/cpipes/`. The list above is the IDE's own bound and
     // is still tight; the seventh entry says the bound was never the whole rule.
-    // It is here rather than absent because their U.2 put projected document sets
+    // It is here rather than absent because projected document sets now live
     // in `jets/workspace_assets/user_flows/`, so a document naming it now exists
     // in every workspace — which is the same test the six above pass, applied to
     // a flow nobody hand-wrote.
     //
     // **`openWorkspace` is the eighth and the first registered by a non-flow
-    // screen** (C.2b). It passes the same test on a document that is bundled
+    // screen**. It passes the same test on a document that is bundled
     // rather than in a workspace: `screens/documents/workspaceRegistry.ua.json`
     // names it, so a body that were absent would be a screen that will not load —
     // which is what `documentFindings` checks and what
@@ -150,25 +150,25 @@ describe("the production registry", () => {
     // **It is also the only body here that is deliberately incomplete**, and that
     // is not a violation of the bound. The bound is about names with no body; this
     // has one, and what the body does is report that its destination screen is
-    // C.3's (I-183). A registered escape that says why it cannot finish is the
+    // not built yet. A registered escape that says why it cannot finish is the
     // thing `escapes.ts` prefers to an unregistered name, one layer up.
-    // **`loadReteSession` is the ninth** (C.9), and the interesting half of that
+    // **`loadReteSession` is the ninth**, and the interesting half of that
     // task's count is what is *not* here. `/processErrors`'s Dart delegate has
     // three live arms; `reteSession.VisitEntity` is a guarded `set` in the
-    // screen's action document, and the third belongs to the v1 dialog C.0
-    // deleted. So a screen with two dialogs adds one escape — which is I-74's
+    // screen's action document, and the third belongs to the v1 dialog that was
+    // deleted. So a screen with two dialogs adds one escape — which is the
     // rule again: this list is an upper bound on what the grammar cannot say.
-    // **Fifteen as of `session_registry` Phase 2** (2026-11-08): the Session
+    // **Fifteen as of 2026-11-08**: the Session
     // Registry tab's two filter escapes and its *Delete*'s preview, which reads
     // rows a `post` step would drop (`sessionDeletion.ts`).
     expect(Object.keys(productionRegistry.actions).sort()).toEqual([
       "clearHomeFilters",
       "clearSessionRegistryFilters",
-      // jetstore_maintenance_02 AE.5: Get Schema Event, a read and a clipboard.
+      // Get Schema Event, a read and a clipboard.
       "copySchemaEvent",
       "cpipesTemplateApply",
       "downloadMapping",
-      // **Eleven as of 2026-10-01** (jetstore_maintenance_02 AE.3): a clipboard
+      // **Eleven as of 2026-10-01**: a clipboard
       // button needs the response body, which a grammar `post` drops.
       "fetchStageToClipboard",
       "loadRawRows",
@@ -176,7 +176,7 @@ describe("the production registry", () => {
       "openWorkspace",
       "previewSessionDeletion",
       "readXlsxSheetOption",
-      // **Ten as of C.10**, and the one it adds is the first in the track that the
+      // **Ten with this one**, and it is the first that the
       // *value* grammar cannot say rather than the *step* grammar: it reads a
       // query result. A sixth `ValueSchema` member was the alternative — four
       // fields for one site — and `ruleConfig.ts` records why not.
@@ -186,9 +186,9 @@ describe("the production registry", () => {
       "updateSessionRegistryFilters",
     ]);
     expect(Object.keys(productionRegistry.initializers)).toEqual(["seedFromHomeFilters"]);
-    // **Two row initializers as of C.9, and the second is the first outside a
+    // **Two row initializers, and the second is the first outside a
     // flow.** `seedInputRecordsRow` is `viewInputRecordsDialog`'s, and it needed
-    // nothing F.1 had not already built for `fmMappingFormUF` — which is the only
+    // nothing not already built for `fmMappingFormUF` — which is the only
     // evidence available that the repeating-form mechanism generalised, since its
     // author could not produce a second consumer.
     expect(Object.keys(productionRegistry.rowInitializers).sort()).toEqual([
@@ -201,17 +201,17 @@ describe("the production registry", () => {
   });
 
   it("registers the nine predicates the flows, the screens and their dialogs name", () => {
-    // C.2b. `isReadOnlyFrom` resolves out of `predicates`, the namespace a table
+    // `isReadOnlyFrom` resolves out of `predicates`, the namespace a table
     // action's `isEnabled` already used — the signature is identical and a second
     // namespace of the same type would be a distinction nothing draws.
     //
-    // **Two names for four sites**, which is I-54's shape a third time: the corpus
+    // **Two names for four sites**, which is the cell filters' shape a third time: the corpus
     // reports `hasIsReadOnlyEval: true` on `addWorkspace`'s name, uri and branch
     // and on `doGitStatusWorkspaceDialog`'s command, and reading the Dart shows
-    // two bodies. Per I-103 the mapping is a lookup keyed by what it is knowledge
+    // two bodies. The mapping is a lookup keyed by what it is knowledge
     // about, which is what naming it in the document makes it.
     //
-    // **C.5 adds two more and they are the first here that no flow reaches** —
+    // **Two more are added and they are the first here that no flow reaches** —
     // `inferServerNotRunning` and `inferServerNotStopped`, the first users of
     // `FormActionSchema`'s `enabledWhen`. The namespace was built for a table
     // action's `isEnabled` and takes a form action's `isEnabledEval` unchanged,
@@ -221,11 +221,11 @@ describe("the production registry", () => {
     // **The exact set is the point rather than the count.** This assertion is
     // what makes a predicate that is registered and named by nothing, or named
     // and registered by nothing, fail here rather than at the call site — and it
-    // fired on exactly that during the C.2b/C.5 merge, which is the only test of
+    // fired on exactly that during the merge that brought both sets in, which is the only test of
     // an exact-set assertion its author cannot run.
     //
     // **Nine since 2026-11-08**: the Session Registry tab's *Clear Filters* gate
-    // and its *Delete* gate (`session_registry` Phase 2, `isEnabledEscapeFor`).
+    // and its *Delete* gate (`isEnabledEscapeFor`).
     expect(Object.keys(productionRegistry.predicates).sort()).toEqual([
       "alwaysEnabled",
       "hasDataRegistryFilters",
@@ -240,7 +240,7 @@ describe("the production registry", () => {
   });
 
   it("resolves all three of pipelineExecStatusTable's predicates", () => {
-    // F.5, and the correction it carries: the table has three `isEnabledFnc`
+    // The correction this carries: the table has three `isEnabledFnc`
     // closures and none of them is `hasDataRegistryFilters`, which the translation
     // used to assume was the only one.
     const references = [

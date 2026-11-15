@@ -7,7 +7,7 @@
 # already asserted the jets:exception "xr exception raised". This rule set
 # asserts it again, which is the same triple and so the same exception, and
 # asserts a second, distinct one. A sequence reports each exception once, from
-# the rule set that raised it (rules_unit_test_harness I-8).
+# the rule set that raised it.
 #
 # No $max_looping: the rule set runs loop 0 only.
 import "data_model/jets_model.jr"

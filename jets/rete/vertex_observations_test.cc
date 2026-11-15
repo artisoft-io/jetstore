@@ -8,8 +8,8 @@
 #include "../rete/rete_types_impl.h"
 #include "../rete/jets_rete_cwrapper.h"
 
-// WHAT A VERTEX HOLDS, READ THROUGH get_vertex_observations (rules_benchmark Q-98,
-// BU.1): per vertex, its beta relation's rows now and at their most, and the times its
+// WHAT A VERTEX HOLDS, READ THROUGH get_vertex_observations: per vertex, its beta
+// relation's rows now and at their most, and the times its
 // consequents were computed and retracted. Every counter is one the session keeps
 // anyway -- BetaRelation::peak_size for the reserve hint, vertex_visits_ for the vertex
 // visit limit -- so observing costs nothing until the entry point is called.

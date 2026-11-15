@@ -75,7 +75,7 @@ class BetaRowIndex {
 
   // Removes `row` from under `key`, the other rows there keeping their order, and
   // returns how many it removed (0 or 1: a row is indexed once under a key). The key
-  // goes once it holds no row. Before I-85 the whole key was erased, the other rows
+  // goes once it holds no row. Before a fix the whole key was erased, the other rows
   // under it with it, so they could no longer be joined.
   inline std::size_t
   erase(K const& key, BetaRow const* row)
@@ -196,8 +196,8 @@ class BetaRowScan;
  *
  * A scan iterates its container in place. The engine can change a relation while one
  * of its scans is live: a filter's error path, or a create_entity in a filter,
- * inserts into a graph whose callbacks insert into and remove from beta relations
- * (I-90). A flat container's iterators do not survive an insert that grows it, so
+ * inserts into a graph whose callbacks insert into and remove from beta relations.
+ * A flat container's iterators do not survive an insert that grows it, so
  * the relation freezes its scans of a container before it changes that container:
  * each copies the rows it has yet to return and continues over the copy. This is the
  * treatment the RDF graph's iterators have (BaseGraph::freeze_iterators).

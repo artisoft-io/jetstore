@@ -1,5 +1,5 @@
 /**
- * The two escapes `/processErrors/:session_id` needs. Task C.9.
+ * The two escapes `/processErrors/:session_id` needs.
  *
  * ## One of the Dart's three arms is here and two are not, which is the useful count
  *
@@ -11,13 +11,13 @@
  * |---|---|
  * | `setupShowReteTriplesV2` | `loadReteSession` below — an escape |
  * | `reteSession.VisitEntity` | the action document, as a guarded `set` |
- * | `setupShowReteTriples` (v1) | nowhere; C.0 deleted the v1 dialog |
+ * | `setupShowReteTriples` (v1) | nowhere; the v1 dialog was deleted |
  *
  * **The second is the one worth stating.** It reads two form-state values, checks
  * that the property is a `named_resource`, and copies one into another key — which
- * is `{ "do": "set", "when": { "op": "equals", … } }` exactly, using F.2's guard
+ * is `{ "do": "set", "when": { "op": "equals", … } }` exactly, using the `when` guard
  * and no new vocabulary. So this screen adds **one** escape rather than two, and
- * I-74's rule holds again: the escape count is an upper bound on what the grammar
+ * the usual rule holds again: the escape count is an upper bound on what the grammar
  * cannot say, not a count of what looked like a function in the Dart.
  *
  * ## Why the remaining one cannot be a step
@@ -68,7 +68,7 @@ function asJsonString(raw: unknown): string | null {
  * Loads the saved rete session for the selected error row.
  *
  * **The statement is composed here rather than registered**, which is a departure
- * from F.6's `queries` namespace and is argued rather than convenient: a
+ * from the `queries` namespace and is argued rather than convenient: a
  * registered query is substituted from form state as text, and the value here is
  * `process_errors.key`, an integer primary key that arrives on the selection. The
  * Dart writes it into the statement the same way
@@ -134,7 +134,7 @@ export async function loadReteSession(
 }
 
 /**
- * Seeds one repeated row of the input-records dialog. Task C.9.
+ * Seeds one repeated row of the input-records dialog.
  *
  * `viewInputRecords`'s `inputFieldRowBuilder`
  * (`jetsclient/lib/modules/form_config_impl.dart`, `FormKeys.viewInputRecords`),

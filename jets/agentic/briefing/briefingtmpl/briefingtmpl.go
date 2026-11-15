@@ -1,9 +1,9 @@
 // Package briefingtmpl holds the `patient_profile` briefing as a template
 // document, and holds it once.
 //
-// It is agentic_ai's Phase 8 `AY.3`. What it carries is **configuration, not
+// What it carries is **configuration, not
 // code**: `patient_profile_briefing.json` is a [template.Spec] in the notation
-// of plan §10 of `projects/agentic_ai/plan/phase8_plan.md`, and everything that
+// of the template engine, and everything that
 // makes it a *briefing* rather than a language lives in that file.
 // `jets/agentic/template` is the engine and names none of it, which is
 // criterion 81; this package names all of it and contains no logic, which is
@@ -11,10 +11,10 @@
 //
 // # Why the document is a file in a package rather than a fixture
 //
-// It has two consumers and they are in different repositories. `AY.4` compiles
+// It has two consumers and they are in different repositories. One compiles
 // it and renders it against `jets/agentic/briefing/prose`'s seventeen tests;
-// `BA.2` inlines it into `patient_profile_template.pc.json`'s `text_templates`
-// array, because **Q-104 keeps the body inline in the pipeline configuration**
+// the other inlines it into `patient_profile_template.pc.json`'s `text_templates`
+// array, because **the body is kept inline in the pipeline configuration**
 // by the user's instruction. So there will be two copies of these bytes and the
 // question is not how to avoid the second one - it is what keeps them equal.
 //
@@ -26,8 +26,8 @@
 // configuration document that a test happens to read.
 //
 // It is embedded rather than read from disk, so a Go consumer that wants the
-// document gets it from here rather than from a path it has to spell. `AY.5`,
-// `AZ` and a future validator are all such consumers.
+// document gets it from here rather than from a path it has to spell. Tests,
+// the render operator and a future validator are all such consumers.
 //
 // **And [TestTheShippedPipelineCarriesThisDocument] compares this file with the
 // workspace's**, when it is pointed at one. It is skipped by default, on
@@ -42,10 +42,10 @@
 // # What this package is not
 //
 // It is **not** where the `render` operator's caller behaviour is decided.
-// [Render] is the reference caller of §10.7 - the four lines that stay outside
+// [Render] is the reference caller of the template design - the four lines that stay outside
 // the engine - and it exists so that criterion 82 has something to compare with
 // `prose.Render`. Whether the operator fails the row into its error channel or
-// writes the column and reports separately is **Q-107**, settled at `AZ.3`.
+// writes the column and reports separately is the render operator's decision.
 package briefingtmpl
 
 import (
@@ -59,7 +59,7 @@ import (
 
 // Document is the template document, verbatim.
 //
-// **`BA.2` inlines these bytes** into the `text_templates` array of
+// **The pipeline configuration inlines these bytes** into the `text_templates` array of
 // `patient_profile_template.pc.json`. Read them from here rather than retyping
 // them; see the package comment for what compares the two afterwards.
 //
@@ -95,21 +95,21 @@ func Compiled() (*template.Template, error) {
 // the signature `prose.Render` has.
 //
 // **It is the reference caller rather than the engine**, and the three things
-// it does are exactly the three §10.7 says do not belong inside one.
+// it does are exactly the three the design says do not belong inside one.
 //
 // It refuses a prefixed entity. That is the one of `prose.Render`'s three
-// refusals that stays with the caller (**I-623**): it is a claim about the
+// refusals that stays with the caller: it is a claim about the
 // column's `remove_model_prefixes` setting rather than about the data, it is
 // the same for every template, and no arrangement of a template makes it
 // decidable at build time. Without it a misconfigured column renders an empty
 // briefing that looks like a member with no claims.
 //
 // It maps a non-empty violation list to an error. **A [template.Violation] is
-// data because the distinction Phase 7 drew is precisely this one** - a failure
+// data because the distinction that matters is precisely this one** - a failure
 // of the *renderer* disqualifies a control, and a record missing a property its
 // template declares required is the data failing - so the engine reports and
 // the caller decides what it costs. This caller decides it costs the artefact,
-// which is what `prose.Render` does and is what lets `AY.4` compare the two.
+// which is what `prose.Render` does and is what lets the equivalence test compare the two.
 //
 // And it compiles. A caller rendering more than one record should hold the
 // [Compiled] template instead; this one is written for a test and for a reader.
@@ -145,8 +145,8 @@ func Render(entity map[string]any) (string, error) {
 // passes `remove_model_prefixes` down its own recursion, so a prefixed root
 // means the whole map is prefixed and one look is the whole check
 // (`prefixedKey`, `jets/agentic/briefing/prose/entity.go:136`). **This is a
-// fourth copy of four lines and it is not I-643's kind of duplication**: the
-// three-way copy I-643 records is of `scalar`, `asInt` and `dateLayouts`, which
+// fourth copy of four lines and it is not the harmful kind of duplication**: the
+// three-way copy already recorded is of `scalar`, `asInt` and `dateLayouts`, which
 // decide what a *value* means and diverge silently. This one is a `strings.Contains`
 // over a map key.
 func prefixedKey(entity map[string]any) string {

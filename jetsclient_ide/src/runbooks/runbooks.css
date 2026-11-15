@@ -1,5 +1,5 @@
 /*
- * Styles for the runbook screens (`runbooks` project, Phase 1, track AC).
+ * Styles for the runbook screens.
  *
  * A file of its own, as `proposals.css` is: every colour is one of the app's
  * custom properties, so light and dark follow the theme, and nothing is added to
@@ -189,7 +189,7 @@
 }
 
 /* A run is opened from a button labelled with its number, not from a bare
-   number: easier to see and to hit (Michel, 2026-11-07). */
+   number: easier to see and to hit (2026-11-07). */
 .runbook-run-btn {
   display: inline-block;
   min-width: 3ch;

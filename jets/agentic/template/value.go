@@ -10,9 +10,9 @@ import (
 // delegated to `jets/agentic/briefing`, which this package already imports for
 // [briefing.Selector].
 //
-// **This file held the third copy and `I-643` is why it no longer does.** The
-// copy was made because `AY.2` was forbidden to edit `jets/agentic/briefing`;
-// `AY.5` was not, and the entry's own prediction had already come true - the
+// **This file held the third copy and no longer does.** The
+// copy was made because this package's first change could not edit `jets/agentic/briefing`;
+// a later change could, and the recorded prediction had already come true - the
 // date table here and in `jets/agentic/briefing/prose` carried five layouts and
 // the one in `jets/agentic/briefing/check.go` carried six, so `2025-08-14
 // 10:00:00` was a date to a checker and not to a renderer.
@@ -26,7 +26,7 @@ import (
 // with [briefing.ParseSelector] - so nothing about the engine's shape changes,
 // and the alternative was a fourth copy of a date table.
 //
-// # What delegating does to criterion 82, which is the question `I-647` raises
+// # What delegating does to criterion 82
 //
 // Nothing, and that is the argument rather than the hope. Criterion 82 compares
 // `prose.Render` with a rendering of the template document, and its subject is
@@ -34,10 +34,10 @@ import (
 // they name. These four functions are named by no document and were byte
 // identical in both arms, so an equivalence test could never have separated
 // them - two identical copies fail together. What can still separate the arms
-// is `filters.go`'s ten functions, which stay copied (`I-647`), and what
+// is `filters.go`'s ten functions, which stay copied, and what
 // catches a shared reader whose behaviour changed is the golden on each side:
-// `TestRendersSection1106Verbatim` and `TestTheAnchorFixture` both hold plan
-// §10.9's printed block byte for byte.
+// `TestRendersSection1106Verbatim` and `TestTheAnchorFixture` both hold the
+// notation's printed worked example byte for byte.
 
 func scalar(v any) string { return briefing.ValueText(v) }
 

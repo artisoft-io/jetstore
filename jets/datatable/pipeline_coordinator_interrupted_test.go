@@ -1,4 +1,4 @@
-// What a task's status does to its pipeline coordinator map (I-58).
+// What a task's status does to its pipeline coordinator map.
 //
 // updatePipelineCoordinator failed the map on "failed" and counted every other
 // status as a completed task, so an interrupted task counted toward the map and

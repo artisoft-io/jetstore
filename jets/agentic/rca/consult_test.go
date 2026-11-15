@@ -52,7 +52,7 @@ func TestConsultReportCountsWhatItSaysItCounts(t *testing.T) {
 				"statement": "the ECS agent log shows a restart", "source": SourceInfrastructureLog}},
 			"contradicting_evidence": []any{},
 		},
-		// 2. A class §9.5 attaches to no locus, at a locus that is not present.
+		// 2. A class the table attaches to no locus, at a locus that is not present.
 		map[string]any{
 			"cause": "the cluster ran out of memory", "cause_category": CauseCapacityOrCostDeviation,
 			"locus": triage.LocusWorkerNotTerminated, "confidence": 0.7,
@@ -61,7 +61,7 @@ func TestConsultReportCountsWhatItSaysItCounts(t *testing.T) {
 			"contradicting_evidence": []any{map[string]any{
 				"statement": "no cost or memory signal exists", "source": SourceRunTelemetry}},
 		},
-		// 3. A pair §9.5 does not list: validation_breach sits at locus 7 only.
+		// 3. A pair the table does not list: validation_breach sits at locus 7 only.
 		map[string]any{
 			"cause": "a rule raised an exception", "cause_category": CauseValidationBreach,
 			"locus": triage.LocusWorkerFailed, "confidence": 0.4,
@@ -71,7 +71,7 @@ func TestConsultReportCountsWhatItSaysItCounts(t *testing.T) {
 				"statement": "no process_errors rows", "source": SourceDqResult}},
 		},
 		// 4. At a locus the classifier could not evaluate at all, which is the
-		// half LociNotPresent used to fold into the one above (AD.1).
+		// half LociNotPresent used to fold into the one above.
 		map[string]any{
 			"cause": "the sink never completed", "cause_category": CauseTransportFailure,
 			"locus": triage.LocusSinkFailedUnderCompletedWorker, "confidence": 0.5,
@@ -117,17 +117,17 @@ func TestConsultReportCountsWhatItSaysItCounts(t *testing.T) {
 			"model's counts against")
 	}
 	if rep.FloorUnsubstantiatedSource != 0 {
-		t.Errorf("the floor cited %d sources with no substrate; it transcribes §9.5 and reads the "+
+		t.Errorf("the floor cited %d sources with no substrate; it transcribes the gate's table and reads the "+
 			"record, so it should cite none", rep.FloorUnsubstantiatedSource)
 	}
 	if len(got.Hypotheses) != 4 {
 		t.Errorf("%d hypotheses survived validation, want 4", len(got.Hypotheses))
 	}
 	// The split has to be a split: a reader comparing a new figure against
-	// §19.6's, which predates it, is comparing against the sum.
+	// an earlier one, which predates it, is comparing against the sum.
 	if rep.LociAbsent+rep.LociNotEvaluable != rep.LociNotPresent {
 		t.Errorf("LociAbsent %d + LociNotEvaluable %d is not LociNotPresent %d, so the two figures "+
-			"are not a decomposition of the one §19.6 reported", rep.LociAbsent, rep.LociNotEvaluable,
+			"are not a decomposition of the one reported earlier", rep.LociAbsent, rep.LociNotEvaluable,
 			rep.LociNotPresent)
 	}
 	if !strings.Contains(rep.Describe(), "None of these counts is an accuracy") {
@@ -135,10 +135,10 @@ func TestConsultReportCountsWhatItSaysItCounts(t *testing.T) {
 	}
 	t.Log(rep.Describe())
 
-	// And the schema reached the prompt, which is I-180's remedy applied at
+	// And the schema reached the prompt, which is the schema-in-prompt remedy applied at
 	// this call site rather than in infer.Client.
 	if !strings.Contains(stub.sawUser, `"contradicting_evidence"`) {
-		t.Error("the user message does not carry the response schema; I-41 measured that shape at " +
+		t.Error("the user message does not carry the response schema; an earlier measurement put that shape at " +
 			"nine non-conformant fragments out of nine")
 	}
 	if !strings.Contains(stub.sawUser, "stall_cause_unknown") {
@@ -172,7 +172,7 @@ func TestAModelThatDoesNotAnswerIsReportedRatherThanSwallowed(t *testing.T) {
 //
 //	JETS_RCA_MODEL=granite4.1:3b go test -run TestModelArm -v -timeout 60m ./jets/agentic/rca/
 //
-// This machine has no GPU and models are CPU-bound (R-23), so budget an hour and
+// This machine has no GPU and models are CPU-bound, so budget an hour and
 // read every figure with the model name beside it.
 func TestModelArmAgainstTheFloor(t *testing.T) {
 	model := os.Getenv("JETS_RCA_MODEL")

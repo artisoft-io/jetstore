@@ -358,8 +358,8 @@ func parseRuleConfigCsv(config []map[string]any, ruleConfig *string) ([]map[stri
 				// Into json struct:
 				// [
 				//   {
-				//   "usi_sm:clientName": {
-				//     "value": "Local 138",
+				//   "acme:clientName": {
+				//     "value": "Example Client",
 				//     "type": "text"
 				//   }
 				// ]

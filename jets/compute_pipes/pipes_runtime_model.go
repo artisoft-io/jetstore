@@ -162,7 +162,7 @@ func (ctx *BuilderContext) parseValue(expr *string, maxSubstitutions int) (any, 
 type PipeTransformationEvaluator = pipesmodel.PipeTransformationEvaluator
 
 // Initialize and Done are intended for aggregate transformations column evaluators.
-// The declaration moved to pipesmodel at BD.2: it is OperatorEnv.ColumnEvaluator's
+// The declaration moved to pipesmodel: it is OperatorEnv.ColumnEvaluator's
 // return type, so a site operator has to be able to name it.
 type TransformationColumnEvaluator = pipesmodel.TransformationColumnEvaluator
 
@@ -335,7 +335,7 @@ func (ctx *BuilderContext) BuildPipeTransformationEvaluator(source *InputChannel
 	default:
 		// A site-supplied operator is reached here and only here, which is what
 		// makes a site token unable to shadow a built-in: the eighteen cases
-		// above are tried first (Q-140). An unregistered token falls through to
+		// above are tried first. An unregistered token falls through to
 		// the message it has always produced.
 		if pipe, registered, err := ctx.buildSiteOperator(source, outCh, spec); registered {
 			return pipe, err

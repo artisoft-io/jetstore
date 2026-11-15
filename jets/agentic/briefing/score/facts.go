@@ -17,7 +17,7 @@ import (
 // A maintenance indicator reaches this package by two routes. On the **template
 // arm's** entity it is a property of the pharmacy event, `Maintenance`, beside
 // `Drug_Name` and `Fill_Count`. On the **model arm's** entity those four are in
-// the exclusion list - `AT.5`'s design excludes the components the template
+// the exclusion list - the side-by-side design excludes the components the template
 // renders from - and what remains is `Medication`, the joined string
 // `Naproxen Sodium ER (maintenance Y, adherence 0.00, 5 fills: ...)` that
 // `join_values` builds.
@@ -26,15 +26,15 @@ import (
 // the properties would score the arm it was pointed at and refuse the other. So
 // the properties win when they are present and the joined string is parsed when
 // they are not, and [Drug.Source] records which route each drug came by. That is
-// also what lets this package be validated against the `AT.5` artefacts at all:
+// also what lets this package be validated against the side-by-side artefacts at all:
 // what those carry is the model arm's TOON, and the maintenance ground truth is
 // inside the joined value.
 //
 // # What it does not carry
 //
-// No adherence *ratio* semantics. `F822` measured `cintel:Adherence_Ratio`
+// No adherence *ratio* semantics. `cintel:Adherence_Ratio` was measured
 // taking exactly two values over the population, `0.00` and `1.00`, because
-// `F794`'s division truncates; this package records whether a drug has a ratio
+// the projection's division truncates; this package records whether a drug has a ratio
 // and what it says, and makes no claim about what the number means. The
 // categories that count what a model *says* about it are in checks.go and they
 // count language rather than arithmetic.
@@ -54,7 +54,7 @@ type FactSet struct {
 	ServiceDates []string
 	// Flags is Briefing_Data_Flags: sentences of guidance the projection puts on
 	// the entity. They are facts about the *prompt* rather than about the
-	// member, which is I-578, and CatEchoesPrompt is the category that cares.
+	// member, a known defect, and CatEchoesPrompt is the category that cares.
 	Flags []string
 	// Disclaimer is the intended-use notice, when the entity carries it. The
 	// model arm's entity excludes it.
@@ -107,7 +107,7 @@ type Condition struct {
 	// tokens are Description's distinctive words - lower case, longer than three
 	// characters, not a stop word. They are what the omission check counts, and
 	// they are **words rather than substrings**, which is the one change from
-	// `AT.5`'s script that moves a number: that script passed a missing
+	// the original script that moves a number: that script passed a missing
 	// *rheumatoid arthritis* because the string *arthritis* occurs inside
 	// *osteoarthritis*, and a word-boundary test does not.
 	tokens []string
@@ -285,7 +285,7 @@ func (f *FactSet) indexSurfaces() {
 }
 
 // HasMaintenanceDrug reports whether any drug is flagged maintenance. It is the
-// condition CatMaintenanceAbsent applies under, and `AT.5`'s six members are the
+// condition CatMaintenanceAbsent applies under, and the side-by-side run's six members are the
 // ones for which it is false.
 func (f *FactSet) HasMaintenanceDrug() bool {
 	for _, d := range f.Drugs {
@@ -336,8 +336,8 @@ func longestToken(toks []string) string {
 }
 
 // countOf reads a projected count, falling back to the length of the list it
-// counts. **The property wins when present**, which is I-516's point: the count
-// is a fact of the projection after `AT.1`, and a reader that recomputed it
+// counts. **The property wins when present**, which is the point: the count
+// is a fact of the projection, and a reader that recomputed it
 // would be a second answer to a settled question.
 func countOf(entity map[string]any, prop string, listLen int) int {
 	if v, ok := entity[prop]; ok {

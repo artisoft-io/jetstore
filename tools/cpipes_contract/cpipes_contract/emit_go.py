@@ -1,4 +1,4 @@
-"""Emit the applicability matrix as one generated Go data file (B.17).
+"""Emit the applicability matrix as one generated Go data file.
 
 The plan's §5.2.2 staging: `pipes_model.go` stays hand-written (the Go struct
 emitter is proven on the greenfield `jets_agentic` types first), but the cheap

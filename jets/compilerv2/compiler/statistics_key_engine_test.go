@@ -2,7 +2,7 @@
 
 package compiler
 
-// THE STATISTICS KEY AGREES WITH THE ENGINE (rules_benchmark Phase 9, BY.1).
+// THE STATISTICS KEY AGREES WITH THE ENGINE.
 //
 // The cost order looks a rule constant up in the statistics file by termKey,
 // which renders it from the compiler's ResourceNode. The file's keys are the

@@ -54,7 +54,7 @@ describe("the vocabularies this app spells", () => {
 });
 
 /**
- * The PHI marker, from the browser's end (task AE.2, I-311).
+ * The PHI marker, from the browser's end.
  *
  * **The screen renders a withholding notice for one field, and it has no way of
  * its own to know that field is the marked one.** The generated manifest is that

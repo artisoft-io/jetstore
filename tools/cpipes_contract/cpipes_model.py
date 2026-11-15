@@ -1,6 +1,6 @@
-"""The cpipes contract - THE SOURCE OF TRUTH for the contract claims (B.10).
+"""The cpipes contract - THE SOURCE OF TRUTH for the contract claims.
 
-Since the B.10 flip, this Pydantic v2 model is where the contract is edited:
+Since the source-of-truth flip, this Pydantic v2 model is where the contract is edited:
 which fields exist per operator token, which are required, their value ranges,
 and their descriptions. The matrix CSVs remain the review artifact and the
 audit/Go-binding record, regenerated FROM this file:
@@ -9,7 +9,7 @@ audit/Go-binding record, regenerated FROM this file:
     python -m cpipes_contract reflect --check  # the divergence guard (CI)
 
 The `generate` command is the bootstrap projection that first produced this
-file from the reviewed matrix (B.9) - running it again OVERWRITES edits made
+file from the reviewed matrix - running it again OVERWRITES edits made
 here. Engine-applied defaults are noted in the descriptions and deliberately
 NOT materialised as Pydantic defaults, so a dumped document stays minimal and
 the wire format unchanged.
@@ -1834,7 +1834,7 @@ for _m in _MODELS:
 
 
 # ---------------------------------------------------------------------------
-# The runtime document (AD.1, jetstore_maintenance_01 Phase 1)
+# The runtime document
 # ---------------------------------------------------------------------------
 #
 # `ComputePipesConfig` above is the **authored** document: the shape an author
@@ -1844,16 +1844,15 @@ for _m in _MODELS:
 # that split as `applicable=no` on `common_runtime_args` and `pipes_config`.
 #
 # **The consequence is that no class here accepted the document a worker node
-# is actually handed**, which is `healthcare_corpus`'s `P9-I28` (read
-# 2026-09-20): a starter marshals a `ComputePipesConfig` with both fields set
+# is actually handed**, as was found on 2026-09-20: a starter marshals a `ComputePipesConfig` with both fields set
 # into `cpipes_execution_status.cpipes_config_json`, and `extra="forbid"`
 # refused every one of them. That was invisible to the corpus walk, because a
 # node never sees an authored document.
 #
 # **The repair is a second projection rather than a wider first one.** Adding
 # the two fields to `ComputePipesConfig` would have reversed a reviewed
-# contract decision and made `negative_suite.json`'s *root pipes_config (I-14
-# runtime shape)* case - which expects `invalid` - start passing: the authored
+# contract decision and made `negative_suite.json`'s *root pipes_config
+# (runtime shape)* case - which expects `invalid` - start passing: the authored
 # schema would then admit a runtime document, which is the one thing the
 # `applicable=no` rows exist to prevent.
 #

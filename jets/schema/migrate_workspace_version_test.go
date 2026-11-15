@@ -4,7 +4,7 @@
 // constraint was on the version string alone across every workspace, so naming the
 // workspace makes that constraint visibly wrong -- and **changing a constraint on a
 // populated table is a different class of migration from the ADD COLUMN IF NOT
-// EXISTS that preceded it** (I-333, Q-41). This exercises the change on a table
+// EXISTS that preceded it**. This exercises the change on a table
 // that already holds rows, and it exercises the way back.
 //
 // Needs JETS_TEST_DSN; skipped otherwise. See create_table_deleted_test.go for the

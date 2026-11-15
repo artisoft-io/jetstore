@@ -123,7 +123,7 @@ TEST(RdfAstTest, ToBool)
   EXPECT_EQ(to_bool(bn1_s.get()), true);
   EXPECT_EQ(to_bool(banane_s.get()), true);
   EXPECT_EQ(to_bool(false_s.get()), false);
-  // "f0lse" was true until I-45 (2026-10-11): any text but a spelling of false.
+  // "f0lse" was true until 2026-10-11: any text but a spelling of false.
   // It is outside the accepted spellings now, so to_bool, which has nowhere to
   // report it, reads it as not true; a rule testing it raises a jets:exception.
   EXPECT_EQ(to_bool(f0lse_s.get()), false);
@@ -283,7 +283,7 @@ TEST(RdfAstTest, DateTime)
 
 // The rule on a double too small to round to 15 digits: round_to_digits' factor
 // overflows below about 1e-294, and it returned NaN, which fcmp took for equal to
-// anything, so 1e-300 == 5 (I-132). Such a value is compared unrounded. The
+// anything, so 1e-300 == 5. Such a value is compared unrounded. The
 // comparison table in expr_op_test.cc checks it through the operators, where
 // compare15's fast path decides; this is the rule itself.
 TEST(Compare15, ATinyDoubleIsComparedUnrounded) {

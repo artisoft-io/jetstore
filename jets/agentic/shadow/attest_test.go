@@ -46,7 +46,7 @@ func TestTheRecordShowsNothingActed(t *testing.T) {
 
 	// It says what it is worth as well as what it found.
 	if !strings.Contains(a.Report(), "not tamper-evident") {
-		t.Error("the report does not carry R-44's bound, so a reader would take it for more than it is")
+		t.Error("the report does not carry the tamper-evidence bound, so a reader would take it for more than it is")
 	}
 
 	t.Run("a remediation row breaks it", func(t *testing.T) {
@@ -80,7 +80,7 @@ func TestTheRecordShowsNothingActed(t *testing.T) {
 			t.Skip("no incident reached `diagnosed`, so there is nothing to move")
 		}
 		// Through the ordinary path, which permits it — the ceiling is this
-		// package's and not the audit store's (I-299).
+		// package's and not the audit store's.
 		if _, err := audit.RecordIncidentTransition(ctx, pool, &audit.IncidentTransition{
 			IncidentEventId: "ie_control_acting", IncidentRef: target,
 			FromStatus: audit.IncidentDiagnosed, ToStatus: ActingFrontier,
@@ -142,7 +142,7 @@ func TestTheRecordShowsNothingActed(t *testing.T) {
 			t.Fatalf("the control database does not start clean: %v\n%s", err, got.Report())
 		}
 		// The UPDATE the transition record cannot see. jetsapi.incident is
-		// mutable by design — status walks A.5's machine — so this is what an
+		// mutable by design — status walks the lifecycle machine — so this is what an
 		// executor bypassing the write path would look like.
 		if _, err := pool2.Exec(ctx,
 			`UPDATE jetsapi.incident SET status = 'remediating' WHERE incident_id = $1`,
@@ -176,8 +176,8 @@ func TestTheRecordShowsNothingActed(t *testing.T) {
 				target = wr.IncidentId
 			}
 		}
-		// triaged -> suppressed_as_benign is one of A.5's three adjudications and
-		// is exactly the verdict plan §10.7 says the measured system must not
+		// triaged -> suppressed_as_benign is one of the lifecycle's three adjudications and
+		// is exactly the verdict the supervision design says the measured system must not
 		// reach for itself.
 		inc, err := audit.ReadIncident(ctx, pool3, target, audit.RedactPHI)
 		if err != nil {
@@ -216,7 +216,7 @@ func TestTheRecordShowsNothingActed(t *testing.T) {
 	})
 }
 
-// TestAnAttestationOverAnUnmigratedDatabaseIsNotEvaluable is §13.4's three-valued
+// TestAnAttestationOverAnUnmigratedDatabaseIsNotEvaluable is the three-valued
 // discipline arriving at the attestation: *checked and none* and *could not
 // check* are different answers, and a proof that a table is empty is not
 // available where the table does not exist.

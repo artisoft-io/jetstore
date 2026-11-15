@@ -1,24 +1,24 @@
 package jetrules_native_adaptor
 
 // Capture the evaluation population's prompts, so `AV` can benchmark a backend
-// without running a rule session per record (agentic_ai `AV.1`, `AV.2`).
+// without running a rule session per record.
 //
 // # Why the prompts are captured rather than generated in the benchmark
 //
 // The benchmark drives the **infer operator**, which lives in `compute_pipes`;
 // the rule session lives here, in a package that imports `compute_pipes`. So the
 // benchmark cannot build its own prompts without an import cycle, and the
-// alternative - a third copy of the projection - is the seam this project
-// records at `I-438` and `I-544`.
+// alternative - a third copy of the projection - is the seam already
+// recorded for the response schema and the medication separator.
 //
-// **Capturing is faithful only because `I-574` landed.** Until 2026-09-10 the
+// **Capturing is faithful only because the encoder's order was fixed.** Until 2026-09-10 the
 // encoder's list order varied between processes, so a captured prompt was one
 // sample of many and a benchmark reading it would have measured a prompt no
 // later run produced. The TOON is now byte-identical between runs, which is what
 // makes a file on disk as good as the session that wrote it.
 //
 // **What it captures is the model arm's prompt exactly**: `at5PromptExclusions`
-// is the same constant `AT.5` runs with, so a latency figure and an accuracy
+// is the same constant the side-by-side test runs with, so a latency figure and an accuracy
 // figure are taken over the same bytes.
 
 import (

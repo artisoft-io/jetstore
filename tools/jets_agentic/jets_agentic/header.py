@@ -5,8 +5,8 @@ overwritten at build time, which only works if a knowledge engineer opening one
 can tell. The header says so in the file itself, and it carries the machine
 token `jetstore-owned-asset` that the install guard
 (`jets/workspace_assets/install.go`) looks for: a file at a reserved path that
-lacks the token was never installed by JetStore, which is the `usi_ws`
-`jets_model.jr` case exactly, and is diagnosed differently from a JetStore
+lacks the token was never installed by JetStore, which is the case of a
+workspace's own hand-written `jets_model.jr`, and is diagnosed differently from a JetStore
 asset somebody edited in place.
 
 One wording, two carriers — `#` comments for `.jr`, a `jetstore-owned-asset`

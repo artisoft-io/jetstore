@@ -27,7 +27,7 @@ import sys
 # `cpipes_model.py` is a sibling file of the `cpipes_contract` package rather
 # than a module in it, and that package's wheel declares
 # `packages = ["cpipes_contract"]` — so an installed wheel does not carry the
-# model at all (P9-I27). The Dockerfile copies it next to the installed package,
+# model at all. The Dockerfile copies it next to the installed package,
 # which is the second path `cpipes_node.contract._load_contract_model` searches
 # and is also, because site-packages is on `sys.path`, the first: a plain
 # `import cpipes_model` succeeds on this image. Both are asserted, because

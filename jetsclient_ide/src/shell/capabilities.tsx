@@ -1,7 +1,7 @@
 /**
  * The capability model: `role_capability` resolved at login, applied to the UI.
  *
- * Task A.2. The capabilities arrive with the login response
+ * The capabilities arrive with the login response
  * (`jets/apiserver/api_users.go`), resolved from `jetsapi.role_capability`, and
  * `ApiClient` already holds them. What was missing was one place that decides
  * what a missing capability *does* to a control, and one control that obeys it.
@@ -10,12 +10,12 @@
  *
  * Stated at the top because it is the thing most easily forgotten as this
  * becomes convenient to use. The server is the enforcement point, and the
- * assessment's §3.5 records that client-side checks here are cosmetic. Worse,
- * `/dataTable` reads are not capability-gated at all server-side (I-2) — so a
+ * client-side checks here are cosmetic. Worse,
+ * `/dataTable` reads are not capability-gated at all server-side — so a
  * disabled button is a courtesy to an honest user, and nothing else. **Never add
  * a check here in place of one on the server.**
  *
- * ## Disabled, not hidden — and A.1 got this wrong
+ * ## Disabled, not hidden — and the first shell got this wrong
  *
  * All three places the Flutter app gates on a capability *disable* the control
  * and leave it visible:
@@ -24,7 +24,7 @@
  *  - data-table actions — same shape (`components/data_table.dart:27`)
  *  - form buttons — via `isOn` (`components/form_button.dart:73`)
  *
- * A.1's shell filtered nav items out of the list instead. That was a divergence
+ * The first shell filtered nav items out of the list instead. That was a divergence
  * introduced without noticing, and this task reverses it: a control the user
  * cannot use stays visible and inert, which tells them the screen exists and
  * that access is the thing they lack. Hiding it makes the application look

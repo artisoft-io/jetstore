@@ -46,8 +46,8 @@ CONFIG_QUERY = (
 class ConfigSource(Protocol):
     """Where the pipeline configuration document comes from.
 
-    Two implementations, and the local one is not a test double: X2, X3, X5 and
-    X7 all need an executable oracle and there is no docker-compose in this
+    Two implementations, and the local one is not a test double: the corpus
+    comparisons all need an executable oracle and there is no docker-compose in this
     repository, so a run against a file on disk and a directory standing in for
     S3 is the path every check takes. The S3 and database implementations are
     the same code with a different source.
@@ -137,8 +137,8 @@ def _walk(
     **The parent is the nearest enclosing model instance**, skipping the lists
     and dicts in between, which is what a caller asking "whose input channel is
     this?" wants. It is carried because one judgement genuinely depends on it:
-    a `merge_files` pipe fixes its input channel's type rather than choosing it
-    (D-224), and the only way to know which pipe an `InputChannelConfig` belongs
+    a `merge_files` pipe fixes its input channel's type rather than choosing it,
+    and the only way to know which pipe an `InputChannelConfig` belongs
     to is to have been told on the way down. Deriving it afterwards from the
     `where` string would be parsing a path this function built, which is two
     spellings of one structure.
@@ -161,7 +161,7 @@ def _fixed_input_channel_type(kind: TokenKind, parent: Any) -> str | None:
     Read off the *pipe's own declaration* — `operators.pipes.Pipe
     .fixed_input_channel_type` — so there is no list of pipe kinds here for an
     edit to widen, and a pipe kind added with a fixed channel type is covered by
-    its class being written (P3-I20). The pipe's token is the parent's `type`,
+    its class being written. The pipe's token is the parent's `type`,
     which is the same string the gate would have classified one iteration
     earlier.
     """
@@ -181,11 +181,11 @@ def check_scope(
 ) -> ScopeReport:
     """Judge every token the document names against the declared scope.
 
-    This is X6's instrument. It runs before any channel is opened, which is
+    This is the scope gate's instrument. It runs before any channel is opened, which is
     what "aborts at startup" means and is a guarantee the Go node cannot give:
     there the registry is an argument to the node while the document is seen by
     the starters, so a mistyped token is reported by the dispatch inside a
-    running worker (`site_operators.go`, I-779).
+    running worker (`site_operators.go`).
     """
     report = ScopeReport()
     site_tokens = site_operators.tokens()
@@ -199,7 +199,7 @@ def check_scope(
         kind = TokenKind(kind_name)
         fixed = _fixed_input_channel_type(kind, parent)
         if fixed is not None:
-            # D-224: this channel's type is fixed by JetStore's own validator
+            # This channel's type is fixed by JetStore's own validator
             # rather than chosen, so it is asserted and no token is classified.
             # Strictly narrower than classifying it — the fixed value is
             # accepted here and nowhere else in the document.

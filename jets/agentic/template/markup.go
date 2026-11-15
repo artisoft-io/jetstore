@@ -4,8 +4,8 @@ import (
 	"strings"
 )
 
-// Markup is the text of one paragraph: literal words with holes in them
-// (§10.2). Four forms, and one of them is not a construct:
+// Markup is the text of one paragraph: literal words with holes in them.
+// Four forms, and one of them is not a construct:
 //
 //	{{ chain }}                                  a substitution
 //	{{if pred}} ... {{end}}                      a span emitted when the predicate holds
@@ -302,7 +302,7 @@ func blockOf(keyword, rest string, p position) (func([]span) span, error) {
 // parseEachHeader reads `chain sep: 'a' last: 'b'`.
 //
 // **`sep` and `last` are both required and are not defaulted**, for `width`'s
-// reason (§10.7): the shape of the output depends on them and a silent default
+// reason: the shape of the output depends on them and a silent default
 // is a byte difference nobody is looking for. A template that wants one
 // separator throughout writes the same literal twice, which is visible.
 //

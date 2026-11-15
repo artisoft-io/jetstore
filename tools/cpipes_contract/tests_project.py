@@ -4,11 +4,11 @@
 browser compiles: `jets/userflow/schema/*.json` is what `santhosh-tekuri/jsonschema`
 reads on the save path, and `schema_copy_test.go` on that side keeps the copy honest
 against the TypeScript. So a pair that passes here passes the enforcement point, and the
-browser's Zod parse is presentation — which is the division `ui_refresh` stated when
-they offered to run all four layers.
+browser's Zod parse is presentation — which is the division the IDE side stated when
+it offered to run all four layers.
 
-**Two tests exist to hold decisions that would otherwise be prose only.** M.2 rejected
-the `text`-field-carrying-JSON rendering for a typed object; `test_no_json_escape_for_a
+**Two tests exist to hold decisions that would otherwise be prose only.** A decision
+rejected the `text`-field-carrying-JSON rendering for a typed object; `test_no_json_escape_for_a
 _typed_object` is what stops it coming back. And the block linking is what a variant
 chooser needs and a linear chain gets wrong invisibly — the document still validates and
 every state is still reachable — so `test_variant_branches_rejoin` checks the graph
@@ -37,8 +37,8 @@ def projection(name):
 
 def test_the_triple_validates_against_the_schemas_go_embeds():
   for name in TEMPLATES:
-      """**Three documents, not two** — the loader reads all three and M.4 emitted two
-      (I-84). The action document was added to this check in the same change that
+      """**Three documents, not two** — the loader reads all three and two were emitted once.
+      The action document was added to this check in the same change that
       started emitting it, because a document nothing validates is how the pair came to
       look complete."""
       p = projection(name)
@@ -103,7 +103,7 @@ def test_variant_branches_rejoin():
 
 def test_no_json_escape_for_a_typed_object():
   for name in TEMPLATES:
-      """M.2's rejection, enforced rather than described.
+      """The rejection, enforced rather than described.
 
       `validateForm` applies the `json` rule with `JSON.parse` and nothing else, so a
       typed object arriving through a text field is checked only when the finished
@@ -124,7 +124,7 @@ def test_a_refusal_is_visible():
   for name in TEMPLATES:
       """A back edge produces a `label` rather than nothing.
 
-      Silence is the failure mode (I-77): a wizard that simply omits a property tells the
+      Silence is the failure mode: a wizard that simply omits a property tells the
       author nothing about why the config it produces is not the config they meant.
       """
       p = projection(name)
@@ -142,9 +142,9 @@ def test_a_refusal_is_visible():
 
 
 def test_the_bindings_walk_agrees_with_the_M1_census():
-    """1/3/~~21~~ 22 scalar sites and 0/0/8 object sites, counted by hand at M.1.
+    """1/3/~~21~~ 22 scalar sites and 0/0/8 object sites, counted by hand.
 
-    **A traversal is worth what a second count says it is.** M.2's first corpus walk
+    **A traversal is worth what a second count says it is.** The first corpus walk
     handled one level of list nesting, silently skipped `reducing_pipes_config`, and
     reported zero `where` clauses where `grep -c` finds 136 — a plausible small number,
     which is worse than an obviously odd one.
@@ -181,7 +181,7 @@ def test_an_end_state_offers_completed_and_no_other_state_does():
       """`isEnd` is in the flow document and the button set is in the form document.
 
       Neither schema can see the other, so this rule is not expressible in either — the
-      third instance of I-84's shape, and the reason it is a test rather than a comment.
+      third instance of a cross-document rule, and the reason it is a test rather than a comment.
       `step` runs the state action on `ufNext` too, so the failure was not a config that
       did not save: it was a config that saved and then said *"No next step from …"*.
 
@@ -190,7 +190,7 @@ def test_an_end_state_offers_completed_and_no_other_state_does():
       keep is that an end state's form offers no *advancing* button; two of the eleven
       ported flows finished through a custom action and declared no `uf*` action at all
       (`fmMappingFormUF`, `rfkSubmitSchemaEvent`). A validator asserting `ufCompleted`
-      would reject both — `ui_refresh` drafted exactly that and their corpus refused it.
+      would reject both — exactly that was drafted once and the corpus refused it.
       (One remains: `rfkSubmitSchemaEvent` left with `registerFileKeyUF` on 2026-10-01,
       and `fmMappingFormUF` still ends on `mapperOk`. Checked 2026-10-27.)
       This projection has one way to end, so the tighter assertion is the right one
@@ -281,7 +281,7 @@ def test_every_marker_names_a_key_some_form_collects():
 
 
 def test_a_binding_that_sizes_the_flow_is_not_offered_as_a_field():
-    """I-82, made visible where it binds rather than stated in a document.
+    """The fixed plan size, made visible where it binds rather than stated in a document.
 
     `qc_metrics.input_columns` is three strings and nine states; an editable field there
     would take an edit and drop it, because a flow has no way to make a state. It is a
@@ -306,11 +306,11 @@ def test_a_binding_that_sizes_the_flow_is_not_offered_as_a_field():
 
 
 def test_the_demonstrated_config_validates_against_the_contract():
-    """M.5's output, checked at the layer no UserFlow schema can reach.
+    """The demonstration's output, checked at the layer no UserFlow schema can reach.
 
     `projections/qc_metrics.demonstrated.pc.json` is what the wizard produced when
     `jetsclient_ide/src/cpipes/templateApply.test.ts` walked the projection with the
-    shipped engine and interpreter. **Every layer M.4 ran validates a *flow* document;
+    shipped engine and interpreter. **Every validation layer validates a *flow* document;
     this validates the *config* those documents produce**, which is the only place a
     whole class of defect is visible — and the class is not hypothetical. The
     demonstration's first run emitted a `partition_writer` operator with no `type`,
@@ -364,8 +364,8 @@ def test_the_walk_is_shorter_than_the_document():
 if __name__ == "__main__":
     # **Runs without pytest, unlike its sibling.** No pytest is installed against this
     # package on any machine here, so `tests_template.py` cannot currently be run at all
-    # — recorded as debt rather than fixed under M.4, since installing a test runner is
-    # not this task's change to make.
+    # — recorded as debt rather than fixed here, since installing a test runner is
+    # not this change to make.
     import traceback
 
     failed = 0
