@@ -199,3 +199,27 @@
   text-align: center;
   text-decoration: none;
 }
+
+/* A boolean field: Yes and No, neither chosen until the person chooses. */
+.runbook-yes-no {
+  display: flex;
+  gap: 16px;
+  padding: 2px 0;
+}
+.runbook-yes-no label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.runbook-yes-no input {
+  padding: 0;
+  margin: 0;
+}
+.runbook-yes-no[aria-invalid="true"] {
+  outline: 1px solid var(--danger);
+  outline-offset: 2px;
+  border-radius: 5px;
+}

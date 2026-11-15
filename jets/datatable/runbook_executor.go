@@ -901,9 +901,6 @@ func (e *RunbookExecutor) prepareConfirmation(ctx context.Context, tx pgx.Tx, ru
 			return true, nil, e.failStep(ctx, tx, run, act, step, actor, "its SQL file is missing", false)
 		}
 		stmts, err := runbook.Bind(text, step, env)
-		if err == nil {
-			err = checkStatements(stmts)
-		}
 		if err != nil {
 			return true, nil, e.failStep(ctx, tx, run, act, step, actor, err.Error(), false)
 		}

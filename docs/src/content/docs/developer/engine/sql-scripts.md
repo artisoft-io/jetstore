@@ -386,7 +386,9 @@ because the corpus was replayed against a server rather than read.
 
 `Split` is a boundary scanner, not a parser: it knows comments, string literals, quoted identifiers,
 dollar quoting and identifiers (so that `foo$bar` is one token and `$1` is a placeholder), and
-nothing else. Two things it does not model, neither present in the corpus:
+nothing else. Its lexing is exported as `sqlscript.Scanner`, one token at a time, for a caller that
+looks for something else in a statement: `jets/runbook` finds its `:name` bind parameters and refused
+statements with it rather than with a copy of these rules (since 2026-11-14). Two things it does not model, neither present in the corpus:
 
 - **`standard_conforming_strings = off`**, which would make `'a\''` a valid escaped quote in a plain
   literal. On since PostgreSQL 9.1 and assumed on.

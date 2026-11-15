@@ -81,7 +81,7 @@ environment.
 | `JETS_INFER_URL` | stack, when the infer service is built: `http://<load balancer>:<JETS_INFER_PORT>` | none | The inference server. Unset, the infer screen reports that the server is not part of the deployment (`jets/apiserver/api_infer_server.go`) |
 | `JETS_ECS_CLUSTER_NAME`, `JETS_INFER_SERVICE_NAME`, `JETS_INFER_ASG_NAME` | stack, when the infer service is built | none | What the start and stop actions scale (`jets/awsi/infer_server.go`) |
 | `JETS_AGENTIC_DETECT_TASK_DEFINITION_ARN`, `_CLUSTER`, `_SUBNETS`, `_SECURITY_GROUPS`, `_CONTAINERS`, `_HOUR_UTC` | stack, when the detection task is built | none | What the Detection screen needs to run the detection task (`jets/awsi/agentic_detect.go`) |
-| `JETSTORE_DEV_MODE` | not set by the stack | unset | Present, the apiserver runs in development mode and skips the workspace sync and compile at start. Never set it on a deployment |
+| `JETSTORE_DEV_MODE` | not set by the stack | unset | Present, the apiserver runs in development mode and skips the workspace sync and compile at start; it runs pipelines locally and starts no state machine, leaving pending pipelines pending; and `update_db` skips the domain tables when the workspace is not compiled. Never set it on a deployment |
 
 ## update_db
 

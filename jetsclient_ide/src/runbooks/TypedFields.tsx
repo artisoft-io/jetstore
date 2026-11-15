@@ -7,6 +7,12 @@
  * Values are parsed by `parseTyped` before they are sent, so a number goes as a
  * number and a list as an array. The server validates them again and its answer
  * is the one that counts.
+ *
+ * A boolean is two choices, Yes and No, and neither is chosen unless the
+ * declaration has a default: the form is not sent until one is. A checkbox
+ * that starts unticked cannot tell "no" from "not answered yet", so a manual
+ * step's yes-or-no record was sent as false by a Record pressed before reading
+ * the question.
  */
 
 import { useState, type FormEvent, type ReactNode } from "react";
@@ -48,8 +54,10 @@ export function TypedFields({
     const values: Record<string, unknown> = {};
     const found: Record<string, string> = {};
     for (const f of fields) {
-      const parsed = parseTyped(f.type, text[f.name] ?? "");
-      if ("error" in parsed) found[f.name] = parsed.error;
+      const raw = text[f.name] ?? "";
+      const parsed = parseTyped(f.type, raw);
+      if (f.type === "boolean" && raw === "") found[f.name] = "choose Yes or No";
+      else if ("error" in parsed) found[f.name] = parsed.error;
       else values[f.name] = parsed.value;
     }
     setErrors(found);
@@ -67,17 +75,30 @@ export function TypedFields({
         const list = /^list</.test(f.type);
         return (
           <div className="field" key={f.name}>
-            <label htmlFor={id}>
+            <label htmlFor={f.type === "boolean" ? undefined : id} id={`${id}-label`}>
               <code>{f.name}</code> <span className="runbook-type">{f.type}</span>
               {f.description ? ` — ${f.description}` : ""}
             </label>
             {f.type === "boolean" ? (
-              <input
+              <div
                 id={id}
-                type="checkbox"
-                checked={value === true}
-                onChange={(e) => setText({ ...text, [f.name]: e.target.checked })}
-              />
+                className="runbook-yes-no"
+                role="radiogroup"
+                aria-labelledby={`${id}-label`}
+                aria-invalid={error ? true : undefined}
+              >
+                {([true, false] as const).map((choice) => (
+                  <label key={String(choice)}>
+                    <input
+                      type="radio"
+                      name={id}
+                      checked={value === choice}
+                      onChange={() => setText({ ...text, [f.name]: choice })}
+                    />{" "}
+                    {choice ? "Yes" : "No"}
+                  </label>
+                ))}
+              </div>
             ) : list ? (
               <textarea
                 id={id}

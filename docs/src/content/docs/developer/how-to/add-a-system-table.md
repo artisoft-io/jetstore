@@ -50,10 +50,12 @@ What the fields mean, from `CreateTable`, `UpdateTable` and `ToPgType`:
   `jets/schema/schema.go` (`schema.PgTypeNames` lists the accepted names).
 - **An `int` primary key becomes `SERIAL PRIMARY KEY`**, so `key` above numbers itself.
 - **`default`** is SQL, written as it will appear: `"'main'"` for a string, `"now()"` for a call.
-- **`indexDef` starts with `INDEX <name> ON`**, as every index in the file does. Creating the table
-  writes `CREATE ` in front of it, and altering it writes `CREATE INDEX IF NOT EXISTS ` in front of
-  what follows `INDEX`, so a definition that carries its own `IF NOT EXISTS` creates the table and then
-  breaks the next migration.
+- **`indexDef` starts with `INDEX <name> ON`**, as every index in the file does, or with `UNIQUE
+  INDEX <name> ON` for a unique index. Creating the table writes `CREATE ` in front of it, and altering
+  it writes `CREATE INDEX IF NOT EXISTS ` (or `CREATE UNIQUE INDEX IF NOT EXISTS `) in front of what
+  follows `INDEX`, so a definition that carries its own `IF NOT EXISTS` creates the table and then
+  breaks the next migration. Until 2026-11-14 the alteration did not know `UNIQUE`, and a unique
+  index broke the second migration the same way.
 - **`tableConstraints`** carry a `name` and a full `definition`
   (`CONSTRAINT <name> UNIQUE (...)`). The migration adds a constraint whose name is new and drops one
   whose name has gone.

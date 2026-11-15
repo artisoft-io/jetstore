@@ -401,6 +401,14 @@ func (ctx *DataTableContext) StartPendingTasks() (err error) {
 		log.Println("StartPendingTasks: No pending tasks found")
 		return
 	}
+	// Dev mode starts no state machine (startStateMachine), so it leaves the
+	// pending tasks as they are rather than failing them: a workstation may be
+	// reading a deployment's database, whose pending tasks are the deployment's
+	// to start.
+	if ctx.DevMode {
+		log.Printf("StartPendingTasks: dev mode starts no state machine; %d pending task(s) left pending", pendCount.Int64)
+		return
+	}
 
 	// Lock the state machine tasks
 	var lockToken string
@@ -624,9 +632,25 @@ func (ctx *DataTableContext) startPipeline(devModeCode string, task *PendingTask
 	return ctx.startStateMachine(task)
 }
 
+// errDevModeNoStateMachine is startStateMachine's refusal in dev mode.
+var errDevModeNoStateMachine = errors.New("error: dev mode starts no state machine; run the pipeline from the Start Pipeline dialog, which runs it locally")
+
+// startExecution starts a state machine; a variable so that a test can see
+// whether it is called.
+var startExecution = awsi.StartExecution
+
+// startStateMachine starts the task's state machine. **Never in dev mode**: a
+// workstation has no state machine of its own, and one with AWS credentials
+// would start a deployment's. Dev mode runs a pipeline locally instead
+// (startPipeline, runPipelineLocally), and StartPendingTasks leaves pending
+// tasks pending; this refusal keeps any other caller from reaching AWS.
 func (ctx *DataTableContext) startStateMachine(task *PendingTask) error {
 	var err error
 	var name string
+
+	if ctx.DevMode {
+		return errDevModeNoStateMachine
+	}
 
 	// Guard against option-style argument injection before building command args.
 	if err = task.validateForCommand(); err != nil {
@@ -699,7 +723,7 @@ func (ctx *DataTableContext) startStateMachine(task *PendingTask) error {
 	// StartExecution execute rule
 	log.Printf("calling StartExecution on processArn: %s", processArn)
 	log.Printf("calling StartExecution with: %v", smInput)
-	name, err = awsi.StartExecution(processArn, smInput, task.SessionId)
+	name, err = startExecution(processArn, smInput, task.SessionId)
 	if err != nil {
 		log.Printf("while calling StartExecution on processUrn '%s': %v", processArn, err)
 		err = errors.New("error while calling StartExecution")

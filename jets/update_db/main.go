@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
 
@@ -27,6 +29,7 @@ import (
 // JETS_REGION (needed only to read JETS_DSN_SECRET)
 // JETS_SCHEMA_FILE (default: jets_schema.json)
 // JETS_INIT_DB_SCRIPT path to jets_init_db.sql files (not workspace specific)
+// JETSTORE_DEV_MODE when set, a workspace with no build/tables.json skips the domain tables (readTableMap)
 // WORKSPACE Workspace currently in use
 // WORKSPACES_HOME Home dir of workspaces
 var dropExisting = flag.Bool("drop", false, "drop existing domain table (ALL DOMAIN TABLE CONTENT WILL BE LOST)")
@@ -163,20 +166,15 @@ func doJob() error {
 	// before one. That is why the system half was lifted into jets/migratedb
 	// rather than reached here with a new flag.
 	log.Println("-- Create / Update JetStore Domain Tables")
-	tableMap := make(map[string]*rete.TableNode)
 	fpath := fmt.Sprintf("%s/%s/build/tables.json", workspaceHome, wprefix)
-	log.Println("Reading JetStore tables definitions from:", fpath)
-	file, err := os.ReadFile(fpath)
+	_, devMode := os.LookupEnv("JETSTORE_DEV_MODE")
+	tableMap, compiled, err := readTableMap(fpath, devMode)
 	if err != nil {
-		err = fmt.Errorf("while reading table.json json file:%v", err)
 		log.Println(err)
 		return err
 	}
-	err = json.Unmarshal(file, &tableMap)
-	if err != nil {
-		err = fmt.Errorf("while unmarshaling tables.json (update_db):%v", err)
-		log.Println(err)
-		return err
+	if !compiled {
+		return nil
 	}
 	tableSpecs, err := workspace.DomainTableDefinitions(dbpool, tableMap)
 	if err != nil {
@@ -193,6 +191,34 @@ func doJob() error {
 	}
 
 	return nil
+}
+
+// readTableMap reads the compiled workspace's table definitions,
+// build/tables.json.
+//
+// **In dev mode a missing file is not an error**: compiled is false, and it
+// logs that the domain tables are left as they are. A workstation's apiserver does not
+// compile the workspace at its start, so Load Client Config, or update_db run
+// by hand to set up a database, reached this stage with no compiled workspace
+// and update_db failed with a panic after doing everything else it was asked.
+// Out of dev mode, which is every deployment, a missing file is the error it
+// always was: there the compile runs first, and a missing file means it did not.
+func readTableMap(fpath string, devMode bool) (tableMap map[string]*rete.TableNode, compiled bool, err error) {
+	log.Println("Reading JetStore tables definitions from:", fpath)
+	file, err := os.ReadFile(fpath)
+	if err != nil {
+		if devMode && errors.Is(err, fs.ErrNotExist) {
+			log.Printf("dev mode: %s does not exist, so no workspace is compiled; "+
+				"the domain tables are not created or updated (compile the workspace to create them)", fpath)
+			return nil, false, nil
+		}
+		return nil, false, fmt.Errorf("while reading table.json json file:%v", err)
+	}
+	tableMap = make(map[string]*rete.TableNode)
+	if err = json.Unmarshal(file, &tableMap); err != nil {
+		return nil, false, fmt.Errorf("while unmarshaling tables.json (update_db):%v", err)
+	}
+	return tableMap, true, nil
 }
 
 // dsnSources are the places update_db may take its connection string from, in
