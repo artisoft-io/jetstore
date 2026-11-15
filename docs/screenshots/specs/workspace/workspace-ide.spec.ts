@@ -1,9 +1,9 @@
 // The Workspace IDE (user/screens/workspace-ide): reached from the top bar,
 // with jets_ws picked. Its changes table, a file open in the editor and edited,
-// and the compiled view of the data model. The edit is never saved: the tab is
-// closed and the change discarded.
+// and the compiled views of the data model and of the rules. The edit is never
+// saved: the tab is closed and the change discarded.
 import { expect, test } from "@playwright/test";
-import { openScreen, screenshotsFor, settle, signIn } from "../../lib/shots";
+import { openScreen, openTab, screenshotsFor, settle, signIn, waitForTable } from "../../lib/shots";
 
 const { shot } = screenshotsFor("user/screens/workspace-ide");
 
@@ -41,4 +41,13 @@ test("Workspace IDE", async ({ page }) => {
   await tree.getByRole("button", { name: "Data Model", exact: true }).click();
   await settle(page);
   await shot(page, "ide-compiled-data-model");
+
+  // The rules' compiled view: each rule with the main rule file it is compiled
+  // under and the file it is written in, the page's last two columns.
+  await tree.getByRole("button", { name: "Jets Rules", exact: true }).click();
+  await openTab(page, "Jet Rules");
+  const rules = await waitForTable(page);
+  await expect(rules.getByRole("columnheader", { name: "Main Rule File", exact: true })).toBeInViewport();
+  await expect(rules.getByRole("columnheader", { name: "File", exact: true })).toBeInViewport();
+  await shot(page, "ide-compiled-jet-rules");
 });
