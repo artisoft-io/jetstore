@@ -20,8 +20,8 @@ package datatable
 // test that runs against rules compiled from somewhere else.
 //
 // *Pull Workspace* with its compile option is refused on the same terms, before
-// it pulls (I-16), since the compile that follows the pull is of the active
-// workspace too.
+// it pulls, since the compile that follows the pull is of the active workspace
+// too.
 //
 // # A compile and a test run exclude each other
 //
@@ -137,6 +137,31 @@ func activeTestCount(ctx context.Context, q interface {
 // with the same sentence as a request naming another workspace, because the
 // compile would be reported on that row and done to the active one.
 func claimCompile(dbpool *pgxpool.Pool, workspaceName string, rowKey any) (int, error) {
+	return claimCompileAs(dbpool, workspaceName, rowKey, statusCompileInProgress)
+}
+
+// claimPullCompile is claimCompile for pull_workspace with its compile option,
+// made before the pull: the claim is the status the pull writes while its
+// compile runs, statusCompilingWorkspaceProgress, written before the pull
+// starts. rowKey is the row the request names, which must be the active
+// workspace's, as for compile_workspace.
+//
+// **A claim since 2026-11-14, where it was a check.** The pull checked for
+// running tests and wrote nothing until the pull had finished, on the grounds
+// that the pull can fail and should not leave a compile status behind. So a
+// test queued while the pull ran found no compile in progress, was queued, and
+// ran against build/ while the compile that followed the pull rewrote it. Now
+// a test queued during the pull is refused as during any compile, and a pull
+// that fails releases the claim: the handler writes the row's status, "error",
+// when the pull fails (WorkspaceInsertRows, the pull_workspace case), as it
+// writes the compile's status when it succeeds.
+func claimPullCompile(dbpool *pgxpool.Pool, workspaceName string, rowKey any) (int, error) {
+	return claimCompileAs(dbpool, workspaceName, rowKey, statusCompilingWorkspaceProgress)
+}
+
+// claimCompileAs is claimCompile, writing status as the claim; status is one
+// of compileInProgressStatuses, which a test request looks for.
+func claimCompileAs(dbpool *pgxpool.Pool, workspaceName string, rowKey any, status string) (int, error) {
 	if err := activeWorkspaceRefusal(workspaceName); err != nil {
 		return http.StatusBadRequest, err
 	}
@@ -159,10 +184,10 @@ func claimCompile(dbpool *pgxpool.Pool, workspaceName string, rowKey any) (int, 
 	var tag interface{ RowsAffected() int64 }
 	if rowKey == nil {
 		tag, err = tx.Exec(ctx, `UPDATE jetsapi.workspace_registry SET status = $1, last_update = DEFAULT
-			WHERE workspace_name = $2`, statusCompileInProgress, workspaceName)
+			WHERE workspace_name = $2`, status, workspaceName)
 	} else {
 		tag, err = tx.Exec(ctx, `UPDATE jetsapi.workspace_registry SET status = $1, last_update = DEFAULT
-			WHERE key = $2 AND workspace_name = $3`, statusCompileInProgress, rowKey, workspaceName)
+			WHERE key = $2 AND workspace_name = $3`, status, rowKey, workspaceName)
 	}
 	if err != nil {
 		return http.StatusInternalServerError, fmt.Errorf("while claiming the compile of workspace %s: %v", workspaceName, err)
@@ -176,57 +201,6 @@ func claimCompile(dbpool *pgxpool.Pool, workspaceName string, rowKey any) (int, 
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return http.StatusInternalServerError, fmt.Errorf("while committing the compile claim: %v", err)
-	}
-	return http.StatusOK, nil
-}
-
-// refusePullCompileOfAnotherWorkspace is I-4's refusal for pull_workspace with its
-// compile option (I-16). The compile that follows the pull is of the active
-// workspace whichever row was pulled (compileWorkspaceAction), so a request
-// naming another workspace, or naming the active workspace and a row of another
-// one, is refused with the sentence claimCompile answers -- and before the pull,
-// so a refused request pulls nothing. rowKey is the registry row the request
-// names; a key that names no row is refused as claimCompile refuses it.
-//
-// A check and not a claim, like refuseCompileWhileTestsRun: a pull without the
-// compile option is not refused, and pulling another workspace stays possible.
-func refusePullCompileOfAnotherWorkspace(dbpool *pgxpool.Pool, workspaceName string, rowKey any) (int, error) {
-	if err := activeWorkspaceRefusal(workspaceName); err != nil {
-		return http.StatusBadRequest, err
-	}
-	var rowName string
-	err := dbpool.QueryRow(context.Background(),
-		`SELECT workspace_name FROM jetsapi.workspace_registry WHERE key = $1`, rowKey).Scan(&rowName)
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return http.StatusInternalServerError, fmt.Errorf("while reading the workspace_registry row to pull: %v", err)
-	}
-	if rowName != workspaceName {
-		return http.StatusBadRequest, activeWorkspaceRefusal(rowName)
-	}
-	return http.StatusOK, nil
-}
-
-// refuseCompileWhileTestsRun is the check without the claim, for pull_workspace
-// with its compile option: the pull runs first and can fail, so it writes no
-// status before it knows a compile will start. What it compiles is the active
-// workspace, whichever row was pulled (compileWorkspaceAction), so that is the
-// workspace whose tests are counted.
-func refuseCompileWhileTestsRun(dbpool *pgxpool.Pool) (int, error) {
-	ctx := context.Background()
-	tx, err := dbpool.Begin(ctx)
-	if err != nil {
-		return http.StatusInternalServerError, fmt.Errorf("while checking for running rules unit tests: %v", err)
-	}
-	defer tx.Rollback(ctx)
-	if err = lockWorkspaceExclusion(ctx, tx, activeWorkspace()); err != nil {
-		return http.StatusInternalServerError, err
-	}
-	n, err := activeTestCount(ctx, tx, activeWorkspace())
-	if err != nil {
-		return http.StatusInternalServerError, err
-	}
-	if n > 0 {
-		return http.StatusConflict, errCompileWhileTestsRun
 	}
 	return http.StatusOK, nil
 }

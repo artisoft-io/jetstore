@@ -16,6 +16,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/run_reports/tarextract"
 	"github.com/artisoft-io/jetstore/jets/utils"
+	workspace_assets "github.com/artisoft-io/jetstore/jets/workspace_assets"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -114,6 +115,15 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, contentType string,
 		return false, err
 	}
 	for _, fo := range fileObjects {
+		// An override of a document JetStore has retired is not applied: the
+		// install deleted the document (workspace_assets.RetiredAssets), and
+		// writing the override would bring it back, a retired flow loadable by
+		// URL again. The row is kept, so that it can still be seen and deleted
+		// from the IDE, and nothing is lost if the retirement is ever undone.
+		if workspace_assets.IsRetired(fo.FileName) {
+			log.Printf("Skipping the override of %s: JetStore has retired that file", fo.FileName)
+			continue
+		}
 		// When in skipSqliteFiles == true, do not override lookup.db and workspace.db
 		// When in skipTgzFiles == true, do not override *.tgz files
 		if (!skipSqliteFiles || !strings.HasSuffix(fo.FileName, ".db")) &&

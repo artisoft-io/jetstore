@@ -10,6 +10,29 @@ The `jets/sqlscript` package decides where a statement in a workspace SQL file e
 SQL file when it is saved, and `run_reports` runs the SQL of a workspace's `reports/` directory as
 its `reports/config.json` directs. Its sections are dated, newest first.
 
+## 2026-11-14 — a save of `reports/config.json` reads the reports files it runs
+
+**The save of `reports/config.json` now also refuses what `run_reports` would refuse in the reports
+files the directives run**, which the check below could not see, being given the directives alone.
+For each report of the file, each of its `reportScripts` (or `<report>.sql`, when it lists none) that
+is a file of the workspace's `reports/` and is not declared `reportOrScript: "script"` is read as
+`run_reports` reads it, and the save is refused for:
+
+- a file `run_reports` cannot read as reports: one `sqlscript.Split` refuses, a name comment with no
+  statement under it, or a statement with no name comment above it;
+- a report name whose date pattern, `{D:`, is not closed;
+- a report with no output format: its name ends in neither `.csv`, `.json` nor `.parquet`, and its
+  `statementProperties` entry declares no `outputFormat`. A name whose suffix a run's values decide
+  (one that ends in a `{TOKEN}`, with no `.` after it) is left to the run.
+
+A `reportScripts` entry that is not a file of the workspace is left alone: `run_reports` skips a
+missing file, and calls a report function such as `merge_optimizer_statistics`. The refusal names the
+report, the file and the line. The reader of a reports file (`ParseReportDefinitions`) and the
+output-format rule (`OutputFormat`) moved from `jets/run_reports/delegate` into
+`jets/run_reports/directives` for this, so the run and the save share them. A reports file saved
+after the directives is still checked by its own save lexically only (the `.sql` row), and the run
+refuses it as before.
+
 ## 2026-11-14 — `reports/config.json` is checked when it is saved, and `runWhen` reads the date a key carries
 
 **The workspace IDE now refuses to save a `reports/config.json` that `run_reports` would refuse

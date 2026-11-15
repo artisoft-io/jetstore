@@ -40,7 +40,9 @@ The page lists the actions you ticked in step 1, ticked, and the clients you cho
 any. **Confirm** pulls: it merges the
 workspace's branch into the installation's copy, re-applies the overrides held in the database, then
 compiles and loads as chosen. Follow the compile's status on the Workspaces screen, and the result of
-the pull with *View Last Log* there.
+the pull with *View Last Log* there. With *Compile workspace* ticked, the pull is refused while rules
+unit tests of the workspace are queued or running, and from the moment it starts until its compile
+ends, rules unit tests of the workspace are refused, as during any compile.
 
 An installation without access to a git repository skips the pull itself and does the rest, which is
 how an override saved there reaches the workspace's files.

@@ -6,7 +6,11 @@ package wsfile
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func TestChangeAuthor(t *testing.T) {
@@ -17,9 +21,10 @@ func TestChangeAuthor(t *testing.T) {
 	}
 }
 
-func TestSaveContentRecordsWhoMadeTheChange(t *testing.T) {
+// changesDB is revertDB with jetsapi.workspace_changes as SaveContent writes it.
+func changesDB(t *testing.T) *pgxpool.Pool {
+	t.Helper()
 	pool := revertDB(t)
-	bg := context.Background()
 	for _, s := range []string{
 		"DROP TABLE jetsapi.workspace_changes",
 		`CREATE TABLE jetsapi.workspace_changes (key serial PRIMARY KEY, workspace_name text NOT NULL,
@@ -27,10 +32,16 @@ func TestSaveContentRecordsWhoMadeTheChange(t *testing.T) {
 			status text NOT NULL DEFAULT '', user_email text NOT NULL, last_update timestamp NOT NULL DEFAULT now(),
 			CONSTRAINT workspace_changes_unique_cstraint UNIQUE (workspace_name, file_name))`,
 	} {
-		if _, err := pool.Exec(bg, s); err != nil {
+		if _, err := pool.Exec(context.Background(), s); err != nil {
 			t.Fatal(err)
 		}
 	}
+	return pool
+}
+
+func TestSaveContentRecordsWhoMadeTheChange(t *testing.T) {
+	pool := changesDB(t)
+	bg := context.Background()
 	ws, _ := stashScenario(t, "pristine")
 	author := func() string {
 		var email string
@@ -59,5 +70,55 @@ func TestSaveContentRecordsWhoMadeTheChange(t *testing.T) {
 	}
 	if got := author(); got != "system" {
 		t.Errorf("user_email %q, want system", got)
+	}
+}
+
+// A file at the workspace root, workspace_control.json or
+// compile_workspace.sh, is saved as an override like any other file: on disk
+// and in jetsapi.workspace_changes, so that the next start applies it.
+//
+// It was written to disk and then refused, because the override's content type
+// was the path's first segment and a root file has none: the edit stood until
+// the next start and then went, with nothing recorded. Reproduced 2026-11-14
+// with this test against the code before the fix: the error, and the disk
+// already holding the edit.
+func TestSaveContentSavesARootFileAsAnOverride(t *testing.T) {
+	pool := changesDB(t)
+	bg := context.Background()
+	ws, _ := stashScenario(t, "pristine")
+	root := filepath.Join(os.Getenv("WORKSPACES_HOME"), ws)
+	for _, name := range []string{"workspace_control.json", "compile_workspace.sh"} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte("as shipped"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err := SaveContent(pool, ws, name, "edited", "ke@example.com"); err != nil {
+			t.Errorf("saving %s: %v", name, err)
+		}
+		if got := read(t, filepath.Join(root, name)); got != "edited" {
+			t.Errorf("%s on disk is %q, want the edit", name, got)
+		}
+		var data, contentType string
+		err := pool.QueryRow(bg, `SELECT convert_from(data, 'UTF8'), content_type FROM jetsapi.workspace_changes
+			WHERE workspace_name = $1 AND file_name = $2`, ws, name).Scan(&data, &contentType)
+		if err != nil {
+			t.Errorf("%s has no workspace_changes row: %v", name, err)
+			continue
+		}
+		if data != "edited" || contentType != RootContentType {
+			t.Errorf("%s recorded as %q, content type %q, want the edit and %q", name, data, contentType, RootContentType)
+		}
+	}
+}
+
+// A save whose database write fails leaves the disk as it was, so that the
+// file the IDE shows is never an edit the database does not hold.
+func TestSaveContentWritesNothingWhenTheDatabaseRefuses(t *testing.T) {
+	pool := revertDB(t) // workspace_changes without the columns SaveContent writes
+	ws, file := stashScenario(t, "pristine")
+	if err := SaveContent(pool, ws, "process_config/a_config.json", "edited", ""); err == nil {
+		t.Fatal("a save the database refused reported no error")
+	}
+	if got := read(t, file); got != "pristine" {
+		t.Errorf("the file holds %q after a refused save, want it untouched", got)
 	}
 }

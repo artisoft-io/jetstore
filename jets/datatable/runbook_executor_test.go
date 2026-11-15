@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -87,40 +86,14 @@ type rbkFixture struct {
 
 func rbkDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	dsn := os.Getenv("JETS_TEST_DSN")
-	if dsn == "" {
-		t.Skip("JETS_TEST_DSN is not set; see the header of this file")
-	}
-	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Fatalf("connecting: %v", err)
-	}
-	var n int
-	if err = admin.QueryRow(ctx, "SELECT count(*) FROM pg_database WHERE datname = 'rbk_ab_datatable'").Scan(&n); err != nil {
-		t.Fatal(err)
-	}
-	if n == 0 {
-		if _, err = admin.Exec(ctx, "CREATE DATABASE rbk_ab_datatable"); err != nil {
-			t.Fatal(err)
-		}
-	}
-	admin.Close()
-	u, _ := url.Parse(dsn)
-	u.Path = "/rbk_ab_datatable"
-	pool, err := pgxpool.New(ctx, u.String())
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(pool.Close)
-	return pool
+	return scratchDatabase(t, "rbk_ab_datatable")
 }
 
 func newRbkFixture(t *testing.T) *rbkFixture {
 	t.Helper()
 	pool := rbkDB(t)
 	ctx := context.Background()
-	defs := rutTableDefs(t)
+	defs := jetsSchemaTables(t)
 	for _, name := range rbkTables {
 		if _, err := pool.Exec(ctx, "DROP TABLE IF EXISTS jetsapi."+name); err != nil {
 			t.Fatal(err)
@@ -1134,7 +1107,7 @@ func TestRunbookOneDriverPerRun(t *testing.T) {
 // themselves, as update_db -migrateDb does at every release.
 func TestRunbookTablesMigrate(t *testing.T) {
 	f := newRbkFixture(t)
-	defs := rutTableDefs(t)
+	defs := jetsSchemaTables(t)
 	for _, name := range []string{"runbook_run", "runbook_step_run"} {
 		if err := defs[name].UpdateTableSchema(f.pool, false); err != nil {
 			t.Fatalf("re-migrating jetsapi.%s: %v", name, err)

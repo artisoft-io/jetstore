@@ -6,7 +6,9 @@
 // (jets/run_reports/delegate), and the workspace IDE's save path, which refuses
 // a file run_reports would refuse (jets/datatable). The delegate imports
 // jets/datatable, so the save path cannot import the delegate; both import
-// this package, which imports nothing of JetStore.
+// this package, which imports nothing of JetStore but jets/sqlscript, the
+// reader of a reports file (report_files.go), which imports nothing that
+// imports this package.
 package directives
 
 import (

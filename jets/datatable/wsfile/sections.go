@@ -291,8 +291,9 @@ const RootNoteSuffix = ".md"
 // 2026-10-27) made a README read-only unless the validator table has a row for
 // it, and a test in package datatable fails if a read-only suffix gains one,
 // since the two would then contradict each other. A root README could not be
-// saved anyway: SaveContent takes the database content type from the first
-// path segment, and a root file has none.
+// saved anyway until 2026-11-14: SaveContent took the database content type
+// from the first path segment, and a root file has none. It records a root
+// file's override under RootContentType now, so that is no longer a reason.
 //
 // **Except under WritableMarkdownDir, since 2026-11-13.** A README beside a
 // workspace's pipelines is notes kept in its repository; a page under `docs/`

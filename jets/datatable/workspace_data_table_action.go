@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -417,18 +418,18 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 			}
 			// The compile option compiles the active workspace once the pull is done,
 			// whichever row was pulled, so it is refused for a row that is not the
-			// active workspace (I-16, as compile_workspace is for I-4) and while rules
-			// unit tests of it are queued or executing (AC.5) -- before the pull
-			// rather than after it, so a refused request pulls nothing.
+			// active workspace (as compile_workspace is) and while rules unit tests
+			// of it are queued or executing -- before the pull rather than after it,
+			// so a refused request pulls nothing. And it is claimed before the pull
+			// (claimPullCompile), so a test requested while the pull runs is refused
+			// rather than racing the compile; the row update below releases the
+			// claim, writing "error" if the pull fails.
 			if hasWorkspaceActionOption(dataTableAction.Data[irow], "wpCompileWorkspaceOption") {
 				rowKey := dataTableAction.Data[irow]["key"]
 				if rowKey == nil {
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for pull_workspace, missing key")
 				}
-				if httpStatus, err = refusePullCompileOfAnotherWorkspace(ctx.Dbpool, dataTableAction.WorkspaceName, rowKey); err != nil {
-					return nil, httpStatus, err
-				}
-				if httpStatus, err = refuseCompileWhileTestsRun(ctx.Dbpool); err != nil {
+				if httpStatus, err = claimPullCompile(ctx.Dbpool, dataTableAction.WorkspaceName, rowKey); err != nil {
 					return nil, httpStatus, err
 				}
 			}
@@ -1158,8 +1159,17 @@ func (ctx *DataTableContext) SaveWorkspaceFileContent(dataTableAction *DataTable
 	// Warnings do not block, only errors do, and the response carries them to
 	// the editor (saveCheckedWorkspaceFile). Which of the two an unreachable
 	// state is, is the deployment's call through JETS_USERFLOW_STRICT_REACHABILITY.
+	//
+	// The rows that check a file against the rest of the workspace read the
+	// workspace's tree as it is on disk, the database's overrides applied. A
+	// workspace whose root does not resolve is checked file by file, and the
+	// write below refuses it.
 	content := wsFileContent.(string)
-	return saveCheckedWorkspaceFile(wsFileName, fileName, content, func() error {
+	var workspace fs.FS
+	if root, err := wsfile.ResolveWorkspacePath(workspaceName, "."); err == nil {
+		workspace = os.DirFS(root)
+	}
+	return saveCheckedWorkspaceFile(wsFileName, fileName, content, workspace, func() error {
 		// Write file to local workspace
 		return wsfile.SaveContent(ctx.Dbpool, workspaceName, fileName, content, signedIn.Email)
 	})

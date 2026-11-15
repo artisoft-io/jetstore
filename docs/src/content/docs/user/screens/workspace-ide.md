@@ -101,12 +101,16 @@ parse, or no `title`, `description` or `kind` (one of `tutorial`, `how-to`, `ref
 `explanation` or `overview`). The editor shows a page's front matter, its opening `---` block, as
 YAML. A file in the place of the workspace guide's generated pages, under `docs/reference/` or named
 `docs/reference.md` or `docs/reference.mdx`, in any case, is refused whatever it holds, with a message
-saying that place is generated. A page's links are checked when the images are built.
+saying that place is generated. A page's links are checked when the images are built. A
+`reports/config.json` is refused when a reports file it runs could not run: a statement with no name
+comment above it, or a report whose name gives no output format and whose `statementProperties` declare
+none.
 
 **A save can succeed with warnings.** A check may find something that does not stop the file working
 but that you should know about: in a pipeline definition, every key the pipeline does not know and so
 ignores (a misspelt setting is one that silently does not apply), and an output table column with no
-`rdf_type`, which creating the table needs. The file is saved, and the banner says so in the warning
+`rdf_type`, which creating the table needs; in a user flow's form, a table it draws that the
+workspace's `table_configs/` does not hold. The file is saved, and the banner says so in the warning
 colours, listing each warning at its place in the file (a JSON Pointer such as
 `/pipes_config/0/apply/1/device_writer_type`, or a line) until you dismiss it.
 

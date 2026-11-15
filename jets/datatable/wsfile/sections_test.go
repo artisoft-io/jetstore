@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -64,6 +65,51 @@ func TestTheSectionDeclarationIsWhatBothEndsAgreedOn(t *testing.T) {
 			"EXPECTED_DECLARATION_CHECKSUM in jetsclient_ide/src/screens/sectionContract.ts, "+
 			"whose test decides whether the IDE renders the compiled view you changed.",
 			SectionDeclaration(), got, expectedDeclarationChecksum)
+	}
+}
+
+// ideSectionContract is the Workspace IDE's copy of the section contract,
+// relative to this package.
+const ideSectionContract = "../../../jetsclient_ide/src/screens/sectionContract.ts"
+
+// The IDE's copy of the declaration is this one, and so is its checksum.
+//
+// **Each end used to check only itself**: this package's test compared
+// SectionDeclaration with expectedDeclarationChecksum, and sectionContract.test.ts
+// compared SERVER_SECTION_DECLARATION with EXPECTED_DECLARATION_CHECKSUM. A
+// section added here, with this file's constant updated, left the IDE's copy
+// behind and both tests passing; the runbooks section was carried across by
+// hand. This test reads the IDE's file, so the two copies cannot drift without
+// a failure on this side, where the section table is changed.
+func TestTheIdeCarriesTheSameSectionDeclaration(t *testing.T) {
+	raw, err := os.ReadFile(ideSectionContract)
+	if err != nil {
+		t.Fatalf("reading the IDE's section contract: %v", err)
+	}
+	src := string(raw)
+	const open = "export const SERVER_SECTION_DECLARATION = ["
+	start := strings.Index(src, open)
+	if start < 0 {
+		t.Fatalf("%s declares no SERVER_SECTION_DECLARATION array", ideSectionContract)
+	}
+	end := strings.Index(src[start:], `].join("\n")`)
+	if end < 0 {
+		t.Fatalf(`%s: SERVER_SECTION_DECLARATION is not an array joined with "\n"`, ideSectionContract)
+	}
+	var lines []string
+	for _, m := range regexp.MustCompile(`"([^"\\]*)"`).FindAllStringSubmatch(src[start+len(open):start+end], -1) {
+		lines = append(lines, m[1])
+	}
+	if got, want := strings.Join(lines, "\n"), SectionDeclaration(); got != want {
+		t.Errorf("the IDE's SERVER_SECTION_DECLARATION differs from SectionDeclaration().\nIDE:\n%s\nserver:\n%s\n"+
+			"Update SERVER_SECTION_DECLARATION and EXPECTED_DECLARATION_CHECKSUM in %s.", got, want, ideSectionContract)
+	}
+	m := regexp.MustCompile(`export const EXPECTED_DECLARATION_CHECKSUM = "([^"]*)"`).FindStringSubmatch(src)
+	if m == nil {
+		t.Fatalf("%s declares no EXPECTED_DECLARATION_CHECKSUM", ideSectionContract)
+	}
+	if m[1] != expectedDeclarationChecksum {
+		t.Errorf("the IDE's EXPECTED_DECLARATION_CHECKSUM is %s, this package's is %s", m[1], expectedDeclarationChecksum)
 	}
 }
 

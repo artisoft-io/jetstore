@@ -25,7 +25,10 @@ The `.ua.json` documents are described in [Flow actions](/docs/developer/workspa
 Pipeline Status table's *Put Schema Event* dialog now — and an install deletes a workspace's unedited
 copy of a retired document (`RetiredAssets` in `jets/workspace_assets/install.go`). **A flow leaves
 this directory by being added to that list as well as deleted here**, or its installed copy stays
-loadable by URL in every workspace that already has it.
+loadable by URL in every workspace that already has it. Since 2026-11-14 the same list keeps an IDE
+override of a retired document from bringing it back: the override sync at a start skips a
+`workspace_changes` row for a path on the list (`IsRetired`, called by `SyncWorkspaceFiles` in
+`jets/workspace`), and leaves the row in place, in *Workspace Changes*, to be deleted there.
 
 **The ported flows**, three documents each — `<key>.uf.json`, `<key>.ua.json`, `<key>.form.json` —
 keyed by the flow key the React router serves them under and the Flutter app handed off to until it
