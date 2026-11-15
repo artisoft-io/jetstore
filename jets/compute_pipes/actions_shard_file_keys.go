@@ -66,8 +66,7 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 		fileKey := fmt.Sprintf("%s/%s", awsi.JetStoreStagePrefix(), inputChannelConfig.FileKey)
 		lback := inputChannelConfig.LookbackPeriods
 		if len(lback) > 0 {
-			s3Objects, err = GetS3Objects4LookbackPeriod("", fileKey,
-				inputChannelConfig.LookbackPeriods, inputChannelConfig.SourceObjectType, envSettings)
+			s3Objects, err = ListStageChannel(exeCtx, dbpool, "", &inputChannelConfig, envSettings)
 			if err != nil {
 				cpErr = fmt.Errorf("failed to download list of files from s3 for lookback periods: %v", err)
 				return
@@ -83,6 +82,16 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 			// The folder may hold several sessions' folders (a period's deliveries):
 			// skip those a user deleted, as a lookback read does (cumulative_source.go).
 			s3Objects = dropDeletedSessionObjects(fileKeyPrefix, s3Objects, envSettings)
+			// And keep only the latest completed session when the channel says so
+			// (latest_session.go).
+			opts, err := stageReadOptionsOf(exeCtx, dbpool, &inputChannelConfig)
+			if err == nil {
+				s3Objects, err = keepLatestCompletedSessionOfFolder(fileKeyPrefix, s3Objects, opts)
+			}
+			if err != nil {
+				cpErr = err
+				return
+			}
 		}
 
 	case "generator":
@@ -183,9 +192,7 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 	mergeS3Objects = make([][]*awsi.S3Object, len(inputChannelConfig.MergeChannels))
 	for i := range inputChannelConfig.MergeChannels {
 		mergeConfig := inputChannelConfig.MergeChannels[i]
-		fileKey := fmt.Sprintf("%s/%s", awsi.JetStoreStagePrefix(), mergeConfig.FileKey)
-		mergeObjects, err := GetS3Objects4LookbackPeriod(mergeConfig.Bucket, fileKey,
-			mergeConfig.LookbackPeriods, mergeConfig.SourceObjectType, envSettings)
+		mergeObjects, err := ListStageChannel(exeCtx, dbpool, mergeConfig.Bucket, &mergeConfig, envSettings)
 		if err != nil {
 			cpErr = fmt.Errorf("failed to download list of files from s3 for merge channel: %v", err)
 			return

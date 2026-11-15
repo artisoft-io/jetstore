@@ -258,7 +258,7 @@ func processErrors(t *testing.T, pool *pgxpool.Pool, execKey int, session string
 // names six columns, not these two, and failed with a not-null violation.
 //
 // **Fixed at AH.1**: CreateTable now skips a column or an index marked deleted
-// (`CreateTable`, `jets/schema/schema.go:277`), so one pass and two passes agree
+// (`jets/schema/schema.go`'s `CreateTable`), so one pass and two passes agree
 // and this fixture names what the production writer names.
 //
 // The reason it took until AC.1 to find is worth keeping. Running the migration

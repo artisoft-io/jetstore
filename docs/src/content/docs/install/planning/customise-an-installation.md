@@ -85,11 +85,22 @@ what that asks of an operator, is in
 ## The workspace's documentation
 
 These guides describe JetStore. What is specific to one installation (its data model, its rules, the
-way its client's files are customised) belongs in the workspace's repository. A workspace may carry
-its own documentation pages, to be added beside these guides in that installation's copy; that is not
-yet in place.
+way its client's files are customised) is documented in a fourth guide, named for the workspace and
+served beside these at `/docs/workspace/`. It is built into the UI image with the rest of the site,
+from two things the workspace provides:
+
+- **its compiled `workspace.db`**, from which its domain, its lookups (their columns and keys, never
+  their rows) and its rules are generated with every image;
+- **its `docs/` folder**, pages its own people write: an overview, and one page per custom Lambda or
+  site operator. A rule's description, written in the rule itself, is shown on the generated rule
+  pages, and the workspace decides whether the rules' text is shown too.
+
+Nothing of a workspace's guide enters JetStore's repository, and the public site has none. Every
+signed-in user of the installation can read it. How to write it, and how to check that it builds
+before deploying, is in [Document a workspace](/docs/developer/how-to/document-a-workspace/).
 
 ## See also
 
 - [Write a workspace Lambda](/docs/developer/how-to/write-a-workspace-lambda/).
 - [Write a compute-pipes operator](/docs/developer/how-to/write-a-compute-pipes-operator/).
+- [Document a workspace](/docs/developer/how-to/document-a-workspace/).

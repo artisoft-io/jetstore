@@ -201,7 +201,7 @@ export function useTableBinding(options: UseTableBindingOptions): TableBinding {
     fetcher,
     blocked,
     refreshToken,
-    onSelectionChange: ({ rows, deselected, changedIndex, selected }) => {
+    onSelectionChange: ({ rows, deselected, changedIndex, selected, changed }) => {
       const fsc = config.formStateConfig;
       if (!fsc) return;
       // Single-select clears the previous rows first, and each has to be
@@ -211,8 +211,12 @@ export function useTableBinding(options: UseTableBindingOptions): TableBinding {
         const row = rows[index];
         if (row) publishSelection(formState, field, fsc, row, false);
       }
-      const row = rows[changedIndex];
-      if (row) publishSelection(formState, field, fsc, row, selected);
+      // The select-all box changes many rows at once; they are published one by
+      // one, and the listeners told once.
+      for (const index of changed ?? [changedIndex]) {
+        const row = rows[index];
+        if (row) publishSelection(formState, field, fsc, row, selected);
+      }
       formState.notifyListeners();
     },
   });

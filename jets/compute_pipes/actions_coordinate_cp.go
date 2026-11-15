@@ -147,7 +147,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 				cpConfig.CommonRuntimeArgs.SessionId, args.NodeId, getTotNbrFileKeys(fileKeys), inputChannelConfig.FileKey)
 		} else {
 			// Case reducing, get the file keys from s3
-			fileKeys, err = GetS3FileKeys(cpConfig.CommonRuntimeArgs.ProcessName, cpConfig.CommonRuntimeArgs.SessionId,
+			fileKeys, err = GetS3FileKeys(ctx, dbpool, cpConfig.CommonRuntimeArgs.ProcessName, cpConfig.CommonRuntimeArgs.SessionId,
 				cpConfig.CommonRuntimeArgs.MainInputStepId, args.JetsPartitionLabel, inputChannelConfig, envSettings)
 			if err != nil {
 				cpErr = err

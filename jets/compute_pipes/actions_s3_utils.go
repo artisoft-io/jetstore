@@ -90,9 +90,17 @@ func GetFileKeys(ctx context.Context, dbpool *pgxpool.Pool, sessionId string, no
 // the most recent period first. The session folders a user deleted are dropped
 // first (dropDeletedSessions, cumulative_source.go). Then, when sourceObjectType
 // names an object type the client declares cumulative, only the latest delivery
-// is kept (latestDelivery, cumulative_source.go).
+// is kept (latestDelivery, cumulative_source.go). A channel's read goes through
+// ListStageChannel, which also applies latest_session_only (latest_session.go).
 func GetS3Objects4LookbackPeriod(bucket, fileKey, lookbackPeriod, sourceObjectType string, env map[string]any) ([]*awsi.S3Object, error) {
-	cumulative, err := isCumulativeRead(sourceObjectType, env)
+	return listStageObjects(bucket, fileKey, lookbackPeriod, stageReadOptions{sourceObjectType: sourceObjectType}, env)
+}
+
+// listStageObjects is GetS3Objects4LookbackPeriod with the channel's options:
+// after the deleted sessions are dropped and before the latest delivery is taken,
+// each period keeps only its latest completed session when opts.completed is set.
+func listStageObjects(bucket, fileKey, lookbackPeriod string, opts stageReadOptions, env map[string]any) ([]*awsi.S3Object, error) {
+	cumulative, err := isCumulativeRead(opts.sourceObjectType, env)
 	if err != nil {
 		return nil, err
 	}
@@ -103,6 +111,12 @@ func GetS3Objects4LookbackPeriod(bucket, fileKey, lookbackPeriod, sourceObjectTy
 	// Before latestDelivery, so that a deleted latest delivery leaves the one
 	// before it as the latest.
 	periods = dropDeletedSessions(periods, env)
+	if opts.completed != nil {
+		periods, err = keepLatestCompletedSessions(periods, opts.completed)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if cumulative {
 		return latestDelivery(periods)
 	}
@@ -169,7 +183,9 @@ func objectsOfPartition(objects []*awsi.S3Object, jetsPartitionLabel string) ([]
 
 // Get the file_key(s) from s3 for the given process/session/step/partition.
 // This is used during the reducing mode or merge files only pipeline.
-func GetS3FileKeys(processName, sessionId, mainInputStepId, jetsPartitionLabel string,
+// dbpool is needed when a file_key channel sets latest_session_only; it may be nil
+// otherwise.
+func GetS3FileKeys(ctx context.Context, dbpool *pgxpool.Pool, processName, sessionId, mainInputStepId, jetsPartitionLabel string,
 	inputChannelConfig *InputChannelConfig, envSettings map[string]any) ([][]*FileKeyInfo, error) {
 
 	var allS3Objects [][]*awsi.S3Object
@@ -189,9 +205,7 @@ func GetS3FileKeys(processName, sessionId, mainInputStepId, jetsPartitionLabel s
 		}
 
 	} else {
-		fileKey := fmt.Sprintf("%s/%s", awsi.JetStoreStagePrefix(), inputChannelConfig.FileKey)
-		s3Objects, err = GetS3Objects4LookbackPeriod("", fileKey,
-			inputChannelConfig.LookbackPeriods, inputChannelConfig.SourceObjectType, envSettings)
+		s3Objects, err = ListStageChannel(ctx, dbpool, "", inputChannelConfig, envSettings)
 		if err != nil {
 			return nil, fmt.Errorf("failed to download list of files from s3 for main input: %v", err)
 		}
@@ -218,9 +232,7 @@ func GetS3FileKeys(processName, sessionId, mainInputStepId, jetsPartitionLabel s
 				return nil, fmt.Errorf("failed to download list of files from s3 for merge channel %d: %v", i, err)
 			}
 		} else {
-			fileKey := fmt.Sprintf("%s/%s", awsi.JetStoreStagePrefix(), mergeChannelConfig.FileKey)
-			s3Objects, err = GetS3Objects4LookbackPeriod("", fileKey,
-				mergeChannelConfig.LookbackPeriods, mergeChannelConfig.SourceObjectType, envSettings)
+			s3Objects, err = ListStageChannel(ctx, dbpool, "", mergeChannelConfig, envSettings)
 			if err != nil {
 				return nil, fmt.Errorf("failed to download list of files from s3 for merge channel %d: %v", i, err)
 			}

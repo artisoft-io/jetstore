@@ -319,28 +319,26 @@ func renderLiteral(l *Literal) (string, error) {
 			return "", fmt.Errorf("double literal %q is not digits with an optional fraction", l.Value)
 		}
 	case "text":
-		if err := checkStringBody(l.Value); err != nil {
-			return "", fmt.Errorf("text literal: %w", err)
-		}
 		// The bare quoted form rather than text("..."): the compiler splits a
 		// cast on "(", so text("a(b") would not read back (parseObjectAtom).
-		return `"` + l.Value + `"`, nil
+		// The value is the text the compiler stores, so it is escaped here and
+		// unescaped by the compiler (compiler.QuoteString, UnquoteString).
+		return compiler.QuoteString(l.Value), nil
 	default: // date, datetime, bool
-		if err := checkStringBody(l.Value); err != nil {
-			return "", fmt.Errorf("%s literal: %w", l.Type, err)
-		}
 		if strings.Contains(l.Value, "(") {
 			return "", fmt.Errorf("%s literal %q cannot contain '(' (the compiler splits a cast on it)", l.Type, l.Value)
 		}
-		return fmt.Sprintf(`%s("%s")`, l.Type, l.Value), nil
+		return fmt.Sprintf(`%s(%s)`, l.Type, compiler.QuoteString(l.Value)), nil
 	}
 	return fmt.Sprintf("%s(%s)", l.Type, l.Value), nil
 }
 
-// checkStringBody checks that a value can sit between the double quotes of
-// the grammar's STRING without ending it: a double quote must be escaped, and
-// the escape is \" or \\. The value is the text the compiler stores, so it is
-// written back verbatim rather than escaped a second time.
+// checkStringBody checks that a rule property's string can sit between the
+// double quotes of the grammar's STRING without ending it: a double quote must
+// be escaped, and the escape is \" or \\. A property is carried by the model as
+// its raw source text (propertyFromRaw), escapes included, so it is written
+// back verbatim rather than escaped a second time. A literal's value is not:
+// the compiler unescapes it, and renderLiteral escapes it.
 func checkStringBody(v string) error {
 	for i := 0; i < len(v); i++ {
 		switch v[i] {

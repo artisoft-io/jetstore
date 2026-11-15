@@ -80,6 +80,9 @@ func TestTheSqlAndStatisticsTypesAreShownWhereTheyLive(t *testing.T) {
 		"optimizer_statistics.json": "jet_rules",
 		workspace.UnitTestSuffix:    "jet_rules",
 		".rb.json":                  "runbooks",
+		"workspace_docs.json":       "docs",
+		".mdx":                      "docs",
+		"config.json":               "reports",
 	} {
 		if got := shownBy(suffix); got != want {
 			t.Errorf("%q: shown by %q, want %q", suffix, got, want)
@@ -105,22 +108,86 @@ func TestTheSqlAndStatisticsTypesAreShownWhereTheyLive(t *testing.T) {
 // A read-only type with a validator row would be checked on a save that cannot
 // happen; the plan made a README read-only *unless* a row exists for it, so the
 // two may not both hold.
+//
+// **Since 2026-11-13 a read-only suffix is saved under wsfile.WritableMarkdownDir,
+// and checked there**, by rows scoped to that directory (the `docs` section's
+// pages). So the assertion is now made on paths rather than on suffixes: a file
+// of a read-only type is read-only or has a validator, never both, wherever it
+// is, `docs/..` included; and under the writable directory it has one.
 func TestNoReadOnlyFileTypeHasAValidator(t *testing.T) {
+	dir := wsfile.WritableMarkdownDir
 	for _, suffix := range wsfile.ReadOnlySuffixes {
-		if validatorFor("x"+suffix) != nil {
-			t.Errorf("%q is read-only in the IDE and has a validator row; drop one of the two", suffix)
+		for _, name := range []string{
+			"x" + suffix, "pipes_config/x" + suffix, "pipes_config/" + dir + "/x" + suffix,
+			dir + "/../x" + suffix, dir + "/../pipes_config/x" + suffix,
+			dir + "/x" + suffix, dir + "/nested/x" + suffix, "./" + dir + "/x" + suffix,
+		} {
+			readOnly, validated := wsfile.IsReadOnly(name), validatorFor(name) != nil
+			if readOnly && validated {
+				t.Errorf("%s is read-only in the IDE and has a validator row; drop one of the two", name)
+			}
+			if wsfile.InDir(name, dir) && (readOnly || !validated) {
+				t.Errorf("%s: read-only %v, validated %v; a page under %s/ is saved and checked",
+					name, readOnly, validated, dir)
+			}
 		}
 	}
 }
 
 func TestTheSavePathRefusesAReadOnlyFile(t *testing.T) {
-	for _, name := range []string{"README.md", "pipes_config/README.md"} {
-		if err := checkWorkspaceFile(name, "# notes\n"); err == nil {
+	for _, name := range []string{"README.md", "pipes_config/README.md", "pipes_config/README.MD",
+		"README.Md", "pipes_config/notes.MDX"} {
+		if _, err := checkWorkspaceFile(name, "# notes\n"); err == nil {
 			t.Errorf("%s: saved, want refused as read-only", name)
 		}
 	}
 	// And only those: a file type with no row is still saved unchecked.
-	if err := checkWorkspaceFile("jet_rules/a.jr", "# rules\n"); err != nil {
+	if _, err := checkWorkspaceFile("jet_rules/a.jr", "# rules\n"); err != nil {
 		t.Errorf("jet_rules/a.jr: %v, want saved", err)
+	}
+}
+
+// A page of the workspace guide is saved, in docs/ or a subfolder of it, while
+// a README anywhere else is still refused, including one named through docs/
+// (2026-11-13, the IDE's `docs` section).
+func TestTheSavePathSavesADocsPage(t *testing.T) {
+	page := "---\ntitle: A page\ndescription: What the page is for.\nkind: explanation\n---\n"
+	for _, name := range []string{"docs/index.md", "docs/customisation/observe.md", "docs/index.mdx"} {
+		if _, err := checkWorkspaceFile(name, page); err != nil {
+			t.Errorf("%s: %v, want saved", name, err)
+		}
+	}
+	for _, name := range []string{"docs/../pipes_config/README.md", "pipes_config/docs/README.md",
+		"pipes_config/notes.mdx"} {
+		if _, err := checkWorkspaceFile(name, "# notes\n"); err == nil {
+			t.Errorf("%s: saved, want refused as read-only", name)
+		}
+	}
+}
+
+// docs/reference/ and the pages that would take its address are the generated
+// pages' place, and the documentation build fails on a workspace whose docs/
+// holds one, so the save path refuses them, saying they are generated, with or
+// without case (2026-11-14). A page whose name only starts with reference is
+// not in that place.
+func TestTheSavePathRefusesTheGeneratedPagesPlace(t *testing.T) {
+	page := "---\ntitle: A page\ndescription: What the page is for.\nkind: explanation\n---\n"
+	for _, name := range []string{"docs/reference/index.md", "docs/reference/rules/x.md", "docs/reference.md",
+		"docs/reference.mdx", "docs/Reference/x.md", "docs/REFERENCE.MD", "./docs/reference/x.md",
+		"docs/customisation/../reference/x.md", "docs/reference/workspace_docs.json", "docs/reference"} {
+		_, err := checkWorkspaceFile(name, page)
+		if err == nil {
+			t.Errorf("%s: saved, want refused", name)
+			continue
+		}
+		if !strings.Contains(err.Error(), "generated") {
+			t.Errorf("%s: %v, want a message saying the place is generated", name, err)
+		}
+	}
+	for _, name := range []string{"docs/references.md", "docs/reference-notes.md", "docs/customisation/reference.md",
+		"docs/customisation/reference/x.md"} {
+		if _, err := checkWorkspaceFile(name, page); err != nil {
+			t.Errorf("%s: %v, want saved", name, err)
+		}
 	}
 }

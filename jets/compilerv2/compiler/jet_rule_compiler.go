@@ -159,6 +159,7 @@ func (c *Compiler) SaveModel() error {
 		log.Println("** ERROR creating workspace.db:", err.Error())
 		return fmt.Errorf("while creating workspace.db: %w", err)
 	}
+	wDb.SetIncludedFiles(c.IncludedFiles())
 	err = wDb.SaveJetRuleModel(context.TODO(), c.listener.jetRuleModel)
 	if err != nil {
 		log.Println("** ERROR saving to workspace.db:", err.Error())
@@ -191,6 +192,13 @@ func (c *Compiler) Diagnostics() []Diagnostic {
 		return nil
 	}
 	return c.listener.diagnostics.diagnostics
+}
+
+// IncludedFiles are the files the main rule file includes, directly or through
+// another included file, in the order the compiler read them. The main rule
+// file is not among them.
+func (c *Compiler) IncludedFiles() []string {
+	return c.listener.includedFiles
 }
 
 // RuleFileReader exposes the reader retained by Compile, so a caller holding a

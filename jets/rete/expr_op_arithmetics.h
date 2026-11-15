@@ -93,6 +93,60 @@ register_callbacks_for_aggregate(ReteSession * rs, int vertex, rdf::r_index rhs,
   return 0;
 }
 
+// The properties an aggregate's config names.
+// --------------------------------------------------------------------------------------
+// jets:entity_property and jets:value_property name the properties an aggregate walks,
+// (?s entityProperty ?o).(?o valueProperty ?v), so each must be a resource. A literal
+// there, the text "hasItem" for the property hasItem, was looked up as a property,
+// matched no triple, and the aggregate was null with nothing said why, in all five
+// aggregates until 2026-11-14.
+inline bool
+names_a_property(rdf::r_index p)
+{
+  return p != nullptr and p->which() == rdf::rdf_named_resource_t;
+}
+
+// The configuration error of min_of, max_of, sum_values and join_values when the config
+// gives a literal for either property. A property that is absent is not checked here:
+// which of the two an operator needs differs, and each says so itself. sorted_head,
+// which needs both and jets:operator, has its own message naming all three.
+inline void
+check_aggregate_config_properties(char const* op, rdf::r_index config,
+  rdf::r_index objp, rdf::r_index datap)
+{
+  if((objp and not names_a_property(objp)) or (datap and not names_a_property(datap))) {
+    RETE_EXCEPTION(
+      "Invalid config for "<<op<<": jets:entity_property and jets:value_property "
+      "must be resources (properties), not literals; config "<<config<<" has "
+      "jets:entity_property "<<objp<<" and jets:value_property "<<datap);
+  }
+}
+
+// The two operands of an aggregate as the graph's resources.
+// --------------------------------------------------------------------------------------
+// The left operand is the subject and the right one the property or the configuration,
+// and each must name a resource the session or the rule base holds. Every resource a
+// rule names is created when the rule base is loaded (volatile ones as _0:name), and a
+// variable is bound to a node of a triple, so a name that maps to nothing is one built
+// by an expression and never asserted, create_resource("x") passed straight in, say: a
+// configuration error, since no triple can hold it. sorted_head, sum_values and
+// join_values always threw it; min_of and max_of gave null, silently, until 2026-11-14.
+inline std::pair<rdf::r_index, rdf::r_index>
+get_aggregate_operands(char const* op, rdf::RManager * rmgr,
+  rdf::NamedResource const& lhs, rdf::NamedResource const& rhs)
+{
+  auto * l = rmgr->get_resource(lhs.name);
+  auto * r = rmgr->get_resource(rhs.name);
+  if(not l or not r) {
+    RETE_EXCEPTION(
+      "Invalid argument for "<<op<<", lhs and rhs must "
+      "be existing resources, we have "<<lhs<<", and "<<rhs<<" which map to "<<
+      l<<", and "<<r
+    );
+  }
+  return {l, r};
+}
+
 // NullWhenOutOfRange: + - * / on two integer types convert the right operand to the left
 // operand's type with boost::numeric_cast, which throws when it does not fit (int32 plus
 // a large int64, uint32 plus -1). The exception failed the session; the operation is null
@@ -533,13 +587,25 @@ doMinMaxOf(ReteSession * rs, rdf::r_index lhs, rdf::r_index rhs, bool doMin)
   auto * sess = rs->rdf_session();
   auto const* jr = sess->rmgr()->jets();
   auto objp  = sess->get_object(rhs, jr->jets__entity_property);
-  // if objp == null then mode is min/max of a multi value property
-  if (objp == nullptr) {
+  auto datap = sess->get_object(rhs, jr->jets__value_property);
+  // rhs carries neither property: it is not a config but the multi value property
+  // itself, min/max ?v in (lhs, rhs, ?v)
+  if (objp == nullptr and datap == nullptr) {
     ApplyMinMaxVisitor av(rs, doMin, true);
     return av(lhs, rhs);
   }
-  // Mode is min/max of multi value obj property based on values of datap
-  auto datap = sess->get_object(rhs, jr->jets__value_property);
+  // rhs is a config: its properties must be resources, and jets:entity_property is
+  // needed. A config with jets:value_property alone was read as the multi value
+  // property itself, (lhs, config, ?v), and was null, silently, until 2026-11-14
+  char const* op = doMin ? "min_of" : "max_of";
+  check_aggregate_config_properties(op, rhs, objp, datap);
+  if (objp == nullptr) {
+    RETE_EXCEPTION(
+      "Invalid config for "<<op<<": config "<<rhs<<" has jets:value_property and no "
+      "jets:entity_property; a config needs jets:entity_property, with or without "
+      "jets:value_property");
+  }
+  // Mode is min/max of multi value obj property, based on values of datap when present
   ApplyMinMaxVisitor av(rs, doMin, false);
   return av(lhs, objp, datap);
 }
@@ -563,8 +629,9 @@ struct MaxOfVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGraph
   {
     if(not this->rs) return rdf::Null();
     auto * sess = this->rs->rdf_session();
-    auto pr = get_resources(sess->rmgr(), std::move(lhs.name), std::move(rhs.name));
-    if(not pr.first or not pr.second) return rdf::Null();
+    // An operand that is not an existing resource throws, as for sum_values (until
+    // 2026-11-14 it was null, silently): see get_aggregate_operands
+    auto pr = get_aggregate_operands("max_of", sess->rmgr(), lhs, rhs);
     return doMinMaxOf(this->rs, pr.first, pr.second, false);
   }
 
@@ -592,8 +659,9 @@ struct MinOfVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGraph
   {
     if(not this->rs) return rdf::Null();
     auto * sess = this->rs->rdf_session();
-    auto pr = get_resources(sess->rmgr(), std::move(lhs.name), std::move(rhs.name));
-    if(not pr.first or not pr.second) return rdf::Null();
+    // An operand that is not an existing resource throws, as for sum_values (until
+    // 2026-11-14 it was null, silently): see get_aggregate_operands
+    auto pr = get_aggregate_operands("min_of", sess->rmgr(), lhs, rhs);
     return doMinMaxOf(this->rs, pr.first, pr.second, true);
   }
 
@@ -620,22 +688,19 @@ struct SortedHeadVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGr
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const
   {
     auto * sess = this->rs->rdf_session();
-    auto pr = get_resources(sess->rmgr(), std::move(lhs.name), std::move(rhs.name));
-    if(not pr.first or not pr.second) {
-      RETE_EXCEPTION(
-        "Invalid argument for sorted_head, must lhs and rhs must "
-        "be existing resources, we have "<<lhs<<", and "<<rhs<<" which map to "<<
-        pr.first<<", and "<<pr.second
-      );
-    }
+    auto pr = get_aggregate_operands("sorted_head", sess->rmgr(), lhs, rhs);
     auto const* jr = sess->rmgr()->jets();
     auto objp  = sess->get_object(pr.second, jr->jets__entity_property);
     auto datap = sess->get_object(pr.second, jr->jets__value_property);
     auto op    = sess->get_object(pr.second, jr->jets__operator);
     // op must be text literal with value "<" or ">"
-    bool err = objp==nullptr or datap==nullptr;
+    // objp and datap must be resources, the properties walked: a literal there (until
+    // 2026-11-14) matched no triple and gave null silently. See names_a_property
+    bool err = not names_a_property(objp) or not names_a_property(datap);
     bool is_min = true;
-    if(op->which() == rdf::rdf_literal_string_t) {
+    // op is null when the config has no jets:operator: the config error below, not a
+    // null dereference (until 2026-11-13 it crashed the process)
+    if(op != nullptr and op->which() == rdf::rdf_literal_string_t) {
       auto const& opv = boost::get<rdf::LString>(op)->data;
       if(opv == "<") {
         is_min = true;
@@ -650,7 +715,8 @@ struct SortedHeadVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGr
     if(err) {
       RETE_EXCEPTION(
         "Invalid config for sorted_head, must have "
-        "jets:operator, jets:entity_property, and jets:data_property set, and "
+        "jets:operator, jets:entity_property, and jets:value_property set, "
+        "jets:entity_property and jets:value_property must be resources (properties), not literals, and "
         "jets:operator must be a text literal with value '<' or '>' (single char text)"
       );
     }
@@ -807,22 +873,26 @@ struct SumValuesVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGra
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const
   {
     auto * sess = this->rs->rdf_session();
-    auto pr = get_resources(sess->rmgr(), std::move(lhs.name), std::move(rhs.name));
-    if(not pr.first or not pr.second) {
-      RETE_EXCEPTION(
-        "Invalid argument for sum_values, must lhs and rhs must "
-        "be existing resources, we have "<<lhs<<", and "<<rhs<<" which map to "<<
-        pr.first<<", and "<<pr.second
-      );
-    }
+    auto pr = get_aggregate_operands("sum_values", sess->rmgr(), lhs, rhs);
     ApplySumValuesVisitor av(this->rs);
     auto const* jr = sess->rmgr()->jets();
     auto datap = sess->get_object(pr.second, jr->jets__value_property);
-    if(not datap) {
+    auto objp = sess->get_object(pr.second, jr->jets__entity_property);
+    if(objp or datap) {
+      // rhs is a config: its properties must be resources, and jets:entity_property
+      // needs jets:value_property, as for join_values. A config with
+      // jets:entity_property alone summed (lhs, objp, ?o).(?o, config, ?v), which is
+      // nothing, and was null, silently, until 2026-11-14
+      check_aggregate_config_properties("sum_values", pr.second, objp, datap);
+      if(not datap) {
+        RETE_EXCEPTION(
+          "Invalid config for sum_values: config "<<pr.second<<" has jets:entity_property "
+          "and no jets:value_property");
+      }
+    } else {
       // use rhs as data property, i.e. do the sum of ?v in (lhs, rhs, ?v)
       datap = pr.second;
     }
-    auto objp = sess->get_object(pr.second, jr->jets__entity_property);
     return av(pr.first, objp, datap);
   }
 
@@ -974,14 +1044,7 @@ struct JoinValuesVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGr
   RDFTTYPE operator()(rdf::NamedResource lhs, rdf::NamedResource rhs)const
   {
     auto * sess = this->rs->rdf_session();
-    auto pr = get_resources(sess->rmgr(), std::move(lhs.name), std::move(rhs.name));
-    if(not pr.first or not pr.second) {
-      RETE_EXCEPTION(
-        "Invalid argument for join_values, must lhs and rhs must "
-        "be existing resources, we have "<<lhs<<", and "<<rhs<<" which map to "<<
-        pr.first<<", and "<<pr.second
-      );
-    }
+    auto pr = get_aggregate_operands("join_values", sess->rmgr(), lhs, rhs);
     auto const* jr = sess->rmgr()->jets();
     // The separator is optional, defaulting to ", ".
     std::string separator{", "};
@@ -995,9 +1058,12 @@ struct JoinValuesVisitor: public boost::static_visitor<RDFTTYPE>, public ReadsGr
     ApplyJoinValuesVisitor av(this->rs, std::move(separator));
     // Three config forms, stated explicitly rather than fallen into, since a config
     // carrying jets:entity_property and no jets:value_property is a misconfiguration
-    // that sum_values silently turns into an empty result.
+    // (which sum_values, until 2026-11-14, silently turned into a null result).
     auto objp = sess->get_object(pr.second, jr->jets__entity_property);
     auto datap = sess->get_object(pr.second, jr->jets__value_property);
+    // either property, when present, must be a resource: a literal gave null, silently,
+    // until 2026-11-14
+    check_aggregate_config_properties("join_values", pr.second, objp, datap);
     if(objp) {
       // (lhs, objp, ?o).(?o, datap, ?v) -- objp non functional, datap functional
       if(not datap) {

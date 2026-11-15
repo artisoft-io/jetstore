@@ -40,6 +40,15 @@ A few things to know when writing a statement:
   still empty with `TRUNCATE`. To drop a staging table, use *Drop Staging Table* in the
   [Source Configuration](/docs/user/screens/flows/source-configuration/) or
   [Load Files](/docs/user/screens/flows/load-files/) flow.
+- **What a statement may not create.** Where the installation's database has the code guard on (its
+  administrator can tell), it may not create or change a function, procedure, trigger,
+  policy, rule or operator, nor turn on row-level security, and a default, check, index expression
+  or view may not call a function that runs SQL or changes more than its row, such as
+  `aws_s3.query_export_to_s3`, `query_to_xml` or `set_config`. Such code would run as whoever reads
+  the table, JetStore itself included. The banner then says *not allowed*, naming the statement or
+  the function. A call to `aws_s3.query_export_to_s3` in the statement itself still works. The
+  [Developer's Guide](/docs/developer/workspace/system-tables/#the-code-jets_ide-may-not-create)
+  has the full list.
 
 The result comes in the order your statement gives it, with no column marked as sorted. Press a
 column heading to sort the result by that column, and press it again to reverse the order: a

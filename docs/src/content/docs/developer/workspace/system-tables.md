@@ -45,8 +45,8 @@ at every start (`jets/dblogin`):
 
 | Group role | What runs as it | What it may do |
 |---|---|---|
-| `jets_reader` | every read whose SQL comes from the client (`raw_query`, `raw_query_map`, a data-table read), and a runbook's `query` and `wait` steps | read every table, less the secret columns; call no extension's functions |
-| `jets_ide` | the Query Tool's two buttons, a runbook's `ddl` steps, and the workspace's own init scripts (`process_config/*_workspace_init_db.sql`) | read and change every table, read-only on the security tables and without their secret columns; create tables outside `jetsapi`, and drop or alter only those; no triggers; call `aws_s3`'s functions |
+| `jets_reader` | every read whose SQL comes from the client (`raw_query`, `raw_query_map`, a data-table read), a runbook's `query` and `wait` steps, and a pipeline's lookup queries (a `sql_lookup`'s `query`, in a read-only transaction; see [lookup tables](/docs/developer/compute-pipes/lookup-tables/)) | read every table, less the secret columns; call no extension's functions |
+| `jets_ide` | the Query Tool's two buttons, a runbook's `ddl` steps, the workspace's own init scripts (`process_config/*_workspace_init_db.sql`), and its reports (`reports/*.sql`, run by `run_reports`) | read and change every table, read-only on the security tables and without their secret columns; create tables outside `jetsapi`, and drop, alter or index only those; no triggers on a table it did not create; call `aws_s3`'s functions |
 
 Each group role is held by a login of the same name with a suffix for the database, such as
 `jets_ide_3fa2b1c9d0`. The login is a member of nothing else, so a statement cannot switch to a role
@@ -54,9 +54,156 @@ that may do more: a `SET ROLE` on the apiserver's own login could be undone by t
 restricting. **Table `restricted_login`** holds each login's password, generated once per database;
 only the apiserver's user may read it, and the password reaches PostgreSQL as a SCRAM verifier.
 
+Both logins reach the schemas that exist when the apiserver starts, and the tables later created in
+them. **A schema created after the start**, which the system-table migration does for a table
+whose schema does not exist yet (`UpdateTableSchema`, `jets/schema`), is granted to both as it is
+created (`dblogin.GrantSchema`); when the logins do not exist yet, the next start grants it.
+
 The apiserver's database user needs `CREATEROLE`, as it did for `jets_reader` before. A login that
 holds a privileged attribute, or is a member of another role, stops the start with a message saying
 what to revoke.
+
+**Several JetStore databases on one cluster** share the two group roles, because roles are
+cluster-wide; each database has its own logins. Two databases may start together, and whichever
+creates a group role first wins; the other carries on with it. From PostgreSQL 16, a user that holds
+`CREATEROLE` and is not a superuser may grant only the roles it holds `ADMIN OPTION` on, which are
+the roles it created. So when the databases' apiservers connect as different users, the second
+database's apiserver stops at its start with a message naming the role and its user, and the one
+statement to run as the user that created the roles (or a superuser), such as
+`GRANT "jets_reader", "jets_ide" TO "apiserver_b" WITH ADMIN OPTION`. Before PostgreSQL 16,
+`CREATEROLE` is enough and no grant is needed.
+
+`update_db` and `run_reports` each run some steps as the apiserver's user and the workspace's SQL as
+`jets_ide`:
+
+| Program | As the apiserver's database user | As `jets_ide` |
+|---|---|---|
+| `update_db` | `jets/jets_init_db.sql` (`$JETS_INIT_DB_SCRIPT`), the system-table migration, the login setup | every `process_config/*_workspace_init_db.sql`, `base__workspace_init_db.sql` included |
+| `run_reports` | the session lookups, `input_registry`, `report_execution_status`, the lookup-table sync and compile, a deployment's own report functions | every `reports/*.sql`, scripts and reports alike |
+
+**What follows for ownership:**
+
+- `jets_ide` may drop, alter or index only a table it owns, which is a table it created.
+- A table the apiserver's user created cannot be dropped, altered or indexed from a workspace init
+  script, a report or the Query Tool. That covers the tables pipelines create, those reports created
+  before 2026-11-14, and those init scripts created before release 4.1.6.
+- Only the apiserver's user can give such a table to `jets_ide` (`ALTER TABLE ... OWNER TO`); the
+  statement is refused from anything that runs as `jets_ide`.
+
+### The code `jets_ide` may not create
+
+PostgreSQL runs some code attached to a table as **whoever reads or writes the table**, not as the
+table's owner. The apiserver's user and the pipelines read and write the tables `jets_ide` creates,
+so a function `jets_ide` wrote and attached to its own table, in a trigger or a row-level security
+policy, would run as the apiserver's user and could change the security tables. The grants cannot
+stop it: the privilege to create a table in a schema is also the privilege to create a function
+there.
+
+So an event trigger, `jets_ide_code_guard`, refuses that DDL when the login running it is `jets_ide`'s
+(`jets/dblogin/codeguard.go`). It refuses:
+
+- `CREATE` and `ALTER` of a function, procedure, trigger, policy, rule, operator or aggregate, and
+  `CREATE CAST`, `CREATE EXTENSION`, including the `CREATE OR REPLACE` forms and DDL run inside a
+  `DO` block;
+- `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL SECURITY`, and any `ALTER TABLE`
+  that leaves a table with row-level security on;
+- a column default, check constraint, generated column, index expression or predicate, domain
+  constraint or view that calls:
+  - a function outside `pg_catalog`, which includes `aws_s3`'s and every other extension's;
+  - a volatile built-in function other than `nextval`, `currval`, `lastval`, `random`,
+    `random_normal`, `array_shuffle`, `array_sample`, `gen_random_uuid`, `uuidv4`, `uuidv7`,
+    `clock_timestamp` and `timeofday`, which refuses `set_config`, `setval`,
+    `pg_terminate_backend`, the advisory locks and the large-object and file functions;
+  - a built-in function that runs SQL or reads a table by name: `query_to_xml`, `table_to_xml`,
+    `schema_to_xml`, `database_to_xml`, `cursor_to_xml` and their `xmlschema` forms, `ts_stat`,
+    `pg_stat_get_activity` and `pg_stat_get_backend_activity`.
+
+The refusal is a `permission denied` error (SQLSTATE `42501`) naming the command, or the object and
+the function it calls. Everything else `jets_ide` does is unchanged: tables, inserts, `TRUNCATE`,
+indexes, expression indexes on built-in functions, views, defaults such as `now()` or a `serial`
+column, check constraints, `DO` blocks, temporary tables, and a call to
+`aws_s3.query_export_to_s3` in a statement. The apiserver's own user is not affected.
+
+**Why expressions, and not only functions.** Without functions of its own, `jets_ide` could still
+attach a call to a function that exists. `aws_s3.query_export_to_s3` runs the SQL text it is given
+and `aws_s3.table_import_from_s3` writes into a table it is named, both as the caller, so on Aurora
+a column default calling either would run a statement of the author's choosing as the apiserver's
+user. `query_to_xml` in a default would copy a secret column into a row `jets_ide` can read. A call
+in a statement is not refused, because it runs as `jets_ide`. What remains is narrower: a view
+still runs the built-in functions it calls as its reader, so a view on a system view such as
+`pg_stat_activity` shows what its reader may see; that only matters if the apiserver copies the
+view's rows into a table `jets_ide` reads.
+
+**Installing it.** Creating an event trigger takes a superuser or, on Amazon RDS and Aurora
+PostgreSQL, the master user (`rds_superuser`), which is the apiserver's user on a standard
+deployment. The apiserver and `update_db` create or update the trigger at every start, and the
+start-up line ends with *IDE code guard on* or *IDE code guard off*. When it is off, a *Warning:*
+line says why, and the start goes on: the logins work as before, without the guard. To install it
+for an apiserver user that is not a superuser, start the apiserver once (it creates the function),
+then, connected to the database as a superuser:
+
+```sql
+CREATE EVENT TRIGGER jets_ide_code_guard ON ddl_command_end
+  EXECUTE FUNCTION jetsapi.jets_ide_code_guard();
+ALTER FUNCTION jetsapi.jets_ide_code_guard() OWNER TO CURRENT_USER;
+```
+
+The second statement gives the function to the superuser. The function runs during every user's
+DDL, a superuser's included, so it should not stay with a user that could change it. A later
+release that changes the function says so in a *Warning:* line; give the function back to the
+apiserver's user for one start, which updates it, then take it back.
+
+**Turning it off.** If the guard ever refuses DDL it should not, a pipeline's or the apiserver's own,
+set `JETS_IDE_CODE_GUARD=off` in the deploy environment and deploy; the stack passes it to every
+component that can set the logins up. No database access is needed: the
+apiserver's user drops the event trigger, or disables it, or empties its function when a superuser
+owns the trigger, and the start-up line ends *IDE code guard off (disabled by JETS_IDE_CODE_GUARD)*,
+followed by a *Warning:* line. When the trigger and its function both belong to a superuser, the
+start-up line says the variable could not remove it, and a superuser must drop it. Unset the variable
+to put the guard back at the next start; see
+[Environment variables](/docs/install/reference/environment-variables/).
+
+Event triggers are per database, and Amazon RDS asks for them to be dropped before a major-version
+upgrade: `DROP EVENT TRIGGER jets_ide_code_guard;`. The next start creates it again. To check the
+guard at any time: `SELECT evtenabled FROM pg_event_trigger WHERE evtname = 'jets_ide_code_guard'`
+returns `O` when it is on.
+
+**Code `jets_ide` created before the guard** stays where it is. At every start the apiserver lists
+what `jets_ide` owns that runs as another user, functions, triggers, policies, rules, row-level
+security and the expressions above, in a *Warning:* line, and drops none of it: a drop could break a
+workspace that relies on it, and its owner is better placed to judge. Review the list, and drop what
+is not needed connected as the apiserver's user, which owns `jets_ide`'s objects by membership.
+
+### Reports run as `jets_ide`
+
+`run_reports` (the binary the state machines start, and the `run_reports` Lambda) opens the IDE login
+beside its own connection, with the password in `restricted_login`, and runs the workspace's report
+SQL on it: a `reports/*.sql` declared `reportOrScript: "script"`, and every statement of a reports
+file, including what it exports with `aws_s3.query_export_to_s3`. A deployment's own report functions
+(`InstallSpecificFunc`) are deployment code rather than workspace files and stay on the apiserver's
+user. A report run that cannot open the IDE login fails; it never falls back to the apiserver's user
+(`jets/run_reports/delegate/workspace_sql.go`).
+
+**Upgrading to the release that made this change.** A report that reads, or that inserts, updates,
+deletes or truncates rows, needs nothing. So does `CREATE TABLE IF NOT EXISTS` on a table that already
+exists, and a temporary table. **A report that indexes, alters or drops a table an earlier release's
+`run_reports` created fails with *must be owner of table*,** because that table belongs to the
+apiserver's database user. `CREATE INDEX IF NOT EXISTS` is refused too: PostgreSQL checks ownership
+before it looks for the index. Give each such table to the IDE login once, connected as the
+apiserver's database user (the user in the deployment's DSN secret), for example with `psql`:
+
+```sql
+SELECT login_role FROM jetsapi.restricted_login WHERE login_role LIKE 'jets_ide\_%';
+ALTER TABLE public.my_report_table OWNER TO jets_ide_3fa2b1c9d0;  -- the login_role above
+```
+
+It is refused from the Query Tool and from a workspace init script, which run as `jets_ide`. The
+apiserver's user keeps reading and writing the table, as a member of the login. To list the tables the apiserver's user owns outside `jetsapi`:
+
+```sql
+SELECT schemaname, tablename FROM pg_tables
+WHERE tableowner = current_user AND schemaname NOT IN ('jetsapi', 'pg_catalog', 'information_schema');
+```
 
 ## Table `client_registry`
 

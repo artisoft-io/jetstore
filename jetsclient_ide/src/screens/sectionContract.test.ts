@@ -46,9 +46,9 @@ describe("the section contract", () => {
     expect(fnv1a32("hello")).toBe("fnv1a32:4f9f2cab");
   });
 
-  it("has ten sections, three of which compile into workspace.db", () => {
+  it("has eleven sections, three of which compile into workspace.db", () => {
     const declared = parseDeclaration();
-    expect(declared.length).toBe(10);
+    expect(declared.length).toBe(11);
     expect(declared.filter((d) => d.view !== "").map((d) => d.dir)).toEqual([
       "data_model",
       "jet_rules",

@@ -130,7 +130,7 @@ it has been deleted. It is where sessions are deleted. See
 | Button | What it does | Capability |
 |---|---|---|
 | **Delete** | Deletes the selected sessions and every session derived from them. It first lists all of them, and asks you to confirm; nothing is deleted before you do. Disabled for a session whose deletion is already requested or done. | `delete_session` |
-| **Resubmit as Pending** | Copies the run of each selected session into a new session with status `pending`, after you confirm, and starts nothing. A `file` session has no run of its own and is skipped, as is a run that already has a pending copy. Refused when an input the run read is deleted or queued for deletion. | `run_pipelines` |
+| **Resubmit as Pending** | Copies the run of each selected session into a new session with status `pending`, after you confirm, and starts nothing. A `file` session has no run of its own and is skipped, as is a run that already has a pending copy. Refused when an input the run read is deleted or queued for deletion. The sessions stay selected afterwards. | `run_pipelines` |
 | **Refresh** | Reads the table again. | |
 | **Set Filters** | Opens the *Session Registry Filters* dialog, below. | |
 | **Set Session Id** | Asks for session ids, separated by commas, or a range, `from..to`, either end of which may be left empty (`1000..` or `..2000`). | |
@@ -140,8 +140,9 @@ A deletion cannot be undone. What it removes, and why sessions derived from the 
 with it, is in [Deleting a session](/docs/user/concepts/pipelines-and-sessions/#deleting-a-session).
 
 **Running sessions again in place of the old ones.** To process again what a set of sessions
-processed, and keep only the new results: select the sessions, press **Resubmit as Pending**, then
-**Delete** with the same sessions selected, and finally press **Check Pending** on *Pipelines
+processed, and keep only the new results: select the sessions (set a filter and tick the box in the
+heading to select every session listed), press **Resubmit as Pending**, then **Delete**, which acts
+on the same sessions since they stay selected, and finally press **Check Pending** on *Pipelines
 Status*, which starts the pending runs. Resubmit before you delete: a run whose input is queued for
 deletion is refused. The new runs read the inputs as they are when they start, so they do not read
 the sessions you deleted.

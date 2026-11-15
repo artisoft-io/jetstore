@@ -2,7 +2,6 @@ package delegate
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/datatable"
+	"github.com/artisoft-io/jetstore/jets/run_reports/directives"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -54,8 +54,7 @@ func CoordinateWorkAndUpdateStatus(ctx context.Context, dbpool *pgxpool.Pool, ca
 	}
 
 	// Read the report config file
-	reportConfiguration := &map[string]ReportDirectives{}
-	configFile := fmt.Sprintf("%s/%s/reports/config.json", workspaceHome, wprefix)
+	configFile := fmt.Sprintf("%s/%s/%s", workspaceHome, wprefix, directives.ConfigFile)
 	file, err := os.ReadFile(configFile)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -67,14 +66,14 @@ func CoordinateWorkAndUpdateStatus(ctx context.Context, dbpool *pgxpool.Pool, ca
 	} else {
 		// Un-marshal the reportDirectives
 		// log.Println("Un-marshal the reportDirectives")
-		err = json.Unmarshal(file, reportConfiguration)
+		// The workspace IDE refuses to save a file that does not decode
+		// (the reports/config.json row of jets/datatable's validator table).
+		reportConfiguration, err := directives.Decode(file)
 		if err != nil {
 			return fmt.Errorf("error while parsing report config.json: %v", err)
 		}
-		// //*
-		// log.Println("REPORT DIRECTIVES:", *reportConfiguration)
 		// The report directives for the current reportName
-		rd, ok := (*reportConfiguration)[ca.ReportName]
+		rd, ok := reportConfiguration[ca.ReportName]
 		if ok {
 			ca.CurrentReportDirectives = &rd
 		} else {
@@ -144,8 +143,22 @@ func CoordinateWorkAndUpdateStatus(ctx context.Context, dbpool *pgxpool.Pool, ca
 		return fmt.Errorf("query pipeline_execution_status failed: %v", err)
 	}
 
-	// Do the reports
-	err = ca.RunReports(dbpool)
+	// Do the reports. The workspace's SQL runs on the IDE login, as Submit DDL
+	// does (workspace_sql.go); a deployment that set SQLPool keeps its own.
+	if ca.SQLPool == nil {
+		var sqlPool *pgxpool.Pool
+		sqlPool, err = OpenWorkspaceSQLPool(ctx, dbpool)
+		if err == nil {
+			ca.SQLPool = sqlPool
+			defer func() {
+				sqlPool.Close()
+				ca.SQLPool = nil
+			}()
+		}
+	}
+	if err == nil {
+		err = ca.RunReports(dbpool)
+	}
 
 	// Update status
 	status := "completed"

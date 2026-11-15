@@ -209,23 +209,37 @@ func (s *JetRuleListener) PostProcessJetruleNode(rule *rete.JetruleNode) {
 	rule.NormalizedLabel = s.makeRuleLabel(rule, true)
 }
 
+// RuleProperty returns the value of a rule property as the compiler reads it.
+//
+// A property is kept as it is written (rule.Properties, the rule's label and
+// the rule_properties table all hold the token), and is read through this: a
+// value written in double quotes is read as the string it stands for, with the
+// escapes a string literal has (UnquoteString), so s="10" is the salience 10
+// and o="false" turns optimisation off, as s=10 and o=false do. Until
+// 2026-11-14 the quotes were kept in the reading too, so o="false" left
+// optimisation on and s="10" was an invalid salience.
+func RuleProperty(rule *rete.JetruleNode, key string) string {
+	return UnquoteString(rule.Properties[key])
+}
+
 // Perform post-processing on rule properties:
 // if property "o" (optimization) is "false", "f", "0" (case insensitive) then set property "optimization" to "false" (otherwise it's true)
 // if property "s" (salience) is an integer, set property "salience" to that integer, default salience is 100
+// Either may be written in quotes (RuleProperty).
 func (s *JetRuleListener) PostProcessJetruleProperties(rule *rete.JetruleNode) {
 	rule.Optimization = true // default optimization is true
-	v := strings.ToUpper(rule.Properties["o"])
+	v := strings.ToUpper(RuleProperty(rule, "o"))
 	if v == "FALSE" || v == "F" || v == "0" {
 		rule.Optimization = false
 	}
 	rule.Salience = 100 // default salience
-	v = rule.Properties["s"]
-	if len(v) > 0 {
-		salience, err := strconv.Atoi(v)
+	// The complaint names the value as written; s="" is refused as s= would be.
+	if raw, ok := rule.Properties["s"]; ok && len(raw) > 0 {
+		salience, err := strconv.Atoi(RuleProperty(rule, "s"))
 		if err != nil {
 			s.logErrorf(
 				"** error: invalid salience value '%s' in rule %s, must be an integer\n",
-				v, rule.Name)
+				raw, rule.Name)
 		} else {
 			rule.Salience = salience
 		}

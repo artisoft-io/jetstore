@@ -242,30 +242,35 @@ func (s *JetRuleListener) parseObjectAtom(txt string, keywordsContextValue strin
 		// String
 		return &rete.ResourceNode{
 			Type:  "text",
-			Value: StripQuotes(txt),
+			Value: UnquoteString(txt),
 		}
 	case strings.HasSuffix(txt, ")"):
-		// Literal cast
-		v := strings.Split(txt, "(")
-		if len(v) == 2 {
-			typ := v[0]
-			val := strings.TrimSuffix(v[1], ")")
-			// validate typ is one of text, int, double, bool
-			switch typ {
-			case "text", "int", "uint", "long", "ulong", "double", "bool", "date", "datetime":
-			default:
-				// invalid type - report error, return nil
-				s.logErrorf("error: invalid literal type '%s' for value '%s', source text: %s\n", typ, val, txt)
-				fmt.Fprintf(s.parseLog, "error: invalid literal type '%s' for value '%s', source text: %s\n", typ, val, txt)
-				return nil
-			}
-			if typ == "bool" && !s.checkBoolLiteral(s.currentLine, StripQuotes(val)) {
-				return nil
-			}
-			return &rete.ResourceNode{
-				Type:  typ,
-				Value: StripQuotes(val),
-			}
+		// Literal cast, type(value). The type is what precedes the first '(',
+		// and the value is everything between it and the closing ')': a quoted
+		// value may itself hold parentheses, as in text("a(b)"). Until
+		// 2026-11-14 the text was split on every '(', so a value holding one
+		// returned nil here without a word, and the term it was in was dropped.
+		typ, rest, found := strings.Cut(txt, "(")
+		if !found {
+			s.LogErrorAt(s.currentLine, fmt.Sprintf("cannot read %s as a literal: a cast is written type(value)", txt))
+			return nil
+		}
+		val := strings.TrimSuffix(rest, ")")
+		// validate typ is one of text, int, double, bool
+		switch typ {
+		case "text", "int", "uint", "long", "ulong", "double", "bool", "date", "datetime":
+		default:
+			// invalid type - report error, return nil
+			s.LogErrorAt(s.currentLine, fmt.Sprintf("invalid literal type '%s' for value '%s', source text: %s", typ, val, txt))
+			fmt.Fprintf(s.parseLog, "error: invalid literal type '%s' for value '%s', source text: %s\n", typ, val, txt)
+			return nil
+		}
+		if typ == "bool" && !s.checkBoolLiteral(s.currentLine, UnquoteString(val)) {
+			return nil
+		}
+		return &rete.ResourceNode{
+			Type:  typ,
+			Value: UnquoteString(val),
 		}
 	case len(keywordsContextValue) > 0:
 		// Keyword
@@ -292,7 +297,6 @@ func (s *JetRuleListener) parseObjectAtom(txt string, keywordsContextValue strin
 			Id:   EscR(txt),
 		}
 	}
-	return nil
 }
 
 // Determine if the string is numeric (int or double)
@@ -317,18 +321,18 @@ func isNumeric(s string) bool {
 	return true
 }
 
-// Escape resource name that conflicts with keywords such as rdf:type becomes rdf:"type"
-// this function removes the quotes
+// EscR reads a resource name written with its name quoted, prefix:"name", as
+// prefix:name. The quotes let a name be a keyword or hold characters an
+// Identifier cannot (JetRule.g4, declIdentifier: Identifier ':' STRING).
+//
+// It applies to an identifier only: parseObjectAtom calls it on the text it has
+// found to be one, and the declarations call it on their names. A string
+// literal or a cast must not pass through it, since every double quote is
+// removed: until 2026-11-14 the antecedent, consequent and triple handlers
+// applied it to the whole term, so text("\"x:") was read as text(\x:).
 func EscR(s string) string {
 	if len(s) > 4 && s[0] != '"' && strings.Contains(s, ":\"") {
 		return strings.ReplaceAll(s, "\"", "")
-	}
-	return s
-}
-
-func StripQuotes(s string) string {
-	if len(s) >= 2 && ((s[0] == '"' && s[len(s)-1] == '"') || (s[0] == '\'' && s[len(s)-1] == '\'')) {
-		return s[1 : len(s)-1]
 	}
 	return s
 }

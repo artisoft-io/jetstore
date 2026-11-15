@@ -1,6 +1,7 @@
 package compute_pipes
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -53,7 +54,7 @@ func NewCsvSourceS3(spec *CsvSourceSpec, env map[string]any) (*CsvSourceS3, erro
 		if len(spec.Compression) == 0 {
 			spec.Compression = "snappy"
 		}
-		allFileKeys, err := GetS3FileKeys(spec.ProcessName, spec.SessionId,
+		allFileKeys, err := GetS3FileKeys(context.Background(), nil, spec.ProcessName, spec.SessionId,
 			spec.ReadStepId, spec.JetsPartitionLabel, &InputChannelConfig{}, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to file keys for CsvSourceS3 of type cpipes: %v", err)

@@ -13,27 +13,34 @@ import (
 // The section contract, from the end that produces it.
 //
 // **No client-side corpus can guard this surface**, and that is the reason these
-// tests exist rather than a reason to write them somewhere cheaper. The Flutter
-// app has five generated corpora and all five are built by walking client
-// registries; the section list is *server data*, so none of them closes over it.
-// The mirror of this file is jetsclient/test/workspace_section_contract_test.dart,
-// which carries the same declaration and the same checksum and drives the client's
-// half against it.
+// tests exist rather than a reason to write them somewhere cheaper. The section
+// list is *server data*, so nothing generated from the client's registries
+// closes over it. The other end is the Workspace IDE's
+// jetsclient_ide/src/screens/sectionContract.ts, which carries the same
+// declaration (SERVER_SECTION_DECLARATION) and the same checksum
+// (EXPECTED_DECLARATION_CHECKSUM), and whose test,
+// jetsclient_ide/src/screens/sectionContract.test.ts, drives the client's half
+// against them: every compiled view the server declares is either rendered or
+// named as not built. The Flutter app's copy,
+// jetsclient/test/workspace_section_contract_test.dart, was this file's mirror
+// until jetsclient/ was deleted on 2026-08-26.
 
-// The checksum of SectionDeclaration(), duplicated in the Dart test named above.
+// The checksum of SectionDeclaration(), duplicated in sectionContract.ts.
 //
 // **Change the section table and this test fails; update only this constant and
-// the Dart test fails.** That is the whole mechanism, and it is the corpus
-// pattern the Flutter suite already uses, generated from the other end.
+// the IDE's test fails.** That is the whole mechanism. The declaration is each
+// section's directory and compiled view, so a change to a section's Filters or
+// Label moves neither end.
 //
 // `runbooks=` added 2026-11-06 (runbooks Phase 1, `AA.4`), the tenth section:
 // fnv1a32:b15ab833 became fnv1a32:d2805ee9. The copy in
-// jetsclient_ide/src/screens/sectionContract.ts moves with it.
-const expectedDeclarationChecksum = "fnv1a32:d2805ee9"
+// jetsclient_ide/src/screens/sectionContract.ts moves with it. `docs=` added
+// 2026-11-13, the eleventh: fnv1a32:d2805ee9 became fnv1a32:1306f111.
+const expectedDeclarationChecksum = "fnv1a32:1306f111"
 
-// fnv1a32 matches jetsclient/test/corpus_support.dart's `checksum`, which is
+// fnv1a32 matches fnv1a32 in jetsclient_ide/src/screens/sectionContract.ts,
 // hand-rolled there for the same reason it is hand-rolled here: this is drift
-// detection between two repositories' worth of code, not a security boundary.
+// detection between two codebases, not a security boundary.
 func fnv1a32(s string) string {
 	var hash uint32 = 0x811c9dc5
 	for _, b := range []byte(s) {
@@ -53,9 +60,9 @@ func TestTheSectionDeclarationIsWhatBothEndsAgreedOn(t *testing.T) {
 	if got != expectedDeclarationChecksum {
 		t.Fatalf("the section contract changed.\n"+
 			"declaration:\n%s\nchecksum: %s, want %s\n\n"+
-			"Update this constant AND the copy in "+
-			"jetsclient/test/workspace_section_contract_test.dart, which decides "+
-			"whether the client needs a form for the section you changed.",
+			"Update this constant AND SERVER_SECTION_DECLARATION and "+
+			"EXPECTED_DECLARATION_CHECKSUM in jetsclient_ide/src/screens/sectionContract.ts, "+
+			"whose test decides whether the IDE renders the compiled view you changed.",
 			SectionDeclaration(), got, expectedDeclarationChecksum)
 	}
 }
@@ -433,5 +440,26 @@ func TestRunbooksAreListedWithTheirSql(t *testing.T) {
 	want := "runbooks%2Fhealth_check%2Frecent.sql,runbooks%2Fhealth_check.rb.json" // the folder's node sorts first
 	if got := strings.Join(files, ","); got != want {
 		t.Errorf("runbooks files: got %s, want %s", got, want)
+	}
+}
+
+// A root note's suffix is matched without case, as IsReadOnly matches it
+// (2026-11-14): `NOTES.MD` is listed, read-only, and a file with another
+// suffix is not.
+func TestARootNoteIsFoundWithoutCase(t *testing.T) {
+	root := t.TempDir()
+	for _, name := range []string{"NOTES.MD", "readme.md", "notes.txt"} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte("# n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	notes := visitRootNotes(root, "ws")
+	if len(notes) != 2 || notes[0].Label != "NOTES.MD" || notes[1].Label != "readme.md" {
+		t.Fatalf("root notes: got %d, want NOTES.MD and readme.md", len(notes))
+	}
+	for _, n := range notes {
+		if !n.ReadOnly {
+			t.Errorf("%s: not read-only", n.Label)
+		}
 	}
 }

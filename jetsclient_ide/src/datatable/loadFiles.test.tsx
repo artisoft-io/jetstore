@@ -27,6 +27,9 @@ import { useTableBinding } from "./useTableBinding";
 import type { DataTableFetcher, DataTableResponse } from "./useDataTable";
 import type { JetsRow, TableConfig } from "./types";
 
+/** A row's own box, and not the heading's select-all box (JM-187). */
+const ROW_BOX = /^Select row /;
+
 const tables = corpus.tables as unknown as Record<string, TableConfig>;
 const sourceConfig = tables["lfSourceConfigTable"]!;
 const fileStaging = tables["lfFileKeyStagingTable"]!;
@@ -117,7 +120,7 @@ describe("load_files, end to end", () => {
     await screen.findByText("staging_claims");
 
     const source = within(screen.getByTestId("source"));
-    fireEvent.click(source.getAllByRole("checkbox")[0]!);
+    fireEvent.click(source.getAllByRole("checkbox", { name: ROW_BOX })[0]!);
 
     // Both files under staging_claims arrive; the staging_members one does not.
     await screen.findByText("f10.csv");
@@ -139,7 +142,7 @@ describe("load_files, end to end", () => {
     render(<LoadFilesFlow fetcher={fetcher} formState={formState} />);
     await screen.findByText("staging_claims");
 
-    fireEvent.click(within(screen.getByTestId("source")).getAllByRole("checkbox")[0]!);
+    fireEvent.click(within(screen.getByTestId("source")).getAllByRole("checkbox", { name: ROW_BOX })[0]!);
 
     await waitFor(() =>
       expect(formState.snapshot(0)).toMatchObject({
@@ -158,12 +161,12 @@ describe("load_files, end to end", () => {
     await screen.findByText("staging_claims");
 
     const source = within(screen.getByTestId("source"));
-    fireEvent.click(source.getAllByRole("checkbox")[0]!);
+    fireEvent.click(source.getAllByRole("checkbox", { name: ROW_BOX })[0]!);
     await screen.findByText("f10.csv");
 
     // The source table is single-select: choosing the second row replaces the
     // first, which must republish table_name and refilter the second table.
-    fireEvent.click(source.getAllByRole("checkbox")[1]!);
+    fireEvent.click(source.getAllByRole("checkbox", { name: ROW_BOX })[1]!);
     await screen.findByText("f20.csv");
     expect(screen.queryByText("f10.csv")).toBeNull();
   });
@@ -177,19 +180,19 @@ describe("load_files, end to end", () => {
     const source = within(screen.getByTestId("source"));
     const files = () => within(screen.getByTestId("files"));
 
-    fireEvent.click(source.getAllByRole("checkbox")[0]!);
+    fireEvent.click(source.getAllByRole("checkbox", { name: ROW_BOX })[0]!);
     await screen.findByText("f10.csv");
 
     // Select two files, which the second table allows — it is multi-select.
-    fireEvent.click(files().getAllByRole("checkbox")[0]!);
-    fireEvent.click(files().getAllByRole("checkbox")[1]!);
+    fireEvent.click(files().getAllByRole("checkbox", { name: ROW_BOX })[0]!);
+    fireEvent.click(files().getAllByRole("checkbox", { name: ROW_BOX })[1]!);
     await waitFor(() =>
       expect(formState.getValue(0, fileStaging.key)).toEqual(["10", "11"]),
     );
 
     // Now change the source. The files those keys named are no longer on offer,
     // so keeping them would submit a selection the user cannot see.
-    fireEvent.click(source.getAllByRole("checkbox")[1]!);
+    fireEvent.click(source.getAllByRole("checkbox", { name: ROW_BOX })[1]!);
     await screen.findByText("f20.csv");
     await waitFor(() => {
       const keys = formState.getValue(0, fileStaging.key);
@@ -205,17 +208,17 @@ describe("load_files, end to end", () => {
     render(<LoadFilesFlow fetcher={fetcher} formState={formState} />);
     await screen.findByText("staging_claims");
 
-    fireEvent.click(within(screen.getByTestId("source")).getAllByRole("checkbox")[0]!);
+    fireEvent.click(within(screen.getByTestId("source")).getAllByRole("checkbox", { name: ROW_BOX })[0]!);
     await screen.findByText("f10.csv");
 
     const files = () => within(screen.getByTestId("files"));
-    fireEvent.click(files().getAllByRole("checkbox")[0]!);
+    fireEvent.click(files().getAllByRole("checkbox", { name: ROW_BOX })[0]!);
     await waitFor(() => expect(formState.getValue(0, fileStaging.key)).toEqual(["10"]));
 
     // Sorting refetches the same rows here; the restore should re-tick the box.
     fireEvent.click(files().getAllByRole("button", { name: /File Key/ })[0]!);
     await waitFor(() => {
-      const boxes = files().getAllByRole("checkbox") as HTMLInputElement[];
+      const boxes = files().getAllByRole("checkbox", { name: ROW_BOX }) as HTMLInputElement[];
       expect(boxes[0]!.checked).toBe(true);
     });
   });
@@ -226,12 +229,12 @@ describe("load_files, end to end", () => {
     render(<LoadFilesFlow fetcher={fetcher} formState={formState} />);
     await screen.findByText("staging_claims");
 
-    fireEvent.click(within(screen.getByTestId("source")).getAllByRole("checkbox")[0]!);
+    fireEvent.click(within(screen.getByTestId("source")).getAllByRole("checkbox", { name: ROW_BOX })[0]!);
     await screen.findByText("f10.csv");
 
     const files = () => within(screen.getByTestId("files"));
-    fireEvent.click(files().getAllByRole("checkbox")[0]!);
-    fireEvent.click(files().getAllByRole("checkbox")[1]!);
+    fireEvent.click(files().getAllByRole("checkbox", { name: ROW_BOX })[0]!);
+    fireEvent.click(files().getAllByRole("checkbox", { name: ROW_BOX })[1]!);
 
     await waitFor(() =>
       expect(formState.snapshot(0)).toMatchObject({

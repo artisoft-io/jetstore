@@ -700,6 +700,9 @@
               "minLength": 1,
               "type": "string"
             },
+            "refresh": {
+              "type": "boolean"
+            },
             "spinner": {
               "type": "boolean"
             },

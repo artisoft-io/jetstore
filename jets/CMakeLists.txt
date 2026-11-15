@@ -146,6 +146,7 @@ add_executable(jets_test
   # rete/lookup_sql_helper_test.cc
   rete/lookup_rand_test.cc
   rete/lookup_row_id_test.cc
+  rete/lookup_sql_ident_test.cc
   rete/truth_test.cc
   rete/node_vertex_test.cc
   rete/rete_meta_store_test.cc

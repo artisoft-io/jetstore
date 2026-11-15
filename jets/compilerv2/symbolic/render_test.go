@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -115,7 +116,8 @@ func TestRenderRefuses(t *testing.T) {
 		{"a reserved variable", ant(`{"subject": "?not", "predicate": "rdf:type", "object": "hc:C"}`), "/rules/0/antecedents/0/subject"},
 		{"a bad int", ant(`{"subject": "?x", "predicate": "hc:n", "object": {"type": "int", "value": "1.5"}}`), "/rules/0/antecedents/0/object"},
 		{"an unknown literal type", ant(`{"subject": "?x", "predicate": "hc:n", "object": {"type": "float", "value": "1"}}`), "/rules/0/antecedents/0/object"},
-		{"an unescaped quote", ant(`{"subject": "?x", "predicate": "hc:n", "object": {"type": "text", "value": "a\"b"}}`), "/rules/0/antecedents/0/object"},
+		{"an unescaped quote in a property", rule(`, "properties": {"flag": "a\"b"}`), "/rules/0/properties/flag"},
+		{"a date literal with a parenthesis", ant(`{"subject": "?x", "predicate": "hc:n", "object": {"type": "date", "value": "2024(1)"}}`), "/rules/0/antecedents/0/object"},
 		{"a bad operator", ant(`{"subject": "?x", "predicate": "hc:n", "object": "?n", "filter": {"op": "> 0] -> (", "lhs": "?n", "rhs": 0}}`), "/rules/0/antecedents/0/filter/op"},
 		{"toText, a keyword the grammar dropped and no engine registered", ant(`{"subject": "?x", "predicate": "hc:n", "object": "?n", "filter": {"op": "toText", "arg": "?n"}}`), "/rules/0/antecedents/0/filter/op"},
 		{"r?, a keyword the grammar dropped and no engine registered", ant(`{"subject": "?x", "predicate": "hc:n", "object": "?n", "filter": {"op": "r?", "lhs": "?n", "rhs": "?n"}}`), "/rules/0/antecedents/0/filter/op"},
@@ -152,6 +154,65 @@ func TestRenderRefuses(t *testing.T) {
 	}
 	if _, err := Render(f); err == nil || !strings.Contains(err.Error(), "/rules/1/name") {
 		t.Errorf("two rules of one name rendered: %v", err)
+	}
+}
+
+// A text, date or bool literal's value is the string the compiler stores, so
+// Render escapes it and the compiler reads it back unchanged: a quote, a
+// backslash before an escape letter, a tab, and a regular expression whose
+// backslashes are written once.
+func TestLiteralValuesRoundTripThroughTheCompiler(t *testing.T) {
+	values := []string{`a"b`, `{"validation":"passed"}`, `ends with \`, `^(\d\d\d)`, `,\s+(\w+)`, `\t is not a tab`, "a\tb", `a\\b`, "plain"}
+	var objects []string
+	for _, v := range values {
+		b, _ := json.Marshal(map[string]string{"type": "text", "value": v})
+		objects = append(objects, string(b))
+	}
+	b, _ := json.Marshal(map[string]string{"type": "date", "value": `2024\01`})
+	objects = append(objects, string(b))
+	var cons []string
+	for i, o := range objects {
+		cons = append(cons, fmt.Sprintf(`{"subject": "?x", "predicate": "hc:p%d", "object": %s}`, i, o))
+	}
+	doc := `{"rules": [{"name": "R", "antecedents": [{"subject": "?x", "predicate": "rdf:type", "object": "hc:C"}], "consequents": [` +
+		strings.Join(cons, ", ") + `]}]}`
+	f, err := Parse([]byte(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := Render(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(r.Source, `"^(\d\d\d)"`) {
+		t.Errorf("a regular expression's single backslashes were doubled:\n%s", r.Source)
+	}
+	c := compiler.NewCompiler(t.TempDir(), "lit.jr", false, false, true)
+	if err := c.CompileBuffer(r.Source); err != nil {
+		t.Fatalf("%v\n%s\n%s", err, c.ErrorLog().String(), r.Source)
+	}
+	stored := map[string]bool{}
+	for _, res := range c.JetRuleModel().Resources {
+		if res.Type == "text" || res.Type == "date" {
+			stored[res.Value] = true
+		}
+	}
+	for _, v := range append(values, `2024\01`) {
+		if !stored[v] {
+			t.Errorf("%q did not compile back to itself; rendered:\n%s", v, r.Source)
+		}
+	}
+	// And FromModel gives back the values Render was given.
+	back, err := FromModel(c.JetRuleModel(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, con := range back.Rules[0].Consequents {
+		lit := con.Object.Term.Literal
+		want := append(values, `2024\01`)[i]
+		if lit == nil || lit.Value != want {
+			t.Errorf("consequent %d: FromModel gave %+v, want %q", i, lit, want)
+		}
 	}
 }
 

@@ -5,16 +5,20 @@ package datatable
 // request reaches, and that a statement cannot switch back to the apiserver's
 // own role: the escape that a SET LOCAL ROLE on the apiserver's login allowed.
 //
-// Skipped unless JETS_TEST_DSN names a throwaway PostgreSQL whose user may
-// create roles and databases (see reader_role_test.go):
+// Skipped unless JETS_TEST_DSN names a throwaway PostgreSQL whose user is a
+// superuser (see reader_role_test.go). Run it with the apiserver's user both
+// ways: a CREATEROLE user, the IDE code guard then off, and a superuser, the
+// guard then on; one expectation follows the guard:
 //
 //	JETS_TEST_DSN=postgres://postgres:pw@localhost:5472/postgres go test ./datatable -run RestrictedLogins -count=1
+//	JETS_TEST_APISERVER_SUPERUSER=1 JETS_TEST_DSN=postgres://postgres:pw@localhost:5472/postgres go test ./datatable -run RestrictedLogins -count=1
 
 import (
 	"context"
 	"strings"
 	"testing"
 
+	"github.com/artisoft-io/jetstore/jets/dblogin"
 	"github.com/artisoft-io/jetstore/jets/user"
 )
 
@@ -150,11 +154,28 @@ func TestRestrictedLoginsHoldAgainstTheSQLTheyRun(t *testing.T) {
 	refused("Submit DDL creating a table in jetsapi", submitDDL(`CREATE TABLE jetsapi.ide_probe (a integer)`), "permission denied")
 	refused("Submit DDL dropping a table it did not create", submitDDL(`DROP TABLE public.domain_probe`), "must be owner")
 	refused("the hint names the login", submitDDL(`DROP TABLE public.domain_probe`), IDERole)
-	allowed("Submit DDL creating a trigger function", submitDDL(`CREATE FUNCTION public.ide_trigger() RETURNS trigger
-		LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$`))
+	// Creating a function is the IDE code guard's to refuse (package dblogin,
+	// codeguard.go), not the grants': the privilege that lets the login create
+	// a table in public lets it create a function there. The guard is on when
+	// the apiserver's user may create event triggers (a superuser, or the
+	// master user of RDS or Aurora), and off for a CREATEROLE-only user.
+	guard, err := dblogin.CodeGuard(bg, pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	createTriggerFunction := submitDDL(`CREATE FUNCTION public.ide_trigger() RETURNS trigger
+		LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$`)
+	if guard {
+		refused("Submit DDL creating a trigger function, refused by the IDE code guard, which is on",
+			createTriggerFunction, "CREATE FUNCTION is not allowed")
+	} else {
+		allowed("Submit DDL creating a trigger function, which the grants allow: the IDE code guard is off", createTriggerFunction)
+	}
+	// Refused by the grants either way: the trigger privilege on the table,
+	// checked before the function is looked up.
 	refused("Submit DDL putting a trigger on the apiserver's table",
 		submitDDL(`CREATE TRIGGER ide_trigger BEFORE INSERT ON public.domain_probe FOR EACH ROW EXECUTE FUNCTION public.ide_trigger()`),
-		"permission denied")
+		"permission denied for table domain_probe")
 
 	// What the Query Tool, Submit DDL and the workspace scripts are for.
 	allowed("the Query Tool updating a domain table", queryTool(`UPDATE public.domain_probe SET name = 'b'`))

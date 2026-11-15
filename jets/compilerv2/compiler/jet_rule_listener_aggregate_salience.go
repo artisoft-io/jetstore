@@ -154,7 +154,7 @@ func consequentAggregates(e *rete.ExpressionNode) []*rete.ExpressionNode {
 }
 
 func aggregateCheckOptedOut(rule *rete.JetruleNode) bool {
-	switch strings.ToUpper(rule.Properties["aggregate_check"]) {
+	switch strings.ToUpper(RuleProperty(rule, "aggregate_check")) {
 	case "FALSE", "F", "0":
 		return true
 	}

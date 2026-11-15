@@ -4,6 +4,22 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import starlightLinksValidator from 'starlight-links-validator';
+import { existsSync, readFileSync } from 'node:fs';
+
+// A workspace's guide, written into src/content/docs/workspace/ by `npm run gen`
+// when JETS_WORKSPACE_DB is set (scripts/workspace_docs.mjs), is a fourth group,
+// labelled with the workspace's name, and the landing page links it (src/components/Hero.astro).
+// Without one the site is the three guides.
+const workspaceGuide = existsSync(new URL('./src/content/docs/workspace/', import.meta.url));
+function workspaceName() {
+	try {
+		const manifest = JSON.parse(readFileSync(new URL('./public/workspace/manifest.json', import.meta.url), 'utf8'));
+		if (typeof manifest.workspace === 'string' && manifest.workspace) return manifest.workspace;
+	} catch {
+		// No manifest: fall back to the environment.
+	}
+	return process.env.JETS_WORKSPACE_NAME?.trim() || 'Workspace';
+}
 
 export default defineConfig({
 	base: '/docs',
@@ -28,7 +44,11 @@ export default defineConfig({
 				{ label: 'User Guide', items: [{ autogenerate: { directory: 'user' } }] },
 				{ label: "Developer's Guide", items: [{ autogenerate: { directory: 'developer' } }] },
 				{ label: 'Installation Guide', items: [{ autogenerate: { directory: 'install' } }] },
+				...(workspaceGuide ? [{ label: workspaceName(), items: [{ autogenerate: { directory: 'workspace' } }] }] : []),
 			],
+			// The footer names the JetStore and workspace versions the site was built for;
+			// the hero adds a link to the workspace's guide on the landing page, when there is one.
+			components: { Footer: './src/components/Footer.astro', Hero: './src/components/Hero.astro' },
 		}),
 	],
 });

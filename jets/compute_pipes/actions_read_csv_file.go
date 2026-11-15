@@ -150,6 +150,12 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 			log.Printf("%v: raw record as json string:\n%s", err, string(b))
 			return 0, 0, err
 		}
+		if len(filePath.StageColumns) > 0 {
+			if err = checkStageFileColumns(filePath.InFileKeyInfo.key, filePath.StageChannel, headers,
+				filePath.StageColumns); err != nil {
+				return 0, 0, err
+			}
+		}
 	}
 
 	var inputRowCount, badRowCount, singleColumnCount int64

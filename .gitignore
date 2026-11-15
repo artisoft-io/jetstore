@@ -196,6 +196,10 @@ docs/node_modules/
 docs/dist/
 docs/.astro/
 docs/src/content/docs/developer/reference/generated/
+# A workspace's guide and its manifest, which `npm run gen` writes when
+# JETS_WORKSPACE_DB names a compiled workspace: never JetStore's to commit.
+docs/src/content/docs/workspace/
+docs/public/workspace/
 # package-lock.json is ignored above; the docs build runs `npm ci`, which needs it.
 !docs/package-lock.json
 # The screenshot script (docs/screenshots/): its own dependencies, Playwright's

@@ -57,7 +57,7 @@ import { ApiClient } from "../api/client";
 import { queryEscape, WorkspaceApi } from "../api/workspace";
 import { FlowRunner } from "../screens/FlowRunner";
 import { ApiProvider } from "../shell/capabilities";
-import { NotificationsProvider } from "../shell/notifications";
+import { NotificationsProvider, useNotifications } from "../shell/notifications";
 import { PromptsProvider } from "../shell/prompts";
 import { FlowStore } from "../userflow/store";
 import { valueFieldsOf, type Form } from "../userflow/form";
@@ -112,7 +112,7 @@ interface Posted {
  * third the size of `FlowRunner.test.tsx`'s — the surface a template wizard needs is
  * narrow, and that is a fact about the projection rather than about the test.
  */
-function stubServer() {
+function stubServer(saveAnswer: { status: number; body: unknown } = { status: 200, body: {} }) {
   const posts: Posted[] = [];
   const saved: { fileName: string; content: string }[] = [];
   const fetchImpl = vi.fn(async (url: string | URL, init?: RequestInit) => {
@@ -157,7 +157,7 @@ function stubServer() {
       case "save_workspace_file_content": {
         const data = (body["data"] as { file_name: string; file_content: string }[])[0]!;
         saved.push({ fileName: data.file_name, content: data.file_content });
-        return new Response("{}", { status: 200 });
+        return new Response(JSON.stringify(saveAnswer.body), { status: saveAnswer.status });
       }
 
       default:
@@ -171,8 +171,8 @@ function stubServer() {
   return { fetchImpl, posts, saved };
 }
 
-async function client() {
-  const stub = stubServer();
+async function client(saveAnswer?: { status: number; body: unknown }) {
+  const stub = stubServer(saveAnswer);
   const api = new ApiClient("", stub.fetchImpl);
   await api.login("michel@artisoft.io", "pw");
   return { ...stub, api };
@@ -332,5 +332,121 @@ describe("the runner drives one, in a DOM, against the real client", () => {
     // escape's, and that is the layering the generator intended.
     expect((save as HTMLButtonElement).disabled).toBe(true);
     expect(saved.length).toBe(0);
+  });
+});
+
+/**
+ * The shell's two banners, with the status in its tone, as `AppShell` draws them
+ * (`banner-ok` or `banner-warn`). Rendered outside the router, as the shell is,
+ * so what a flow said survives the flow's exit.
+ */
+function Banners() {
+  const { error, status, statusTone } = useNotifications();
+  return (
+    <>
+      {error != null && <div role="alert">{error}</div>}
+      {status != null && error == null && (
+        <div role="status" className={`banner banner-${statusTone}`}>
+          {status}
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Mounts `/flow/qc_report` against a server answering the save as given, fills it and saves. */
+async function fillAndSave(saveAnswer: { status: number; body: unknown }) {
+  const { api, saved } = await client(saveAnswer);
+  render(
+    <ApiProvider api={api}>
+      <NotificationsProvider>
+        <PromptsProvider>
+          <Banners />
+          <MemoryRouter initialEntries={["/flow/qc_report"]}>
+            <Routes>
+              <Route path="/flow/:key" element={<FlowRunner api={api} />} />
+              <Route path="/home" element={<p>Home</p>} />
+            </Routes>
+          </MemoryRouter>
+        </PromptsProvider>
+      </NotificationsProvider>
+    </ApiProvider>,
+  );
+  await waitFor(() =>
+    expect(screen.getByText("The values this template is parameterised by")).toBeTruthy(),
+  );
+  const form = (JSON.parse(files["user_flows/qc_report.form.json"]!) as {
+    forms: Record<string, Form>;
+  }).forms["bindings"]!;
+  fillEveryField(form);
+  await waitFor(() =>
+    expect(
+      (screen.getByRole("button", { name: "Save configuration" }) as HTMLButtonElement).disabled,
+    ).toBe(false),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Save configuration" }));
+  await waitFor(() => expect(saved.length).toBe(1));
+  return { saved };
+}
+
+/**
+ * **A configuration the server saves with warnings says so.** The save check
+ * answers its validator's warnings in a 200 (a key the pipeline ignores when it
+ * runs, for one), and the Workspace IDE shows them; the escape that writes a
+ * projected flow's configuration dropped them, so the flow ended as if the check
+ * had found nothing.
+ */
+describe("the runner shows what the save check found", () => {
+  it("finishes the flow and shows each warning, in the warning tone", async () => {
+    await fillAndSave({
+      status: 200,
+      body: {
+        file_name: queryEscape(configPath("qc_report")),
+        warnings: [
+          {
+            severity: "warning",
+            code: "cpipes_config_unknown_field",
+            message: 'ignored when the pipeline runs: unknown field "output_tabel"',
+            path: "/output_tabel",
+          },
+          { severity: "warning", code: "x", message: "a finding on a line", line: 7 },
+        ],
+      },
+    });
+
+    // Still a success: the flow completes and leaves, and the warning outlives it.
+    await waitFor(() => expect(screen.getByText("Home")).toBeTruthy());
+    const banner = await screen.findByRole("status");
+    expect(banner.className).toContain("banner-warn");
+    expect(banner.textContent).toContain(`Saved ${configPath("qc_report")}, with 2 warnings:`);
+    expect(banner.textContent).toContain(
+      '/output_tabel: ignored when the pipeline runs: unknown field "output_tabel"',
+    );
+    expect(banner.textContent).toContain("line 7: a finding on a line");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("says nothing extra when the check found nothing, nor from a server that sends no warnings", async () => {
+    for (const body of [{ warnings: [] }, {}]) {
+      await fillAndSave({ status: 200, body });
+      await waitFor(() => expect(screen.getByText("Home")).toBeTruthy());
+      expect(screen.queryByRole("status")).toBeNull();
+      expect(screen.queryByRole("alert")).toBeNull();
+      cleanup();
+    }
+  });
+
+  it("keeps a refused save an error, and the flow open", async () => {
+    await fillAndSave({
+      status: 400,
+      body: {
+        error: `${configPath("qc_report")} cannot be saved:\n  /cluster_config: cluster_config is required`,
+      },
+    });
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain(`Cannot save ${configPath("qc_report")}`);
+    expect(alert.textContent).toContain("cluster_config is required");
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByText("Home")).toBeNull();
   });
 });

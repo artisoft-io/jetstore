@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/run_reports/directives"
 	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v5"
@@ -43,62 +44,17 @@ func init() {
 // JETS_S3_KMS_KEY_ARN
 // ENVIRONMENT
 
-type StringSubstitution struct {
-	Replace string `json:"replace"`
-	With    string `json:"with"`
-}
-
-type SentinelConfig struct {
-	FilePathSubstitution []StringSubstitution `json:"filePathSubstitution"`
-}
-
-type ReportDirectives struct {
-	// InputPath is original fileKey, unless overriten in config file, used to emit sentinel file
-	FilePathSubstitution []StringSubstitution         `json:"filePathSubstitution"`
-	ReportScripts        []string                     `json:"reportScripts"`
-	UpdateLookupTables   bool                         `json:"updateLookupTables"`
-	EmitSentinelFile     *SentinelConfig              `json:"emitSentinelFile"`
-	OutputS3Prefix       string                       `json:"outputS3Prefix"`
-	InputPath            string                       `json:"inputPath"`
-	OutputPath           string                       `json:"outputPath"`
-	ReportProperties     map[string]ReportProperty    `json:"reportProperties"`
-	StatementProperties  map[string]StatementProperty `json:"statementProperties"`
-	RegisterReports      []RegisterReportSpec         `json:"registerReport"`
-	UseQueryExportToS3   bool                         `json:"use_query_export_to_s3"`
-	// OptimizerStatisticsExclude names the rule sets merge_optimizer_statistics
-	// leaves out of the workspace's statistics file, so that they compile in the
-	// score order (optimizer_statistics.go).
-	OptimizerStatisticsExclude []string `json:"optimizerStatisticsExclude"`
-}
-
-// Type: report, script, function
-// case function, use a deployment-specific function
-type ReportProperty struct {
-	Type            string            `json:"reportOrScript"`
-	UpdatedFileKeys []string          `json:"updatedFileKeys"`
-	RunWhen         []RunWhenCriteria `json:"runWhen"`
-}
-
-type StatementProperty struct {
-	Org          string            `json:"org"`
-	ObjectType   string            `json:"object_type"`
-	OutputFormat string            `json:"outputFormat"`
-	RunWhen      []RunWhenCriteria `json:"runWhen"`
-}
-
-type RunWhenCriteria struct {
-	FileKeyComponent        string `json:"fileKeyComponent"`
-	HasValue                string `json:"hasValue"`
-	HasNotValue             string `json:"hasNotValue"`
-	HasNonZeroOutputRecords bool   `json:"hasOutputRecordsOnly"`
-}
-
-type RegisterReportSpec struct {
-	TableName  string `json:"table_name"`
-	Org        string `json:"org"`
-	ObjectType string `json:"object_type"`
-	SourceType string `json:"source_type"`
-}
+// The report directives, a workspace's reports/config.json, are package
+// directives' types, shared with the IDE's save check (jets/datatable).
+type (
+	StringSubstitution = directives.StringSubstitution
+	SentinelConfig     = directives.SentinelConfig
+	ReportDirectives   = directives.ReportDirectives
+	ReportProperty     = directives.ReportProperty
+	StatementProperty  = directives.StatementProperty
+	RunWhenCriteria    = directives.RunWhenCriteria
+	RegisterReportSpec = directives.RegisterReportSpec
+)
 
 type InstallationSpecificReportFunc func(dbpool *pgxpool.Pool, ca *CommandArguments,
 	tempDir, functionName string, updatedKeys *[]string) error
@@ -124,11 +80,20 @@ type CommandArguments struct {
 	FileKeyComponents       map[string]interface{}
 	SchemaProviderJson      string
 	InstallSpecificFunc     map[string]InstallationSpecificReportFunc
+	// SQLPool is the pool the workspace's report SQL runs on: the IDE login
+	// (workspace_sql.go). CoordinateWorkAndUpdateStatus opens it; a report
+	// statement with no SQLPool fails rather than run on the apiserver's pool.
+	SQLPool *pgxpool.Pool
 }
 
 // Main Functions
 // --------------------------------------------------------------------------------------
 func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error) {
+
+	// A runWhen criterion that checks nothing is refused before any report runs.
+	if err := ca.CurrentReportDirectives.CheckRunWhen(); err != nil {
+		return err
+	}
 
 	// Create temp directory for the local temp files
 	tempDir, err := os.MkdirTemp("", "jetstore")
@@ -175,47 +140,29 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 	}()
 	go ca.RunSchemaProviderReportsCmds(ctx, dbpool, errCh)
 
+	// The workspace's SQL runs on the IDE login, JetStore's own on dbpool.
+	sqlPool, err := ca.workspaceSQL()
+	if err != nil {
+		return err
+	}
+
 	// Keep track of files (reports) written to s3 (use case UpdateLookupTables)
 	updatedKeys := make([]string, 0)
 	reportDirectives := ca.CurrentReportDirectives
 
 	// Run the reports
-	var dbRecordCount, outputRecordCount int64
-	gotRecordCount := false
+	// The session's record counts are read once, and only if a runWhen
+	// criterion asks for them; they are JetStore's tables, so dbpool reads them.
+	counts := &outputRecordCounts{read: func() (int64, int64) {
+		return GetOutputRecordCount(dbpool, ca.SessionId)
+	}}
+	runWhenKey := ca.runWhenComponents()
 	didAnyReport := false
 	for is := range reportDirectives.ReportScripts {
 		reportScript := reportDirectives.ReportScripts[is]
 		reportProps := reportDirectives.ReportProperties[reportScript]
-		doIt := true
-		for iw := range reportProps.RunWhen {
-			value, ok := ca.FileKeyComponents[reportProps.RunWhen[iw].FileKeyComponent].(string)
-			if ok {
-				hasValue := reportProps.RunWhen[iw].HasValue
-				hasNotValue := reportProps.RunWhen[iw].HasNotValue
-				switch {
-				case len(hasValue) > 0 && value != hasValue:
-					doIt = false
-				case len(hasNotValue) > 0 && value == hasNotValue:
-					doIt = false
-				}
-			} else {
-				doIt = false
-			}
-			if reportProps.RunWhen[iw].HasNonZeroOutputRecords {
-				if !gotRecordCount {
-					dbRecordCount, outputRecordCount = GetOutputRecordCount(dbpool, ca.SessionId)
-					gotRecordCount = true
-				}
-				if dbRecordCount > 0 && outputRecordCount == 0 {
-					log.Println("This report is requiring having non zero output records and no output records are found, skipping report")
-					doIt = false
-				}
-			}
-			if !doIt {
-				break
-			}
-		}
-		if !doIt {
+		if ok, why := runWhenMet(reportProps.RunWhen, runWhenKey, counts); !ok {
+			log.Printf("Skipping report %s: its runWhen is not met (%s)", reportScript, why)
 			continue
 		}
 		// Determine if the file is a sql reports or a sql script, sql script are executed in one go
@@ -232,7 +179,7 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 		case reportProps.Type == "script":
 			// Running as sql script
 			log.Println("Running sql script:", ca.ReportScriptPaths[is])
-			err = ca.runSqlScriptDelegate(dbpool, ca.ReportScriptPaths[is])
+			err = ca.runSqlScriptDelegate(sqlPool, ca.ReportScriptPaths[is])
 			if len(reportProps.UpdatedFileKeys) > 0 {
 				basePath := reportDirectives.OutputPath + "/"
 				for i := range reportProps.UpdatedFileKeys {
@@ -243,7 +190,7 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 		default:
 			// Running as sql report by default
 			log.Println("Running report:", ca.ReportScriptPaths[is])
-			err = ca.runReportsDelegate(dbpool, tempDir, ca.ReportScriptPaths[is], &updatedKeys)
+			err = ca.runReportsDelegate(sqlPool, tempDir, ca.ReportScriptPaths[is], &updatedKeys, counts)
 		}
 		if err != nil {
 			return err
@@ -265,15 +212,12 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 			if tableName == "" {
 				continue
 			}
-			objectType := rr.ObjectType
-			if objectType == "" {
-				objectType = ca.ObjectType
+			org, objectType, sourceType := ca.reportRegistration(rr)
+			if org == "" {
+				log.Printf("Warning: registering report table %s with an empty org: "+
+					"its registerReport entry names none and the file key has no org", tableName)
 			}
-			sourceType := rr.SourceType
-			if sourceType == "" {
-				sourceType = "report_table"
-			}
-			err2 := RegisterReport(dbpool, ca.Client, rr.Org, objectType, ca.FileKey,
+			err2 := RegisterReport(dbpool, ca.Client, org, objectType, ca.FileKey,
 				ca.SourcePeriodKey, tableName, sourceType, ca.SessionId, "system")
 			if err2 != nil {
 				return err2
@@ -347,6 +291,194 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 	return nil
 }
 
+// reportRegistration is the org, object type and source type a registerReport
+// entry is registered with in input_registry. An entry that names no org or
+// object type takes the file key's, and one that names no source type is a
+// report_table.
+//
+// The org fallback was lost in 2024, when registration moved out of DoReport
+// into RunReports: it had been the statement's org, itself defaulted to the
+// file key's, and the move kept the object type's fallback and not the org's,
+// so an entry with no org registered an empty one.
+func (ca *CommandArguments) reportRegistration(rr *RegisterReportSpec) (org, objectType, sourceType string) {
+	org = rr.Org
+	if org == "" {
+		org = ca.Org
+	}
+	objectType = rr.ObjectType
+	if objectType == "" {
+		objectType = ca.ObjectType
+	}
+	sourceType = rr.SourceType
+	if sourceType == "" {
+		sourceType = "report_table"
+	}
+	return org, objectType, sourceType
+}
+
+// outputRecordCounts holds the session's record counts (GetOutputRecordCount),
+// read on first use and once per run.
+type outputRecordCounts struct {
+	read    func() (dbRecordCount, outputRecordCount int64)
+	got     bool
+	db, out int64
+}
+
+func (c *outputRecordCounts) get() (int64, int64) {
+	if !c.got {
+		c.db, c.out = c.read()
+		c.got = true
+	}
+	return c.db, c.out
+}
+
+// runWhenMet reports whether every runWhen criterion holds for this run, and
+// when one does not, says which. It is the one evaluation of runWhen, for a
+// report (reportProperties) and for a statement (statementProperties).
+// fileKeyComponents is the file key as runWhen reads it (runWhenComponents).
+//
+// A criterion that names a fileKeyComponent holds when the file key has that
+// component, the component equals hasValue if that is set, and differs from
+// hasNotValue if that is set. A criterion with hasOutputRecordsOnly also fails
+// when the session read records and wrote none. A criterion that names no
+// component checks only hasOutputRecordsOnly; one that names none and checks
+// nothing is a configuration error, refused before any report runs
+// (directives.ReportDirectives.CheckRunWhen), and fails here should it get
+// this far.
+//
+// A component that is not text is compared by its decimal text: year, month
+// and day are numbers once the file key is read (utils.SplitFileKeyIntoComponents),
+// and for a number hasValue and hasNotValue may carry leading zeros, so month 3
+// equals both "3" and "03". Text is compared exactly.
+//
+// year, month and day are judged by what the file key carries
+// (runWhenComponents): one the key does not carry has no value, so hasValue
+// does not hold and hasNotValue does. Any other component the key does not
+// carry fails the criterion, hasNotValue or not.
+func runWhenMet(criteria []RunWhenCriteria, fileKeyComponents map[string]interface{}, counts *outputRecordCounts) (bool, string) {
+	for i := range criteria {
+		c := &criteria[i]
+		if err := c.Check(); err != nil {
+			return false, err.Error()
+		}
+		if c.FileKeyComponent != "" {
+			if ok, why := componentMet(c, fileKeyComponents); !ok {
+				return false, why
+			}
+		}
+		if c.HasNonZeroOutputRecords {
+			if dbRecordCount, outputRecordCount := counts.get(); dbRecordCount > 0 && outputRecordCount == 0 {
+				return false, "the session has no output records"
+			}
+		}
+	}
+	return true, ""
+}
+
+// componentMet reports whether the file key part of criterion c holds, and
+// when it does not, says why.
+func componentMet(c *RunWhenCriteria, fileKeyComponents map[string]interface{}) (bool, string) {
+	value, ok := fileKeyComponents[c.FileKeyComponent]
+	if !ok {
+		// A date component the key does not carry has no value: it differs
+		// from any hasNotValue and equals no hasValue.
+		if isDefaultedComponent(c.FileKeyComponent) && len(c.HasValue) == 0 && len(c.HasNotValue) > 0 {
+			return true, ""
+		}
+		return false, fmt.Sprintf("the file key has no component %q", c.FileKeyComponent)
+	}
+	text, ok := componentText(value)
+	switch {
+	case !ok:
+		return false, fmt.Sprintf("file key component %s is a %T, not text or a number", c.FileKeyComponent, value)
+	case len(c.HasValue) > 0 && !componentEquals(value, text, c.HasValue):
+		return false, fmt.Sprintf("file key component %s is %q, not %q", c.FileKeyComponent, text, c.HasValue)
+	case len(c.HasNotValue) > 0 && componentEquals(value, text, c.HasNotValue):
+		return false, fmt.Sprintf("file key component %s is %q", c.FileKeyComponent, text)
+	}
+	return true, ""
+}
+
+// defaultedComponents are the file key components that
+// utils.SplitFileKeyIntoComponents sets whether or not the key carries them:
+// an absent year, month or day reads as 1970, 1 or 1. Its callers rely on
+// those defaults, so runWhen does not change them; it removes the ones the key
+// does not carry instead (runWhenComponents).
+var defaultedComponents = []string{"year", "month", "day"}
+
+func isDefaultedComponent(name string) bool {
+	for _, d := range defaultedComponents {
+		if d == name {
+			return true
+		}
+	}
+	return false
+}
+
+// runWhenComponents is the file key as runWhen reads it: FileKeyComponents
+// without the defaulted year, month or day the file key does not carry
+// (utils.FileKeyCarries). FileKeyComponents itself is left as it is, since
+// the reports read their defaults.
+//
+// Until 2026-11-14 runWhen read FileKeyComponents, so a criterion on month
+// with hasValue "1" held for a key with no month at all.
+func (ca *CommandArguments) runWhenComponents() map[string]interface{} {
+	var components map[string]interface{}
+	for _, name := range defaultedComponents {
+		if _, set := ca.FileKeyComponents[name]; !set || utils.FileKeyCarries(ca.FileKey, name) {
+			continue
+		}
+		if components == nil {
+			components = make(map[string]interface{}, len(ca.FileKeyComponents))
+			for k, v := range ca.FileKeyComponents {
+				components[k] = v
+			}
+		}
+		delete(components, name)
+	}
+	if components == nil {
+		return ca.FileKeyComponents
+	}
+	return components
+}
+
+// componentText is a file key component as text: a string as it is, an
+// integer as its decimal text. Anything else has no text to compare.
+func componentText(v interface{}) (string, bool) {
+	switch x := v.(type) {
+	case string:
+		return x, true
+	case int:
+		return strconv.Itoa(x), true
+	case int64:
+		return strconv.FormatInt(x, 10), true
+	}
+	return "", false
+}
+
+// componentEquals reports whether a component, whose text is text, equals
+// want. Text is compared exactly; an integer also equals a want made of
+// decimal digits with the same value, so leading zeros do not matter.
+func componentEquals(v interface{}, text, want string) bool {
+	if text == want {
+		return true
+	}
+	var n int64
+	switch x := v.(type) {
+	case int:
+		n = int64(x)
+	case int64:
+		n = x
+	default:
+		return false
+	}
+	if strings.TrimLeft(want, "0123456789") != "" {
+		return false
+	}
+	w, err := strconv.ParseInt(want, 10, 64)
+	return err == nil && w == n
+}
+
 // confineReportPath verifies that reportScriptPath, after resolving to an
 // absolute path, stays within the workspace reports directory, mitigating
 // external control of file name or path (CWE-73). The report script names come
@@ -361,6 +493,9 @@ func confineReportPath(reportScriptPath string) (string, error) {
 }
 
 // Support Functions
+
+// runSqlScriptDelegate and runReportsDelegate run the workspace's SQL on
+// dbpool, which RunReports sets to the IDE login (workspace_sql.go).
 func (ca *CommandArguments) runSqlScriptDelegate(dbpool *pgxpool.Pool, reportScriptPath string) error {
 
 	// Confine the report script path within the workspace reports directory (CWE-73)
@@ -400,12 +535,15 @@ func (ca *CommandArguments) runSqlScriptDelegate(dbpool *pgxpool.Pool, reportScr
 
 	_, err = dbpool.Exec(context.Background(), stmt)
 	if err != nil {
-		return fmt.Errorf("while executing sql script %s: %v", reportScriptPath, err)
+		return fmt.Errorf("while executing sql script %s: %w", reportScriptPath, withIDEHint(err))
 	}
 	return nil
 }
 
-func (ca *CommandArguments) runReportsDelegate(dbpool *pgxpool.Pool, tempDir string, reportScriptPath string, updatedKeys *[]string) error {
+// A statement whose statementProperties entry has a runWhen that is not met is
+// skipped (runWhenMet); counts gives the session's record counts it may need.
+func (ca *CommandArguments) runReportsDelegate(dbpool *pgxpool.Pool, tempDir string, reportScriptPath string,
+	updatedKeys *[]string, counts *outputRecordCounts) error {
 
 	// Confine the report script path within the workspace reports directory (CWE-73)
 	safePath, err := confineReportPath(reportScriptPath)
@@ -426,10 +564,24 @@ func (ca *CommandArguments) runReportsDelegate(dbpool *pgxpool.Pool, tempDir str
 	if err != nil {
 		return fmt.Errorf("error while reading report definitions %s: %v", reportScriptPath, err)
 	}
+	// Refuse the file before running any of it: a statement with no output
+	// format would otherwise be found only after the reports above it ran.
+	if err := ca.checkReportFormats(reportScriptPath, reports); err != nil {
+		return err
+	}
+	var stmtProps map[string]StatementProperty
+	if ca.CurrentReportDirectives != nil {
+		stmtProps = ca.CurrentReportDirectives.StatementProperties
+	}
+	runWhenKey := ca.runWhenComponents()
 	for i := range reports {
+		if ok, why := runWhenMet(stmtProps[reports[i].name].RunWhen, runWhenKey, counts); !ok {
+			log.Printf("Skipping report %q of %s: its runWhen is not met (%s)", reports[i].name, reportScriptPath, why)
+			continue
+		}
 		s3FileName, err := ca.DoReport(dbpool, tempDir, &reports[i].name, &reports[i].stmt)
 		if err != nil {
-			return err
+			return withIDEHint(err)
 		}
 		if len(s3FileName) > 0 {
 			*updatedKeys = append(*updatedKeys, s3FileName)
@@ -439,73 +591,31 @@ func (ca *CommandArguments) runReportsDelegate(dbpool *pgxpool.Pool, tempDir str
 }
 
 // The heavy lifting
-// outputFileName is the name in the report sql file, this is mapped to a table name in ReportDirectives.ReportsAsTable
+// outputFileName is the name in the report sql file, the output file name before substitution.
+// A report with no output format is refused (reportOutputFormat).
+// dbpool is the pool the statement runs on: RunReports passes the IDE login (workspace_sql.go).
 func (ca *CommandArguments) DoReport(dbpool *pgxpool.Pool, tempDir string, outputFileName *string, sqlStmt *string) (string, error) {
 
-	name := *outputFileName
-	// Remove ':' and '.' from originalFileName
-	cleanOriginalFileName := strings.ReplaceAll(ca.OriginalFileName, ":", "_")
-	cleanOriginalFileName = strings.ReplaceAll(cleanOriginalFileName, ".", "_")
-	// Check if name contains patterns for substitutions
-	// {CLIENT} is replaced with client name obtained from command line (-client)
-	// {ORG} is repplaced by the file key org/vendor field
-	// {OBJECT_TYPE} is replace by the object_type comming from the file key
-	// {ENVIRONMENT} is replace by the env var ENVIRONMENT
-	// {FILE_KEY}  is replaced with input file key
-	// {ORIGINALFILENAME} is replaced with input file name obtained from the file key
-	// {SESSIONID} is replaced with session_id
-	// {D:YYYY_MM_DD} is replaced with date where YYYY is year, MM is month, DD is day
-	// {PROCESSNAME} is replaced with the Rule Process name
-	name = strings.ReplaceAll(name, "{CLIENT}", ca.Client)
-	name = strings.ReplaceAll(name, "{SESSIONID}", ca.SessionId)
-	name = strings.ReplaceAll(name, "{ORG}", ca.Org)
-	name = strings.ReplaceAll(name, "{OBJECT_TYPE}", ca.ObjectType)
-	name = strings.ReplaceAll(name, "{ENVIRONMENT}", ca.Environment)
-	name = strings.ReplaceAll(name, "{ORIGINALFILENAME}", cleanOriginalFileName)
-	name = strings.ReplaceAll(name, "{PROCESSNAME}", ca.ProcessName)
-	//* May need to loop if {D:YYYY_MM_DD} appears more than once in name
-	head, tail, found := strings.Cut(name, "{D:")
-	if found {
-		pattern, remainder, found := strings.Cut(tail, "}")
-		if !found {
-			return "", fmt.Errorf("error: report file name contains incomplete date pattern: %s", name)
-		}
-		y, m, d := time.Now().Date()
-		pattern = strings.Replace(pattern, "YYYY", strconv.Itoa(y), 1)
-		pattern = strings.Replace(pattern, "MM", fmt.Sprintf("%02d", int(m)), 1)
-		pattern = strings.Replace(pattern, "DD", fmt.Sprintf("%02d", d), 1)
-		name = fmt.Sprintf("%s%s%s", head, pattern, remainder)
+	name, err := ca.reportFileName(*outputFileName)
+	if err != nil {
+		return "", err
 	}
-
 	reportDirectives := *ca.CurrentReportDirectives
 	stmtProps := reportDirectives.StatementProperties[*outputFileName]
-	// when org and object_type is not provided, use values from file key
-	if stmtProps.Org == "" {
-		stmtProps.Org = ca.Org
-	}
-	if stmtProps.ObjectType == "" {
-		stmtProps.ObjectType = ca.ObjectType
-	}
-	outputFormat := stmtProps.OutputFormat
 
 	// Determine the output format
 	// s3 file name w/ path
-	var s3FileName string
+	outputFormat := reportOutputFormat(name, stmtProps.OutputFormat)
+	if outputFormat == "" {
+		return "", errNoOutputFormat(*outputFileName)
+	}
+	s3FileName := fmt.Sprintf("%s/%s", ca.OutputPath, name)
 	var options string
-	switch {
-	case outputFormat == "parquet" || strings.HasSuffix(name, ".parquet"):
-		outputFormat = "parquet"
-		s3FileName = fmt.Sprintf("%s/%s", ca.OutputPath, name)
-	case outputFormat == "csv" || strings.HasSuffix(name, ".csv"):
+	switch outputFormat {
+	case "csv":
 		options = "format CSV, HEADER"
-		outputFormat = "csv"
-		s3FileName = fmt.Sprintf("%s/%s", ca.OutputPath, name)
-	case outputFormat == "json" || strings.HasSuffix(name, ".json"):
+	case "json":
 		options = "format TEXT"
-		outputFormat = "json"
-		s3FileName = fmt.Sprintf("%s/%s", ca.OutputPath, name)
-	default:
-		outputFormat = "none"
 	}
 
 	// Check for substitutions in the report sql:
@@ -560,16 +670,99 @@ func (ca *CommandArguments) DoReport(dbpool *pgxpool.Pool, tempDir string, outpu
 			var rowsUploaded, filesUploaded, bytesUploaded sql.NullInt64
 			err := dbpool.QueryRow(context.Background(), s3Stmt).Scan(&rowsUploaded, &filesUploaded, &bytesUploaded)
 			if err != nil {
-				return "", fmt.Errorf("while executing s3 query %s: %v", escapedStmt, err)
+				return "", fmt.Errorf("while executing s3 query %s: %w", escapedStmt, err)
 			}
 			log.Println("Report:", name, "rowsUploaded", rowsUploaded.Int64, "filesUploaded", filesUploaded.Int64, "bytesUploaded", bytesUploaded.Int64)
 		}
-	default:
-		// Report not saved to s3, probably as as table (see below)
-		log.Printf("Report %s not saved to s3", *outputFileName)
 	}
 
 	return s3FileName, nil
+}
+
+// reportFileName substitutes the {TOKEN} patterns of a report's name, which is
+// the output file name relative to the report's output path.
+func (ca *CommandArguments) reportFileName(name string) (string, error) {
+	// Remove ':' and '.' from originalFileName
+	cleanOriginalFileName := strings.ReplaceAll(ca.OriginalFileName, ":", "_")
+	cleanOriginalFileName = strings.ReplaceAll(cleanOriginalFileName, ".", "_")
+	// Check if name contains patterns for substitutions
+	// {CLIENT} is replaced with client name obtained from command line (-client)
+	// {ORG} is repplaced by the file key org/vendor field
+	// {OBJECT_TYPE} is replace by the object_type comming from the file key
+	// {ENVIRONMENT} is replace by the env var ENVIRONMENT
+	// {ORIGINALFILENAME} is replaced with input file name obtained from the file key
+	// {SESSIONID} is replaced with session_id
+	// {D:YYYY_MM_DD} is replaced with date where YYYY is year, MM is month, DD is day
+	// {PROCESSNAME} is replaced with the Rule Process name
+	name = strings.ReplaceAll(name, "{CLIENT}", ca.Client)
+	name = strings.ReplaceAll(name, "{SESSIONID}", ca.SessionId)
+	name = strings.ReplaceAll(name, "{ORG}", ca.Org)
+	name = strings.ReplaceAll(name, "{OBJECT_TYPE}", ca.ObjectType)
+	name = strings.ReplaceAll(name, "{ENVIRONMENT}", ca.Environment)
+	name = strings.ReplaceAll(name, "{ORIGINALFILENAME}", cleanOriginalFileName)
+	name = strings.ReplaceAll(name, "{PROCESSNAME}", ca.ProcessName)
+	//* May need to loop if {D:YYYY_MM_DD} appears more than once in name
+	head, tail, found := strings.Cut(name, "{D:")
+	if found {
+		pattern, remainder, found := strings.Cut(tail, "}")
+		if !found {
+			return "", fmt.Errorf("error: report file name contains incomplete date pattern: %s", name)
+		}
+		y, m, d := time.Now().Date()
+		pattern = strings.Replace(pattern, "YYYY", strconv.Itoa(y), 1)
+		pattern = strings.Replace(pattern, "MM", fmt.Sprintf("%02d", int(m)), 1)
+		pattern = strings.Replace(pattern, "DD", fmt.Sprintf("%02d", d), 1)
+		name = fmt.Sprintf("%s%s%s", head, pattern, remainder)
+	}
+	return name, nil
+}
+
+// reportOutputFormat is the format a report is written in, parquet, csv or json,
+// taken from its statementProperties entry or its file name's suffix, in that
+// order of formats. It is "" when neither names one, and such a report is
+// refused.
+//
+// That case used to be logged and skipped, so a statement written into a
+// reports file to be executed — DDL, DML, a lookup update — did nothing and
+// nobody was told. It was never an "execute" path: it was the hook for
+// `reportsAsTable`, which saved the result as a table and was removed in 2024,
+// leaving a branch that only logged. A statement to execute belongs in a file
+// declared `reportOrScript: "script"`, which runs whole.
+func reportOutputFormat(name, declared string) string {
+	switch {
+	case declared == "parquet" || strings.HasSuffix(name, ".parquet"):
+		return "parquet"
+	case declared == "csv" || strings.HasSuffix(name, ".csv"):
+		return "csv"
+	case declared == "json" || strings.HasSuffix(name, ".json"):
+		return "json"
+	}
+	return ""
+}
+
+func errNoOutputFormat(name string) error {
+	return fmt.Errorf("report %q has no output format: its name ends in neither .csv, .json nor .parquet "+
+		"and statementProperties declares no outputFormat for it; a statement to execute rather than "+
+		"export belongs in a file declared reportOrScript: \"script\" in reports/config.json", name)
+}
+
+// checkReportFormats refuses a reports file holding a report with no output
+// format, naming the report, its line and the file, before any report runs.
+func (ca *CommandArguments) checkReportFormats(reportScriptPath string, reports []reportDefinition) error {
+	var stmtProps map[string]StatementProperty
+	if ca.CurrentReportDirectives != nil {
+		stmtProps = ca.CurrentReportDirectives.StatementProperties
+	}
+	for i := range reports {
+		name, err := ca.reportFileName(reports[i].name)
+		if err != nil {
+			return fmt.Errorf("%s, line %d: %w", reportScriptPath, reports[i].line, err)
+		}
+		if reportOutputFormat(name, stmtProps[reports[i].name].OutputFormat) == "" {
+			return fmt.Errorf("%s, line %d: %w", reportScriptPath, reports[i].line, errNoOutputFormat(reports[i].name))
+		}
+	}
+	return nil
 }
 
 func RegisterReport(dbpool *pgxpool.Pool, client, org, objectType, fileKey string,

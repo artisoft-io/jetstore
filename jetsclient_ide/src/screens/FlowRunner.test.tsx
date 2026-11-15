@@ -54,6 +54,9 @@ import loadFilesForms from "../../../jets/workspace_assets/user_flows/loadFilesU
 import mapFileForms from "../../../jets/workspace_assets/user_flows/mapFileUF.form.json";
 import { FlowRunner } from "./FlowRunner";
 
+/** A row's own box, and not the heading's select-all box (JM-187). */
+const ROW_BOX = /^Select row /;
+
 afterEach(cleanup);
 
 const serialise = (v: unknown) => `${JSON.stringify(v, null, 2)}\n`;
@@ -449,7 +452,7 @@ describe("driving the flow", () => {
     // A.4c publishes the selected row's columns into form state; the second
     // table's where clause reads `table_name` out of it. This is the assertion
     // that the two states share one `FormState`.
-    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getAllByRole("checkbox", { name: ROW_BOX })[0]!);
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
     expect(await screen.findByText("Select File(s) to Load")).toBeTruthy();
@@ -471,7 +474,7 @@ describe("driving the flow", () => {
     await screen.findByText("vendorA");
     expect(screen.getByRole("button", { name: "Previous" }).hasAttribute("disabled")).toBe(true);
 
-    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getAllByRole("checkbox", { name: ROW_BOX })[0]!);
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     await screen.findByText("s3://bucket/in/f10.csv");
 
@@ -481,11 +484,11 @@ describe("driving the flow", () => {
   it("posts the state action's rows on completion, built by the interpreter", async () => {
     const { posts } = await mount();
     await screen.findByText("vendorA");
-    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getAllByRole("checkbox", { name: ROW_BOX })[0]!);
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     await screen.findByText("s3://bucket/in/f10.csv");
 
-    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getAllByRole("checkbox", { name: ROW_BOX })[0]!);
     fireEvent.click(screen.getByRole("button", { name: "Load Files & Done" }));
 
     await waitFor(() => expect(actions(posts)).toContain("insert_rows"));
@@ -507,10 +510,10 @@ describe("driving the flow", () => {
   /** Drives `loadFilesUF` to its end state and presses the last button. */
   async function finish() {
     await screen.findByText("vendorA");
-    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getAllByRole("checkbox", { name: ROW_BOX })[0]!);
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     await screen.findByText("s3://bucket/in/f10.csv");
-    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getAllByRole("checkbox", { name: ROW_BOX })[0]!);
     fireEvent.click(screen.getByRole("button", { name: "Load Files & Done" }));
   }
 
@@ -543,7 +546,7 @@ describe("driving the flow", () => {
   it("goes back without re-running anything", async () => {
     const { posts } = await mount();
     await screen.findByText("vendorA");
-    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getAllByRole("checkbox", { name: ROW_BOX })[0]!);
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     await screen.findByText("Select File(s) to Load");
 
@@ -592,7 +595,7 @@ describe("opening a flow at a named state", () => {
       search: `${ENTRY}&startAt=select_file_keys`,
     });
     await screen.findByText("s3://bucket/in/f10.csv");
-    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getAllByRole("checkbox", { name: ROW_BOX })[0]!);
     fireEvent.click(screen.getByRole("button", { name: "Load Files & Done" }));
     await waitFor(() =>
       expect(posts.filter((p) => p.body["action"] === "insert_rows")).toHaveLength(1),
@@ -638,7 +641,7 @@ describe("opening a flow at a named state", () => {
     expect(await screen.findByRole("button", { name: "Drop Staging Table" })).toBeTruthy();
     // No source key in the url, so nothing is ticked: the user ticks one.
     await screen.findByText("staging_claims");
-    expect((screen.getAllByRole("checkbox") as HTMLInputElement[]).some((b) => b.checked)).toBe(false);
+    expect((screen.getAllByRole("checkbox", { name: ROW_BOX }) as HTMLInputElement[]).some((b) => b.checked)).toBe(false);
     // And this is the flow's first page, so Previous stops here.
     expect(screen.getByRole("button", { name: "Previous" }).hasAttribute("disabled")).toBe(true);
   });
@@ -652,7 +655,7 @@ describe("opening a flow at a named state", () => {
     fireEvent.click(screen.getByRole("button", { name: "Previous" }));
     expect(await screen.findByText("Select a File Data Source Configurations")).toBeTruthy();
     await waitFor(() =>
-      expect((screen.getAllByRole("checkbox") as HTMLInputElement[]).map((b) => b.checked)).toEqual([true]),
+      expect((screen.getAllByRole("checkbox", { name: ROW_BOX }) as HTMLInputElement[]).map((b) => b.checked)).toEqual([true]),
     );
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Drop Staging Table" }).hasAttribute("disabled")).toBe(false),
@@ -676,7 +679,7 @@ describe("the table action bar", () => {
     const drop = screen.getByRole("button", { name: "Drop Staging Table" });
     expect((drop as HTMLButtonElement).disabled).toBe(true);
 
-    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getAllByRole("checkbox", { name: ROW_BOX })[0]!);
     await waitFor(() =>
       expect(
         (screen.getByRole("button", { name: "Drop Staging Table" }) as HTMLButtonElement).disabled,
@@ -699,7 +702,7 @@ describe("the table action bar", () => {
     // `store.test.ts` covers the name resolving.
     await mount();
     await screen.findByText("vendorA");
-    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getAllByRole("checkbox", { name: ROW_BOX })[0]!);
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
     expect(await screen.findByText("s3://bucket/in/f10.csv")).toBeTruthy();
@@ -1018,8 +1021,8 @@ describe("loadConfigUF — loading client configuration", () => {
   it("posts the selected clients as a comma-joined list", async () => {
     const { posts } = await mount("loadConfigUF", { search: LOAD_CONFIG_SEARCH });
     await screen.findByText("Acme Health");
-    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
-    fireEvent.click(screen.getAllByRole("checkbox")[1]!);
+    fireEvent.click(screen.getAllByRole("checkbox", { name: ROW_BOX })[0]!);
+    fireEvent.click(screen.getAllByRole("checkbox", { name: ROW_BOX })[1]!);
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
     await screen.findByRole("button", { name: "Confirm" });
@@ -1038,7 +1041,7 @@ describe("loadConfigUF — loading client configuration", () => {
   it("posts a null updateDbClients when the inline button is used instead", async () => {
     const { posts } = await mount("loadConfigUF", { search: LOAD_CONFIG_SEARCH });
     await screen.findByText("Acme Health");
-    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getAllByRole("checkbox", { name: ROW_BOX })[0]!);
     fireEvent.click(screen.getByRole("button", { name: "Load All Clients Config" }));
 
     await waitFor(() =>
@@ -1062,7 +1065,7 @@ describe("loadConfigUF — loading client configuration", () => {
     // for the chosen clients now, so the page shows exactly what will be loaded.
     const { posts } = await mount("loadConfigUF", { search: LOAD_CONFIG_SEARCH });
     await screen.findByText("Acme Health");
-    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getAllByRole("checkbox", { name: ROW_BOX })[0]!);
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     await screen.findByRole("button", { name: "Confirm" });
 
@@ -1101,12 +1104,12 @@ describe("workspacePullUF — the confirmation page", () => {
     // refused the restored tick, and its rows were never narrowed to the choice.
     const { posts } = await mount("workspacePullUF", { search: LOAD_CONFIG_SEARCH });
     await screen.findByText(/Compile workspace/);
-    const options = screen.getAllByRole("checkbox");
+    const options = screen.getAllByRole("checkbox", { name: ROW_BOX });
     fireEvent.click(options[0]!); // compile
     fireEvent.click(options[2]!); // load the selected clients
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     await screen.findByText("Acme Health");
-    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getAllByRole("checkbox", { name: ROW_BOX })[0]!);
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     await screen.findByRole("button", { name: "Confirm" });
 
@@ -1115,7 +1118,7 @@ describe("workspacePullUF — the confirmation page", () => {
       expect(screen.queryByText("ALL client configuration will be loaded into database")).toBeNull(),
     );
     expect(screen.getByText("SELECTED client configuration will be loaded into database")).toBeTruthy();
-    const ticked = (screen.getAllByRole("checkbox") as HTMLInputElement[]).map((b) => b.checked);
+    const ticked = (screen.getAllByRole("checkbox", { name: ROW_BOX }) as HTMLInputElement[]).map((b) => b.checked);
     expect(ticked).toEqual([true, true]);
     expect(await screen.findByText("Acme Health")).toBeTruthy();
     expect(screen.queryByText("Globex Corporation")).toBeNull();
@@ -1145,7 +1148,7 @@ describe("home_filters in the app", () => {
     // from an effect one tick after the heading, so a checkbox query keyed on the
     // label is a race — which is what this line was, twice in eight runs.
     expect(await screen.findByText("Starts With")).toBeTruthy();
-    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getAllByRole("checkbox", { name: ROW_BOX })[0]!);
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     // select_time_window — four optional text fields.
     const startOffset = await screen.findByLabelText("Start Offset Duration");
@@ -1198,13 +1201,13 @@ describe("home_filters in the app", () => {
       "Timed Out",
     ];
     for (const label of labels) expect(screen.getByText(label)).toBeTruthy();
-    const boxes = screen.getAllByRole("checkbox");
+    const boxes = screen.getAllByRole("checkbox", { name: ROW_BOX });
     expect(boxes).toHaveLength(labels.length);
     fireEvent.click(boxes[labels.indexOf("Completed with Errors")]!);
     fireEvent.click(boxes[labels.indexOf("Interrupted")]!);
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(await screen.findByText("Starts With")).toBeTruthy();
-    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getAllByRole("checkbox", { name: ROW_BOX })[0]!);
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     await screen.findByLabelText("Start Offset Duration");
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
@@ -1238,7 +1241,7 @@ describe("home_filters in the app", () => {
   it("unpacks session_id before the resubmit, or the server answers 400", async () => {
     const { posts } = await walkToTheTable();
     await screen.findByText("sess-1");
-    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getAllByRole("checkbox", { name: ROW_BOX })[0]!);
     fireEvent.click(screen.getByRole("button", { name: "Resubmit" }));
 
     await waitFor(() => expect(actions(posts)).toContain("resubmit_pipeline"));
@@ -1325,7 +1328,7 @@ describe("home_filters in the app", () => {
     it("runs the clipboard path when pressed", async () => {
       const { posts } = await walkToTheTable();
       await screen.findByText("sess-1");
-      fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+      fireEvent.click(screen.getAllByRole("checkbox", { name: ROW_BOX })[0]!);
       fireEvent.click(screen.getByRole("button", { name: "Analysis Report" }));
       await screen.findByText("Analysis Report copied to the clipboard.");
       expect(copied).toEqual(["a,b"]);

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/compilerv2/compiler"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 )
 
@@ -55,15 +56,17 @@ func FromModel(m *rete.JetruleModel, sourceFiles map[string]bool) (*RuleFile, er
 // IsGenerated says whether the compiler wrote a rule rather than an author:
 // the class-inheritance rules carry i=true (PostProcessClasses).
 func IsGenerated(jr *rete.JetruleNode) bool {
-	return jr.Properties["i"] == "true"
+	return compiler.RuleProperty(jr, "i") == "true"
 }
 
 func ruleFromModel(jr *rete.JetruleNode, byKey map[int]*rete.ResourceNode) (*Rule, error) {
 	rule := &Rule{Name: jr.Name}
 	for k, raw := range jr.Properties {
 		switch k {
+		// s and o are read as the compiler reads them, a quoted value as
+		// its string (compiler.RuleProperty), so s="10" is the salience 10.
 		case "s":
-			s, err := strconv.Atoi(raw)
+			s, err := strconv.Atoi(compiler.UnquoteString(raw))
 			if err != nil {
 				return nil, fmt.Errorf("salience %q: %w", raw, err)
 			}
@@ -71,7 +74,7 @@ func ruleFromModel(jr *rete.JetruleNode, byKey map[int]*rete.ResourceNode) (*Rul
 		case "o":
 			// The compiler's own reading (PostProcessJetruleProperties).
 			o := true
-			switch strings.ToUpper(raw) {
+			switch strings.ToUpper(compiler.UnquoteString(raw)) {
 			case "FALSE", "F", "0":
 				o = false
 			}

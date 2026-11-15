@@ -41,13 +41,15 @@ class ReteSession;
 void raise_exception(ReteSession * rs, std::string const& msg);
 bool truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok);
 
-// Utility function for operators that need to get a graph rdf::r_index
+// Utility function for operators that need to get a graph rdf::r_index.
+// A name the session does not hold maps to nullptr: a resource built by
+// create_resource or create_uuid_resource and not yet asserted is one.
 inline 
 std::pair<rdf::r_index, rdf::r_index>
-get_resources(rdf::RManager *rmgr, std::string && lhs, std::string && rhs)
+get_resources(rdf::RManager *rmgr, std::string const& lhs, std::string const& rhs)
 {
-  auto * l = rmgr->get_resource(std::forward<std::string>(lhs));
-  auto * r = rmgr->get_resource(std::forward<std::string>(rhs));
+  auto * l = rmgr->get_resource(lhs);
+  auto * r = rmgr->get_resource(rhs);
   return {l, r};
 }
 

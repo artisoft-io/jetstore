@@ -24,11 +24,36 @@ screen anyway sees *Read only* and cannot save.
 | **Workspace picker** | The workspace being edited, with its branch. Choosing another opens it. |
 | **Save** | Saves the file in the current tab. Enabled when the tab has unsaved changes and the file is not read-only. `Ctrl+S` does the same in the editor. |
 | **Refresh** | Reads the file tree and the changes table again. |
+| **Workspace guide** | Beside *Save*: opens this installation's guide to the workspace at the page for the open file (below). Shown only when the installation has a guide to the workspace open in the IDE, and to every user, since the guide needs no capability. |
+
+## The workspace guide
+
+An installation's documentation has a fourth guide, named for its workspace: its domain, lookups and
+rules, generated from the compiled workspace, and the pages the workspace's own people wrote.
+**Workspace guide** opens it in the documentation's tab, the one *Help* uses, at the page for the file
+open in the editor:
+
+| File open in the editor | Page opened |
+|---|---|
+| A data-model file | its page of the domain: its classes, their properties and the rules written in it, such as the compiler's generated rules |
+| A lookup's source file | the lookups page |
+| A main rule file | its rules page: the files it includes, the rules written in it with their descriptions, and its unit tests |
+| A rule file that main rule files include | its own rules page: the main rule files that include it, and the rules written in it with their descriptions |
+| A page of the workspace's `docs/` folder | that page |
+| Any other file, or none | the guide's landing page |
+
+The button is not shown when the installation's documentation has no guide to the workspace open in
+the IDE: an installation built without one, or another workspace opened here. The guide describes the
+workspace as it was compiled into the deployed image, so an edit saved here, a page of `docs/`
+included, is not in it until it is committed to the workspace's repository and the images are
+rebuilt. The top bar's *Help* still opens this page. How a workspace writes its guide is in
+[Document a workspace](/docs/developer/how-to/document-a-workspace/).
 
 ## The file tree
 
 The left panel lists the workspace's files by section: *Data Model*, *Jets Rules*, *Lookups*,
-*Pipes Config*, *User Flows*, *Table Configurations*, *Process Configuration*, *Reports*, *Runbooks* and the others the workspace has, each file
+*Pipes Config*, *User Flows*, *Table Configurations*, *Process Configuration*, *Reports*, *Runbooks*,
+*Documentation* and the others the workspace has, each file
 with its size. **Filter files** narrows the tree to the names that match.
 
 - **A file** opens in a tab of the editor.
@@ -36,12 +61,20 @@ with its size. **Filter files** narrows the tree to the names that match.
 - **The name of *Data Model*, *Jets Rules* or *Lookups*** opens that section's compiled view (below),
   rather than expanding it.
 
+**Documentation** lists the workspace's `docs/` folder: the pages its people write for the
+[workspace guide](#the-workspace-guide), Markdown files (`.md` or `.mdx`) in `docs/` and its
+subfolders, and the guide's settings file, `docs/workspace_docs.json`. A page opens, is edited and is
+saved like any other file, and **Workspace guide** opens that page in the guide. A saved page needs no
+compile: nothing compiles it, and the guide shows it once it is committed and the images are rebuilt.
+The section has no **Add File**: a new page is added in the workspace's repository. How to write a page is in
+[Document a workspace](/docs/developer/how-to/document-a-workspace/).
+
 ## Editing a file
 
 ![hc_model.jr open in a tab of the editor, highlighted as JetRules, with the status bar at the bottom.](../../../../assets/screenshots/user/screens/workspace-ide/ide-file.png)
 
-Every file opens in its own tab, whatever its size. The editor highlights JetRules, JSON, SQL and the
-other formats a workspace holds. A tab with unsaved changes shows a dot, and its status bar says
+Every file opens in its own tab, whatever its size. The editor highlights JetRules, JSON, SQL and
+Markdown; other files, such as a lookup's CSV, show as plain text. A tab with unsaved changes shows a dot, and its status bar says
 *Modified*:
 
 ![The status bar of an edited file: its path, its language, its size in characters, and Modified.](../../../../assets/screenshots/user/screens/workspace-ide/ide-status-modified.png)
@@ -49,11 +82,35 @@ other formats a workspace holds. A tab with unsaved changes shows a dot, and its
 The status bar shows the file's path, its language, *Read only* when it cannot be edited, its size and
 whether it is saved. Files JetStore installs into every workspace are read-only: a workspace changes
 what one of them does by extending it, as
-[Workspace assets JetStore installs](/docs/developer/workspace/assets/) explains.
+[Workspace assets JetStore installs](/docs/developer/workspace/assets/) explains. A Markdown file,
+such as the workspace's `README.md`, is read-only too, except a page under `docs/`.
 
 **Saving checks the file first.** A JSON file that does not parse is refused before it is sent. The
-server then checks the file types it knows, such as user flows, table documents and SQL scripts, and
-refuses a save that would break them, saying why. A saved file becomes an **override**: it is held in
+server then checks the file types it knows, such as user flows, table documents, SQL scripts,
+pipeline definitions and the guide's `workspace_docs.json`, and refuses a save that would break them,
+saying why. A pipeline definition (`.pc.json`) is refused only for what would stop the pipeline when
+it starts, whatever the run: a value the definition's format cannot hold, no `cluster_config`, an
+output table column whose `rdf_type` is not in the
+[closed list of column types](/docs/developer/compute-pipes/output-tables/#column-types), or a check
+the start makes of the whole definition before any step runs (an empty conditional step, a
+`column_encodings` entry with no column, a text template that does not compile or whose key is used
+twice, a writer setting on an input channel, `latest_session_only` on a channel that does not read a
+staged `file_key`, or `use_jet_rules_go: true`). A page of `docs/`
+is refused when the documentation build would refuse it for its front matter: none, YAML that does not
+parse, or no `title`, `description` or `kind` (one of `tutorial`, `how-to`, `reference`,
+`explanation` or `overview`). The editor shows a page's front matter, its opening `---` block, as
+YAML. A file in the place of the workspace guide's generated pages, under `docs/reference/` or named
+`docs/reference.md` or `docs/reference.mdx`, in any case, is refused whatever it holds, with a message
+saying that place is generated. A page's links are checked when the images are built.
+
+**A save can succeed with warnings.** A check may find something that does not stop the file working
+but that you should know about: in a pipeline definition, every key the pipeline does not know and so
+ignores (a misspelt setting is one that silently does not apply), and an output table column with no
+`rdf_type`, which creating the table needs. The file is saved, and the banner says so in the warning
+colours, listing each warning at its place in the file (a JSON Pointer such as
+`/pipes_config/0/apply/1/device_writer_type`, or a line) until you dismiss it.
+
+A saved file becomes an **override**: it is held in
 the database, takes precedence over the file in the image, and appears in *Workspace Changes*.
 
 Closing a tab with unsaved changes asks first; **OK** discards them.
@@ -93,6 +150,13 @@ A compiled view shows what the last compile made of a section, read from `worksp
 | **Data Model** | *Domain Classes*, *Data Properties*, *Domain Tables*, *Data Model Files* |
 | **Jets Rules** | *Jet Rules*, *Rule Terms*, *Files Relationship*, *Jet Rules Files* |
 | **Lookups** | *Lookup Tables*, *Lookup Columns* |
+
+*Jet Rules* lists each rule with its salience and its text as written, the *Main Rule File* it is
+compiled under, and its *File*, the file it is written in: the main rule file itself or one it
+includes. A rule in a file that two main rule files include is listed once under each.
+*Files Relationship* lists, for each main rule file, every file it includes, directly or through
+another included file. *Jet Rules Files* lists the included rule files as well as the main ones, with
+*Main Rule File?* telling them apart.
 
 The *Data Model Files* and *Jet Rules Files* tabs also have **Add File**, which creates an empty file
 in the section, and **Delete**, which deletes the selected files. A compiled view reflects the last

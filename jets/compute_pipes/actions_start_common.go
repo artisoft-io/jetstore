@@ -390,22 +390,13 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 		// Example of how this table is populated from base__workspace_init_db.sql:
 		// INSERT INTO jetsapi.domain_keys_registry (entity_rdf_type, object_types, domain_keys_json) VALUES
 		// ('ex:Eligibility', '{"Eligibility"}', '{"Eligibility":"ex:Generated_ID","jets:hashing_override":"none"}'),
-		var buf strings.Builder
-		buf.WriteString("SELECT entity_rdf_type, object_types, domain_keys_json FROM jetsapi.domain_keys_registry WHERE entity_rdf_type IN (")
-		first := true
+		// The class names come from the pipeline configuration, so they are
+		// bound as one text array rather than written into the statement.
+		names := make([]string, 0, len(classNames))
 		for c := range classNames {
-			if !first {
-				buf.WriteString(",")
-			}
-			first = false
-			buf.WriteString("'")
-			buf.WriteString(c)
-			buf.WriteString("'")
+			names = append(names, c)
 		}
-		buf.WriteString(")")
-		bufStr := buf.String()
-		// log.Printf("*** Getting domain_key_json from domain_keys_registry table: %s\n", bufStr)
-		rows, err := dbpool.Query(ctx, bufStr)
+		rows, err := dbpool.Query(ctx, domainKeysRegistryQuery, names)
 		if err == nil {
 			defer rows.Close()
 			for rows.Next() {
@@ -636,6 +627,11 @@ func GetMaxConcurrency(nbrNodes, defaultMaxConcurrency int) int {
 	maxConcurrency := max(defaultMaxConcurrency, 1)
 	return maxConcurrency
 }
+
+// domainKeysRegistryQuery reads the domain keys of the classes named by $1, a
+// text array.
+const domainKeysRegistryQuery = `SELECT entity_rdf_type, object_types, domain_keys_json
+	FROM jetsapi.domain_keys_registry WHERE entity_rdf_type = ANY($1)`
 
 // Function to prune the lookupConfig and return only the lookup used in the pipeConfig
 // Returns an error if pipeConfig has reference to a lookup not in lookupConfig
@@ -965,7 +961,10 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 	if err := validateInputChannelsCarryNoWriterFields(cpConfig); err != nil {
 		return err
 	}
-	if err := validateNoGoEngine(cpConfig); err != nil {
+	if err := validateLatestSessionOnly(cpConfig); err != nil {
+		return err
+	}
+	if err := firstError(validateNoGoEngine(cpConfig), validateOutputTableColumnTypes(cpConfig)); err != nil {
 		return err
 	}
 	for i := range pipeConfig {
@@ -1523,6 +1522,28 @@ func validateInputChannelsCarryNoWriterFields(cpConfig *ComputePipesConfig) erro
 							"govern how a file is written and belong on an output channel or a "+
 							"schema_provider; no reader consults them on an input channel",
 						ic.Name, stepId, i, strings.Join(fields, ", "))
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// validateLatestSessionOnly refuses latest_session_only on an input channel that
+// does not read the stage through file_key: no other read lists session folders,
+// so the field would be silently ignored (latest_session.go).
+func validateLatestSessionOnly(cpConfig *ComputePipesConfig) error {
+	for stepId, step := range allComputePipesSteps(cpConfig) {
+		for i := range step {
+			channels := []*InputChannelConfig{&step[i].InputChannel}
+			for j := range step[i].InputChannel.MergeChannels {
+				channels = append(channels, &step[i].InputChannel.MergeChannels[j])
+			}
+			for _, ic := range channels {
+				if ic.LatestSessionOnly && (ic.Type != "stage" || len(ic.FileKey) == 0) {
+					return fmt.Errorf(
+						"configuration error: input_channel '%s' (step %d, pipe %d) sets latest_session_only, which "+
+							"applies only to a channel of type 'stage' that reads a file_key", ic.Name, stepId, i)
 				}
 			}
 		}

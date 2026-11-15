@@ -1435,6 +1435,32 @@ describe("Session Registry's Delete (G.3)", () => {
     expect(posts.filter((p) => p.body["action"] === "start_pending_tasks")).toHaveLength(0);
   });
 
+  it("keeps the sessions selected after Resubmit as Pending, ready for Delete (JM-188)", async () => {
+    await openRegistry();
+    await selectRow("1001");
+    fireEvent.click(button("Resubmit as Pending"));
+    await answerConfirm("OK");
+    expect((await screen.findByRole("status")).textContent).toMatch(/^Resubmitted as pending/);
+    const box = within(screen.getByText("1001").closest("tr")!).getByRole("checkbox") as HTMLInputElement;
+    // Past the point a refresh would have landed: the selection is still there.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(box.checked).toBe(true);
+    expect((button("Delete") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("selects every session of the page with the heading's box, and acts on them all (JM-187)", async () => {
+    const { posts } = await openRegistry();
+    const all = screen.getByRole("checkbox", { name: "Select all rows on this page" }) as HTMLInputElement;
+    fireEvent.click(all);
+    await waitFor(() => expect(all.checked).toBe(true));
+    fireEvent.click(button("Resubmit as Pending"));
+    await answerConfirm("OK");
+    const resubmits = () => posts.filter((p) => p.body["action"] === "resubmit_sessions_as_pending");
+    await waitFor(() => expect(resubmits()).toHaveLength(1));
+    const sent = (resubmits()[0]!.body["data"] as { session_id: string[] }[])[0]!.session_id;
+    expect([...sent].sort()).toEqual(["1001", "2002", "3003"]);
+  });
+
   it("posts nothing when Resubmit as Pending is cancelled", async () => {
     const { posts } = await openRegistry();
     await selectRow("2002");

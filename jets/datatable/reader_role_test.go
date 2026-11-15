@@ -4,21 +4,21 @@ package datatable
 // may read, through the three read paths a jetstore_read user can send SQL on:
 // raw_query, raw_query_map and the data-table read.
 //
-// It connects as a database user that is not a superuser and holds CREATEROLE,
-// and that owns its database, as the master user of a deployment's Aurora
-// cluster does. Skipped unless JETS_TEST_DSN names a throwaway PostgreSQL whose
-// user may create roles and databases:
+// It connects as a database user that owns its database, as the master user of
+// a deployment's Aurora cluster does: one that holds CREATEROLE and is not a
+// superuser, or a superuser with JETS_TEST_APISERVER_SUPERUSER=1 (package
+// jets/dblogin/dblogintest). Skipped unless JETS_TEST_DSN names a throwaway
+// PostgreSQL whose user is a superuser:
 //
-//	docker run -d --rm --name jm095-pg -e POSTGRES_PASSWORD=pw -p 5472:5432 postgres:15
+//	docker run -d --rm --name jm095-pg -e POSTGRES_PASSWORD=pw -p 5472:5432 postgres:16-alpine
 //	JETS_TEST_DSN=postgres://postgres:pw@localhost:5472/postgres go test ./datatable -run ReaderRole -count=1
 
 import (
 	"context"
-	"net/url"
-	"os"
 	"strings"
 	"testing"
 
+	"github.com/artisoft-io/jetstore/jets/dblogin/dblogintest"
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -28,64 +28,12 @@ const (
 	jm095DB    = "jm095_reader"
 )
 
-// jm095Pool returns a pool on a fresh database, connected as its owner, a
-// CREATEROLE user that is not a superuser.
+// jm095Pool returns a pool on a fresh database, connected as its owner, the
+// apiserver user: a CREATEROLE user that is not a superuser, or a superuser
+// when dblogintest.SuperuserVar is set (see jets/dblogin/dblogintest).
 func jm095Pool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	dsn := os.Getenv("JETS_TEST_DSN")
-	if dsn == "" {
-		t.Skip("JETS_TEST_DSN is not set; see the header of this file")
-	}
-	bg := context.Background()
-	admin, err := pgxpool.New(bg, dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer admin.Close()
-	for _, stmt := range []string{
-		`DO $$ BEGIN
-			IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '` + jm095Owner + `') THEN
-				CREATE ROLE ` + jm095Owner + ` LOGIN CREATEROLE PASSWORD 'pw';
-			END IF;
-		END $$`,
-		`DROP DATABASE IF EXISTS ` + jm095DB + ` WITH (FORCE)`,
-		`CREATE DATABASE ` + jm095DB + ` OWNER ` + jm095Owner,
-	} {
-		if _, err = admin.Exec(bg, stmt); err != nil {
-			t.Fatalf("%v\n%s", err, stmt)
-		}
-	}
-	// Another test in this run may have created the roles as the superuser. On a
-	// deployment the master user creates them and administers them; give the
-	// owner the same standing here.
-	adoptRestrictedRoles(t, admin, jm095Owner)
-	u, err := url.Parse(dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	u.User = url.UserPassword(jm095Owner, "pw")
-	u.Path = "/" + jm095DB
-	pool, err := pgxpool.New(bg, u.String())
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(pool.Close)
-	return pool
-}
-
-// adoptRestrictedRoles gives owner ADMIN OPTION on every restricted role and
-// login that exists, the standing a deployment's master user has over the
-// roles it created.
-func adoptRestrictedRoles(t *testing.T, admin *pgxpool.Pool, owner string) {
-	t.Helper()
-	_, err := admin.Exec(context.Background(), `DO $$ DECLARE r text; BEGIN
-		FOR r IN SELECT rolname FROM pg_roles WHERE rolname ~ '^jets_(reader|ide)' LOOP
-			EXECUTE format('GRANT %I TO %I WITH ADMIN OPTION', r, '`+owner+`');
-		END LOOP;
-	END $$`)
-	if err != nil {
-		t.Fatal(err)
-	}
+	return dblogintest.Apiserver(t, jm095Owner, jm095DB)
 }
 
 func TestReaderRoleWithholdsSecretsAndExtensions(t *testing.T) {

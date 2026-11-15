@@ -56,3 +56,13 @@ func SplitFileKeyIntoComponents(keyMap map[string]any, fileKey *string) map[stri
 	fileKeyObject["day"] = day
 	return fileKeyObject
 }
+
+// FileKeyCarries reports whether the file key carries the component name as a
+// name=value part of its path, as SplitFileKeyIntoComponents reads the key (a
+// vendor component carries org too). It tells a year, month or day the key
+// carries from one SplitFileKeyIntoComponents defaulted, which it does not
+// distinguish.
+func FileKeyCarries(fileKey, name string) bool {
+	_, ok := splitFileKey(map[string]any{}, &fileKey)[name]
+	return ok
+}

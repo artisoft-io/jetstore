@@ -38,6 +38,9 @@ Most screens are built around one or more tables, and every table works the same
 
 - **Selecting rows.** A table you can act on has a check box on each row. Some take one row at a
   time, and ticking another clears the first; others take several. A selected row is highlighted.
+  A table that takes several has a check box in its heading as well, which selects every row of
+  the page, or clears them all; it is half ticked when only some are selected. A selection is kept
+  when you change page, so selecting all on each page in turn selects the whole list.
 - **Buttons.** A table's buttons sit above it, in up to three rows. A button that needs a selected
   row is disabled until you select one. A button that applies only to some rows, *Get Run
   Manifest* to a completed run for example, stays disabled for the others. **Hover over a disabled

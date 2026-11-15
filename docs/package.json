@@ -8,7 +8,8 @@
     "dev": "npm run gen && astro dev",
     "build": "npm run gen && astro build",
     "preview": "astro preview",
-    "check": "npm run gen && astro sync"
+    "check": "npm run gen && astro sync",
+    "test": "node --test \"scripts/*.test.mjs\""
   },
   "dependencies": {
     "@astrojs/starlight": "^0.42.10",

@@ -21,7 +21,8 @@ JetStore loads client files, maps them to a domain model, runs them through rule
 pipelines, and writes the results to tables and files. These pages describe the version of JetStore
 you are running: an installation serves the documentation that was built with it.
 
-The documentation is in three guides, one for each kind of reader.
+JetStore's documentation is in three guides, one for each kind of reader. An installation's site,
+built with its workspace, also has the workspace's own guide, named for the workspace in the sidebar.
 
 ## [User Guide](/docs/user/)
 
@@ -39,4 +40,4 @@ generated from the code.
 For whoever deploys JetStore into an AWS account: planning a deployment, deploying and upgrading it,
 and the stack parameters, environment variables and images involved.
 
-Use the search box at the top of every page to search all three guides by keyword.
+Use the search box at the top of every page to search every guide by keyword.

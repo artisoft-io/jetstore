@@ -154,7 +154,7 @@ func storedLookupDbFingerprint(dbPath string) (fingerprint string, formatVersion
 	defer db.Close()
 	// A file shorter than its header says is refused by SQLite itself
 	// ("database disk image is malformed"), so a truncated copy fails here.
-	rows, err := db.Query(fmt.Sprintf("SELECT name, value FROM %q", lookupDbMetaTable))
+	rows, err := db.Query("SELECT name, value FROM " + sqliteIdent(lookupDbMetaTable))
 	if err != nil {
 		if strings.Contains(err.Error(), "no such table") {
 			return "", "", errors.New("no input fingerprint, it was built before one was recorded")
@@ -186,9 +186,10 @@ func storedLookupDbFingerprint(dbPath string) (fingerprint string, formatVersion
 // writeLookupDbFingerprint records the fingerprint. Nothing time-dependent is
 // stored: a skipped lookup.db must be byte for byte what a rebuild produces.
 func writeLookupDbFingerprint(db *sql.DB, fingerprint, sqliteVersion string) error {
-	stmt := fmt.Sprintf(`CREATE TABLE %q (name TEXT PRIMARY KEY, value TEXT NOT NULL);
-INSERT INTO %q (name, value) VALUES ('inputs_sha256', '%s'), ('format_version', '%d'), ('sqlite_version', '%s');`,
-		lookupDbMetaTable, lookupDbMetaTable, fingerprint, lookupDbFormatVersion, sqliteVersion)
+	meta := sqliteIdent(lookupDbMetaTable)
+	stmt := fmt.Sprintf(`CREATE TABLE %s (name TEXT PRIMARY KEY, value TEXT NOT NULL);
+INSERT INTO %s (name, value) VALUES ('inputs_sha256', '%s'), ('format_version', '%d'), ('sqlite_version', '%s');`,
+		meta, meta, fingerprint, lookupDbFormatVersion, sqliteVersion)
 	_, err := db.Exec(stmt)
 	return err
 }

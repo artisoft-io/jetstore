@@ -363,8 +363,9 @@ async function runStep(step: Step, run: ActionRun): Promise<{ done: boolean; out
         if (result.statusCode === 200) {
           if (insertRows) host.close();
           // `invokeCallbacks()`, which is what makes tables on screen re-read
-          // after a write. See `FormState.onRefreshRequested`.
-          formState.requestRefresh();
+          // after a write. See `FormState.onRefreshRequested`. Not when the
+          // step says the write changes nothing they show (JM-188).
+          if (step.refresh !== false) formState.requestRefresh();
           return carryOn;
         }
         if (insertRows) {

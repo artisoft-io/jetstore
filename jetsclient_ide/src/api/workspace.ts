@@ -225,14 +225,55 @@ export class WorkspaceApi {
    * Save. The server validates any `.json` file before writing (it refuses to
    * persist one that will not parse), so a 400 here is frequently a real syntax
    * error in the buffer rather than a transport problem — worth surfacing verbatim.
+   *
+   * A save the server accepts may still carry **warnings**: findings of the
+   * file's validator that do not refuse it, such as a pipeline configuration
+   * key the run ignores (`checkWorkspaceFile`,
+   * `jets/datatable/workspace_file_validators.go`). The response gained the
+   * field in November 2026; a server without it answers no warnings.
    */
-  async saveFile(workspaceName: string, fileName: string, content: string): Promise<void> {
-    await this.api.dataTable({
+  async saveFile(workspaceName: string, fileName: string, content: string): Promise<SaveResult> {
+    const body = await this.api.dataTable<{ warnings?: unknown }>({
       action: "save_workspace_file_content",
       workspaceName,
       data: [{ file_name: fileName, file_content: content }],
     });
+    return { warnings: Array.isArray(body?.warnings) ? (body.warnings as SaveFinding[]) : [] };
   }
+}
+
+/**
+ * Mirrors wsvalidate.Finding (jets/wsvalidate/wsvalidate.go): `path` is a JSON
+ * Pointer into the document and `line` a 1-based line, each present only where
+ * the finding has one.
+ */
+export interface SaveFinding {
+  severity: "error" | "warning";
+  code: string;
+  message: string;
+  path?: string;
+  line?: number;
+}
+
+/** What a successful save answers. */
+export interface SaveResult {
+  warnings: SaveFinding[];
+}
+
+/**
+ * The text a save's warnings are shown with: a first line naming the file, then
+ * one line per warning, its coordinate first where it has one, in the form the
+ * server writes a refusal's (`describeFindings`, same file as
+ * `checkWorkspaceFile`): `/a/b: message`, `line 12: message`, `/a/b:12: message`.
+ */
+export function describeSaveWarnings(label: string, warnings: SaveFinding[]): string {
+  const lines = warnings.map((w) => {
+    let where = w.path ?? "";
+    if (w.line && w.line > 0) where = where !== "" ? `${where}:${w.line}` : `line ${w.line}`;
+    return where !== "" ? `  ${where}: ${w.message}` : `  ${w.message}`;
+  });
+  const count = warnings.length === 1 ? "1 warning" : `${warnings.length} warnings`;
+  return [`Saved ${label}, with ${count}:`, ...lines].join("\n");
 }
 
 /** The escaped relative path for a file node, or null for anything else. */

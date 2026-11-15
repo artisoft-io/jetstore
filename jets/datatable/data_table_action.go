@@ -631,7 +631,8 @@ var (
 	// D.2 fixed it.
 	//
 	// **It is unreachable from every caller in this package, re-measured 2026-08-27.**
-	// sqlInsertStmts has 58 entries and 58 non-empty Capability fields
+	// sqlInsertStmts had 58 entries and 58 non-empty Capability fields (38 since
+	// the 20 unused WORKSPACE/ statements were removed, 2026-11-14)
 	// (jets/datatable/sql_stmts.go, sqlInsertStmts); the two reading "none" are both
 	// AdminOnly, so the admin branch decides them. (Since 2026-11-07 none reads
 	// "none": those two, update/users and delete/users, require user_admin and are

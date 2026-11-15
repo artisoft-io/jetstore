@@ -49,9 +49,12 @@ native Lambda needs to copy the tree out at run time), installs the JetStore-own
 
 **What the three `_ws` images take from it.** Each copies `/workspaces/<WORKSPACE>` from `compile_ws`
 into its JetStore parent. `ui_service_ws` also builds the web app (`jetsclient_ide`) and this
-documentation site (`docs/`) from the JetStore source in `cpipes_builder`, and copies them to where
-the apiserver serves them (`/usr/local/lib/ide`, `/usr/local/lib/docs`). So the web app and the
-documentation an installation serves are those of the `cpipes_builder` it was built from.
+documentation site (`docs/`) from the JetStore source in `cpipes_builder`, the site with the
+workspace's own guide, generated from the compiled workspace and merged with the workspace's `docs/`
+folder ([Document a workspace](/docs/developer/how-to/document-a-workspace/)). It copies them to where
+the apiserver serves them (`/usr/local/lib/ide`, `/usr/local/lib/docs`). So the web app and
+JetStore's guides an installation serves are those of the `cpipes_builder` it was built from, and its
+workspace's guide is that of the workspace it was built with.
 
 ## Build
 

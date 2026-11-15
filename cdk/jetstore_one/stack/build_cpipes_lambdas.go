@@ -93,6 +93,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
 		},
 		Environment: &map[string]*string{
+			"JETS_IDE_CODE_GUARD":                      jsii.String(os.Getenv("JETS_IDE_CODE_GUARD")), // runs dblogin.Ensure when a restricted login is missing; "off" keeps the guard off
 			"JETS_BUCKET":                              jsComp.SourceBucket.BucketName(),
 			"JETS_DSN_SECRET":                          jsComp.RdsSecret.SecretName(),
 			"CPIPES_DB_POOL_SIZE":                      jsii.String(os.Getenv("CPIPES_DB_POOL_SIZE")),
@@ -157,6 +158,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			MemorySize:           jsii.Number(memLimit),
 			EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(10240)),
 			Environment: &map[string]*string{
+				"JETS_IDE_CODE_GUARD":                      jsii.String(os.Getenv("JETS_IDE_CODE_GUARD")), // runs dblogin.Ensure when a restricted login is missing; "off" keeps the guard off
 				"JETS_BUCKET":                              jsComp.SourceBucket.BucketName(),
 				"JETS_DSN_SECRET":                          jsComp.RdsSecret.SecretName(),
 				"CPIPES_DB_POOL_SIZE":                      jsii.String(os.Getenv("CPIPES_DB_POOL_SIZE")),

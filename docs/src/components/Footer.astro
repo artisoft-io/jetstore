@@ -1,0 +1,33 @@
+---
+// Starlight's footer, with the versions this site was built for: JetStore's
+// (JETS_VERSION) and, in a workspace's image, the workspace's
+// (JETS_WORKSPACE_VERSION, named for JETS_WORKSPACE_NAME). Read when the site is
+// built; either may be unset, and then it is not shown.
+import Default from '@astrojs/starlight/components/Footer.astro';
+
+const jetstore = process.env.JETS_VERSION?.trim();
+const workspace = process.env.JETS_WORKSPACE_VERSION?.trim();
+const workspaceName = process.env.JETS_WORKSPACE_NAME?.trim() || 'Workspace';
+---
+
+<Default {...Astro.props}><slot /></Default>
+{
+	(jetstore || workspace) && (
+		<p class="jets-versions">
+			{jetstore && <span>JetStore {jetstore}</span>}
+			{workspace && <span>{workspaceName} {workspace}</span>}
+		</p>
+	)
+}
+
+<style>
+	.jets-versions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem 1.5rem;
+		justify-content: center;
+		margin-top: 1.5rem;
+		font-size: var(--sl-text-xs);
+		color: var(--sl-color-gray-3);
+	}
+</style>

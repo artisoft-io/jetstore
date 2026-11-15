@@ -848,6 +848,10 @@ type InputChannelConfig struct {
 	// object type cumulative (source_config.is_cumulative), the read keeps only the
 	// latest delivery across the lookback rather than every delivery. Empty: every
 	// delivery is read. Env vars are substituted. See cumulative_source.go.
+	// LatestSessionOnly, for a stage channel read through file_key: keep, in each
+	// period folder of the read, only the latest session whose run completed, and
+	// skip the other session folders (duplicates and sessions mapped before a model
+	// change). For a feed with one delivery per period only. See latest_session.go.
 	FileConfig
 	Type                 string               `json:"type,omitempty"`
 	Name                 string               `json:"name"`
@@ -859,6 +863,7 @@ type InputChannelConfig struct {
 	SamplingMaxCount     int                  `json:"sampling_max_count,omitzero"`
 	HasGroupedRows       bool                 `json:"has_grouped_rows,omitzero"`
 	SourceObjectType     string               `json:"source_object_type,omitempty"`
+	LatestSessionOnly    bool                 `json:"latest_session_only,omitzero"`
 	MergeChannels        []InputChannelConfig `json:"merge_channels,omitempty"`
 	NbrNodesAny          any                  `json:"nbr_nodes,omitzero"`
 	NbrRowsAny           any                  `json:"nbr_rows,omitzero"`

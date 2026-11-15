@@ -1,6 +1,6 @@
 ---
 title: "Values and operators"
-description: "What the rule engine computes for sums, doubles, text, regular expressions, arithmetic, comparisons, ties, lookups and text read as a bool."
+description: "What the rule engine computes for sums, doubles, text and its characters, substrings, regular expressions, arithmetic, comparisons, ties, lookups and text read as a bool."
 kind: reference
 sidebar:
   order: 2
@@ -11,6 +11,184 @@ settled on 2026-10-22, when the C++ and Go engines were compared value by value 
 decided (see [The retired Go engine](/docs/developer/engine/rule-engine/go-engine/)); what the Go engine did is kept as history, and a Go file
 it names is at the tag `go-engine-final`. The list of operators is the generated
 [JetRules operators](/docs/developer/reference/generated/jetrules-operators/) page.
+
+## Text positions and lengths count characters — 2026-11-14
+
+`length_of`, `substring_of` and `char_at` count **characters**: Unicode code points, read from the
+text's UTF-8. A character takes one to four bytes, and counts as one whatever its length.
+
+| Text | Bytes | `length_of` | Character 1 (`char_at 1`) |
+|---|---|---|---|
+| `"abc"` | 3 | 3 | `"b"` |
+| `"été"` | 5 | 3 | `"t"` |
+| `"5€"` | 4 | 2 | `"€"` |
+| `"a😀b"` | 6 | 3 | `"😀"` |
+| `"e"` then a combining acute accent (U+0301) | 3 | 2 | the accent alone |
+| `"a"`, the byte `0xFF`, `"b"` | 3 | 3 | the byte `0xFF` |
+
+- **A byte that does not start a valid UTF-8 sequence counts as one character, kept as it is**: a
+  stray continuation byte, a byte `0xC0`, `0xC1` or `0xF5` to `0xFF`, and each byte of a truncated
+  sequence, of an overlong form or of an encoded surrogate. Text that is not valid UTF-8 therefore never fails a rule and never loses a
+  byte; a cut copies such bytes unchanged.
+- **There is no normalisation.** A letter followed by a combining accent is two characters, where
+  the same letter precomposed (`é`, U+00E9) is one. Text from different sources can spell one
+  visible letter both ways.
+- **A cut never splits a character**, so valid UTF-8 in gives valid UTF-8 out.
+
+**Before 2026-11-14 the three operators counted bytes.** On ASCII text a byte is a character, so
+nothing changes there. On other text, `length_of` counted each byte of a multi-byte character, and a
+`substring_of` cut or a `char_at` index could fall inside one and return part of it, which is not
+valid UTF-8: `char_at 0` on `"été"` gave the byte `0xC3`, and a rule looking for a space before a
+name's last letter missed it when that letter was not ASCII. The cleansing function `substring`
+counts characters the same way (see
+[Map column values](/docs/developer/compute-pipes/notes/map-column-values/)).
+
+The unit is decided in one place, `TextUnits` in `jets/rete/expr_op_strings.h`. The rows are
+`LengthOf.CountsCharacters`, `ExprOpTest.SubstringOfVisitorEdges`, `CharAt.TheEdges` and
+`TextUnits.ANameSuffixAfterANonAsciiLetter` in `jets/rete/expr_op_test.cc`.
+
+## `substring_of` at the edges — 2026-11-13
+
+`(config substring_of ?text)` takes its cut from the configuration resource `config`: `jets:from`,
+the characters skipped from the start, and `jets:length`, the characters kept or, when negative,
+the characters dropped from the end. Both must be `int` values (32-bit); anything else inserts
+`(jets:iState jets:exception "…")` and the expression is null.
+
+| Case | Result | Example: text `"abcdef"` |
+|---|---|---|
+| the cut is within the text | the characters cut | from 1, length 3: `"bcd"`; from 1, length -2: `"bcd"` |
+| `jets:from + jets:length` runs past the end | the characters that are there | from 4, length 10: `"ef"` |
+| `jets:from` at the end of the text | `""` | from 6, length 2: `""` |
+| `jets:from` past the end, or negative | `""` | from 9, length 2: `""`; from -1, length 2: `""` |
+| a negative `jets:length` dropping as much as is left after `jets:from`, or more | `""` | from 2, length -4: `""`; from 0, length -9: `""` |
+
+Positions and lengths count characters, above: from 0, length 1 on `"été"` is `"é"`, and from 1,
+length -1 is `"t"`.
+
+**Before 2026-11-13 the two edge cases did not give `""`.** A negative `jets:length` on text shorter
+than the cut was computed in unsigned arithmetic and wrapped around, so from 0, length -3 on `"ab"`
+gave the whole remainder, `"ab"`. A `jets:from` past the end, or negative, made `std::string::substr`
+throw `std::out_of_range`, which failed the session's `ExecuteRules`. Both now give `""`, as the
+retired Go engine did for the first two (`expr_operator_str_substring_of.go` at `go-engine-final`;
+it gave null for a negative `jets:from`). The rows are `ExprOpTest.SubstringOfVisitorEdges` in
+`jets/rete/expr_op_test.cc`; the operator is `SubstringOfVisitor` in `jets/rete/expr_op_strings.h`.
+
+## `char_at` at the edges — 2026-11-14
+
+`(?text char_at ?index)` is the character of `?text` at `?index`, counted from 0, as a text of one
+character (see the characters above). The index must be an `int` value (32-bit) and `?text` a text;
+anything else, such as a `long` index, throws `Invalid arguments for char_at` and fails the session's
+`ExecuteRules`.
+
+| Case | Result | Example: text `"abc"` |
+|---|---|---|
+| the index is within the text | the character there | 0: `"a"`; 2: `"c"` |
+| the index at or past the end of the text | null | 3: null; 10: null |
+| a negative index | null | -1: null |
+
+**Outside the text `char_at` is null, where `substring_of` gives `""`.** It has always been null,
+and a rule can tell null from `""`: `is_literal`, `length_of`, `== ""`, and a consequent that writes
+the value all give a different result. So it is kept rather than aligned with `substring_of`. A
+negative index was null before 2026-11-14 too, but only because the comparison converted it to an
+unsigned value larger than any text; the operator now compares in signed 64-bit arithmetic, as
+`substring_of` does, and the results are the same. The rows are `CharAt.TheEdges` in
+`jets/rete/expr_op_test.cc`; the operator is `CharAtVisitor` in `jets/rete/expr_op_strings.h`.
+
+## `replace_char_of` reads characters — 2026-11-13
+
+`(config replace_char_of ?text)` replaces, in `?text`, every occurrence of each character of the
+configuration resource's `jets:replace_chars` by its `jets:replace_with`. Both must be text; anything
+else inserts `(jets:iState jets:exception "…")` and the expression is null.
+
+| Case | Result | Example |
+|---|---|---|
+| ASCII characters | each replaced | `"-."` by `"_"` on `"1-800.555"`: `"1_800_555"` |
+| an empty `jets:replace_with` | the characters removed | `"-."` by `""` on `"1-800.555"`: `"1800555"` |
+| a character outside ASCII | that character only | `"é"` by `"e"` on `"été à Paris"`: `"ete à Paris"` |
+| a replacement of several characters | inserted as given | `"-"` by `"—"` on `"a-b"`: `"a—b"` |
+| an empty `jets:replace_chars` | the text unchanged | |
+| a `jets:replace_chars` that is not valid UTF-8 | null, and the exception | |
+
+**A character is a UTF-8 character, not a byte.** Each character of `jets:replace_chars` is
+replaced as its whole byte sequence. ASCII characters are one byte each, so ASCII behaves as it
+always has.
+
+**The characters are replaced in turn**, in the order `jets:replace_chars` gives them, each over the
+text the earlier turns produced. A later character is therefore also replaced where an earlier turn
+inserted it: `"ab"` by `"bb"` on `"a"` gives `"bbbb"`, and `"ba"` by `"bb"` gives `"bb"`.
+
+**Before 2026-11-13 `jets:replace_chars` was read byte by byte.** A character outside ASCII, such as
+`é` (bytes `0xC3 0xA9`), was replaced one byte at a time. That broke every character sharing one of
+its bytes, such as `à` (`0xC3 0xA0`), and left invalid UTF-8 behind: `"é"` by `"e"` on `"été à"`
+gave `"eetee e"` followed by a stray byte. The retired Go engine worked on characters
+(`expr_operator_str_replace_char.go` at `go-engine-final`). The rows are
+`ExprOpTest.ReplaceCharOfVisitorCharacters` in `jets/rete/expr_op_test.cc`; the operator is
+`ReplaceCharOfVisitor` in `jets/rete/expr_op_strings.h`. Since 2026-11-14 `length_of`,
+`substring_of` and `char_at` count characters too, above.
+
+## Aggregate configurations — 2026-11-14
+
+`sorted_head`, `min_of`, `max_of`, `sum_values` and `join_values` take a configuration resource as
+their right operand. `jets:entity_property` and `jets:value_property` on it name the properties
+walked, `(?s entityProperty ?o).(?o valueProperty ?v)`, so each must be a resource. A configuration
+with a literal for either property, or missing the property its operator needs, throws that
+operator's configuration error, which fails the session's `ExecuteRules`.
+
+| Operator | Configurations it accepts |
+|---|---|
+| `sorted_head` | `jets:entity_property`, `jets:value_property` and `jets:operator` (`"<"` or `">"`) |
+| `min_of`, `max_of` | `jets:entity_property`, with or without `jets:value_property`; or no configuration: the right operand is the multi-valued property itself |
+| `sum_values`, `join_values` | `jets:entity_property` with `jets:value_property`, or `jets:value_property` alone; or no configuration, as above |
+
+A right operand carrying neither property is not a configuration, and is the multi-valued property
+itself for the operators that take one. `min_of` and `max_of` with `jets:entity_property` alone
+give the least or greatest object of `(?s entityProperty ?o)`. `join_values` also reads an optional
+`jets:separator`, which must be text.
+
+| Configuration | Before | Now |
+|---|---|---|
+| `sorted_head` with no `jets:operator` | the process crashed, on a null dereference (until 2026-11-13) | the configuration error |
+| `sorted_head` with no `jets:entity_property` or `jets:value_property`, or another operator | the configuration error | the configuration error |
+| a literal for `jets:entity_property` or `jets:value_property`, such as `"hasItem"`, on any of the five | null, silently | the configuration error |
+| `min_of` or `max_of` with `jets:value_property` and no `jets:entity_property` | null, silently | the configuration error |
+| `sum_values` with `jets:entity_property` and no `jets:value_property` | null, silently | the configuration error |
+| `join_values` with `jets:entity_property` and no `jets:value_property` | the configuration error | the configuration error |
+| `min_of` or `max_of` with an operand that is not an existing resource | null, silently | the configuration error |
+| `sorted_head`, `sum_values` or `join_values` with an operand that is not an existing resource | the configuration error | the configuration error |
+
+**Until 2026-11-14 a literal for either property was looked up as a property**: it matched no
+triple, so the aggregate was null, and nothing said why. A `min_of` or `max_of` configuration with
+`jets:value_property` alone was read as the multi-valued property itself, `(?s config ?v)`, and a
+`sum_values` configuration with `jets:entity_property` alone summed `(?s entityProperty ?o).(?o config ?v)`;
+both match nothing, so they were null too. **The configurations that computed a value compute the
+same one.** Before 2026-11-13 a `sorted_head` configuration with no `jets:operator` crashed the
+process.
+
+**An existing resource** is one the session or the rule base holds. Every resource a rule names,
+a configuration, a property or a volatile `_0:` resource, is created when the rule base is loaded,
+before any triple is asserted, and a variable is bound to a node of a triple, so both hold one. What
+maps to nothing is a name an expression built and never asserted, such as `create_resource("x")`
+given straight to the aggregate: no triple can hold it. A resource that exists and has no triple
+is not an error: the aggregate over nothing is null, as it always was. Until 2026-11-14 `min_of` and
+`max_of` gave null for an operand that is not an existing resource; the other three threw. All five
+now throw `Invalid argument for <operator>, lhs and rhs must be existing resources`, naming both
+operands (`get_aggregate_operands`).
+
+**Use the result of `create_resource` or `create_uuid_resource` as a term of a consequent.** Both
+build a resource the session does not hold yet, and a consequent creates it when it evaluates the
+term of the triple it asserts. Given as an operand to another operator in the same expression, the
+resource exists only if the session already holds it, because a rule names it or an earlier
+consequent created it; otherwise `exist` gives false, `exist_not` true, `size_of` 0, and an
+aggregate throws the error above.
+
+The checks are `get_aggregate_operands`, `names_a_property` and `check_aggregate_config_properties`
+in `jets/rete/expr_op_arithmetics.h`, used by `SortedHeadVisitor`, `MinOfVisitor`, `MaxOfVisitor`,
+`doMinMaxOf`, `SumValuesVisitor` and `JoinValuesVisitor`. The cases are
+`ExprOpTest.SortedHeadConfigMissingAProperty` and `ExprOpTest.SortedHeadConfigWithALiteralProperty`
+in `jets/rete/expr_op_test.cc`, and `MinMaxOfValidConfigs`, `MinMaxOfConfigWithALiteralProperty`,
+`MinMaxOfConfigMissingTheEntityProperty`, `SumJoinValuesConfigWithALiteralProperty`,
+`SumValuesConfigMissingTheValueProperty` and `AggregateOfAnUnknownResource` of `ExprOpSpecialtyTest`
+in `jets/rete/expr_op_specialty_test.cc`.
 
 ## Values and operators — 2026-10-22
 

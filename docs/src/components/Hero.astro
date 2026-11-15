@@ -1,0 +1,31 @@
+---
+// Starlight's hero, with one more action on the landing page when the site has a
+// workspace's guide: a link to it, labelled with the guide's sidebar group (the
+// workspace's name). The guide exists only in a build that ran with
+// JETS_WORKSPACE_DB (scripts/workspace_docs.mjs), and astro.config.mjs adds its
+// sidebar group only then, so the sidebar is what this reads: no group, no link,
+// and the public build's landing page is unchanged.
+import Default from '@astrojs/starlight/components/Hero.astro';
+
+type Entry = { type: 'link'; href: string; label: string } | { type: 'group'; label: string; entries: Entry[] };
+
+const route = Astro.locals.starlightRoute;
+const guideHref = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/workspace/`;
+const guide = (route.sidebar as Entry[]).find(
+	(group) => group.type === 'group' && group.entries.some((e) => e.type === 'link' && e.href === guideHref),
+);
+const hero = route.entry.data.hero;
+if (route.id === '' && guide && hero && !hero.actions.some((a) => a.link === guideHref)) {
+	// A new entry for this request's route data, rather than a change to the
+	// collection entry, which is shared between requests in `astro dev`.
+	route.entry = {
+		...route.entry,
+		data: {
+			...route.entry.data,
+			hero: { ...hero, actions: [...hero.actions, { text: `${guide.label} guide`, link: guideHref, variant: 'secondary' }] },
+		},
+	};
+}
+---
+
+<Default {...Astro.props}><slot /></Default>

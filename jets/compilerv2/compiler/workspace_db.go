@@ -34,6 +34,10 @@ type WorkspaceDB struct {
 	maxExprKey         int
 	reteNode2DbKey     map[string]int
 	expression2DbKey   map[string]int
+
+	// The files the main rule file includes, in the order they were read
+	// (SetIncludedFiles), saved to main_support_files.
+	includedFiles []string
 }
 
 func NewWorkspaceDB(ctx context.Context, basePath string) (*WorkspaceDB, error) {
@@ -68,12 +72,27 @@ func NewWorkspaceDB(ctx context.Context, basePath string) (*WorkspaceDB, error) 
 	return w, nil
 }
 
+// SetIncludedFiles names the files the main rule file includes, directly or
+// through another included file, in the order the compiler read them, for
+// SaveJetRuleModel to record in main_support_files. The rule model does not
+// carry them.
+func (w *WorkspaceDB) SetIncludedFiles(fileNames []string) {
+	w.includedFiles = fileNames
+}
+
 // Write the jetrule model into the workspace database
 func (w *WorkspaceDB) SaveJetRuleModel(ctx context.Context, jetRuleModel *rete.JetruleModel) error {
 	var err error
 	w.mainSourceFileName = jetRuleModel.MainRuleFileName
+	// A main rule file workspace_control already records as one is being saved
+	// a second time, which is refused. One it records only as a file another
+	// main rule file includes (that one was compiled first: the workspace
+	// compile goes in name order) becomes a main rule file now, keeping its key.
 	if w.sourceMgr.IsPreExisting(w.mainSourceFileName) {
-		return fmt.Errorf("main source file %s already exists in workspace db", w.mainSourceFileName)
+		if w.sourceMgr.IsPreExistingMain(w.mainSourceFileName) {
+			return fmt.Errorf("main source file %s already exists in workspace db", w.mainSourceFileName)
+		}
+		w.sourceMgr.MarkAsMain(w.mainSourceFileName)
 	}
 	w.mainFileKey = w.sourceMgr.GetOrAddDbKey(w.mainSourceFileName)
 
@@ -111,6 +130,15 @@ func (w *WorkspaceDB) SaveJetRuleModel(ctx context.Context, jetRuleModel *rete.J
 	err = w.SaveReteNodes(ctx, w.DB, jetRuleModel)
 	if err != nil {
 		return fmt.Errorf("failed to save rete nodes: %w", err)
+	}
+
+	// Save the files the main rule file includes. After the classes and the
+	// lookup tables, so a file one of those names keeps the key it had before
+	// main_support_files was written, and before the rules, which name the
+	// file each is written in.
+	err = w.SaveMainSupportFiles(ctx, w.DB)
+	if err != nil {
+		return fmt.Errorf("failed to save main support files: %w", err)
 	}
 
 	// Save jet rules

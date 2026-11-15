@@ -17,7 +17,7 @@ import homeFiltersActions from "../../../jets/workspace_assets/user_flows/homeFi
 import pipelineConfigActions from "../../../jets/workspace_assets/user_flows/pipelineConfigUF.ua.json";
 import fileMappingActions from "../../../jets/workspace_assets/user_flows/fileMappingUF.ua.json";
 import sourceConfigActions from "../../../jets/workspace_assets/user_flows/sourceConfigUF.ua.json";
-import type { WorkspaceApi } from "../api/workspace";
+import type { SaveFinding, SaveResult, WorkspaceApi } from "../api/workspace";
 import loadFilesFlow from "../../../jets/workspace_assets/user_flows/loadFilesUF.uf.json";
 import homeFiltersFlow from "../../../jets/workspace_assets/user_flows/homeFiltersUF.uf.json";
 import pipelineConfigFlow from "../../../jets/workspace_assets/user_flows/pipelineConfigUF.uf.json";
@@ -55,6 +55,7 @@ import {
   FlowLoadError,
   FlowStore,
   actionPath,
+  describeFlowSaveWarnings,
   escapeReferences,
   flowPath,
   formPath,
@@ -76,7 +77,7 @@ import { strictPolicy } from "./validate";
  * shape the implementation would have refused. Stubbing the method the store
  * actually calls is what keeps the two honest.
  */
-function stubApi(files: Record<string, string>) {
+function stubApi(files: Record<string, string>, warnings: Record<string, SaveFinding[]> = {}) {
   const saved: Record<string, string> = {};
   const api = {
     fileTree: vi.fn(async () =>
@@ -87,8 +88,11 @@ function stubApi(files: Record<string, string>) {
       if (content === undefined) throw new Error(`no such file: ${path}`);
       return { fileName: path, label: path, content };
     }),
-    saveFile: vi.fn(async (_ws: string, name: string, content: string) => {
+    // Answers what `WorkspaceApi.saveFile` answers: the save check's warnings
+    // for that file, none unless the case names some.
+    saveFile: vi.fn(async (_ws: string, name: string, content: string): Promise<SaveResult> => {
       saved[name] = content;
+      return { warnings: warnings[name] ?? [] };
     }),
   } as unknown as WorkspaceApi;
   return { api, saved };
@@ -130,8 +134,12 @@ const registryWith = (names: string[]): EscapeRegistry => ({
   initializers: { seedFromHomeFilters: () => {} },
 });
 
-const storeFor = (files: Record<string, string>, registry = emptyRegistry) => {
-  const { api, saved } = stubApi(files);
+const storeFor = (
+  files: Record<string, string>,
+  registry = emptyRegistry,
+  warnings: Record<string, SaveFinding[]> = {},
+) => {
+  const { api, saved } = stubApi(files, warnings);
   return { store: new FlowStore(api, { workspaceName: "ws", registry }), api, saved };
 };
 
@@ -579,6 +587,64 @@ describe("saving", () => {
       flowPath("loadFilesUF"),
     ]);
     expect(saved[flowPath("loadFilesUF")]).toBe(serialise(loadFilesFlow));
+  });
+
+  /**
+   * **A save the server accepts with warnings is a save, and the warnings come
+   * back.** `WorkspaceApi.saveFile` has answered them since the save check began
+   * returning its warnings; `save` dropped them, so a flow's documents saved with
+   * nothing said about what the check found.
+   */
+  it("answers the save check's warnings, per document, and still writes all three", async () => {
+    const formWarning: SaveFinding = {
+      severity: "warning",
+      code: "x_unknown",
+      message: "ignored: unknown field",
+      path: "/forms/a/extra",
+    };
+    const flowWarning: SaveFinding = { severity: "warning", code: "x_line", message: "a line finding", line: 3 };
+    const { store, saved } = storeFor(
+      workspace("loadFilesUF", loadFilesFlow, loadFilesActions),
+      emptyRegistry,
+      { [formPath("loadFilesUF")]: [formWarning], [flowPath("loadFilesUF")]: [flowWarning] },
+    );
+    const result = await store.save(await store.load("loadFilesUF"));
+
+    expect(result.files).toEqual([
+      { path: actionPath("loadFilesUF"), warnings: [] },
+      { path: formPath("loadFilesUF"), warnings: [formWarning] },
+      { path: flowPath("loadFilesUF"), warnings: [flowWarning] },
+    ]);
+    expect(Object.keys(saved)).toHaveLength(3);
+
+    // Worded as the Workspace IDE words a save's warnings, under each file that has any.
+    expect(describeFlowSaveWarnings(result)).toBe(
+      [
+        `Saved ${formPath("loadFilesUF")}, with 1 warning:`,
+        "  /forms/a/extra: ignored: unknown field",
+        `Saved ${flowPath("loadFilesUF")}, with 1 warning:`,
+        "  line 3: a line finding",
+      ].join("\n"),
+    );
+  });
+
+  it("answers no warnings, and no text, when the check found none", async () => {
+    const { store } = storeFor(workspace("loadFilesUF", loadFilesFlow, loadFilesActions));
+    const result = await store.save(await store.load("loadFilesUF"));
+    expect(result.files.every((f) => f.warnings.length === 0)).toBe(true);
+    expect(describeFlowSaveWarnings(result)).toBeNull();
+  });
+
+  it("still throws on a refused document, and writes none after it", async () => {
+    const { store, api, saved } = storeFor(workspace("loadFilesUF", loadFilesFlow, loadFilesActions));
+    const loaded = await store.load("loadFilesUF");
+    (api.saveFile as unknown as { mockImplementationOnce(f: () => Promise<never>): void }).mockImplementationOnce(
+      async () => {
+        throw new Error("user_flows/loadFilesUF.ua.json cannot be saved");
+      },
+    );
+    await expect(store.save(loaded)).rejects.toThrow(/cannot be saved/);
+    expect(saved).toEqual({});
   });
 
   it("round-trips byte-for-byte, so a save with no edit is a no-op diff", async () => {

@@ -207,7 +207,6 @@ const NON_FLOW_KEYS = [
   "wsDomainClassTable",
   "wsDataPropertyTable",
   "wsDomainTableTable",
-  "wsJetRulesTable",
   "wsRuleTermsTable",
   "wsMainSupportFilesTable",
   "wsDataModelFilesTable",
@@ -344,6 +343,9 @@ const HAND_MAINTAINED_KEYS = [
   // Load Data carries the source config's key, so Load Files' first page opens
   // with the source ticked (2026-11-11).
   "fmInputSourceMappingUF",
+  // A File column, the file each rule is written in (`jet_rules.authored_file_key`,
+  // 2026-11-13); its main-file column is labelled for what it holds.
+  "wsJetRulesTable",
 ] as const;
 
 /**
@@ -512,7 +514,8 @@ describe("the 28 configurations still translated from the flow fixture", () => {
     // `mergeProcessInputTable`, `merged_input_registry_keys` and
     // `spInjectedProcessInput` were retired with their fixture entries.
     expect(Object.keys(flowDocuments).length).toBe(28);
-    expect(Object.keys(translated).length).toBe(48);
+    // **47 on 2026-11-13**, when `wsJetRulesTable` left to gain a File column.
+    expect(Object.keys(translated).length).toBe(47);
     expect(Object.keys(handAuthored).length).toBe(2);
     // **8 since 2026-10-02**: `org` and the two `pcView*` tables, which keep
     // their fixture entry as the Flutter record other tests use as material —
@@ -526,7 +529,8 @@ describe("the 28 configurations still translated from the flow fixture", () => {
     // **18 the same day**, with `hfStatusTableUF`, `wpClientListRO` and
     // `lfFileKeyStagingTable` from the flows' fixes, and **19** with
     // `fmInputSourceMappingUF`; the total is unchanged.
-    expect(Object.keys(handMaintained).length).toBe(19);
+    // **20 on 2026-11-13**, with `wsJetRulesTable`; the total is unchanged.
+    expect(Object.keys(handMaintained).length).toBe(20);
     // **64 since 2026-10-11**: the three rules unit test tables
     // (`rules_unit_test_harness` `AD.4`), written rather than translated.
     // **5 and 63 since 2026-11-08**: *Session Registry* and *Archived
@@ -1090,10 +1094,20 @@ describe("the two execution-detail tables, which are one screen behind two route
     // **Three since 2026-11-08**, and the third is a copy rather than a new
     // site: *Archived Pipelines* shows *Pipelines Status*'s columns over the
     // archive, which has the same two columns (`session_registry` Phase 2).
+    // **Four since 2026-11-13**, and the fourth is the first new expression and
+    // the first over `workspace.db`: the Jet Rules tab's *File*, the name of the
+    // file each rule is written in, as a scalar subquery so that a rule with no
+    // `authored_file_key` keeps its row (the case below).
     expect(sites).toEqual([
       ["pipelineArchiveTable", "run_duration", "AGE(last_update, start_time)"],
       ["pipelineExecDetailsTable", "run_duration", "AGE(last_update, start_time)"],
       ["pipelineExecStatusTable", "run_duration", "AGE(last_update, start_time)"],
+      [
+        "wsJetRulesTable",
+        "authored_file_name",
+        "(SELECT authored_file.source_file_name FROM workspace_control AS authored_file " +
+          "WHERE authored_file.key = jet_rules.authored_file_key)",
+      ],
     ]);
   });
 
@@ -1519,6 +1533,27 @@ describe("the rules unit test tables", () => {
       const named = [...doc.columns.map((c) => c.name), ...(doc.where ?? []).map((w) => w.column ?? "")];
       expect(named.filter((c) => !have.includes(c)), key).toEqual([]);
     }
+  });
+
+  it("shows each rule's own file on the Jet Rules tab, from the column the compile writes", () => {
+    // `jet_rules.authored_file_key` (2026-11-13): the file a rule is written in,
+    // beside `source_file_key`, the main rule file. Nullable, so the name is a
+    // scalar subquery rather than a third FROM entry, whose join would drop a
+    // rule the compiler had no file name for.
+    const sql = readFileSync(fileURLToPath(new URL("../../../jets/workspace_schema.sql", import.meta.url)), "utf8");
+    const body = /CREATE TABLE IF NOT EXISTS jet_rules \(([\s\S]*?)\n\);/.exec(sql)?.[1] ?? "";
+    expect(body).toMatch(/^\s*authored_file_key\s+INTEGER\b/m);
+    const doc = documents["wsJetRulesTable"]!;
+    if (doc.source !== "query") throw new Error("wsJetRulesTable is not a query table");
+    const names = doc.columns.map((c) => c.name);
+    expect(names.indexOf("authored_file_name")).toBe(names.indexOf("source_file_name") + 1);
+    const file = doc.columns.find((c) => c.name === "authored_file_name")!;
+    expect(file.label).toBe("File");
+    expect(file.table).toBeUndefined();
+    expect(file.calculatedAs).toBe(
+      "(SELECT authored_file.source_file_name FROM workspace_control AS authored_file " +
+        "WHERE authored_file.key = jet_rules.authored_file_key)",
+    );
   });
 
   it("reads the test cases from the unit_tests table the compile writes", () => {

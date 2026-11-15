@@ -642,6 +642,7 @@ class InputChannelConfigStage(InputChannelConfigBase):
     format: str | None = Field(default=None, description="File format of the staged files. Engine default: headerless_csv (validator).")
     input_format_data_json: str | None = Field(default=None, description="Format-specific reader config as json, eg the sheet name for xlsx.")
     is_part_files: bool | None = Field(default=None, description="The file key is a directory of part files rather than a single file.")
+    latest_session_only: bool | None = Field(default=None, description="For a stage channel read through file_key: keeps, in each period folder of the read, only the latest session whose run completed, and skips the other session folders (duplicates, and sessions mapped before a model change). A period whose session folders hold data and none of them a completed run is refused. For a feed with one delivery per period.")
     lookback_periods: str | None = Field(default=None, description="Reads earlier source periods when the input is selected by explicit file_key from the stage area: the key is expanded once per period, substituting ${PERIOD_ID}, and the file listings are concatenated. Format: 'N' reads the current period plus N periods back; 'offset:last' reads current-offset back through current-last ('1:1' is the previous period only). Values may reference env vars; ${PERIOD_ID_TYPE} must name the current period id in the env.")
     merge_channels: list[InputChannelConfig] | None = Field(default=None, description="Input channels merged into this one.")
     multi_columns_input: bool | None = Field(default=None, description="MultiColumnsInput: Indicate that input file must have multiple columns, this is used to detect if the wrong delimiter is used (csv,headerless_csv)")
@@ -1253,11 +1254,38 @@ class TableColumnSpec(_Base):
     rdf_type: str | None = Field(default=None, description="The column's rdf type.")
 
 
+# The column types an output table may name: `schema.PgTypeNames`, the keys of
+# `pgTypes` in jets/schema/schema.go, which the engine refuses anything outside
+# (`ToPgType`, and `validateOutputTableColumnTypes` in jets/compute_pipes). The
+# type is written into the table's DDL, so the list is closed. It applies to
+# output_tables only: a lookup table's columns are never created from it.
+# tests_schema.py holds the two lists equal.
+OUTPUT_TABLE_RDF_TYPES = (
+    "bigint", "bool", "boolean", "bytea", "date", "datetime", "double",
+    "double precision", "int", "int32", "int64", "integer", "jsonb", "long",
+    "resource", "string", "text", "timestamp without time zone", "timestamptz",
+    "uint", "uint32", "uint64", "ulong", "volatile_resource",
+)
+
+
+def _output_table_rdf_types(columns):
+    """Refuse an output table column whose rdf_type is not one of
+    OUTPUT_TABLE_RDF_TYPES. A column with no rdf_type passes, as it does in the
+    engine: only creating the table needs one."""
+    for column in columns or []:
+        if column.rdf_type is not None and column.rdf_type not in OUTPUT_TABLE_RDF_TYPES:
+            raise ValueError(
+                f"output table column {column.name!r}: unknown rdf_type {column.rdf_type!r}; "
+                f"it must be one of {', '.join(OUTPUT_TABLE_RDF_TYPES)}"
+            )
+    return columns
+
+
 class TableSpec(_Base):
     """Shared configuration to load the pipeline output in JetStore DB (postgres)"""
     channel_spec_name: str | None = Field(default=None, description="ChannelSpecName specify the channel spec. Column provides metadata info")
     check_schema_changed: bool | None = Field(default=None, description="Verify whether the table schema changed before the load.")
-    columns: list[TableColumnSpec] | None = Field(default=None, description="Column metadata of the table.")
+    columns: Annotated[list[TableColumnSpec] | None, AfterValidator(_output_table_rdf_types)] = Field(default=None, description="Column metadata of the table.", json_schema_extra={"items": {"properties": {"rdf_type": {"enum": list(OUTPUT_TABLE_RDF_TYPES)}}}})
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
     key: str = Field(description="Key is the table key for reference by compute pipes steps")
     name: str = Field(description="Name is the table name for reference by compute pipes steps, env var replacement used for table name (e.g., ${CLIENT}_${OBJECT_TYPE})")

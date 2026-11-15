@@ -47,7 +47,7 @@ import { escapeReferences } from "../userflow/store";
 import { resolveEscapes } from "../actions/escapes";
 import { strictPolicy, validateFlow } from "../userflow/validate";
 import { isFormValid } from "../userflow/validateForm";
-import { queryEscape } from "../api/workspace";
+import { queryEscape, type SaveFinding, type SaveResult } from "../api/workspace";
 import { createCpipesTemplateApply, configPath, applyPlanPath, type ApplyPlan } from "./templateApply";
 
 /**
@@ -82,7 +82,7 @@ const TEMPLATE = "qc_metrics";
 const WORKSPACE = "test_ws";
 
 /** A workspace that serves the apply plan and remembers what was written to it. */
-function workspace(plan: unknown) {
+function workspace(plan: unknown, warnings: SaveFinding[] = []) {
   const saved: { fileName: string; content: string }[] = [];
   return {
     saved,
@@ -96,8 +96,10 @@ function workspace(plan: unknown) {
         if (path !== applyPlanPath(TEMPLATE)) throw new Error(`no such file: ${path}`);
         return { fileName: path, label: path, content: JSON.stringify(plan) };
       },
-      saveFile: async (_ws: string, fileName: string, content: string) => {
+      // Answers what `WorkspaceApi.saveFile` answers: the save check's warnings.
+      saveFile: async (_ws: string, fileName: string, content: string): Promise<SaveResult> => {
         saved.push({ fileName, content });
+        return { warnings };
       },
     },
   };
@@ -248,5 +250,81 @@ describe("criterion 32 — a template configured step at a time", () => {
     expect(ws.saved).toEqual([]);
     expect(Object.keys(actions.actions)).toEqual(["cpipesTemplateApply"]);
     expect(flow.states[flow.startAtKey]).toBeDefined();
+  });
+});
+
+/**
+ * **A configuration saved with warnings is saved, and the author is told what the
+ * save check found.** The save answers its validator's warnings (a key the
+ * pipeline ignores, for one), and the escape used to drop them: the flow ended
+ * as if nothing had been found.
+ */
+describe("a save the server accepts with warnings", () => {
+  /** A plan with nothing to collect, so the escape goes straight to the save. */
+  const plan: ApplyPlan = {
+    schemaVersion: 1,
+    template: TEMPLATE,
+    fillMarker: "$fill",
+    bindingMarker: "$bind:",
+    choosers: {},
+    constants: {},
+    jsonFields: [],
+    skeleton: { cluster_config: {}, output_tabel: [] },
+  };
+  const warning: SaveFinding = {
+    severity: "warning",
+    code: "cpipes_config_unknown_field",
+    message: 'ignored when the pipeline runs: unknown field "output_tabel"',
+    path: "/output_tabel",
+  };
+  const context = () => ({ formState: new FormState(), group: 0, flowKey: TEMPLATE });
+  const expected = [
+    `Saved ${configPath(TEMPLATE)}, with 1 warning:`,
+    `  /output_tabel: ignored when the pipeline runs: unknown field "output_tabel"`,
+  ].join("\n");
+
+  it("succeeds and shows them through the host's warning tone", async () => {
+    const ws = workspace(plan, [warning]);
+    const warned: string[] = [];
+    const notified: [string, string][] = [];
+    const escape = createCpipesTemplateApply({ workspaceName: WORKSPACE, api: ws.api as never });
+    const outcome = await escape(context(), {
+      ...host,
+      notify: (level, message) => notified.push([level, message]),
+      warn: (message) => warned.push(message),
+    });
+
+    expect(outcome).toBeNull();
+    expect(ws.saved).toHaveLength(1);
+    expect(warned).toEqual([expected]);
+    expect(notified).toEqual([]);
+  });
+
+  it("falls back to an info notice on a host with no warning tone", async () => {
+    const ws = workspace(plan, [warning]);
+    const notified: [string, string][] = [];
+    const escape = createCpipesTemplateApply({ workspaceName: WORKSPACE, api: ws.api as never });
+    const outcome = await escape(context(), {
+      ...host,
+      notify: (level, message) => notified.push([level, message]),
+    });
+
+    expect(outcome).toBeNull();
+    expect(notified).toEqual([["info", expected]]);
+  });
+
+  it("says nothing when the check found nothing", async () => {
+    const ws = workspace(plan);
+    const said: string[] = [];
+    const escape = createCpipesTemplateApply({ workspaceName: WORKSPACE, api: ws.api as never });
+    const outcome = await escape(context(), {
+      ...host,
+      notify: (_level, message) => said.push(message),
+      warn: (message) => said.push(message),
+    });
+
+    expect(outcome).toBeNull();
+    expect(ws.saved).toHaveLength(1);
+    expect(said).toEqual([]);
   });
 });

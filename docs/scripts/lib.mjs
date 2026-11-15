@@ -18,7 +18,15 @@ export function readSource(relPath) {
 	return readFileSync(abs, 'utf8');
 }
 
-/** Escape Markdown outside code spans, and the table delimiter inside them. */
+/**
+ * Escape Markdown outside code spans, and the table delimiter inside them, so
+ * the text reads as written: on one line, and, where it starts with what would
+ * begin a block (`# `, `- `, `+ `, `1. ` or `1) `, a thematic break such as
+ * `---`), with that marker escaped. Text that is a paragraph, a list item or a
+ * heading's content would otherwise become a heading, a list or a rule (`* `,
+ * `_` and `> ` are escaped wherever they are). Leading spaces are dropped, as a
+ * paragraph drops them, so that four of them cannot start a code block.
+ */
 export function prose(text) {
 	if (!text) return '';
 	return String(text)
@@ -33,7 +41,10 @@ export function prose(text) {
 						.replace(/>/g, '&gt;'),
 		)
 		.join('')
-		.replace(/\s*\n\s*/g, ' ');
+		.replace(/\s*\n\s*/g, ' ')
+		.replace(/^\s+/, '')
+		.replace(/^([#+-])/, '\\$1')
+		.replace(/^(\d{1,9})([.)])/, '$1\\$2');
 }
 
 /** A value as inline code, safe inside a table cell. */

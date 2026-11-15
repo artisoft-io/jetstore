@@ -621,6 +621,10 @@ export function FlowRunner({ api }: { api: ApiClient }) {
         URL.revokeObjectURL(url);
       },
       notify: (level, message) => (level === "error" ? setError(message) : setStatus(message)),
+      // A completed action the user must read, such as a workspace file saved
+      // with the save check's warnings (`cpipesTemplateApply`). The shell's
+      // status outlives the screen, so it is still there when the flow exits.
+      warn: (message) => setStatus(message, "warn"),
       setBusy,
       goToState: (state: string) => {
         jumpTo.current = state;

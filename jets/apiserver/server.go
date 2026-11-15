@@ -261,8 +261,8 @@ func (server *Server) checkJetStoreSchema() error {
 // silently instead of stopping the start; that constraint is older than the
 // current schema file and nothing has made it fire, which is exactly why it would
 // not be noticed. workspace_changes is the third and is not exposed at all:
-// UpdateTableSchema skips it by name once it exists (`UpdateTableSchema`,
-// `jets/schema/schema.go:189`), so no migration reaches it in either order.
+// UpdateTableSchema skips it by name once it exists (`jets/schema/schema.go`'s
+// `UpdateTableSchema`), so no migration reaches it in either order.
 //
 // **Gated on the release, not on the workspace version.** This is the same gate
 // checkDomainTablesVersion applies, deliberately: a workspace version changes on

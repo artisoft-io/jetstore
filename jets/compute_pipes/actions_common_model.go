@@ -241,6 +241,10 @@ type ComputePipesRun struct {
 type FileName struct {
 	LocalFileName string
 	InFileKeyInfo FileKeyInfo
+	// StageColumns, when set, are the columns the file's header line must carry,
+	// and StageChannel the channel reading it (stage_columns_check.go).
+	StageColumns []string
+	StageChannel string
 }
 
 type CompiledPartFileComponent struct {
