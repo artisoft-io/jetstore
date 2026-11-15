@@ -697,7 +697,7 @@ def test_the_estimate_is_within_five_per_cent_of_the_server():
     if over:
         raise Pending(
             "the estimator has drifted past 5% against measurements taken on "
-            f"granite4.1:3b at I-42, which is not on this machine: {over}. "
+            f"granite4.1:3b, which is not on this machine: {over}. "
             "Re-measure prompt_eval_count on that model; do not widen the epsilon."
         )
 
