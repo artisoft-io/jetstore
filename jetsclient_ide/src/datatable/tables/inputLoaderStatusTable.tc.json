@@ -27,18 +27,21 @@
     },
     {
       "name": "year",
+      "table": "source_period",
       "label": "Year",
       "tooltip": "Year of the file's source period",
       "isNumeric": true
     },
     {
       "name": "month",
+      "table": "source_period",
       "label": "Month",
       "tooltip": "Month of the file's source period",
       "isNumeric": true
     },
     {
       "name": "day",
+      "table": "source_period",
       "label": "Day",
       "tooltip": "Day of the file's source period",
       "isNumeric": true
@@ -51,6 +54,7 @@
     },
     {
       "name": "load_count",
+      "table": "input_loader_status",
       "label": "Records Count",
       "tooltip": "Number of records loaded",
       "isNumeric": true
@@ -73,6 +77,7 @@
     },
     {
       "name": "bad_row_count",
+      "table": "input_loader_status",
       "label": "Bad Records",
       "tooltip": "Number of Bad Records",
       "isNumeric": true

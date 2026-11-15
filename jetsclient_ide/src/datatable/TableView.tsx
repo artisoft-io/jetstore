@@ -71,6 +71,8 @@ export function TableView({
   const selectedIndex = binding.selection.findIndex(Boolean);
   const selectedRow = selectedIndex === -1 ? undefined : binding.rows[selectedIndex];
   const selectedRowCount = binding.selection.filter(Boolean).length;
+  /** Every selected row on the page, which `enableWhen` tests (`ActionContext.selectedRows`). */
+  const selectedRows = binding.rows.filter((_, index) => binding.selection[index] === true);
 
   /**
    * The two actions A.5 returned to the widget, handed to the bar. Task D.10.
@@ -88,6 +90,7 @@ export function TableView({
     // as the action — `actionBarModel.ts`'s `ActionContext.tableKey`, `D02`.
     tableKey: config.key,
     selectedRowCount,
+    selectedRows,
     checkboxVisible: binding.modes.checkboxVisible,
     // `blocked` is `hasBlockingFilter`, which is this predicate inverted —
     // A.4c's answer reused rather than recomputed.

@@ -16,6 +16,21 @@ import react from "@vitejs/plugin-react";
 // Go, and `BASENAME` in src/base.ts.
 const API_PATHS = ["/dataTable", "/login", "/register", "/inferServer", "/registerFileKey", "/purgeData", "/agentic", "/docsSession", "/docs"];
 
+// Two of those paths are also client routes: `/register` (the registration screen)
+// and `/login` (a redirect to the root), both in App.tsx. The apiserver serves them
+// as POST (and the CORS OPTIONS) only, so a GET for either is a page load, not an
+// api call. Proxying it would hand the browser whatever the apiserver serves at that
+// path, which is the deployed bundle rather than the one this dev server is building.
+// Returning the url from `bypass` lets vite's own html fallback serve index.html.
+const CLIENT_ROUTE_API_PATHS = new Set(["/login", "/register"]);
+
+/** The page-load requests to keep on the dev server: a GET (or HEAD) for exactly a client route. */
+export function isClientRoutePageLoad(method: string | undefined, url: string | undefined): boolean {
+  if (method !== "GET" && method !== "HEAD") return false;
+  const path = (url ?? "").split(/[?#]/, 1)[0] ?? "";
+  return CLIENT_ROUTE_API_PATHS.has(path.replace(/\/+$/, "") || "/");
+}
+
 // The apiserver listens on :8080 with -usingSshTunnel and on :8443 (TLS) otherwise,
 // so the dev target is configurable. `secure: false` matters for the :8443 case,
 // where the certificate is self-signed.
@@ -34,7 +49,15 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: Object.fromEntries(
-      API_PATHS.map((p) => [p, { target: apiOrigin, changeOrigin: true, secure: false }]),
+      API_PATHS.map((p) => [
+        p,
+        {
+          target: apiOrigin,
+          changeOrigin: true,
+          secure: false,
+          bypass: (req) => (isClientRoutePageLoad(req.method, req.url) ? req.url : undefined),
+        },
+      ]),
     ),
   },
   // **The budgets are for a full parallel run, not for one file** (jetstore_maintenance_02

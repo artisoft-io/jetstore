@@ -190,6 +190,26 @@ describe("availability", () => {
     expect(state.reason).toBe('Missing predicate "hasDataRegistryFilters"');
   });
 
+  it("gives a refusing predicate its own reason, not the filter buttons'", () => {
+    // Session Registry's Delete is refused when a selected session already has a
+    // deletion; the reason read "Nothing to clear", which is the filters' reason.
+    const deleteSessions: ActionConfig = { ...find("clearFilters"), key: "deleteSessions" };
+    const tableKey = "sessionRegistryTable";
+    expect(isEnabledEscapeFor(tableKey, "deleteSessions")).toBe("noSessionDeletionRequested");
+    const refused = availability(
+      deleteSessions,
+      makeContext({ tableKey, predicates: { noSessionDeletionRequested: () => false } }),
+    );
+    expect(refused).toEqual({
+      visible: true,
+      enabled: false,
+      reason: "A selected session already has a deletion requested",
+    });
+    // The filter buttons keep theirs.
+    const clear = availability(find("clearFilters"), makeContext({ predicates: { hasDataRegistryFilters: () => false } }));
+    expect(clear.reason).toBe("Nothing to clear");
+  });
+
   it("composes gates as an and, not an or", () => {
     const action = find("deleteOrg");
     const both = availability(
@@ -476,6 +496,19 @@ describe("enableWhen — the selected row's criteria", () => {
       enabled: false,
       reason: "Only for a row that is completed",
     });
+  });
+
+  it("tests every selected row when the bar is given them, not only the first", () => {
+    // On a multi-select table an action the first row allows would run on the
+    // others too, so each must qualify. One row is the single-select case.
+    const action = gated("deleteWorkspace");
+    const rows = [rowWithStatus("removed"), rowWithStatus("active")];
+    const both = availability(action, makeContext({ selectedRow: rows[0]!, selectedRows: rows, selectedRowCount: 2 }));
+    expect(both).toEqual({ visible: true, enabled: false, reason: "Not for a row that is active or in progress" });
+    const first = availability(action, makeContext({ selectedRows: [rows[0]!] }));
+    expect(first.enabled).toBe(true);
+    // No `selectedRows` (the IDE toolbar's one row): `selectedRow` is the row.
+    expect(availability(action, makeContext({ selectedRow: rows[0]! })).enabled).toBe(true);
   });
 
   it("treats a null cell as failing both contains and doesNotContain", () => {

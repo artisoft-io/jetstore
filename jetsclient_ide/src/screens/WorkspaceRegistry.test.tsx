@@ -479,6 +479,70 @@ describe("the dialog host", () => {
     expect(screen.queryByRole("dialog")).not.toBeNull();
   });
 
+  it("opens each time from the row and the document, not from what a cancelled open typed", async () => {
+    const { posts } = await mount();
+    await selectRow("globex_ws");
+    await waitFor(() => expect(button("Commit & Push Workspace").hasAttribute("disabled")).toBe(false));
+    fireEvent.click(button("Commit & Push Workspace"));
+    let dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText(/Commit Message/), { target: { value: "half typed" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    fireEvent.click(button("Commit & Push Workspace"));
+    dialog = await screen.findByRole("dialog");
+    expect((within(dialog).getByLabelText(/Commit Message/) as HTMLInputElement).value).toBe(
+      "Commit from JetStore UI",
+    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "Commit & Push" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    const posted = posts.filter((p) => p.body["action"] === "workspace_insert_rows");
+    expect(posted).toHaveLength(1);
+    const row = (posted[0]!.body["data"] as Record<string, unknown>[])[0]!;
+    expect(row["git.commit.message"]).toBe("Commit from JetStore UI");
+  });
+
+  it("still posts the selected row's keys the dialog does not show, on an update", async () => {
+    // `previous.workspace_name` is published by the table's selection and is in
+    // no `navigationParams`: it is how an update that renames a workspace finds
+    // the row. A dialog with a state of its own has to carry it over.
+    const { posts } = await mount();
+    await selectRow("globex_ws");
+    await waitFor(() => expect(button("Add/Update").hasAttribute("disabled")).toBe(false));
+    fireEvent.click(button("Add/Update"));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText(/Workspace Name/), { target: { value: "globex2_ws" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add / Update" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    const posted = posts.filter((p) => p.body["action"] === "workspace_insert_rows");
+    expect(posted).toHaveLength(1);
+    expect(posted[0]!.body["fromClauses"]).toEqual([{ table: "update/workspace_registry" }]);
+    const row = (posted[0]!.body["data"] as Record<string, unknown>[])[0]!;
+    expect(row["workspace_name"]).toBe("globex2_ws");
+    expect(row["previous.workspace_name"]).toBe("globex_ws");
+    expect(row["key"]).toBe("2");
+  });
+
+  it("leaves the screen's selection as it was when a dialog is cancelled", async () => {
+    // The dialog's typed name must not reach the state the row buttons act on:
+    // Compile, which is not a dialog, reads the workspace name from it.
+    const { posts } = await mount();
+    await selectRow("globex_ws");
+    await waitFor(() => expect(button("Add/Update").hasAttribute("disabled")).toBe(false));
+    fireEvent.click(button("Add/Update"));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText(/Workspace Name/), { target: { value: "typed_ws" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    fireEvent.click(button("Compile Workspace"));
+    await waitFor(() =>
+      expect(posts.some((p) => p.body["action"] === "workspace_insert_rows")).toBe(true),
+    );
+    const compile = posts.find((p) => p.body["action"] === "workspace_insert_rows")!;
+    expect(compile.body["workspaceName"]).toBe("globex_ws");
+  });
+
   it("closes on Escape, which is what the Dart's dismissible barrier does", async () => {
     await mount();
     await selectRow("globex_ws");

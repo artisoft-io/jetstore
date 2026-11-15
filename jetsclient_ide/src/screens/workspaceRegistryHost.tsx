@@ -20,7 +20,7 @@ import { productionRegistry } from "../actions/registry";
 import { ActionDocumentSchema, type ActionDocument } from "../actions/schema";
 import { describeUnresolved, resolveEscapes } from "../actions/escapes";
 import type { ActionRequest } from "../datatable/actionDispatch";
-import { FormState } from "../datatable/formState";
+import { FormState, dialogFormState } from "../datatable/formState";
 import { fromDocument } from "../datatable/tableTranslate";
 import { TableConfigDocumentSchema, tableEscapeReferences } from "../datatable/table";
 import type { DataTableFetcher } from "../datatable/useDataTable";
@@ -177,12 +177,28 @@ export function useRegistryActionHost({
    */
   const haltedByUser = useRef(false);
   const dialog = useFormDialog();
+  /**
+   * The open dialog's own form state, or null when none is open.
+   *
+   * A new one on every open, copied from `formState` with the action's
+   * `navigationParams` written over it, and dropped on close. Until then the
+   * dialogs read and wrote `formState`, the state the table publishes its
+   * selection to and the row buttons act on: what was typed into a cancelled
+   * dialog stayed there, in the next open's fields and in what *Compile* sent.
+   */
+  const [dialogState, setDialogState] = useState<FormState | null>(null);
+  /** The state a dialog's fields, queries and actions read: the dialog's while one is open. */
+  const activeState = dialogState ?? formState;
 
   const forms = parsed.forms.success ? parsed.forms.data.forms : {};
   const actions = parsed.actions.success ? parsed.actions.data.actions : {};
   const config = registryTableConfig;
 
   useEffect(() => formState.subscribe(() => setStateVersion((n) => n + 1)), [formState]);
+  useEffect(
+    () => (dialogState === null ? undefined : dialogState.subscribe(() => setStateVersion((n) => n + 1))),
+    [dialogState],
+  );
 
   const refresh = useCallback(() => {
     formState.requestRefresh();
@@ -198,7 +214,7 @@ export function useRegistryActionHost({
 
   const currentForm: Form | null =
     dialog.request === null ? null : (forms[dialog.request.form] ?? null);
-  const queries = useFormQueries(currentForm, formState, queryPost);
+  const queries = useFormQueries(currentForm, activeState, queryPost);
 
   const host: ActionHost = useMemo(
     () => ({
@@ -207,7 +223,7 @@ export function useRegistryActionHost({
         if (registered === undefined) throw new Error(`named query "${name}" is not registered`);
         const sql = resolveQuery(
           { sql: registered.sql, ...(registered.params ? { params: [...registered.params] } : {}) },
-          formState,
+          activeState,
         );
         if (sql === null) return null;
         const body = await queryPost({ action: "raw_query_map", query_map: { [name]: sql } });
@@ -220,7 +236,7 @@ export function useRegistryActionHost({
       },
       validate: () => {
         if (currentForm === null) return true;
-        const found = validateAllGroups(currentForm, formState, GROUP);
+        const found = validateAllGroups(currentForm, activeState, GROUP);
         setErrors(found);
         if (found.length > 0) haltedByUser.current = true;
         return found.length === 0;
@@ -273,7 +289,7 @@ export function useRegistryActionHost({
       now: () => Date.now(),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [api, currentForm, formState, navigate, queryPost, setError, setStatus, dialog.close, prompts],
+    [api, currentForm, activeState, navigate, queryPost, setError, setStatus, dialog.close, prompts],
   );
 
   const runNamedAction = useCallback(
@@ -283,16 +299,17 @@ export function useRegistryActionHost({
       if (action === undefined) {
         throw new Error(`action "${name}" is not in this screen's action document`);
       }
+      // The dialog's state while one is open; the screen's for a row button.
       return (await runAction({
         action,
         host,
-        formState,
+        formState: activeState,
         field: { group: GROUP, key: name },
         registry: productionRegistry,
         flowKey: "workspaceRegistry",
       })).message;
     },
-    [actions, host, formState],
+    [actions, host, activeState],
   );
 
   /**
@@ -311,11 +328,17 @@ export function useRegistryActionHost({
    */
   const openAndRefresh = useCallback(
     async (form: string, params: Record<string, string>) => {
+      // The params the action resolved are seeded into this open's state,
+      // because the dialog's fields read them by key: that is what makes
+      // `navigationParams` mean anything.
+      setDialogState(dialogFormState(formState, GROUP, params));
+      setErrors([]);
       setBusy(false);
       const outcome = await dialog.open({ form, params });
+      setDialogState(null);
       if (outcome === "ok") refresh();
     },
-    [dialog, refresh],
+    [dialog, formState, refresh],
   );
 
   /**
@@ -354,15 +377,8 @@ export function useRegistryActionHost({
               return;
             }
             case "openDialog": {
-              // **The dialog host, I-68's consumer.** The params the action
-              // resolved are seeded into the shared group before the form opens,
-              // because the dialog's fields read them by key — that is what makes
-              // `navigationParams` mean anything.
-              for (const [key, value] of Object.entries(request.params)) {
-                formState.setValue(GROUP, key, value);
-              }
-              formState.notifyListeners();
-              setErrors([]);
+              // The dialog host: `openAndRefresh` gives the
+              // open its own state, seeded with the params the action resolved.
               await openAndRefresh(request.form, request.params);
               return;
             }
@@ -372,10 +388,6 @@ export function useRegistryActionHost({
                 setError(outcome);
                 return;
               }
-              for (const [key, value] of Object.entries(request.params)) {
-                formState.setValue(GROUP, key, value);
-              }
-              formState.notifyListeners();
               await openAndRefresh(request.form, request.params);
               return;
             }
@@ -442,7 +454,7 @@ export function useRegistryActionHost({
         errors={errors}
         onDismiss={() => dialog.close("cancel")}
         host={{
-          formState,
+          formState: activeState,
           group: GROUP,
           queryRows: queries.rows,
           queriesLoading: queries.loading,

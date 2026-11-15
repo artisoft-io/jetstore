@@ -103,7 +103,7 @@ import { productionRegistry } from "../actions/registry";
 import { ActionDocumentSchema, type ActionDocument } from "../actions/schema";
 import type { ActionRequest } from "../datatable/actionDispatch";
 import { DataTable } from "../datatable/DataTable";
-import { FormState } from "../datatable/formState";
+import { FormState, dialogFormState } from "../datatable/formState";
 import type { TableConfigDocument } from "../datatable/table";
 import { TableConfigDocumentSchema, actionRowsOf, tableEscapeReferences } from "../datatable/table";
 import { TableView } from "../datatable/TableView";
@@ -353,12 +353,27 @@ export function CompiledView({ api, document, workspaceName, onFilesChanged }: C
   /** Whether the last action stopped because the user stopped it — **I-186**. */
   const haltedByUser = useRef(false);
   const dialog = useFormDialog();
+  /**
+   * The open dialog's own form state, or null when none is open: a copy of
+   * `formState` with the action's `navigationParams` over it, dropped on close.
+   * *Add File*'s field and the file table's selection share the key
+   * `source_file_name`, so while the dialog wrote into `formState`, a cancelled
+   * *Add File* left its typed name (or the seeded prefix) where *Delete* reads
+   * the selected files, and in the box the next time it opened.
+   */
+  const [dialogState, setDialogState] = useState<FormState | null>(null);
+  /** The state a dialog's fields and actions read: the dialog's while one is open. */
+  const activeState = dialogState ?? formState;
 
   const findings = useMemo(documentFindings, []);
   const forms = parsed.forms.success ? parsed.forms.data.forms : {};
   const actions = parsed.actions.success ? parsed.actions.data.actions : {};
 
   useEffect(() => formState.subscribe(() => setStateVersion((n) => n + 1)), [formState]);
+  useEffect(
+    () => (dialogState === null ? undefined : dialogState.subscribe(() => setStateVersion((n) => n + 1))),
+    [dialogState],
+  );
 
   /**
    * The workspace the action document posts against — see the header.
@@ -385,7 +400,7 @@ export function CompiledView({ api, document, workspaceName, onFilesChanged }: C
       },
       validate: () => {
         if (currentForm === null) return true;
-        const found = validateAllGroups(currentForm, formState, GROUP);
+        const found = validateAllGroups(currentForm, activeState, GROUP);
         setErrors(found);
         if (found.length > 0) haltedByUser.current = true;
         return found.length === 0;
@@ -428,7 +443,7 @@ export function CompiledView({ api, document, workspaceName, onFilesChanged }: C
       now: () => Date.now(),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [api, currentForm, formState, setError, setStatus, dialog.close, prompts],
+    [api, currentForm, activeState, setError, setStatus, dialog.close, prompts],
   );
 
   const runNamedAction = useCallback(
@@ -438,16 +453,17 @@ export function CompiledView({ api, document, workspaceName, onFilesChanged }: C
       if (action === undefined) {
         throw new Error(`action "${name}" is not in this view's action document`);
       }
+      // The dialog's state while one is open; the view's for a table button.
       return (await runAction({
         action,
         host,
-        formState,
+        formState: activeState,
         field: { group: GROUP, key: name },
         registry: productionRegistry,
         flowKey: "compiledView",
       })).message;
     },
-    [actions, host, formState],
+    [actions, host, activeState],
   );
 
   /**
@@ -465,12 +481,17 @@ export function CompiledView({ api, document, workspaceName, onFilesChanged }: C
 
   /** Opens a dialog and waits for it **without holding `busy`** — a modal is not work (C.2b). */
   const openAndRefresh = useCallback(
-    async (form: string, _params: Record<string, string>) => {
+    async (form: string, params: Record<string, string>) => {
+      // The params are seeded into this open's state, where the dialog's fields
+      // read them by key.
+      setDialogState(dialogFormState(formState, GROUP, params));
+      setErrors([]);
       setBusy(false);
-      const outcome = await dialog.open({ form, params: _params });
+      const outcome = await dialog.open({ form, params });
+      setDialogState(null);
       if (outcome === "ok") afterFileAction();
     },
-    [dialog, afterFileAction],
+    [dialog, formState, afterFileAction],
   );
 
   const onTableAction = useCallback(
@@ -493,11 +514,6 @@ export function CompiledView({ api, document, workspaceName, onFilesChanged }: C
               return;
             }
             case "openDialog": {
-              for (const [key, value] of Object.entries(request.params)) {
-                formState.setValue(GROUP, key, value);
-              }
-              formState.notifyListeners();
-              setErrors([]);
               await openAndRefresh(request.form, request.params);
               return;
             }
@@ -518,7 +534,7 @@ export function CompiledView({ api, document, workspaceName, onFilesChanged }: C
         }
       })();
     },
-    [afterFileAction, formState, openAndRefresh, runNamedAction, setError],
+    [afterFileAction, openAndRefresh, runNamedAction, setError],
   );
 
   /** A dialog's button. Cancel is the dialog's; everything else is the document's. */
@@ -619,7 +635,7 @@ export function CompiledView({ api, document, workspaceName, onFilesChanged }: C
           errors={errors}
           onDismiss={() => dialog.close("cancel")}
           host={{
-            formState,
+            formState: activeState,
             group: GROUP,
             // No field of `addWorkspaceFile` names a `dropdownItemsQuery`, so
             // nothing asks and the answer is always "no rows for that name".

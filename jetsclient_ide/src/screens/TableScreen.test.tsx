@@ -20,9 +20,9 @@
  * is racy and the failure surfaces somewhere else.
  */
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useNavigate, type NavigateFunction } from "react-router-dom";
 
 import { ApiClient } from "../api/client";
 import cpipesExecDetailsTable from "../datatable/tables/cpipesExecDetailsTable.tc.json";
@@ -235,5 +235,51 @@ describe("maxLines, which nothing drew until this task", () => {
     await mount("stats", "sess-1");
     const cell = await screen.findByText("reducing");
     expect(cell.className).not.toContain("jets-datatable__clamped");
+  });
+});
+
+describe("going straight from one route to the other", () => {
+  it("starts the second table from its own document, not the first table's state", async () => {
+    // Both routes render `TableScreen` at the same place in the tree, so without a
+    // key per table React keeps the first one's state: its columns, its sort, and a
+    // query of the second table sorted on the first table's column. The app's own
+    // links pass through Home, which unmounts the screen and hid this.
+    const { fetchImpl, posts } = stubServer();
+    const api = new ApiClient("", fetchImpl);
+    await api.login("michel@artisoft.io", "pw");
+    let navigate: NavigateFunction | undefined;
+    function Navigator() {
+      navigate = useNavigate();
+      return null;
+    }
+    render(
+      <MemoryRouter initialEntries={["/executionStatusDetails/sess-1"]}>
+        <Navigator />
+        <Routes>
+          {(["status", "stats"] as const).map((which) => (
+            <Route
+              key={which}
+              path={screens[which].path}
+              element={
+                <TableScreen api={api} tableKey={screens[which].tableKey} document={screens[which].document} />
+              }
+            />
+          ))}
+        </Routes>
+      </MemoryRouter>,
+    );
+    await screen.findByText("completed");
+
+    act(() => navigate!("/executionStatsDetails/sess-1"));
+    await screen.findByText("reducing");
+    const statsReads = reads(posts).filter(
+      (r) => (r["fromClauses"] as { table: string }[])[0]!.table === "cpipes_execution_status_details",
+    );
+    expect(statsReads.length).toBeGreaterThan(0);
+    for (const r of statsReads) {
+      expect(r).toMatchObject({ sortColumn: "total_input_files_size_mb", sortAscending: false });
+    }
+    // The second table's own columns are drawn, and none of the first's.
+    expect(screen.queryByText("completed")).toBeNull();
   });
 });

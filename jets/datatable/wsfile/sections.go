@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -449,11 +450,18 @@ func BuildWorkspaceFileStructure(root, workspaceName string) ([]*WorkspaceNode, 
 	}
 
 	for _, f := range workspaceRootFiles {
+		// Sized as every other file node is (visitDir, visitRootNotes); a root
+		// file that is absent keeps its node, with no size.
+		var size int64
+		if info, err := os.Stat(filepath.Join(root, f.FileName)); err == nil {
+			size = info.Size()
+		}
 		resultData = append(resultData, &WorkspaceNode{
 			Key:          f.Key,
 			Type:         "file",
 			PageMatchKey: f.FileName,
 			Label:        f.Label,
+			Size:         size,
 			RoutePath:    "/workspace/:workspace_name/home",
 			RouteParams: map[string]string{
 				"workspace_name": workspaceName,
