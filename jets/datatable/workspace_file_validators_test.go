@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
 	"github.com/artisoft-io/jetstore/jets/optstats"
 	"github.com/artisoft-io/jetstore/jets/wsvalidate"
 )
@@ -74,12 +75,35 @@ func TestValidatorForPicksTheMostSpecificSuffix(t *testing.T) {
 // match only means something if two suffixes can overlap, and it is the rule
 // that keeps the *next* file type honest — `.tc.json` was the fourth and did not
 // need it, which is exactly when a guard like this stops being watched.
+//
+// **A suffix repeats since 2026-11-14**, deliberately: the `.sql` rows scoped
+// to `runbooks/` and `reports/` beside the one for every SQL file, where the
+// dispatch prefers a scoped row on a suffix of the same length. So the rule is
+// now that a repeated suffix is between a scoped row and others, and that two
+// scoped rows of one suffix never both apply to one file, which is probed in
+// every section's directory and at the root.
 func TestSuffixesAreDistinct(t *testing.T) {
 	for i, a := range workspaceFileValidators {
 		for j, b := range workspaceFileValidators {
-			if i != j && strings.HasSuffix(a.suffix, b.suffix) {
+			if i == j || !strings.HasSuffix(a.suffix, b.suffix) {
+				continue
+			}
+			if a.suffix != b.suffix || (a.applies == nil && b.applies == nil) {
 				t.Errorf("%q ends with %q; longest-match decides, and that should be deliberate",
 					a.suffix, b.suffix)
+				continue
+			}
+			if a.applies == nil || b.applies == nil {
+				continue
+			}
+			dirs := []string{""}
+			for _, section := range wsfile.WorkspaceSections {
+				dirs = append(dirs, section.Dir+"/", section.Dir+"/sub/")
+			}
+			for _, dir := range dirs {
+				if name := dir + "x" + a.suffix; a.applies(name) && b.applies(name) {
+					t.Errorf("rows %d and %d, both %q, both apply to %s", i, j, a.suffix, name)
+				}
 			}
 		}
 	}

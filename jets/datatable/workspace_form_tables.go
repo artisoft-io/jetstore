@@ -28,7 +28,7 @@ import (
 //
 // Only presence is checked: whether the table document is valid is its own
 // save's check (userflow.ValidateTableDocument), and the compile's.
-func checkFormTables(content string, workspace fs.FS) []wsvalidate.Finding {
+func checkFormTables(_, content string, workspace fs.FS) []wsvalidate.Finding {
 	var doc struct {
 		Forms map[string]struct {
 			Rows [][]struct {

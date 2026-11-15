@@ -11,11 +11,18 @@ import (
 	workspace_assets "github.com/artisoft-io/jetstore/jets/workspace_assets"
 )
 
-// An override of a page of the workspace guide, or of its settings file, does
-// not make the apiserver's start-up compile the workspace; every other override
-// still does, including one whose path only names docs/ on the way elsewhere.
-func TestOnlyTheWorkspaceGuideIsExemptFromTheCompile(t *testing.T) {
+// An override of a page of the workspace guide, or of its settings file, or of
+// the workspace's root README (since 2026-11-14), does not make the
+// apiserver's start-up compile the workspace; every other override still does,
+// including one whose path only names docs/ on the way elsewhere, and another
+// README.
+func TestOnlyTheWorkspaceGuideAndRootReadmeAreExemptFromTheCompile(t *testing.T) {
 	for fileName, want := range map[string]bool{
+		"README.md":                            false,
+		"readme.md":                            false,
+		"./README.md":                          false,
+		"CHANGES.md":                           true,
+		"jet_rules/README.md":                  true,
 		"docs/index.md":                        false,
 		"docs/customisation/observe.md":        false,
 		"docs/index.mdx":                       false,
