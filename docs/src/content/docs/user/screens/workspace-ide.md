@@ -166,6 +166,8 @@ includes. A rule in a file that two main rule files include is listed once under
 another included file. *Jet Rules Files* lists the included rule files as well as the main ones, with
 *Main Rule File?* telling them apart.
 
+![The Jet Rules tab of the Jets Rules compiled view: jets_ws's rules by name, each with its salience, its text as written, the main rule file it is compiled under, jet_rules/clinical_intel/cintel_main.jr, and the file it is written in, an included rule file.](../../../../assets/screenshots/user/screens/workspace-ide/ide-compiled-jet-rules.png)
+
 The *Data Model Files* and *Jet Rules Files* tabs also have **Add File**, which creates an empty file
 in the section, and **Delete**, which deletes the selected files. A compiled view reflects the last
 compile, so it does not show an edit until the workspace is compiled again.
