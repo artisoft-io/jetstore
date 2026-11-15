@@ -18,6 +18,9 @@ package compiler
 //
 //	LD_LIBRARY_PATH=<jetstore>/build/jets go test -count=1 -tags engine_keys -run TestStatisticsKeyAgreesWithTheEngine ./compilerv2/compiler/
 //
+// ctest runs it with the engine's tests, as go_statistics_key_engine
+// (jets/CMakeLists.txt), against the libjets.so of that build.
+//
 // It runs on jets/jetrules/test_ws, or on the workspace JETS_ENGINE_KEYS_WORKSPACE
 // names, copied to a temporary directory either way. It prints counts only, and a
 // mismatch by rule set, vertex and position, never a value.

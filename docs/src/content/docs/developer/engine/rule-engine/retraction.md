@@ -9,6 +9,37 @@ sidebar:
 How the rule engine withdraws what a row inferred when the row loses its support, newest first. The
 older sections are the history of how the engine reached its one retraction behaviour, and say so.
 
+## A row that drops a variable can be retracted while still supported — found 2026-11-14
+
+**Open, and not fixed: fixing it changes what rules infer.** The compiler keeps in a vertex's beta
+row only the variables its own triple binds or a vertex or consequent below it reads, and leaves
+out every other variable bound above it (`BuildBetaNodesRecursively`, the vertex's pruned
+variables, in `jets/compilerv2/compiler/jet_rule_listener_rete.go`). So in
+
+```
+[R]: (?x ex:q ?y).(?y ex:r ?w).(?x ex:t ?z) -> (?x ex:s ?z);
+```
+
+the third vertex's row is `(?x, ?z)`: `?y`, the variable the second vertex joined on, is dropped,
+and three parent rows that differ only in `?y` make one row. The engine keeps a relation's rows as a
+set and removes a row when any parent row that makes it is withdrawn (`ReteSession::triple_updated`,
+`BetaRelation::row_removed`), without asking whether another still makes it. Erase `(x ex:q y1)` and
+`(x ex:s z)` is retracted, though `y2` and `y3` still support it. When a consequent reads `?y`, the
+rows stay distinct and the triple stays, with its reference count down by one.
+
+The shape is common, not rare: compiled on 2026-11-14, every one of four workspaces of rules, the
+example `jets_ws` among them, has vertices that drop a parent variable, from about one in seven to
+one in four of their antecedent vertices. Whether a run loses an inference depends on a supporting
+triple being withdrawn during it: an erase, an inferred triple retracted, or a negation or filter
+that changes. A fix is either a row that counts the parent rows making it, or a compiler that keeps
+every variable, at the cost of larger relations; either changes the results of rules that meet the
+case.
+
+`jets/compilerv2/compiler/beta_row_pruning_test.go` pins what the compiler emits, and
+`beta_row_pruning_engine_test.go` (tag `engine_rules`, run by `ctest` as
+`go_beta_row_pruning_engine`) runs both forms in the engine: the one that keeps `?y` passes, and the
+one that drops it is a skipped subtest that fails once the over-retraction is gone.
+
 ## One retraction behaviour; `_0:no_truth_main_on_exist` deleted — 2026-10-24
 
 Decided on 2026-10-24. **The engine has one retraction behaviour, the one the `LEGACY` mode

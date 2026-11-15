@@ -37,7 +37,9 @@ cmake --build build --target jets jets_test -j "$(nproc)"
 
 `build/jets/libjets.so` is the shared library the Go bridge links, `libjets_static.a` (target
 `jets_static`) the static one, and `jets_test` the engine's Google Test suite. Here the build took
-1 minute 45 seconds on 16 cores, and `ctest` ran 277 tests, all passing, in under a second.
+1 minute 45 seconds on 16 cores, and `ctest` ran 277 tests, all passing, in under a second. On
+2026-11-14 it ran 297: 295 of the engine's and two Go tests that link `libjets.so`, which `ctest`
+registers when `go` is on the `PATH` ([Run the Go and C++ tests](/docs/developer/testing/go-and-cpp/)).
 
 **Run `ctest` from `build/jets`, not from `build`.** The tests are registered in
 `jets/CMakeLists.txt` (`enable_testing`, `gtest_discover_tests`), so `ctest` in the top of the build
