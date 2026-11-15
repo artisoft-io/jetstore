@@ -21,7 +21,11 @@ test("Manage users", async ({ page }) => {
   await page.getByRole("textbox", { name: "Name" }).fill(NAME);
   await page.getByRole("textbox", { name: "Email" }).fill(EMAIL);
   await shot(page, "register");
-  const password = randomBytes(18).toString("base64url");
+  // The server refuses a password without a digit, an upper-case letter, a
+  // lower-case letter and a symbol (user.Validate), and the form does not check
+  // that first: about one random string in sixty has no digit, and the account
+  // was then not created. The suffix meets every class.
+  const password = `${randomBytes(18).toString("base64url")}Aa1!`;
   await page.getByRole("textbox", { name: "Password", exact: true }).fill(password);
   await page.getByRole("textbox", { name: "Confirm password" }).fill(password);
   await page.getByRole("button", { name: "Create account" }).click();

@@ -15,7 +15,7 @@ on the [Workspaces](/docs/user/screens/workspaces/) screen, which opens the sele
 `workspace_ide` capability: the top bar entry is disabled without it, and a user who reaches the
 screen anyway sees *Read only* and cannot save.
 
-![The Workspace IDE on jets_ws: the workspace picker and Save at the top, Refresh below, the file tree on the left with Data Model, Jets Rules, Lookups and Pipes Config, and the empty Workspace Changes table on the right.](../../../../assets/screenshots/user/screens/workspace-ide/ide-changes.png)
+![The Workspace IDE on jets_ws: the workspace picker, and Workspace guide and Save, at the top, Refresh below, the file tree on the left with Data Model, Jets Rules, Lookups and Pipes Config, and the empty Workspace Changes table on the right.](../../../../assets/screenshots/user/screens/workspace-ide/ide-changes.png)
 
 ## The bars at the top
 
@@ -48,6 +48,8 @@ workspace as it was compiled into the deployed image, so an edit saved here, a p
 included, is not in it until it is committed to the workspace's repository and the images are
 rebuilt. The top bar's *Help* still opens this page. How a workspace writes its guide is in
 [Document a workspace](/docs/developer/how-to/document-a-workspace/).
+
+![The page of jets_ws's guide that Workspace guide opens for data_model/hc_model.jr: the file's domain classes, each with its base classes and a table of its properties, their kind and type, and the rules written in the file listed on the right.](../../../../assets/screenshots/user/screens/workspace-ide/workspace-guide-page.png)
 
 ## The file tree
 
@@ -169,6 +171,8 @@ another included file. *Jet Rules Files* lists the included rule files as well a
 *Main Rule File?* telling them apart.
 
 ![The Jet Rules tab of the Jets Rules compiled view: jets_ws's rules by name, each with its salience, its text as written, the main rule file it is compiled under, jet_rules/clinical_intel/cintel_main.jr, and the file it is written in, an included rule file.](../../../../assets/screenshots/user/screens/workspace-ide/ide-compiled-jet-rules.png)
+
+![The Files Relationship tab of the Jets Rules compiled view: each of jets_ws's main rule files with every file it includes, cintel_main.jr with its data model, rule and lookup files, and each unit test's rule file with jets_model.jr.](../../../../assets/screenshots/user/screens/workspace-ide/ide-compiled-files-relationship.png)
 
 The *Data Model Files* and *Jet Rules Files* tabs also have **Add File**, which creates an empty file
 in the section, and **Delete**, which deletes the selected files. A compiled view reflects the last

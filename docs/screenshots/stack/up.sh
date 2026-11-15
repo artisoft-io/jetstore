@@ -8,9 +8,11 @@
 #
 # In order:
 #   1. the binaries in JETS_BIN_DIR, built by build-bin.sh when it is empty;
-#   2. jetsclient_ide/dist and docs/dist, rebuilt when their sources are newer;
+#   2. jetsclient_ide/dist, rebuilt when its sources are newer;
 #   3. jets_ws exported with `git archive` into a temporary directory, its
-#      JetStore assets installed, and the workspace compiled;
+#      JetStore assets installed, and the workspace compiled; then the
+#      documentation site with the workspace's guide, as an installation's UI
+#      image builds it, into docs/screenshots/.stack/docs-dist (never docs/dist);
 #   4. postgres:16-alpine on a free port, in a container named for this checkout;
 #   5. update_db: the system tables, the base configuration, and jets_ws's CI
 #      client configuration (process_config/ci_workspace_init_db.sql), loaded as
@@ -54,7 +56,7 @@ fi
 BIN="$(cd "$JETS_BIN_DIR" && pwd)"
 log "binaries: $BIN ($(tr '\n' ' ' < "$BIN/BUILD_INFO" 2> /dev/null || echo 'no BUILD_INFO'))"
 
-# 2. The web app and the documentation site, from this checkout.
+# 2. The web app, from this checkout.
 stale() { # stale <dist marker> <source dir>...
   local marker="$1"; shift
   [ ! -f "$marker" ] && return 0
@@ -65,14 +67,7 @@ if [ "${SHOTS_SKIP_WEB_BUILD:-}" != 1 ] && stale "$IDE_DIR/dist/index.html" "$ID
   log "building jetsclient_ide/dist"
   ( cd "$IDE_DIR" && { [ -d node_modules ] || npm ci --no-audit --no-fund; } && npx vite build --logLevel warn )
 fi
-DOCS_DIR="$REPO_ROOT/docs"
-if [ "${SHOTS_SKIP_WEB_BUILD:-}" != 1 ] && stale "$DOCS_DIR/dist/index.html" "$DOCS_DIR/src" "$DOCS_DIR/public" "$DOCS_DIR/astro.config.mjs"; then
-  log "building docs/dist"
-  ( cd "$DOCS_DIR" && { [ -d node_modules ] || npm ci --no-audit --no-fund; } && npm run --silent build > "$STATE_DIR/docs-build.log" 2>&1 ) \
-    || die "the documentation build failed; see $STATE_DIR/docs-build.log"
-fi
 [ -f "$IDE_DIR/dist/index.html" ] || die "jetsclient_ide/dist is missing"
-[ -f "$DOCS_DIR/dist/index.html" ] || die "docs/dist is missing"
 
 # 3. The workspace: an export, never a link, so nothing the stack does reaches the repository.
 [ -d "$JETS_WS_REPO" ] || die "JETS_WS_REPO=$JETS_WS_REPO is not a directory; point it at a jets_ws repository"
@@ -105,6 +100,31 @@ STASH="$WORKSPACES_HOME/ws:stash/$WORKSPACE"
 mkdir -p "$STASH"
 cp -a "$WORKSPACES_HOME/$WORKSPACE/." "$STASH/"
 rm -rf "$STASH/.git" "$STASH/.github" "$STASH/.gitignore" "$STASH/lookup.db" "$STASH/workspace.db"
+
+# The documentation site, as an installation's UI image builds it
+# (dockerfiles/Dockerfile.ui_service_ws): JetStore's three guides and the guide
+# to the workspace just compiled, with its docs/ folder, so the Workspace IDE
+# shows its Workspace guide button. Built at every run, since the workspace is
+# compiled at every run (a few seconds), into a directory of the stack's own:
+# docs/dist, the public build, is left as it is. The guide's sources that the
+# build writes into docs/src and docs/public (git-ignored) are removed after it.
+DOCS_DIR="$REPO_ROOT/docs"
+DOCS_DIST="$STATE_DIR/docs-dist"
+if [ "${SHOTS_SKIP_WEB_BUILD:-}" != 1 ]; then
+  log "building the documentation site with the $WORKSPACE guide"
+  status=0
+  (
+    cd "$DOCS_DIR" && { [ -d node_modules ] || npm ci --no-audit --no-fund; } &&
+      JETS_WORKSPACE_DB="$WORKSPACES_HOME/$WORKSPACE/workspace.db" \
+      JETS_WORKSPACE_DOCS="$WORKSPACES_HOME/$WORKSPACE/docs" \
+      JETS_WORKSPACE_NAME="$WORKSPACE" \
+      npm run --silent gen && npx astro build --outDir "$DOCS_DIST"
+  ) > "$STATE_DIR/docs-build.log" 2>&1 || status=$?
+  rm -rf "$DOCS_DIR/src/content/docs/workspace" "$DOCS_DIR/public/workspace"
+  [ "$status" = 0 ] || die "the documentation build failed; see $STATE_DIR/docs-build.log"
+fi
+[ -f "$DOCS_DIST/index.html" ] || die "$DOCS_DIST is missing"
+[ -f "$DOCS_DIST/workspace/manifest.json" ] || die "$DOCS_DIST has no workspace guide"
 
 # 4. The database.
 free_port() { python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()'; }
@@ -168,7 +188,7 @@ JETS_s3_INPUT_PREFIX=jetstore/input \
 JETS_s3_OUTPUT_PREFIX=jetstore/output \
 JETS_s3_STAGE_PREFIX=jetstore/stage \
 SOCK_DIR="$SOCK_DIR" JETS_BIN_DIR="$BIN" STACK_ADMIN_EMAIL="$STACK_ADMIN_EMAIL" \
-IDE_DIST="$IDE_DIR/dist" DOCS_DIST="$DOCS_DIR/dist" \
+IDE_DIST="$IDE_DIR/dist" DOCS_DIST="$DOCS_DIST" \
   setsid unshare -rn --kill-child bash "$STACK_DIR/apiserver-netns.sh" \
   > "$STATE_DIR/apiserver.log" 2>&1 < /dev/null &
 record APISERVER_PGID "$!"
