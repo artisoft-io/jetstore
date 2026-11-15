@@ -9,7 +9,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/workspace"
 )
 
-// The end-to-end check for the briefing projection (agentic_ai AK.2), and it lives
+// The end-to-end check for the briefing projection, and it lives
 // here because this is where the real rdf session meets the real encoder.
 //
 // **Nothing between the entity and the guardrail is stubbed.** A projected
@@ -19,7 +19,7 @@ import (
 // `workspaces/jets_ws/pipes_config/patient_profile.pc.json` uses - toon,
 // remove_model_prefixes, the exclusions - and the string that comes out is what
 // `briefing.CheckTOON` is given. A test that hand-wrote the toon would agree with
-// the hand that wrote it, which is the failure phase 3's U.2 recorded as I-147:
+// the hand that wrote it, which is a failure recorded before:
 // four validation layers and a green suite passed a call that could not work,
 // because the stub was shaped like the caller.
 //
@@ -28,8 +28,8 @@ import (
 // need a rete session over a compiled workspace; briefing_projection_completeness_test.go
 // beside this one runs them, over a compiled jets_ws.
 //
-// **On the C++ engine since the Go engine's retirement** (rules_benchmark Phase 6,
-// 2026-10-22). The Go engine's rdf session needed no workspace; the C++ one is made
+// **On the C++ engine since the Go engine's retirement** (2026-10-22).
+// The Go engine's rdf session needed no workspace; the C++ one is made
 // by an engine, so each test runs in a child process over a compiled copy of
 // jets/jetrules/test_ws (runInCompiledTestWs, engine_mode_test.go), whose rules it
 // does not run: the session only holds the hand-built briefing. Needs the cgo
@@ -48,7 +48,7 @@ func inScratchTestWs(t *testing.T) bool {
 
 // newSession is a C++ rdf session over the child's scratch test_ws. The session's
 // manager is the one a test may still add resources to: the meta graph is locked
-// once a session exists (rules_unit_test_harness I-15).
+// once a session exists.
 func newSession(t *testing.T) (compute_pipes.JetRdfSession, compute_pipes.JetResourceManager) {
 	t.Helper()
 	if out, err := workspace.CompileWorkspace(nil, "test_ws", "ak2",
@@ -87,7 +87,7 @@ func projectedBriefing(t *testing.T) (compute_pipes.JetRdfSession, compute_pipes
 	ins("briefing", "rdf:type", rm.NewResource("cintel:Briefing"))
 	ins("briefing", "jets:key", rm.NewTextLiteral("k-1"))
 	ins("briefing", "cintel:Briefing_Member_ID", rm.NewTextLiteral("M-4471"))
-	// A§8.3's intended-use notice, asserted by BP_Disclaimer10 with no condition
+	// The intended-use notice, asserted by BP_Disclaimer10 with no condition
 	// beyond the briefing existing. It is on the record and out of the prompt,
 	// which is the second half of what the exclusions here are doing.
 	ins("briefing", "cintel:Briefing_Disclaimer", rm.NewTextLiteral(shippedNotice))
@@ -110,7 +110,7 @@ func projectedBriefing(t *testing.T) (compute_pipes.JetRdfSession, compute_pipes
 	ins("event2", "cintel:Diagnosis_Name", rm.NewTextLiteral("Opioid dependence, uncomplicated"))
 	ins("event2", "cintel:Care_Setting", rm.NewTextLiteral("Emergency Room - Hospital"))
 
-	// One pharmacy event, so the F516 case is in the fixture rather than in a
+	// One pharmacy event, so the single-value case is in the fixture rather than in a
 	// separate test: a multi-valued property with one value serialises unwrapped.
 	ins("briefing", "cintel:has_Briefing_Pharmacy_Events", rm.NewResource("fill1"))
 	ins("fill1", "rdf:type", rm.NewResource("cintel:Briefing_Pharmacy_Event"))
@@ -235,7 +235,7 @@ func TestProjectedEntityGroundsABriefing(t *testing.T) {
 				t.Fatalf("expected no findings, got %s", res.String())
 			}
 			// Every populated leaf of the briefing resolved to somewhere in the
-			// entity: that is A§8.3's source reference per field, computed.
+			// entity: that is the guardrails' source reference per field, computed.
 			for _, field := range []string{"/conditions/0/code", "/medications/0/drug_name",
 				"/medical_event_count", "/latest_service_date"} {
 				if len(res.Refs[field]) == 0 {
@@ -262,8 +262,8 @@ const shippedNotice = "Informational only. Prepared from claims data for a call-
 // `cintel:Briefing_Member_ID` does, and for the same reason - the record must
 // carry it and the prompt must not - so it is kept out by an
 // `exclude_properties` entry, which is a denylist. **Delete that entry and a
-// legal notice is in every prompt, and nothing fails.** This is agentic_ai
-// I-439's second instance rather than its first, and the second is what turns
+// legal notice is in every prompt, and nothing fails.** This is the
+// denylist problem's second instance rather than its first, and the second is what turns
 // a one-property exception into the argument for an `include_properties`.
 func TestTheNoticeIsOnTheRecordAndNotInThePrompt(t *testing.T) {
 	if inScratchTestWs(t) {
@@ -319,7 +319,7 @@ func TestInventedFieldsAreRefused(t *testing.T) {
 		name, brief, wantCode string
 	}{
 		{
-			// The failure A§8.3's prompt instruction was the only guard against.
+			// The failure the guardrails' prompt instruction was the only guard against.
 			name: "a diagnosis outside the input set",
 			brief: `{"conditions":[{"code":"E119","name":"Type 2 diabetes mellitus without complications"}],
 			         "medications":[],"medical_event_count":2,"pharmacy_event_count":1,
@@ -379,7 +379,7 @@ func TestInventedFieldsAreRefused(t *testing.T) {
 }
 
 // The pharmacy list holds one entry, so cintel:Medication serialises as a bare
-// scalar rather than an array (F516). The selector's [] over a scalar is what
+// scalar rather than an array. The selector's [] over a scalar is what
 // keeps the check working for the member a guardrail is least entitled to be
 // wrong about, and this asserts it through the real encoder rather than through
 // a hand-written document.
@@ -421,7 +421,7 @@ func indexOf(haystack, needle string) int {
 // `Selector.Resolve` returns the whole slice as one value for a segment without
 // `[]`, so the comparison is against "[f1120 l0390]" and fails. The direction of
 // the failure is the safe one - a false finding rather than a false pass - but
-// it is silent in the case an author is most likely to test, because F516 means
+// it is silent in the case an author is most likely to test, because unwrapping means
 // the same selector works perfectly for a member with one event.
 //
 // So: put `[]` on a leaf source selector unless the property cannot be

@@ -1,4 +1,4 @@
-"""`R10`: the token diff, and the baseline that makes it able to go red.
+"""The token diff, and the baseline that makes it able to go red.
 
 **The mutation tests are the point of this file.** A baseline check that has
 never been seen to fail is a claim about what it would detect, and this
@@ -60,7 +60,7 @@ def test_the_difference_is_where_the_baseline_says_it_is():
 def test_the_transformation_baseline_is_the_one_the_plan_declares():
     """16 / 0 / 3, re-derived rather than copied.
 
-    `F37` measured this on 2026-09-22 against a tree that has since moved, so
+    This was measured on 2026-09-22 against a tree that has since moved, so
     this asserts the plan's declared number against the checkout rather than
     restating it. The other two kinds are asserted by the baseline file; this
     one is spelled out because it is the number three documents carry.
@@ -93,15 +93,17 @@ def test_the_virtual_tokens_are_not_part_of_the_universe():
 
 
 def test_every_run_states_what_it_does_not_cover(capsys):
-    """`AG.2`, asserted as output rather than as documentation.
+    """The coverage statement, asserted as output rather than as documentation.
 
-    The clause names `P9-I117` and `P9-I02` because those are the two claims a
-    reader would otherwise take this instrument to have settled.
+    The clause names the two claims a reader would otherwise take this
+    instrument to have settled: that two implementations of one token agree,
+    and that the two engines' drift is measured.
     """
     assert main.main(["tokens"]) == main.EXIT_OK
     printed = capsys.readouterr().out
     assert "What this does NOT cover" in printed
-    assert "P9-I117" in printed and "P9-I02" in printed
+    assert "wrote different bytes for one document" in printed
+    assert "two engines drift and nothing measures it" in printed
     assert "NARROWED by this instrument and not closed" in printed
     # And on the checking path too, which is the one somebody runs in CI and
     # the one whose green result is most likely to be read as an all-clear.
@@ -258,9 +260,9 @@ def test_the_node_taking_a_token_on_goes_red_as_well(capsys):
     err = capsys.readouterr().err
     assert "`aggregate` left `JetStore only`" in err
     assert "`aggregate` entered `both`" in err
-    # And the `both` message is where P9-I117 has to be said again: two
+    # And the `both` message is where it has to be said again: two
     # implementations of one token agreeing is not what this checks.
-    assert "P9-I117" in err
+    assert "two implementations of one token can" in " ".join(err.split())
 
 
 def test_an_unchanged_tree_against_an_untouched_baseline_stays_green(go_fixture):

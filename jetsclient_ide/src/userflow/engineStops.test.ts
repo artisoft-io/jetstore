@@ -1,5 +1,5 @@
 /**
- * A stopped action does not move the flow. I-29.
+ * A stopped action does not move the flow.
  *
  * **The entry was open for eight days as a deliberate reproduction.** `ufNext`
  * ran the state's action and advanced whatever came back, because the Dart logs
@@ -8,7 +8,7 @@
  * user the next page and the flow ended looking successful with no loader
  * started.
  *
- * The reasoning expired with the Flutter app (track X). These tests are the
+ * The reasoning expired with the Flutter app. These tests are the
  * behaviour that replaced it, driven through `step` directly rather than through
  * a flow, because the interesting cases are the ones the corpus cannot reach:
  * only one of its 31 state actions can fail on data rather than on a server, and
@@ -144,7 +144,7 @@ describe("ufCancel", () => {
 });
 
 /**
- * Where a run begins when the url names a state. Task D.10, from **I-260**.
+ * Where a run begins when the url names a state.
  *
  * Here rather than in a new file because `startAtPosition` is `startAt`'s other
  * case and the two are read together; the end-to-end behaviour is

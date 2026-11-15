@@ -7,7 +7,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/rulestest"
 )
 
-// AB.7: expect, on its own.
+// Expect, on its own.
 func TestApplyExpect(t *testing.T) {
 	cases := []struct {
 		name           string

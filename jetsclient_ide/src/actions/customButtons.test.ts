@@ -1,6 +1,6 @@
 /**
- * Parsing a deployment's custom buttons — jetstore_maintenance_02, `D04`, `AE.8`.
- * The rendering half is `screens/Home.test.tsx`, *the third row (D04)*.
+ * Parsing a deployment's custom buttons (2026-10-01).
+ * The rendering half is `screens/Home.test.tsx`, *the third row*.
  */
 
 import { describe, expect, it, vi } from "vitest";
@@ -14,16 +14,15 @@ import {
 } from "./customButtons";
 
 /**
- * Cedargate's value, verbatim from `build_jetstore_scripts`
- * (`internal/workspaces/cedargate_ws.sh`, read 2026-10-01). A string, parsed here,
- * so the test is of the value the operator actually writes.
+ * A deployment's value, verbatim from its build configuration (read 2026-10-01).
+ * A string, parsed here, so the test is of the value the operator actually writes.
  */
-const CEDARGATE =
+const DEPLOYED =
   '[{"type":"fetch_stage_to_clipboard","key":"analysis_report_to_clipboard","description":"Get Analysis Report from JetStore stage s3 location to clipboard","label":"Analysis Report","replace_text":"|","replace_with":",","fsk_params":["process_name","session_id"],"file_path":"process_name={{process_name}}/session_id={{session_id}}/step_id=analysis_lookup/jets_partition=analysis_data/part0000-0000001.csv"}]';
 
 describe("parseCustomButtons", () => {
-  it("parses cedargate's value into one Analysis Report button", () => {
-    const buttons = parseCustomButtons(JSON.parse(CEDARGATE));
+  it("parses a deployment's value into one Analysis Report button", () => {
+    const buttons = parseCustomButtons(JSON.parse(DEPLOYED));
     expect(buttons).toHaveLength(1);
     expect(buttons[0]).toMatchObject({
       key: "analysis_report_to_clipboard",
@@ -36,7 +35,7 @@ describe("parseCustomButtons", () => {
 
   it("draws none for anything it cannot use, all or nothing, as Flutter did", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const good = JSON.parse(CEDARGATE)[0] as Record<string, unknown>;
+    const good = JSON.parse(DEPLOYED)[0] as Record<string, unknown>;
     for (const bad of [
       { not: "a list" },
       "a string",
@@ -59,15 +58,15 @@ describe("parseCustomButtons", () => {
   });
 
   it("uses Flutter's label when an entry names none", () => {
-    const { label: _label, ...unlabelled } = JSON.parse(CEDARGATE)[0] as Record<string, unknown>;
+    const { label: _label, ...unlabelled } = JSON.parse(DEPLOYED)[0] as Record<string, unknown>;
     expect(parseCustomButtons([unlabelled])[0]!.label).toBe(DEFAULT_CUSTOM_LABEL);
   });
 });
 
 describe("a custom button on the action bar", () => {
-  const [button] = parseCustomButtons(JSON.parse(CEDARGATE));
+  const [button] = parseCustomButtons(JSON.parse(DEPLOYED));
 
-  it("needs a selected row and jetstore_read, the capability fetch_file_from_stage checks (Q-14)", () => {
+  it("needs a selected row and jetstore_read, the capability fetch_file_from_stage checks", () => {
     const action = customButtonAction(button!);
     expect(action).toMatchObject({
       actionType: "doAction",

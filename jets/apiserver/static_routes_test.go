@@ -15,7 +15,7 @@ import (
 // "does it steal traffic from an api route" is a question about registration
 // order that only a router can answer. Reading the handler in isolation cannot.
 //
-// **The question changed shape at X.1 and got harder, not easier.** While the
+// **The question changed shape when the app moved to `/` and got harder, not easier.** While the
 // prefix was `/ide/` the risk was bounded by the prefix: the worst case was the
 // IDE stealing its own url space. At `/` the prefix matches everything, and the
 // only thing standing between an api call and the html shell is that gorilla/mux

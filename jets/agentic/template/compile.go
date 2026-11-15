@@ -78,7 +78,7 @@ func CompileJSON(data []byte) (*Template, error) {
 // group**, so the fallback is one recursive concept rather than a
 // document-level special case - which is what lets a template put a notice and
 // a rule above a body that may have nothing to say, and still have the
-// fallback fire (§10.6).
+// fallback fire.
 func compileGroup(elements []*Element, when, empty string, p position) (*element, error) {
 	if len(elements) == 0 {
 		return nil, compileErr(p, "carries no elements; a group with nothing in it emits nothing "+

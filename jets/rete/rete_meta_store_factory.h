@@ -53,7 +53,7 @@ class ReteMetaStoreFactory {
 
   // Closes the workspace-db connection load_database opened. The call was
   // commented out, so only delete_jetstore_hdl closed it, and a factory deleted
-  // any other way leaked it (I-144). The lookup helper's connections close with
+  // any other way leaked it. The lookup helper's connections close with
   // the meta stores that own it, after the last session using them has gone.
   ~ReteMetaStoreFactory()
   {

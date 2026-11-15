@@ -2,8 +2,7 @@ package datatable
 
 // The runbook executor: a small in-process service in the apiserver that drives
 // workspace runbook runs from the state in jetsapi.runbook_run and
-// jetsapi.runbook_step_run. Project runbooks, Phase 1, track AB (assessment
-// §4.4, plan §3.1 and §3.3).
+// jetsapi.runbook_step_run.
 //
 // # One step at a time, from the tables
 //
@@ -51,8 +50,8 @@ package datatable
 // for a confirmation; otherwise the run's acting user, who is the person who
 // started the run or last resumed it (Continue, Skip, Retry, Accept, Record).
 // The capability a step needs is read from the database when the step runs, so
-// a person who lost a role since the run started is refused at the next step
-// (criterion 7). A refusal fails the step and pauses the run, whatever its
+// a person who lost a role since the run started is refused at the next step.
+// A refusal fails the step and pauses the run, whatever its
 // on_fail, so someone who holds the capability can retry it. There is no
 // service identity, and the admin is not used unless the admin is the person.
 //
@@ -61,7 +60,7 @@ package datatable
 // No step calls a model, and none opens a connection other than to the
 // database, except through the existing JetStore functions a person's button
 // calls (StartPendingTasks, InsertRows, PutSchemaEventToS3, the workspace
-// compile), behind RunbookJetStore (criterion 8).
+// compile), behind RunbookJetStore.
 
 import (
 	"context"
@@ -88,7 +87,7 @@ const runbookLockClass int32 = 0x52424b00
 const runbookWorkspaceIDECapability = "workspace_ide"
 
 // runbookStepCapability is the capability a step type needs when it runs,
-// beside runbook_execute (assessment §4.2).
+// beside runbook_execute.
 func runbookStepCapability(t runbook.StepType) string {
 	switch t {
 	case runbook.StepQuery, runbook.StepWait:
@@ -305,7 +304,7 @@ func runbookAppName(key int64) string { return "jetstore_runbook_" + strconv.For
 // runbookAuditRunID is the agent_audit run_id a runbook run's events chain
 // under. agent_audit's run_id is not a foreign key and its actor is an agent
 // identity or a user email, so a person's runbook run is a run of that chain
-// in its own right (Q-6).
+// in its own right.
 func runbookAuditRunID(key int64) string { return "runbook_run:" + strconv.FormatInt(key, 10) }
 
 // auditStep appends one event to the run's chain in the caller's transaction.
@@ -901,9 +900,6 @@ func (e *RunbookExecutor) prepareConfirmation(ctx context.Context, tx pgx.Tx, ru
 			return true, nil, e.failStep(ctx, tx, run, act, step, actor, "its SQL file is missing", false)
 		}
 		stmts, err := runbook.Bind(text, step, env)
-		if err == nil {
-			err = checkStatements(stmts)
-		}
 		if err != nil {
 			return true, nil, e.failStep(ctx, tx, run, act, step, actor, err.Error(), false)
 		}

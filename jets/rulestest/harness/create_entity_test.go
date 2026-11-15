@@ -4,19 +4,19 @@ package harness
 //
 // test_looping_main.jr (jets/jetrules/test_ws) infers (?state newPerson
 // (create_entity 0)) and then names each new person, so its output can only be
-// checked as "some lp:Person has lp:name person_2" (definition F57). This test
+// checked as "some lp:Person has lp:name person_2". This test
 // compiles a scratch copy of test_ws, runs that rule file through the looping
 // protocol on the C++ engine, snapshots the session and evaluates checks on it.
 // It ran on the Go engine until that engine's retirement (October 2026), and needs
-// the cgo environment of jets/cmds/rules_unit_test/README.md; a C++ engine that
+// the cgo environment of docs/src/content/docs/developer/testing/go-and-cpp.md; a C++ engine that
 // does not build fails the test.
 //
 // WHY A CHILD PROCESS. The rete package and compute_pipes read WORKSPACES_HOME
-// and WORKSPACE in init (definition F16), and only package-internal variables
+// and WORKSPACE in init, and only package-internal variables
 // repoint them, so this package can point them at the scratch workspace only by
 // running the test binary again with the environment set.
 //
-// The loop here is a stand-in for the one track AA extracts from executeRules
+// The loop here is a stand-in for the one extracted from executeRules
 // (RunRuleSets); the harness will call that, and this test will too once it is
 // exported. What this test is about is the snapshot and the match.
 //
@@ -105,10 +105,10 @@ func createEntityChild(t *testing.T) {
 	defer engine.Release()
 	// JetResources before the first session: the meta graph locks when a
 	// session opens, and a new meta resource is refused after that (on C++ it
-	// aborted the process until I-15 was fixed).
+	// aborted the process until 2026-10-11).
 	jr := engine.JetResources()
 	// 10,000 visits, set explicitly: the Go engine's default, and C++'s since
-	// rules_benchmark Q-83, which had none before, so that a rule that stopped
+	// 2026-10, which had none before, so that a rule that stopped
 	// terminating fails the test instead of hanging it.
 	if err := engine.Insert(jr.Jets__istate, jr.Jets__max_vertex_visits, engine.GetMetaResourceManager().NewIntLiteral(10000)); err != nil {
 		t.Fatal(err)
@@ -172,7 +172,7 @@ func createEntityChild(t *testing.T) {
 		{rulestest.KindExpected, `{"s": "jets:iState", "p": "newPerson", "count": ` +
 			strings.Replace(countEq, "%s", "0", 1) + `}`, rulestest.OutcomePass, "count=0"},
 		// Each of the three persons has three names, because loop values are not
-		// erased between iterations (definition F2) and LOOP02 fires for each.
+		// erased between iterations and LOOP02 fires for each.
 		{rulestest.KindExpected, `{"s": "?p", "p": "lp:name", "pattern": ` + persons + `, "count": ` +
 			strings.Replace(countEq, "%s", "3", 1) + `}`, rulestest.OutcomePass, "all 3 bindings pass"},
 		{rulestest.KindExpected, `{"s": "?p", "p": "lp:name", "pattern": ` + persons + `, "count": ` +

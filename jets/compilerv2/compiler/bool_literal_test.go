@@ -7,7 +7,7 @@ import (
 )
 
 // A bool literal outside the accepted spellings is a compile error at the line
-// it was written (rules_unit_test_harness I-45, row 1), both as a declaration
+// it was written, both as a declaration
 // and as a typed literal in a rule. Empty is null and compiles. The lines are in
 // an imported file so that a buffer line and a file line cannot coincide.
 func TestBoolLiteralOutsideTheSpellingsIsALocatedError(t *testing.T) {

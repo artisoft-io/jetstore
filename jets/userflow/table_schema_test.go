@@ -7,80 +7,31 @@ import (
 	"testing"
 )
 
-// tablesDir holds the 50 shipping table configurations, all but two translated out of the
-// Flutter corpus by `jetsclient_ide/src/datatable/table.test.ts` and committed
-// so this side can validate the *real* configuration rather than a sample. See
-// that file for why the translation is round-tripped rather than only emitted.
+// tableDirs are the two directories the shipping table configurations are
+// committed in: 64 documents, 32 in each and no key in both (measured
+// 2026-11-14), so that this side validates the *real* configurations rather
+// than a sample.
 //
-// **37 of them are the flows' and ten are not.** `pipelineExecStatusTable` is
-// registered on the non-flow side and rendered by `homeFiltersUF` (plan F18), so
-// F.5 could not author that flow without it; `workspaceRegistryTable` is the
-// `/workspaces` screen's, added by C.2; C.7 added `pipelineExecDetailsTable` and
-// `cpipesExecDetailsTable`, the tables of `/executionStatusDetails/:session_id`
-// and `/executionStatsDetails/:session_id`. All four are translated out of
-// `screens/fixtures/screen_configs.json` by the same code path, and the count
-// here grows once per screen track C ports rather than once per phase.
-// `/workspaces` screen's, added by track C's C.2; `queryToolResultSetTable` is
-// `/queryTool`'s, added by C.4 and the only one in either corpus that asks the
-// server for a *statement* rather than for a structure. All three are translated
-// out of `screens/fixtures/screen_configs.json` by the same code path, and the
-// count here grows once per screen track C ports rather than once per phase.
-// F.5 could not author that flow without it; C.7 added
-// `pipelineExecDetailsTable` and `cpipesExecDetailsTable`, the tables of
-// `/executionStatusDetails/:session_id` and `/executionStatsDetails/:session_id`;
-// C.6 added `inputLoaderStatusTable` (the home screen's first tab),
-// `inputTable` (`/domainTableViewer/…`) and `inputFileViewerTable`
-// (`/filePreviewPath/:file_key`). All of them are translated out of
-// `screens/fixtures/screen_configs.json` by the same code path.
+// **Which directory a key sits in is a property of its consumer and not of the
+// schema.** A table a flow draws is a workspace asset: it is installed into a
+// workspace and read from there by FlowStore.loadTables. A table a screen draws
+// is imported into the React bundle and never leaves it. Both are documents
+// this validator enforces, so both are read here.
 //
-// **The home screen's other two tables are not here and that is not an
-// omission.** `pipelineExecStatusTable` arrived with F.5, and `inputRegistryTable`
-// is one of the flows' 37 — it is registered in
-// `jetsclient/lib/modules/user_flows/start_pipeline/data_table_config.dart` and
-// rendered by the home screen, which is F18 read backwards.
-//
-// **Two of the 49 are authored rather than translated, and they are the first.**
-// `wsLookupTableTable` and `wsLookupColumnTable` are the `lookups` compiled view
-// (C.3a), which the Flutter app never built — so there is no Dart configuration
-// to measure and nothing for a round trip to compare against. That changes
-// nothing on this side: this test reads the directory and validates what it
-// finds, and an authored document that does not validate fails here exactly as a
+// **How a document came to be written is not this test's question.** Most are
+// translated out of the Flutter corpus by
+// `jetsclient_ide/src/datatable/table.test.ts`; the rest are maintained by hand,
+// written for a screen the Flutter app never had, or name a Dart closure that
+// no corpus can carry. That file counts each kind and says why. What this test
+// asserts is that every document in either directory passes the Go validator,
+// and a hand-written document that does not validate fails here exactly as a
 // translated one would.
 //
-// **The count here is deliberately a literal and deliberately duplicated.** It is
+// **The count in TestShippingTablesValidate is deliberately a literal.** It is
 // the one assertion that fails when a document is emitted and not committed, or
-// committed and not emitted — the TypeScript side compares the directory against
-// what it just produced, so it cannot notice a file that reached neither.
-// **37 of them are the flows' and three are not.** `pipelineExecStatusTable` is
-// registered on the non-flow side and rendered by `homeFiltersUF` (plan F18), so
-// F.5 could not author that flow without it; `workspaceRegistryTable` is the
-// `/workspaces` screen's, added by track C's C.2; `queryToolResultSetTable` is
-// `/queryTool`'s, added by C.4 and the only one in either corpus that asks the
-// server for a *statement* rather than for a structure; C.7 added
-// `pipelineExecDetailsTable` and `cpipesExecDetailsTable`, the tables of
-// `/executionStatusDetails/:session_id` and `/executionStatsDetails/:session_id`.
-// C.9 added five for `/processErrors/:session_id` — its own table, the repeated
-// one inside `viewInputRecordsDialog`, and the three of the rule session
-// explorer, which are the first `source: "formState"` documents to exist. C.13
-// added two for `/userAdmin` and C.10 one for `/ruleConfig`.
-//
-// **Two of those five are hand-authored rather than translated, and this test is
-// where a reader will first meet the fact.** `reteSessionEntityKeyTable` and
-// `reteSessionEntityDetailsTable` name a Dart closure that no corpus can carry —
-// see `jetsclient_ide/src/datatable/table.test.ts`, `HAND_AUTHORED_KEYS`, where
-// each is compared field by field against the corpus configuration anyway. The
-// count here does not distinguish them, deliberately: what this test asserts is
-// that every document in the directory passes the Go validator, and how a
-// document came to be written is not that question.
-//
-// The count grows once per screen track C ports rather than once per phase.
-// **Two directories since the eleven ported flows became workspace assets**
-// (ui_refresh's X.5, 2026-08-26; ten of them since 2026-10-01). A table a
-// JetStore flow draws is installed into a workspace and read from there by
-// FlowStore.loadTables; a table a screen draws is imported into the React bundle
-// and never leaves it. Both are documents this validator enforces, so both are
-// read here — which directory a key sits in is a property of its consumer and not
-// of the schema.
+// committed and not emitted — the TypeScript side compares the directories
+// against what it just produced, so it cannot notice a file that reached
+// neither. It grows once per table added rather than once per phase.
 var tableDirs = []string{
 	"../workspace_assets/table_configs",
 	"../../jetsclient_ide/src/datatable/tables",
@@ -112,9 +63,10 @@ func tableFiles(t *testing.T) []string {
 // mutation-testing note in `jets/datatable/workspace_file_validators.go`).
 func TestShippingTablesValidate(t *testing.T) {
 	files := tableFiles(t)
-	// 61 across the two directories, and no key in both — the Home screen reads
-	// the one table it shares with a flow from the workspace rather than keeping a
-	// second copy (`sharedTableDocuments.test.ts` asserts the invariant).
+	// No key is in both directories — the Home screen reads the one table it
+	// shares with a flow from the workspace rather than keeping a second copy
+	// (`sharedTableDocuments.test.ts` asserts the invariant). The count was 61
+	// when that was written, and moved as follows.
 	//
 	// **63 -> 64 on 2026-09-05**, when the workspace home screen's
 	// `workspaceChangesTable` was translated out of the screen corpus. This is the
@@ -122,25 +74,25 @@ func TestShippingTablesValidate(t *testing.T) {
 	// the change that moves it: a table added on the TypeScript side fails here, in
 	// Go, with a message that names no table.
 	//
-	// **64 -> 61 on 2026-10-01**: jetstore_maintenance_02's D06 retired the three
+	// **64 -> 61 on 2026-10-01**: a UI change retired the three
 	// option tables of the add-or-edit steps it removed (ufClientOrVendorOption,
-	// scAddOrEditSourceConfigOption, pcAddOrEditPipelineConfigOption; tasks AF.2 to
-	// AF.4), and install deletes their unedited copies (RetiredAssets).
+	// scAddOrEditSourceConfigOption, pcAddOrEditPipelineConfigOption), and install
+	// deletes their unedited copies (RetiredAssets).
 	//
-	// **61 -> 64 on 2026-10-11**: rules_unit_test_harness's three tables
-	// (rutExecutionTable, rutTestCaseTable, rutCheckTable; task AD.4).
+	// **61 -> 64 on 2026-10-11**: the rules unit tests' three tables
+	// (rutExecutionTable, rutTestCaseTable, rutCheckTable).
 	//
 	// **64 -> 61 on 2026-10-15** (Release 4.0.4): Start Pipeline stopped choosing
 	// merged and historical sources, which the pipeline configuration names with
 	// lookback periods, and mergeProcessInputTable, merged_input_registry_keys and
 	// spInjectedProcessInput were retired (RetiredAssets).
 	//
-	// **61 -> 63 on 2026-11-08**: session_registry Phase 2 (JM-081) added Home's
+	// **61 -> 63 on 2026-11-08**: the session registry added Home's
 	// Session Registry and Archived Pipelines tabs (sessionRegistryTable,
 	// pipelineArchiveTable), bundled with the client.
 	//
 	// **63 -> 64 on 2026-11-12**: the Session Registry filters' process list
-	// (srProcessTable, JM-185), a table of that tab's Set Filters dialog.
+	// (srProcessTable), a table of that tab's Set Filters dialog.
 	if len(files) != 64 {
 		t.Fatalf("expected the flows' table configurations plus the non-flow ones, found %d", len(files))
 	}
@@ -166,7 +118,7 @@ func TestTableSchemaRejects(t *testing.T) {
 		// `DataTableAction.Action` and dispatches over the whole switch in
 		// `DoDataTableAction` (`jets/apiserver/api_tables.go`).
 		//
-		// **The document has a field for it as of track C's C.2, and this case is
+		// **The document has a field for it now, and this case is
 		// unchanged.** It is a closed three-member enum — `workspace_read`,
 		// `preview_file`, `raw_query_tool`, with `read` said by omission — chosen
 		// because those are the four values the two Flutter corpora hold between
@@ -185,7 +137,7 @@ func TestTableSchemaRejects(t *testing.T) {
 		"an apiAction on a static table": `{"schemaVersion":1,"source":"static","label":"L",
 			"columns":[{"name":"a","label":"A"}],"sortColumn":"a","rowsPerPage":10,"rows":[["x"]],
 			"apiAction":"workspace_read"}`,
-		// C.2's row gate. An empty conjunction is vacuously true and would enable
+		// The row gate. An empty conjunction is vacuously true and would enable
 		// the button it was written to restrict, which is the one way a gate can
 		// fail that looks like no gate at all.
 		"an enableWhen with an empty conjunction": `{"schemaVersion":1,"source":"query","label":"L",
@@ -206,7 +158,7 @@ func TestTableSchemaRejects(t *testing.T) {
 			"from":[{"schema":"jetsapi","table":"t"}]}`,
 		"a query table with no from clause": `{"schemaVersion":1,"source":"query","label":"L",
 			"columns":[{"name":"a","label":"A"}],"sortColumn":"a","rowsPerPage":10,"from":[]}`,
-		// C.4's relaxation, from the side that must stay closed. A *query* table
+		// The query-table relaxation, from the side that must stay closed. A *query* table
 		// may now declare no columns, because the server describes the result when
 		// the request names none; a *static* table may not, because its rows are
 		// compiled in and nothing supplies headers for them.
@@ -228,15 +180,15 @@ func TestTableSchemaRejects(t *testing.T) {
 			"actions":[{"key":"k","label":"L","action":"exec_ddl","style":"primary"}]}`,
 		"no source at all": `{"schemaVersion":1,"label":"L","columns":[{"name":"a","label":"A"}],
 			"sortColumn":"a","rowsPerPage":10}`,
-		// jetstore_maintenance_02 criterion 15 (2026-10-01): no document names a
+		// Since 2026-10-01 no document names a
 		// deployment's custom buttons. They come from JETS_CUSTOM_BUTTONS_CONFIG_JSON
-		// at run time, which is ui_refresh I-102's objection kept -- a workspace file
+		// at run time, which is an earlier objection kept -- a workspace file
 		// must not be a second way to configure a deployment.
 		"fromConfigRowActions on a query table": `{"schemaVersion":1,"source":"query","label":"L",
 			"columns":[{"name":"a","label":"A"}],"sortColumn":"a","rowsPerPage":10,
 			"from":[{"schema":"jetsapi","table":"t"}],
 			"fromConfigRowActions":[{"key":"k","label":"L","action":"doAction","actionName":"x","style":"secondary"}]}`,
-		// The third row (AE.1) is on the query arm only, and absent is how a
+		// The third row is on the query arm only, and absent is how a
 		// document says it has none.
 		"thirdRowActions on a static table": `{"schemaVersion":1,"source":"static","label":"L",
 			"columns":[{"name":"a","label":"A"}],"sortColumn":"a","rowsPerPage":10,"rows":[["x"]],
@@ -266,8 +218,8 @@ func TestValidTableDocumentIsAccepted(t *testing.T) {
 	}
 }
 
-// TestThirdRowActionsIsAccepted states AE.2 positively (jetstore_maintenance_02,
-// D04, 2026-10-01): the Go copy of the table schema admits the row the
+// TestThirdRowActionsIsAccepted states the third row positively
+// (2026-10-01): the Go copy of the table schema admits the row the
 // TypeScript schema gained, so a hand-authored pipelineExecStatusTable.tc.json
 // carrying it passes the save check and the corpus test. A rejection-only suite
 // would pass if the copy had never been regenerated.
@@ -280,7 +232,7 @@ func TestThirdRowActionsIsAccepted(t *testing.T) {
 	}
 }
 
-// TestQueryTableWithNoColumnsIsAccepted states C.4's relaxation positively.
+// TestQueryTableWithNoColumnsIsAccepted states the query-table relaxation positively.
 //
 // **A relaxation asserted only from the rejecting side is half a change**: every
 // negative above would still pass if the schema had simply stopped admitting the
@@ -289,7 +241,7 @@ func TestThirdRowActionsIsAccepted(t *testing.T) {
 // were removed, whereas this one says what the schema means.
 func TestQueryTableWithNoColumnsIsAccepted(t *testing.T) {
 	// No columns, no sortColumn, a where clause naming no column, and a
-	// requestColumnDef — the four things that were impossible before C.4, in one
+	// requestColumnDef — the four things that were impossible before that relaxation, in one
 	// document, because they arrive together on the one table that has them.
 	const doc = `{"schemaVersion":1,"source":"query","label":"Query Result","columns":[],
 		"rowsPerPage":1,"apiAction":"raw_query_tool","requestColumnDef":true,

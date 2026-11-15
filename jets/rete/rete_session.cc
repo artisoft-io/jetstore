@@ -86,7 +86,7 @@ is_integer_zero(rdf::r_index v)
       // set to 1, it stopped exist and exist_not filters registering their callbacks.
       // A rule configuration that still turns it on is refused here, where every
       // session starts, rather than run with a behaviour it no longer gets. An integer
-      // 0 asks for what remains and is accepted (jets/rete/README.md).
+      // 0 asks for what remains and is accepted (docs/src/content/docs/developer/engine/rule-engine/).
       auto p = rmgr->get_resource("_0:no_truth_main_on_exist");
       if(p != nullptr) {
         auto v = this->rdf_session_->get_object(rmgr->jets()->jets__istate, p);
@@ -124,7 +124,7 @@ is_integer_zero(rdf::r_index v)
       
       // Get the max_vertex_visit_ from the rdf session (meta graph)
       // An integer of any width is the limit; anything else, or no triple, is the
-      // default, kDefaultMaxVertexVisits (Q-83)
+      // default, kDefaultMaxVertexVisits
       auto v = this->rdf_session_->get_object(rmgr->jets()->jets__istate, rmgr->jets()->jets__max_vertex_visits);
       std::optional<std::int64_t> limit;
       if(v != nullptr) {
@@ -316,7 +316,7 @@ is_integer_zero(rdf::r_index v)
         auto const* beta_row_initializer = child_meta_node->get_beta_row_initializer();
         // A filter evaluated in this scan can re-enter the session, and the re-entry can
         // remove a parent row the scan's candidates were built from, or change what
-        // another candidate's filter reads (I-91). A relation that is activated takes
+        // another candidate's filter reads. A relation that is activated takes
         // its candidates at once, each checked against the scan's mark (keep_candidate):
         // a re-entry reaches what it holds already. A relation's first scan is not
         // reached by a re-entry, so it holds its candidates until it ends, and scans
@@ -378,7 +378,7 @@ is_integer_zero(rdf::r_index v)
           }
         };
         // Iterated in place without allocating, by a scan the parent relation freezes
-        // if a filter re-enters the session and changes what it scans (I-90)
+        // if a filter re-enters the session and changes what it scans
         for(int rescans = 0; ; ++rescans) {
           mark = this->reentries_;
           if(need_all_rows) {
@@ -533,7 +533,7 @@ is_integer_zero(rdf::r_index v)
         } else {
           // Consequents that neither mint nor read the graph are recomputed: their
           // triple depends on the row alone. One that reads the graph (an aggregate,
-          // exist, size_of) records and is replayed above (jets/rete/README.md).
+          // exist, size_of) records and is replayed above (docs/src/content/docs/developer/engine/rule-engine/).
           for(int consequent_vertex: meta_node->consequent_alpha_vertexes) {
             auto const* consequent_node = this->rule_ms_->get_alpha_node(consequent_vertex);
             auto t3 = consequent_node->compute_consequent_triple(this, beta_row.get());
@@ -542,7 +542,7 @@ is_integer_zero(rdf::r_index v)
           }
         }
         // Erase the withdrawn row from its relation, so that an equal row inserted
-        // later fires again (jets/rete/README.md, the retraction record).
+        // later fires again (docs/src/content/docs/developer/engine/rule-engine/, the retraction record).
         beta_relation->erase_retracted_beta_row(beta_row);
         beta_row->set_status(BetaRowStatus::kProcessed);
       }

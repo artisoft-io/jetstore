@@ -1,23 +1,23 @@
-"""The constrained-decoding check (A2a.3, A2a.4) — one command, exit code.
+"""The constrained-decoding check — one command, exit code.
 
 Three gates, in rising order of realism:
 
-- **Shape (A2a.4):** every vocabulary survives into the emitted bundle as a
+- **Shape:** every vocabulary survives into the emitted bundle as a
   `$defs` entry with an `enum` of exactly the `StrEnum`'s values, every
-  vocabulary-typed entity property reaches it by `$ref` (the §A.2.8
+  vocabulary-typed entity property reaches it by `$ref` (the
   hand-written shape), and no projection can widen an enum — each
   vocabulary's values in a projected schema equal the source's exactly.
-- **vLLM `guided_json` (A2a.3):** the projected schema compiles under
+- **vLLM `guided_json`:** the projected schema compiles under
   `xgrammar`, the structured-output backend vLLM uses — the schema is turned
   into an actual decoding grammar, not merely accepted as JSON. Needs
   `pip install xgrammar` in the tool venv; it is a check-only dependency and
   deliberately not in `pyproject.toml`.
-- **Ollama `format` (A2a.3):** with `--ollama-model`, a live request passes
+- **Ollama `format`:** with `--ollama-model`, a live request passes
   `schema_for(...)` as the `format` field with no translation step, and the
   response must validate against the projection model — including its enum
-  constraints, which is where guided decoding earns its keep (§5.1).
+  constraints, which is where guided decoding earns its keep.
 
-The reference projection is §5.1's own example: a triage agent setting four
+The reference projection is the design's own example: a triage agent setting four
 of `Incident`'s fields.
 """
 

@@ -3,7 +3,7 @@ package workspace
 // A compile that succeeds and warns: the warnings are in the compile's output,
 // which is what the registry stores as last_git_log and View Last Log shows.
 // Until 2026-10-12 a successful compile wrote only its parse log there, so a
-// warning reached the process log alone (rules_unit_test_harness I-55).
+// warning reached the process log alone.
 
 import (
 	"encoding/json"

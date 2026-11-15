@@ -14,10 +14,10 @@ import (
 // Workspace is the resolved handle the registry's tools operate on. Tools
 // never see a path: the adapter (or a test) resolves a checkout once with
 // ResolveWorkspace and hands the handle over — the registry interface must
-// not acquire the stdio adapter's local-disk shape, or Phase 2 inherits a
-// signature it cannot use (plan section 6).
+// not acquire the stdio adapter's local-disk shape, or a later exposure inherits a
+// signature it cannot use.
 type Workspace struct {
-	// The workspace-wide class view, from build/classes.json (F5).
+	// The workspace-wide class view, from build/classes.json.
 	Classes map[string]*rete.ClassNode
 	// The jets_agentic sidecar, from data_model/jets_agentic.meta.json;
 	// nil when the workspace has no schema-first model installed.
@@ -26,7 +26,7 @@ type Workspace struct {
 	db *sql.DB
 	// dir is where this workspace was resolved from. Tools still never take
 	// a path as an argument — that rule is about the tool *signature*, so a
-	// Phase-2 catalogue is not born holding the stdio adapter's local-disk
+	// later catalogue is not born holding the stdio adapter's local-disk
 	// shape — but a tool that has to run the compiler needs the rule sources
 	// on a filesystem, and the handle is the right place to carry that. Empty
 	// when the workspace was assembled some other way; LocalDir says so
@@ -82,7 +82,7 @@ type SidecarVocabulary struct {
 }
 
 // ResolveWorkspace opens a compiled workspace checkout: build/classes.json
-// is required (it is the F5 view tool 1 exists to prove reachable — a
+// is required (it is the compiled view tool 1 exists to prove reachable — a
 // checkout without it has not been compiled, and the error says how to fix
 // that), workspace.db is required, the sidecar is optional.
 func ResolveWorkspace(dir string) (*Workspace, error) {

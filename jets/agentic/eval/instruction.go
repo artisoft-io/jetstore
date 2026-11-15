@@ -3,10 +3,10 @@ package eval
 // What a harness sends for one case: the system message, and the instruction
 // that describes the hole.
 //
-// **Moved here from tools/compile_pass at AG.2, 2026-09-05, verbatim apart from
+// **Moved here from tools/compile_pass on 2026-09-05, verbatim apart from
 // the exports.** It lived in that tool's `main` while that tool was the only
 // caller. The bake-off is a second caller, and its arm 1 is meant to be the
-// shape P.1 measured — so a second rendering of the same prompt would make the
+// shape compile_pass measured — so a second rendering of the same prompt would make the
 // two harnesses incomparable in exactly the way nobody would notice, since both
 // would still be sending something reasonable. One rendering, two callers.
 
@@ -39,14 +39,14 @@ const instructionBudgetShare = 2
 // task, so what was sent is recorded rather than left to be inferred.
 //
 // extra is appended after the standing text, and is where a caller adds an arm's
-// own material — I-180's TypeScript rendering and its worked examples are the
+// own material — the TypeScript rendering and its worked examples are the
 // case this parameter exists for. It is separate from inPrompt because the two
-// answer different questions: inPrompt is the JSON Schema, which P.1 measured
-// and which moved nothing, and extra is anything else.
+// answer different questions: inPrompt is the JSON Schema, which was measured
+// and moved nothing, and extra is anything else.
 func Instruction(c *Case, numCtx int, inPrompt json.RawMessage, extra string) (string, error) {
 	// The served window is what the instruction competes for, and what else is
-	// in it depends on where the schema goes: as `format` it costs nothing
-	// (F113), in the instruction it costs its own size and the budget for the
+	// in it depends on where the schema goes: as `format` it costs nothing,
+	// in the instruction it costs its own size and the budget for the
 	// context abstract shrinks by exactly that.
 	budgetTokens := prompt.DefaultReserveTokens / instructionBudgetShare
 	if numCtx > 0 {

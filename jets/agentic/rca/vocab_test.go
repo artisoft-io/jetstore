@@ -76,7 +76,7 @@ func TestCauseCategoriesMatchDDL(t *testing.T) {
 		}
 	}
 	if len(CauseCategories) != 10 {
-		t.Errorf("§9.5 puts ten cause classes against the nine loci and CauseCategories holds %d",
+		t.Errorf("the gate's table puts ten cause classes against the nine loci and CauseCategories holds %d",
 			len(CauseCategories))
 	}
 }
@@ -106,12 +106,12 @@ func TestEvidenceSourcesMatchTheDataModel(t *testing.T) {
 		t.Errorf("the evidence-source vocabulary drifted from the data model:\n  Go: %v\n  .jr: %v", got, want)
 	}
 	if !slices.Contains(want, SourceDetectorConfounder) {
-		t.Error("detector_confounder is not in the data model: it is the member AB.1 added so that a " +
+		t.Error("detector_confounder is not in the data model: it is the member added so that a " +
 			"confounder can be cited as contradicting evidence, and this package's floor depends on it")
 	}
 }
 
-// §9.5 is a table over the nine loci, and every locus it names must be one.
+// The gate's table is a table over the nine loci, and every locus it names must be one.
 // The failure this guards against is a rename in triage that leaves this
 // package silently mapping a locus that no longer exists — the ranker would
 // then emit nothing for the renamed locus and report it in neither
@@ -131,10 +131,10 @@ func TestEveryMappedLocusIsInTheTriageVocabulary(t *testing.T) {
 	}
 }
 
-// **Two of the nine loci are in no row of §9.5, and that is the gate's table
+// **Two of the nine loci are in no row of the gate's table, and that is the table
 // rather than a transcription slip.** The floor emits no hypothesis when either
 // fires and reports them in Ranking.UnmappedLoci; this test pins the count, so
-// that a future widening of §9.5 has to come here and say so rather than
+// that a future widening of the table has to come here and say so rather than
 // quietly changing what a ranking omits.
 func TestTwoLociMapToNoCauseClass(t *testing.T) {
 	var unmapped []string
@@ -147,34 +147,34 @@ func TestTwoLociMapToNoCauseClass(t *testing.T) {
 	slices.Sort(unmapped)
 	slices.Sort(want)
 	if !slices.Equal(unmapped, want) {
-		t.Errorf("the loci §9.5 maps to no cause class have changed:\n  got:  %v\n  want: %v\n"+
-			"If §9.5 has been widened, update this test and Ranking.UnmappedLoci's comment together.",
+		t.Errorf("the loci the gate's table maps to no cause class have changed:\n  got:  %v\n  want: %v\n"+
+			"If the gate's table has been widened, update this test and Ranking.UnmappedLoci's comment together.",
 			unmapped, want)
 	}
 }
 
-// **I-262's three classes are three by evidenceability and two by locus, and
+// **The three unsubstantiated classes are three by evidenceability and two by locus, and
 // the difference decides whether the floor can emit one at all.**
 //
-// I-262 says three of the imported ten have no substrate in JetStore:
+// Three of the imported ten have no substrate in JetStore:
 // source_delivery_failure, dependency_failure and capacity_or_cost_deviation.
-// §9.5's *Loci that can carry it* column attaches the last two to nothing, so
+// The table's *Loci that can carry it* column attaches the last two to nothing, so
 // the floor can never emit them whatever a run did. It attaches
 // source_delivery_failure to locus run_not_started — the position the evidence
 // *would* sit at — while its third column answers **No**, because nothing
 // records what was due.
 //
-// **The set answering "no" is exactly I-262's three, and it took a correction to
-// become so.** §9.5 also answered "no" for transformation_defect, on F196's
-// ground that nothing binds a run to a workspace version; §16.2 supersedes that
-// in terms, AB.3 and AH.2 having landed the binding the same day, so this file
-// classifies that row Coarse and cites §16.2 for it (I-359). Had the
+// **The set answering "no" is exactly those three, and it took a correction to
+// become so.** The table also answered "no" for transformation_defect, on the
+// ground that nothing binds a run to a workspace version; a later finding supersedes that
+// in terms, the binding having landed the same day, so this file
+// classifies that row Coarse and cites the finding for it. Had the
 // transcription been literal, a class the record can now distinguish coarsely
 // would have been ranked below every class it can evidence at all.
 //
 // So the floor does emit a source_delivery_failure hypothesis when locus 1
 // fires, and the thing that says the record cannot support it is the
-// contradicting evidence item §9.5's note becomes. **That is the design working
+// contradicting evidence item the table's note becomes. **That is the design working
 // rather than a leak**: a class that cannot be evidenced and cannot be
 // mentioned is a class an operator never learns is unavailable. The two counts
 // are pinned separately below so that a reader quoting "three classes have no
@@ -206,7 +206,7 @@ func TestClassesWithNoSubstrateAreThreeAndClassesWithNoLocusAreTwo(t *testing.T)
 	slices.Sort(noEvidence)
 	slices.Sort(wantNoEvidence)
 	if !slices.Equal(noEvidence, wantNoEvidence) {
-		t.Errorf("the classes §9.5 says the record cannot evidence have changed:\n  got:  %v\n  want: %v",
+		t.Errorf("the classes the gate's table says the record cannot evidence have changed:\n  got:  %v\n  want: %v",
 			noEvidence, wantNoEvidence)
 	}
 }
@@ -246,7 +246,7 @@ func TestConfounderSplitIsTheComplementOfRecordConfounders(t *testing.T) {
 		}
 	}
 	if len(observe.Confounders()) != 14 {
-		t.Errorf("the confounder vocabulary holds %d members and §9.7's argument is written about fourteen",
+		t.Errorf("the confounder vocabulary holds %d members and the split's argument is written about fourteen",
 			len(observe.Confounders()))
 	}
 }

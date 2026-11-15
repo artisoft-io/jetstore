@@ -1,7 +1,7 @@
 """What one node writes to the database, and what it deliberately does not.
 
-**P9-I01 says the side effects are a list this phase measures once, and a
-seventh discovered late is a conformance failure rather than a feature request.**
+**The side effects are a list measured once, and a seventh discovered late is a
+conformance failure rather than a feature request.**
 So the first act of this module was a measurement, and it moved the list twice.
 Every `INSERT INTO jetsapi.` and `UPDATE jetsapi.` under `jets/compute_pipes/`
 was enumerated and **each site was then read to decide whether it is reachable
@@ -11,9 +11,9 @@ assessment's list of six had not taken.
 # The measurement: three tables over four statements
 
 **Two counts and two subjects, kept apart deliberately.** The assessment counts
-six *tables* and §3 of the measurements counts five; this node writes **three
+six *tables* and the measurements count five; this node writes **three
 tables** through **four statements**, and a sentence carrying one of those
-numbers without saying which is the defect P4-I40 records one repository over.
+numbers without saying which is a known defect.
 
 | table | op | where | when |
 |---|---|---|---|
@@ -24,7 +24,7 @@ numbers without saying which is the defect P4-I40 records one repository over.
 | `process_errors` | — | not a direct write | through a `sql` **output channel** |
 
 **How six became three, and it is three separate findings rather than one.**
-`domain_keys_registry` is neither the node's nor the starter's — §3 read a grep
+`domain_keys_registry` is neither the node's nor the starter's — the measurements read a grep
 hit as an INSERT and it is a *commented example*; the real INSERT is in a
 workspace's own `base__workspace_init_db.sql`, run by workspace init, and
 `compute_pipes` only SELECTs it (in the starter). `cpipes_results` is written by
@@ -37,9 +37,9 @@ of that method is commented out in `actions_process_file.go` — five of them,
 commented on 2024-07-18 and never restored. `purge_database` still purges the
 table and `jets_schema.json` still creates it. So the Go node has not written it
 in over two years, and **a Python node writing it would not be conformance but
-an addition** — which is exactly the direction P9-I01 exists to catch, and is
+an addition** — which is exactly the direction the measured list exists to catch, and is
 this repository's standing class in its money form: a function defined,
-exported, tested by nothing and reached from nowhere. Recorded as **P9-I62**.
+exported, tested by nothing and reached from nowhere. Recorded as an issue.
 
 **`cpipes_execution_status` is not a write this node can reach, and the guard is
 two conditions rather than one.** `compute_pipes.go:126` has
@@ -52,20 +52,21 @@ every non-generator channel and every sharding-mode document
 Implementing it would be a path no document can take — and writing it
 unconditionally would be the race the brief warns about. Asserted rather than
 argued: `tests_side_effects.py` reads both conditions out of the Go source and
-holds them against `node._file_keys`' refusals. Recorded as **P9-I63**.
+holds them against `node._file_keys`' refusals. Recorded as an issue.
 
-**The error path writes nothing, and it is left writing nothing.**
-`CoordinateComputePipes`' `gotError:` label logs and returns, carrying
-`//*TODO insert error in pipeline_execution_details`
-(`actions_coordinate_cp.go:275`). A node that filled that in would diverge in
-the direction that looks like an improvement, which is the hardest kind to argue
-back out. **Conform first; propose second** — the proposal is **P9-I64** and the
-code here does not anticipate it.
+**Go's error path records a `failed` row, and this node's does not yet.**
+`CoordinateComputePipes`' `gotError:` label calls `RegisterNodeError`
+(`actions_process_file.go`) since 2026-10-05, which inserts the `in progress`
+row and updates it to `failed` with the error's text, so that an error raised
+before the files are processed reaches the pipeline status. This node resolves
+its file keys before `begin()`, so a refusal at startup leaves no row. That is a
+known divergence, asserted in `tests_side_effects.py` so that closing it is a
+deliberate change on one side or the other.
 
 # The shape of the seam
 
 `SideEffects` takes a DB-API connection and **imports no driver**, which is
-`ExecutionStatusConfigSource`'s shape and P9-T14's packaging constraint: the
+`ExecutionStatusConfigSource`'s shape and the image's packaging constraint: the
 image's notes record that declaring `psycopg` as an extra would contradict the
 package's refusal to import one. `awslambda.Node.connect` is where a deployment
 supplies the connection.
@@ -380,7 +381,7 @@ def aggregate_channel_results(
 #: - `nbr_gc` — completed cyclic collections summed over generations, which is
 #:   `MemStats.NumGC` in kind.
 #:
-#: **This is D-225 and its cost is P9-I65**, recorded rather than taken silently.
+#: **This is a recorded decision and so is its cost**, rather than taken silently.
 #: Three alternatives were rejected and each is a real argument:
 #:
 #: - **Refuse a `metrics_config` outright.** It would make a pipeline that runs
@@ -389,8 +390,7 @@ def aggregate_channel_results(
 #: - **Write Python's nearest equivalent under the same name.** `ru_maxrss` is
 #:   *peak* RSS where `MemStats.Sys` is current, and a peak written into a
 #:   current column is a wrong measurement rather than a missing one. Two rows
-#:   under one name meaning two things is the defect D-200 names one repository
-#:   over.
+#:   under one name meaning two things is a known defect.
 #: - **Start `tracemalloc` to publish a live heap.** It changes the thing being
 #:   measured and taxes every allocation, so the gauge would be reporting the
 #:   cost of the gauge.
@@ -400,7 +400,7 @@ def aggregate_channel_results(
 #: wrote it** — the table has `session_id`, `jets_partition`, `node_id`,
 #: `category`, `name`, `value` and `units` and no engine column. So a consumer
 #: comparing the two runtimes cannot tell a metric this node declined to measure
-#: from one it measured as zero. That is P9-I65 and it is not closed by D-225.
+#: from one it measured as zero. That cost is not closed by the decision.
 MEASURABLE_METRICS = ("sys_mb", "nbr_gc")
 UNMEASURABLE_METRICS = ("alloc_mb", "total_alloc_mb")
 METRIC_UNITS = {"sys_mb": "MiB", "nbr_gc": "Count"}
@@ -434,7 +434,7 @@ def runtime_metric(name: str) -> float | None:
 class Connection(Protocol):
     """A DB-API connection. **No driver is imported anywhere in this package.**
 
-    `ExecutionStatusConfigSource` established this shape and P9-T14's image
+    `ExecutionStatusConfigSource` established this shape and the node's image
     depends on it: its packaging notes record that declaring `psycopg` as an
     extra would contradict the package's refusal to import one. The Go entry is
     handed a `*pgxpool.Pool` for the same reason.
@@ -659,7 +659,7 @@ class NoSideEffects:
     """A node with no database: every write is a no-op and `begin` returns 0.
 
     **Not a test double.** A local run genuinely has no database — there is no
-    docker-compose in this repository and X2, X3, X5 and X7 all need an
+    docker-compose in this repository and the corpus comparisons all need an
     executable oracle — so this is what a run with no connection *is*, and it is
     the default on `coordinate` so that a deployment and a local run take the
     same path with one branch fewer.

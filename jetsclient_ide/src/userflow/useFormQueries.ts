@@ -1,5 +1,5 @@
 /**
- * Running a form's named queries, and re-running them. Task I.2b.
+ * Running a form's named queries, and re-running them.
  *
  * The React half of `formQueries.ts`, kept separate from it so the rules — the
  * substitution, the readiness test, the suggestion ordering — are pure functions

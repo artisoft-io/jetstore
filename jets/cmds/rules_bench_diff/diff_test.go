@@ -367,7 +367,7 @@ func TestEntryConfinedToMemberAndFile(t *testing.T) {
 }
 
 // The built-in list classifies doubles that differ in their last bits, across engines and within one, and no more:
-// a cent stays unclassified (rules_benchmark Phase 4).
+// a cent stays unclassified.
 func TestSummationLastBits(t *testing.T) {
 	root := t.TempDir()
 	a := tree(t, filepath.Join(root, "a"), "go", map[string][]string{"m1/01_r.tsv": {
@@ -382,5 +382,76 @@ func TestSummationLastBits(t *testing.T) {
 		"c1\tex:sum\t0.3^^double", "c1\tex:amount\t100.01^^double"}})
 	if s, _, _ := compare(t, a, self); s.ByKnown["double-summation-last-bits"] != 2 || s.Totals.Unclassified != 0 {
 		t.Errorf("within one engine: by known %v, totals %+v", s.ByKnown, s.Totals)
+	}
+}
+
+// Minted nodes renamed between two runs whose line shapes repeat: a subject with
+// several minted children alike, nested minted nodes, and a node that differs.
+// Each line of a renamed node is relabelled; the node that differs is not.
+func TestRelabelledRepeatingShapes(t *testing.T) {
+	root := t.TempDir()
+	a := tree(t, filepath.Join(root, "run1"), "native", map[string][]string{"m1/01_r.tsv": {
+		// three children alike: every shape occurs three times
+		"c1\tex:flag\t_:f1", "_:f1\tex:on\ttrue^^int",
+		"c1\tex:flag\t_:f2", "_:f2\tex:on\ttrue^^int",
+		"c1\tex:flag\t_:f3", "_:f3\tex:on\ttrue^^int",
+		// two minted parents each with a minted child: nothing tells them apart
+		"c1\tex:row\t_:p1", "_:p1\tex:cell\t_:k1", "_:k1\tex:v\t1^^int",
+		"c1\tex:row\t_:p2", "_:p2\tex:cell\t_:k2", "_:k2\tex:v\t1^^int",
+		// alike on this side, and one of them differs on the other
+		"c2\tex:item\t_:i1", "_:i1\tex:qty\t1^^int",
+		"c2\tex:item\t_:i2", "_:i2\tex:qty\t1^^int",
+	}})
+	b := tree(t, filepath.Join(root, "run2"), "native", map[string][]string{"m1/01_r.tsv": {
+		"c1\tex:flag\t_:g9", "_:g9\tex:on\ttrue^^int",
+		"c1\tex:flag\t_:g8", "_:g8\tex:on\ttrue^^int",
+		"c1\tex:flag\t_:g7", "_:g7\tex:on\ttrue^^int",
+		// crossed, so that pairing parents and children each in label order is wrong
+		"c1\tex:row\t_:q2", "_:q2\tex:cell\t_:j1", "_:j1\tex:v\t1^^int",
+		"c1\tex:row\t_:q1", "_:q1\tex:cell\t_:j2", "_:j2\tex:v\t1^^int",
+		"c2\tex:item\t_:h1", "_:h1\tex:qty\t1^^int",
+		"c2\tex:item\t_:h2", "_:h2\tex:qty\t2^^int",
+	}})
+	js := filepath.Join(root, "all.json")
+	var out, errs bytes.Buffer
+	if code := run([]string{"-a", a, "-b", b, "-json", js, "-all"}, &out, &errs); code != 1 {
+		t.Fatalf("exit %d, want 1 (the item that differs): %s", code, errs.String())
+	}
+	raw, _ := os.ReadFile(js)
+	var s Summary
+	if err := json.Unmarshal(raw, &s); err != nil {
+		t.Fatal(err)
+	}
+	// One of _:i1 and _:i2 is paired with _:h1; the other, and _:h2, are not.
+	if s.Totals.OnlyA != 16 || s.Totals.OnlyB != 16 || s.Totals.Unclassified != 4 || s.ByKnown["minted-node-relabelled"] != 28 {
+		t.Errorf("totals %+v, by known %v; want 28 relabelled and 4 unclassified", s.Totals, s.ByKnown)
+	}
+	for _, f := range s.Files {
+		for _, p := range f.Predicates {
+			for _, l := range append(append([]LineResult{}, p.OnlyA...), p.OnlyB...) {
+				if l.Known == "" && !strings.HasPrefix(l.Line, "c2\t") && !strings.HasPrefix(l.Line, "_:i") && !strings.HasPrefix(l.Line, "_:h2") {
+					t.Errorf("%q: unclassified", l.Line)
+				}
+			}
+		}
+	}
+}
+
+// A repeating shape is not a licence to pair: two nodes alike on one side and
+// unlike on the other stay unclassified, and so does a node one side lacks.
+func TestRepeatingShapesThatDifferStayUnclassified(t *testing.T) {
+	root := t.TempDir()
+	a := tree(t, filepath.Join(root, "run1"), "native", map[string][]string{"m1/01_r.tsv": {
+		"c1\tex:x\t_:a1", "_:a1\tex:v\t1^^int",
+		"c1\tex:x\t_:a2", "_:a2\tex:v\t1^^int",
+		"c1\tex:x\t_:a3", "_:a3\tex:v\t1^^int",
+	}})
+	b := tree(t, filepath.Join(root, "run2"), "native", map[string][]string{"m1/01_r.tsv": {
+		"c1\tex:x\t_:b1", "_:b1\tex:v\t2^^int",
+		"c1\tex:x\t_:b2", "_:b2\tex:v\t2^^int",
+	}})
+	s, code, _ := compare(t, a, b)
+	if code != 1 || s.Totals.Unclassified != 10 || s.ByKnown["minted-node-relabelled"] != 0 {
+		t.Errorf("exit %d, totals %+v, by known %v; want all 10 lines unclassified", code, s.Totals, s.ByKnown)
 	}
 }

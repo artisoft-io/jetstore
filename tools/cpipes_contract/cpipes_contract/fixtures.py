@@ -1,11 +1,11 @@
-"""F.2b: what the harvested test fixtures are actually worth to the library.
+"""What the harvested test fixtures are actually worth to the library.
 
 The Go side (`tools/cpipes_contract/fixtures`) reads the fixtures out of
 `jets/compute_pipes/*_test.go` and resolves the test scope around them. This side asks
 the question that decides whether source 2 pays: **do they validate as contract
 fragments, and do they fill a gap the corpus leaves?**
 
-**They largely do not, and the reason is worth more than the fragments.** A§6.1 source 2
+**They largely do not, and the reason is worth more than the fragments.** The proposal
 calls the fixtures "author-written, correct by construction". They are correct *for their
 test*, which is a different claim. A test builds the minimum its code path needs, so a
 fixture is routinely partial; a negative test builds something deliberately invalid; and
@@ -68,7 +68,7 @@ def validate(fixtures: list[dict], schema: dict) -> tuple[list[dict], list[dict]
 def coverage(good: list[dict], library: list[dict], matrix: Path) -> dict:
     """Which contract types the fixtures would add, and which they merely duplicate.
 
-    **The gap is the whole point of source 2.** A§6.1 argues the fixtures are worth
+    **The gap is the whole point of this source.** The proposal argues the fixtures are worth
     harvesting because they concentrate where the corpus is thin, so a count of fixtures
     is the wrong measure and a count of *types the corpus cannot illustrate* is the right
     one.
@@ -88,7 +88,7 @@ def coverage(good: list[dict], library: list[dict], matrix: Path) -> dict:
 
 
 def render(good: list[dict], bad: list[dict], cov: dict) -> str:
-    """The report. Denominators visible, per decision 13."""
+    """The report. Denominators visible, per the evaluation rules."""
     from collections import Counter
 
     lines = [

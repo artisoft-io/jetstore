@@ -20,7 +20,7 @@ each step says what it gave there.
 |---|---|
 | The engine | a C++20 compiler, CMake, and the development packages of abseil (as a CMake package), glog, gflags, Boost `date_time` and SQLite 3; googletest for its tests |
 | The Go modules | Go at the version `go.mod` declares (`go 1.27.4`), and a C compiler for cgo |
-| The web app and the site | Node 24 and npm |
+| The web app and the site | Node 24 (24.15 or later for the web app's test suite, which runs on jsdom 31) and npm |
 
 The images install the same set on Amazon Linux 2023 (`dockerfiles/Dockerfile.cpipes_base_builder`):
 Boost, SQLite and gflags from the distribution, and abseil `20260107.1` and glog `0.6.0` built from
@@ -37,7 +37,9 @@ cmake --build build --target jets jets_test -j "$(nproc)"
 
 `build/jets/libjets.so` is the shared library the Go bridge links, `libjets_static.a` (target
 `jets_static`) the static one, and `jets_test` the engine's Google Test suite. Here the build took
-1 minute 45 seconds on 16 cores, and `ctest` ran 277 tests, all passing, in under a second.
+1 minute 45 seconds on 16 cores, and `ctest` ran 277 tests, all passing, in under a second. On
+2026-11-14 it ran 297: 295 of the engine's and two Go tests that link `libjets.so`, which `ctest`
+registers when `go` is on the `PATH` ([Run the Go and C++ tests](/docs/developer/testing/go-and-cpp/)).
 
 **Run `ctest` from `build/jets`, not from `build`.** The tests are registered in
 `jets/CMakeLists.txt` (`enable_testing`, `gtest_discover_tests`), so `ctest` in the top of the build

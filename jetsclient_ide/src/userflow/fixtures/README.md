@@ -2,13 +2,22 @@
 
 Generated from the running Flutter app. **Do not edit it by hand.**
 
+**Nothing is emitted from it since 2026-11-14.** `../schema.test.ts` wrote the
+`.uf.json` of the flows it still holds under `UPDATE_SCHEMA=1`
+(`npm run emit-schema`); with the app gone that could only rewrite what was
+committed or overwrite an edit. The committed document in
+`jets/workspace_assets/user_flows/` is the source. The test still compares each
+flow this file holds with the committed document, so a flow edited by hand is
+listed in `HAND_AUTHORED` and its entry deleted here, in the same change, as the
+sections below record for the others.
+
 **It holds two flows as of 2026-11-11** — `homeFiltersUF` and `loadFilesUF` — of
 the eleven it was generated with (three, with `mapFileUF`, from 2026-10-27). The sections below say when
 each of the others left. The title said *the eleven user flows* until 2026-10-27.
 
 **Except once, and it is recorded here: ten flows since 2026-10-01.** `registerFileKeyUF`
-was retired by `jetstore_maintenance_02` (`Q-6`, task `AD.4`), and under that project's
-`Q-5` a document leaves this fixture rather than being changed in it. Its `flows` entry
+was retired, and under the rule that applies to this fixture a document leaves it
+rather than being changed in it. Its `flows` entry
 was deleted and the four aggregates it contributed to — `flowCount`, `stateCount`,
 `distinctFormKeys` and `formKeys` — were reduced to match, so the file stays internally
 consistent. Everything else is the app's, as generated, and the prose below describes
@@ -30,13 +39,12 @@ Nine is the number of *directories* under `jetsclient/lib/modules/user_flows/`;
 ## Three flows left on 2026-10-01
 
 **`clientRegistryUF`, `sourceConfigUF` and `pipelineConfigUF` are no longer in
-this file.** `jetstore_maintenance_02` Phase 1 (task `AF.1`, defect `D06`) makes
-the three open on their table, and Michel's answer to that project's `Q-5` is
-that a document this repository edits leaves the emitted set the first time it is
+this file.** A change that made the three open on their table also settled that a
+document this repository edits leaves the emitted set the first time it is
 touched rather than being edited here. They are hand-authored in
 `jets/workspace_assets/user_flows/` and listed in `../schema.test.ts` as
-`HAND_AUTHORED`; `ui_refresh`'s **I-299** is the question this answers one flow at
-a time.
+`HAND_AUTHORED`; that is how the question of what replaces the Dart corpus is
+answered, one flow at a time.
 
 **The aggregate figures at the top of the file were recomputed from the flows
 that remain**, so the file stays internally consistent — 7 flows, 19 states, 19
@@ -45,8 +53,7 @@ statements about them below are about the Dart corpus as measured and are kept a
 history: `rhsKindCounts` was 17 literals there and is 1 here, and every `equals`
 the fixture held belonged to one of the three.
 
-**`fileMappingUF` followed them the same day** (`jetstore_maintenance_02` Phase 2),
-so that its *Done* could return to its start table. The aggregates were recomputed
+**`fileMappingUF` followed them the same day**, so that its *Done* could return to its start table. The aggregates were recomputed
 again — 6 flows, 17 states, 17 form keys. The flow has no choices, so no other
 figure moved.
 
@@ -59,8 +66,8 @@ as measured and is kept as history. ~~The nested choice it describes is still in
 shipping document~~ It was, until 2026-10-15: Release 4.0.4 removed the merged-sources
 step from `startPipelineUF`, and the choice that led to it went too.
 
-**`loadConfigUF` and `workspacePullUF` followed on 2026-10-11**
-(`rules_unit_test_harness`, from Michel's testing), so that, launched from the
+**`loadConfigUF` and `workspacePullUF` followed on 2026-10-11**, found in
+testing, so that, launched from the
 Workspace IDE's toolbar, they return there rather than to `/workspaces`: both
 drop `exitScreenPath`. They took five states and five form keys with them, and
 `workspacePullUF` took the fixture's last choice, its one `contains`: 3 flows, 8
@@ -101,7 +108,7 @@ Two things are Dart closures and appear as facts about their presence rather
 than as themselves:
 
 - **`actionDelegate`**, one per state. The schema does not carry it at all: what
-  a state *does* is named by `stateAction`, and S.2's grammar is what the name
+  a state *does* is named by `stateAction`, and the action grammar is what the name
   resolves to.
 - **`hasFormStateInitializer`**, set by one flow. A boolean cannot become a name,
   so `../translate.ts` holds the one name explicitly and refuses to convert a

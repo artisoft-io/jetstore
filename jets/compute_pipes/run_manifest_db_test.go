@@ -186,7 +186,7 @@ func TestRunManifestMixedNullRowCounts(t *testing.T) {
 	}
 }
 
-// TestRunManifestNamesTheChannelNotTheEntity is AC.3, and it is a question
+// TestRunManifestNamesTheChannelNotTheEntity is a question
 // rather than a defect: AggregateChannelResults blanks OutputEntity when an
 // edge folds several sinks, deliberately, so that an aggregate is never
 // mistaken for an instance. The field whose name most sounds like "the

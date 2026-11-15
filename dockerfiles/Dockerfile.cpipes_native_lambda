@@ -2,7 +2,7 @@
 #
 # The builder stage this image copies `bootstrap` out of.
 #
-# **The default is the stock builder, and that default is exit criterion 98.** A
+# **The default is the stock builder, and that default keeps the stock build.** A
 # build that passes no --build-arg resolves to `cpipes_builder:latest`, which is
 # the literal this line carried before the ARG existed, so a deployment with no
 # site operators builds from the same stage, with the same inputs, and the
@@ -11,21 +11,21 @@
 # **This is Dockerfile.cpipes's mechanism, applied here because the two images
 # are two halves of one executor set rather than two deployment options.** Both
 # cpipes state machines are built from the same ECS task definition and differ
-# only in their node Lambda (`buildCpipesSMInternal`, `build_cpipes_sm.go:21`
-# and `:25`). Inside one execution of either, sharding always runs on the node
-# Lambda (`runSharingNodeTask`, `build_cpipes_sm.go:91`) while each reducing
-# iteration runs on the Lambda or on the ECS task, chosen at run time by
-# `$.useECSReducingTask` (`ecsOrLambdaChoice`, `build_cpipes_sm.go:262`) from
-# the pipeline's own `use_ecs_tasks` / `use_ecs_tasks_when`
-# (`EvalUseEcsTask`, `actions_start_common.go:2258`). So a site operator present
+# only in their node Lambda (`BuildCpipesSM` and `BuildCpipesNativeSM` both call
+# `buildCpipesSMInternal`, cdk/jetstore_one/stack/build_cpipes_sm.go). Inside one
+# execution of either, sharding always runs on the node Lambda
+# (`runSharingNodeTask`, same file) while each reducing iteration runs on the
+# Lambda or on the ECS task, chosen at run time by `$.useECSReducingTask`
+# (`ecsOrLambdaChoice`, same file) from the pipeline's own `use_ecs_tasks` /
+# `use_ecs_tasks_when` (`EvalUseEcsTask`,
+# jets/compute_pipes/actions_start_common.go). So a site operator present
 # in cpipes_native_server and absent from this bootstrap does not fail a
 # deployment: it fails a step, as a function of a field in the .pc.json, inside
 # a running worker. That is why selecting the builder here is not optional once
 # Dockerfile.cpipes selects one, and why Dockerfile.cpipes_builder_ws refuses to
 # build one site entry without the other. (The same choice has since gained a
 # third arm, the Python node Lambda, `$.usePythonReducingTask`, when a deployment
-# has one; it runs no Go operator and changes nothing here. Line numbers
-# corrected 2026-10-27, jetstore_maintenance_02 I-318.)
+# has one; it runs no Go operator and changes nothing here.)
 #
 # A site that ships its own compute_pipes operators passes
 # CPIPES_BUILDER_IMAGE=cpipes_builder_ws:latest, whose bootstrap is built from
@@ -36,7 +36,7 @@
 #
 # **The name is forced rather than chosen, for the same kind of reason the task
 # binary's is.** CpipesNativeNodeLambda is a container-image function with
-# `Cmd: bootstrap` (`build_cpipes_lambdas.go:155`), and DockerImageFunctionProps
+# `Cmd: bootstrap` (`build_cpipes_lambdas.go`), and DockerImageFunctionProps
 # has no Entry property, so nothing at synth time can name a different binary.
 #
 # An ARG before the first FROM is a global ARG -- in scope for FROM lines and
@@ -98,7 +98,7 @@ COPY --from=builder ${JETS_BUILD_DIR}/jets/libjets.so /usr/local/lib/
 # libsqlite3 is not copied: libjets.so needs libsqlite3.so.0, and nothing here
 # ever linked that soname to a copy, so the loader always took the base image's
 # /lib64/libsqlite3.so.0 and the builder's libsqlite3.so.0.8.6 sat unused --
-# measured on 2026-10-11 (rules_unit_test_harness I-35). The base's is what has
+# measured on 2026-10-11. The base's is what has
 # been running, and the ldd check below fails the build if it ever goes missing.
 #* Verify lib version when upgrading dependencies
 COPY --from=builder /usr/lib64/libboost_date_time.so.1.75.0 /usr/local/lib/
@@ -114,7 +114,7 @@ RUN echo "/usr/local/lib" > /etc/ld.so.conf.d/local.conf
 # 0755 and COPY keeps the mode, and a chmod in a later layer stores the whole
 # file again -- measured on 2026-10-11, the RUN that chmod'ed it added 55 MB, the
 # binary's own size, and changed no mode. Dockerfile.ui_service carries the same
-# note (rules_unit_test_harness I-31, I-34).
+# note.
 #
 # **No chmod on the libraries either.** All four are already 0755 where they
 # are copied from in the builder (`ls -lL` there, 2026-10-11), COPY keeps the mode, and the dynamic loader needs no execute bit on a shared
@@ -134,7 +134,7 @@ RUN \
 
 # jemalloc is the C and C++ allocator of the processes this image starts: the
 # rule engine (libjets.so) and cgo allocate through it, the Go heap does not.
-# Measured on the rules benchmark (Phase 3, C6). Set last, so that no build step
+# Measured on the rules benchmark. Set last, so that no build step
 # above runs under it. The function's configuration sets it too
 # (cdk/jetstore_one/stack/build_cpipes_lambdas.go), as it does LD_LIBRARY_PATH;
 # setting it empty there turns it off without a new image.

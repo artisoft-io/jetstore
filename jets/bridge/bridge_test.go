@@ -70,7 +70,7 @@ func TestGetDateDetails(t *testing.T) {
 // A blank node's text carries its key, so two blank nodes read as two terms.
 // AsText returned a bare "BN:" for every blank node until 2026-10-11, which made
 // the rules unit test harness read all of a session's blank nodes, lookup rows
-// among them, as one subject (rules_unit_test_harness I-43).
+// among them, as one subject.
 func TestBlankNodeAsText(t *testing.T) {
 	js, err := LoadJetRules("", "test_data/bridge_test1.db", "")
 	if err != nil {
@@ -102,7 +102,7 @@ func TestBlankNodeAsText(t *testing.T) {
 // Long and unsigned literals read back whole. GetInt went through a C int, so an
 // int64 above 2^31 was narrowed; AsText refused int64 and both unsigned types; and
 // AsInterface, which RdfNodeNative.Value calls, had no case for unsigned literals
-// or blank nodes (rules_unit_test_harness I-12).
+// or blank nodes.
 func TestLongUnsignedAndBlankNodeValues(t *testing.T) {
 	js, err := LoadJetRules("", "test_data/bridge_test1.db", "")
 	if err != nil {
@@ -165,7 +165,7 @@ func TestLongUnsignedAndBlankNodeValues(t *testing.T) {
 
 // SameAs is identity on the engine's handle. Every call returns a new *Resource,
 // so comparing those pointers, as RdfNodeNative.Equals did, was false for the
-// same node (rules_unit_test_harness I-11).
+// same node.
 func TestSameAs(t *testing.T) {
 	js, err := LoadJetRules("", "test_data/bridge_test1.db", "")
 	if err != nil {
@@ -202,7 +202,7 @@ func TestSameAs(t *testing.T) {
 // The meta graph locks when the first RDF session opens. Creating a new meta
 // resource after that threw an exception across cgo and aborted the process; it
 // is now an error. What the meta graph already holds is still returned, as the Go
-// engine's ResourceManager does (rules_unit_test_harness I-15).
+// engine's ResourceManager does.
 func TestMetaGraphAfterSessionOpens(t *testing.T) {
 	js, err := LoadJetRules("", "test_data/bridge_test1.db", "")
 	if err != nil {

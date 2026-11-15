@@ -1,6 +1,6 @@
 package datatable
 
-// What RegisterFileKeys does with a request as a whole (JM-096): a bad row is
+// What RegisterFileKeys does with a request as a whole: a bad row is
 // refused before any row is written, a spec file_size is recorded, a duplicate
 // domain key is registered once, and the result says which rows registered and
 // why the others did not. The tests use the fixture of

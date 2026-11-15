@@ -34,7 +34,7 @@ what stops the new instance repeating work already done.
 | 3 | `Dockerfile.{cpipes,cpipes_native_lambda,ui_service}` | `ENV JETS_VERSION` — what the running process compares against |
 | 4 | the process | must find the workspace at `WORKSPACES_HOME`, not merely have it in the image |
 
-**Links 1 and 2 are in `build_jetstore_scripts`, a separate repository.** A change to the version
+**Links 1 and 2 are in the deployment's build scripts, a separate repository.** A change to the version
 chain is not complete inside the `jetstore` repository.
 
 ## Three things were broken, and each hid the next

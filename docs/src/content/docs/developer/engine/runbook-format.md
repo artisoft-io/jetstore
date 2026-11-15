@@ -37,9 +37,10 @@ screens in `jetsclient_ide/src/runbooks/`. Added 2026-11-06.
 - The folder is not shipped in `workspace.tgz`; nothing on a compute node reads it.
 
 The save path validates a `.rb.json` file alone (`ValidateFile`, the row in
-`jets/datatable/workspace_file_validators.go`) and each `.sql` file lexically
-(`sqlscript.ValidateScript`). The executor validates the runbook with its name and its SQL files
-(`Load`) when a run starts and when runbooks are listed.
+`jets/datatable/workspace_file_validators.go`), and each `.sql` file under `runbooks/` lexically
+(`sqlscript.ValidateScript`) and for a statement no step may run (below), with its line. The executor validates the runbook with its name and its SQL files
+(`Load`) when a run starts and when runbooks are listed, so a statement no step may run (below) keeps
+the run from starting and shows on the runbook's entry in the list.
 
 ## Example
 
@@ -160,7 +161,18 @@ slice, which pgx sends as an array, so write `= ANY(:name)`.
 **No text substitution.** `$NAME`, `${...}`, `{{...}}` and positional `$1` outside strings and
 comments are validation errors; inside a string literal they are a warning, because nothing will
 substitute them. One limit of the scanner: an array slice written `a[lo:hi]` reads `:hi` as a name;
-write `a[lo : hi]`.
+write `a[lo : hi]`. The scanner is `sqlscript.Scanner`, the one `sqlscript.Split` finds statement
+boundaries with, so a `:name` is found outside exactly the constructs `Split` skips.
+
+**Statements no step may run.** A step runs in one transaction the executor opens and closes, as the
+login the executor chose, so these are refused (`ForbiddenStatement`): transaction control (`BEGIN`,
+`START`, `COMMIT`, `END`, `ROLLBACK`, `ABORT`, `SAVEPOINT`, `RELEASE`, `PREPARE TRANSACTION`),
+`SET`/`RESET` of `ROLE`, `SESSION AUTHORIZATION` or `TRANSACTION`, `RESET ALL`, `COPY`, `LOAD`,
+`DISCARD`, `LISTEN` and `UNLISTEN`. `Validate` reports such a statement as an error
+(`runbookSqlForbidden`, with its line) when it has the SQL files, so `Load` refuses the run before any
+step runs; `Bind` refuses it too, because a paused run reads its files again when it goes on. Until
+2026-11-14 they were refused only when the step ran, after the steps before it had run. Since later
+that day the save of a `.sql` file under `runbooks/` refuses one too, so the file is not saved.
 
 ## Conditions
 

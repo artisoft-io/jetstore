@@ -54,7 +54,7 @@ own (`JETS_BUCKET`).
 {
   "schema": "jetstore.cpipes.run_manifest/v1",
   "session_id": "20260921T120000",
-  "process_name": "healthcare_corpus",
+  "process_name": "claims_load",
   "pipeline_execution_key": 412,
   "status": "completed",
   "written_at": "2026-09-21T12:04:11.238Z",

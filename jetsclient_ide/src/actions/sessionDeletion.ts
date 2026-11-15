@@ -1,7 +1,6 @@
 /**
  * The Session Registry tab's *Delete*: the escape that lists what a deletion
- * reaches, and the predicate that gates the button. `session_registry` Phase 2,
- * JM-081, task G.3, 2026-11-08.
+ * reaches, and the predicate that gates the button. Added 2026-11-08.
  *
  * ## Why an escape, and only for the first step
  *
@@ -97,7 +96,7 @@ export function previewRequest(sessionIds: string[]): EndpointRequest {
  * One response row, read by name.
  *
  * The response is `{rows: [<Dependent as JSON>...]}`. A row is read by its
- * snake_case names, the plan's; Go's untagged field names are accepted too, so
+ * snake_case names; Go's untagged field names are accepted too, so
  * that a `Dependent` serialised without tags does not show the user a list of
  * blanks. A row with no session id is dropped — it names nothing to delete — and
  * a positional row (an array) is not a shape this action answers with.
@@ -132,7 +131,7 @@ export function previewRowOf(raw: unknown): PreviewRow | null {
  * *What it is* is its process for a pipeline's session and its object type for a
  * file's, the two things a user recognises a session by; the source type when it
  * has neither. **The client is shown as written**, `(unknown)` included: that is
- * the purge's name for a session whose client could not be read (`I-18`), and a
+ * the purge's name for a session whose client could not be read, and a
  * user deleting it should see that rather than a blank.
  */
 export function previewLine(row: PreviewRow): string {
@@ -175,16 +174,21 @@ export async function previewSessionDeletion(
 
   host.setBusy(true);
   let raw: unknown[] | null;
+  const refused = { message: "" };
   try {
-    raw = await host.read(previewRequest(sessionIds));
+    raw = await host.read(previewRequest(sessionIds), (message) => {
+      refused.message = message;
+    });
   } finally {
     host.setBusy(false);
   }
-  // `read` answers null for any failed request and keeps no message, so the
-  // likely causes are named here: the capability (403), and a session gone
-  // since the table was read (404, "not registered in session_registry").
+  // The server's own text when the host passes it on (a 404 names the session
+  // that is "not registered in session_registry", a 403 the capability), and the
+  // two likely causes otherwise.
   if (raw === null) {
-    return "Could not list the sessions to delete: the server refused the preview. You need delete_session, and every selected session must still be registered; refresh and select again.";
+    return refused.message !== ""
+      ? `Could not list the sessions to delete: ${refused.message}`
+      : "Could not list the sessions to delete: the server refused the preview. You need delete_session, and every selected session must still be registered; refresh and select again.";
   }
   const rows = raw.map(previewRowOf).filter((r): r is PreviewRow => r !== null);
   if (rows.length === 0) return "The server listed no session to delete";

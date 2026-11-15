@@ -7,7 +7,7 @@ import (
 // prepareCpipesEnv applies the document's `context` entries after the main
 // schema provider's env is in place, so every type that existed before
 // default_value overwrites what the deployment supplied. That is the whole of
-// healthcare_corpus's P9-I115 (read 2026-09-20) -- "no context entry can
+// a reported defect (read 2026-09-20) -- "no context entry can
 // default it" -- and it is a statement about the three types rather than about
 // the mechanism, which has carried a fill-behind for $DATE_FILE_KEY all along.
 //
@@ -114,9 +114,9 @@ func TestContextUnknownTypeIsStillRefused(t *testing.T) {
 	}
 }
 
-// The two arms compose the way P9-I115 needs them to: the document defaults the
+// The two arms compose the way that defect needs them to: the document defaults the
 // bucket, the gate then finds it resolved, and the same document with neither
-// is refused. This is the pair the phase is actually delivering, so it is
+// is refused. This is the pair actually being delivered, so it is
 // asserted as a pair rather than left to be inferred from two passing units.
 func TestContextDefaultValueSatisfiesTheBucketGate(t *testing.T) {
 	context := []ContextSpec{

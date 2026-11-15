@@ -1,9 +1,11 @@
 // The Workspace IDE (user/screens/workspace-ide): reached from the top bar,
 // with jets_ws picked. Its changes table, a file open in the editor and edited,
-// and the compiled view of the data model. The edit is never saved: the tab is
-// closed and the change discarded.
+// the compiled views of the data model and of the rules, the Documentation
+// section with the guide's landing page open, and the page of the workspace
+// guide that Workspace guide opens for a data-model file. The edit is never
+// saved: the tab is closed and the change discarded.
 import { expect, test } from "@playwright/test";
-import { openScreen, screenshotsFor, settle, signIn } from "../../lib/shots";
+import { openScreen, openTab, screenshotsFor, settle, signIn, waitForTable } from "../../lib/shots";
 
 const { shot } = screenshotsFor("user/screens/workspace-ide");
 
@@ -41,4 +43,44 @@ test("Workspace IDE", async ({ page }) => {
   await tree.getByRole("button", { name: "Data Model", exact: true }).click();
   await settle(page);
   await shot(page, "ide-compiled-data-model");
+
+  // The rules' compiled view: each rule with the main rule file it is compiled
+  // under and the file it is written in, the page's last two columns.
+  await tree.getByRole("button", { name: "Jets Rules", exact: true }).click();
+  await openTab(page, "Jet Rules");
+  const rules = await waitForTable(page);
+  await expect(rules.getByRole("columnheader", { name: "Main Rule File", exact: true })).toBeInViewport();
+  await expect(rules.getByRole("columnheader", { name: "File", exact: true })).toBeInViewport();
+  await shot(page, "ide-compiled-jet-rules");
+
+  // The Files Relationship tab: each main rule file with the files it includes.
+  await openTab(page, "Files Relationship");
+  const files = await waitForTable(page, page.locator(".jets-datatable").filter({ visible: true }).first());
+  await expect(files.getByRole("heading", { name: "Files Relationship", exact: true })).toBeVisible();
+  await shot(page, "ide-compiled-files-relationship");
+
+  // The Documentation section lists the workspace's docs/ folder; a page opens
+  // in a tab like any other file.
+  const expand = tree.getByRole("button", { name: "Expand Documentation", exact: true });
+  if (await expand.isVisible()) await expand.click();
+  await tree.getByTitle("index.md", { exact: true }).first().click();
+  await expect(page.getByRole("button", { name: "Close docs/index.md" })).toBeVisible();
+  await expect(page.locator(".cm-content")).toBeVisible();
+  await settle(page);
+  await shot(page, "ide-documentation");
+
+  // Workspace guide, beside Save, opens the guide's page for the file open in
+  // the editor, in the documentation's tab: for a data-model file, its page of
+  // the domain. The stack's documentation site is built with jets_ws's guide,
+  // as an installation's is (stack/up.sh).
+  await tree.getByTitle("hc_model.jr", { exact: true }).click();
+  await expect(page.getByRole("tab", { name: /hc_model\.jr/ })).toBeVisible();
+  const guideTab = page.waitForEvent("popup");
+  await page.getByRole("button", { name: "Workspace guide", exact: true }).click();
+  const guide = await guideTab;
+  await guide.waitForURL(/\/docs\/workspace\/reference\/domain\/hc_model\/$/);
+  await guide.waitForLoadState("networkidle");
+  await expect(guide.getByRole("heading", { level: 1 })).toBeVisible();
+  await shot(guide, "workspace-guide-page");
+  await guide.close();
 });

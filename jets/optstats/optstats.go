@@ -1,7 +1,7 @@
 // Package optstats is the rule optimizer's statistics file: what a session's graph
 // holds when each main rule set ends, counted for the predicates and constants
 // that the rule set's antecedents name, so that the compiler can order a rule's
-// antecedents by the rows each would add (rules_benchmark Phase 9).
+// antecedents by the rows each would add.
 //
 // The file is jet_rules/optimizer_statistics.json in a workspace, committed, or
 // a statistics process's own jet_rules/<process>.optimizer_statistics.json,
@@ -29,7 +29,7 @@
 //   - A session's values are counted from its graph when the rule set ends:
 //     everything the session's Find returns, the meta graph included with the
 //     asserted and inferred triples, each triple once. That is what the rule
-//     set's antecedents match (rules_benchmark BX.1 rule 2, as amended
+//     set's antecedents match (as amended
 //     2026-10-24).
 //   - Every count is an integer, the sum over the sessions of that session's
 //     value. A reader divides by sessions. A partial file has the same shape,

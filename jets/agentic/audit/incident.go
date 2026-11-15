@@ -10,13 +10,13 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// Reading incidents and their hypotheses back (task AE.1, gap 11 residue) — the
-// read path for the two tables AB.1 created.
+// Reading incidents and their hypotheses back — the
+// read path for the incident and hypothesis tables.
 //
-// **This is K.2's finding for a third pair of tables, and it arrives before the
+// **This is an earlier finding for a third pair of tables, and it arrives before the
 // writer rather than after it.** The audit store had a write path and no read
-// path; `change_proposal` had been written since Phase 1 and never selected. Here
-// there is no writer at all yet — `AC.3` is the shadow-mode wiring — so these
+// path; `change_proposal` had long been written and never selected. Here
+// there is no writer at all yet — the shadow-mode wiring is to come — so these
 // functions read tables that are, today, always empty. That is deliberate and it
 // is stated rather than hidden: a screen built against an empty table is a screen
 // whose empty state is its main behaviour, and building the read side first is
@@ -24,27 +24,27 @@ import (
 //
 // # Two vocabularies, and the reason both are carried
 //
-// Phase-4 plan §9.5 found that JetStore's execution record supports a taxonomy of
+// An analysis found that JetStore's execution record supports a taxonomy of
 // **locus** — where in the record the evidence sits — and does not support a
-// taxonomy of **cause** below the level of a hypothesis. `AB.1` therefore put both
-// on the row: `incident_locus` is required, `classification` is optional (I-289),
-// and reading one without the other is R-27 arriving in a query. So neither
+// taxonomy of **cause** below the level of a hypothesis. The schema therefore puts both
+// on the row: `incident_locus` is required, `classification` is optional,
+// and reading one without the other is that mistake arriving in a query. So neither
 // function here returns a locus without its classification, exactly as
 // ReadTranscript does not return events without their verdict — the reasons are
 // different, and the shape of the remedy is the same one.
 //
 // # What is not here
 //
-// **No write path** — in *this file*. An incident's status walks Appendix A.5's
+// **No write path** — in *this file*. An incident's status walks the incident state
 // machine and the transitions that matter are adjudications — `reclassified`,
-// `verified`, `suppressed_as_benign` — which is exactly what I-276 asks for an
-// actor and a timestamp on. That work was `AB.2`'s by the user's decision of
+// `verified`, `suppressed_as_benign` — which is exactly what needs an
+// actor and a timestamp. That work was decided on
 // 2026-09-04 and **it landed the same day**: `RecordIncidentTransition` in
 // `incident_transition.go`. The sentence is kept because its reasoning is why the
 // two files are separate, and corrected because *no write path* now reads as a
 // claim about the package rather than about the file.
 
-// The nine loci of plan §9.4, mirroring `IncidentLocus` in model.py and the
+// The nine loci, mirroring `IncidentLocus` in model.py and the
 // CHECK the DDL generates from it. Named constants for the same reason the
 // approval states are: a vocabulary written as string literals is a typo away
 // from a filter that silently matches nothing.
@@ -60,7 +60,7 @@ const (
 	LocusWrittenNotArrived              = "written_not_arrived"
 )
 
-// IncidentLoci is the vocabulary in plan §9.4's order, which is the order the
+// IncidentLoci is the vocabulary in its defined order, which is the order the
 // table is written in and roughly the order in which a run fails. It is sent to
 // the screen rather than repeated there, on the same argument the transition set
 // is: the client's copy of a vocabulary is the copy that cannot be enforced.
@@ -73,7 +73,7 @@ var IncidentLoci = []string{
 
 // IncidentStatuses is `IncidentStatus`'s eleven values. **Three of them are
 // adjudications rather than progress** — `reclassified`, `verified` and
-// `suppressed_as_benign` — which is I-276's finding, and it is the reason this
+// `suppressed_as_benign` — and that is the reason this
 // list is ordered with them last rather than interleaved: a screen that filters
 // on status is filtering on two different kinds of thing, and the order is the
 // only thing here that says so.
@@ -87,15 +87,15 @@ var IncidentStatuses = []string{
 // order the CHECK carries them.
 //
 // **It exists because a screen that offers a reclassification has to offer the
-// vocabulary to reclassify *into*** (task AJ.2). Until then nothing needed the
-// list in Go: the column is optional (I-289) and every reader rendered whatever
+// vocabulary to reclassify *into***. Until then nothing needed the
+// list in Go: the column is optional and every reader rendered whatever
 // value it found. It travels to the browser with the incident on the same
 // argument as `IncidentLoci` and the transition sets — a client's copy of a
 // controlled vocabulary is the copy that cannot be enforced —
 // and `TestIncidentClassificationsMatchTheGeneratedCheck` holds it against the
 // generated SQL rather than against a comment.
 //
-// **Do not read it as a taxonomy of cause that the record supports.** P4 §9.5's
+// **Do not read it as a taxonomy of cause that the record supports.** The analysis's
 // finding is the opposite: the execution record supports a taxonomy of *locus*
 // and does not determine a cause, which is exactly why this column is nullable
 // and why a human's choice from this list is a judgement rather than a lookup.
@@ -140,9 +140,8 @@ func inVocabulary(vocab []string, v string) bool {
 // `tools/jets_agentic/jets_agentic/model.py:661`), and the marker reaches the
 // workspace as a rule-visible triple.
 //
-// **~~Nothing in Go or in the browser reads that marker.~~ AE.2 gave it a
-// reader, 2026-09-04 (I-311 — the entry number this comment first got wrong,
-// naming I-313, which is about a stale paragraph in `jetstore_ai/CLAUDE.md`).**
+// **~~Nothing in Go or in the browser reads that marker.~~ It was given a
+// reader on 2026-09-04.**
 // The marker is now generated into `DataClassifiedProperties` and enforced by
 // `phi.go`: `Statement` is withheld unless the read was asked for `DisclosePHI`,
 // which the apiserver passes only for a caller holding the PHI capability. The
@@ -166,26 +165,26 @@ type Evidence struct {
 
 // HypothesisBasis is the `basis` column: how the rank was arrived at, as counts.
 //
-// **Added at `AC.3` by the user's answer to Q-46, and it is numbers rather than
-// prose on purpose.** `AC.2` emits a sentence per hypothesis and a sentence per
+// **Added by the user's decision, and it is numbers rather than
+// prose on purpose.** The ranker emits a sentence per hypothesis and a sentence per
 // ranking; a sentence cannot be checked against anything and a count can — these
 // two are the lengths of the evidence arrays on the same row, so a reader can
 // confirm months later that the stored confidence is the ratio it claims to be.
 //
 // **Why it is stored at all**, which the question had to settle rather than
 // assume: *reconstructable by re-running* is false for the model arm (16
-// hypotheses on one run and 13 on the next from identical input, plan §19.6),
+// hypotheses on one run and 13 on the next from identical input),
 // and the evidence expires while the row persists, on two clocks the row does
 // not share — `RETENTION_DAYS`, an environment variable with no default, and six
-// months hard-coded on the run header (P3 F54).
+// months hard-coded on the run header.
 type HypothesisBasis struct {
 	SupportingCount    int `json:"supporting_count"`
 	ContradictingCount int `json:"contradicting_count"`
-	// Evidenceability is plan §9.5's third column reduced to five tiers, and it
+	// Evidenceability is the per-class evidence rating reduced to five tiers, and it
 	// is the ranker's **primary** sort key rather than a gloss: a class the
 	// substrate cannot speak to outranks nothing, whatever its counts. That
 	// inversion is what a ratio over evidence positions got wrong on its first
-	// run (I-361), which is why the tier is persisted and not recomputed.
+	// run, which is why the tier is persisted and not recomputed.
 	Evidenceability string `json:"evidenceability"`
 }
 
@@ -194,7 +193,7 @@ type HypothesisBasis struct {
 //
 // **The two evidence slices are both present or the read fails**, which is a
 // property of the column rather than of this struct: `contradicting_evidence` is
-// NOT NULL because §A.2.8 calls it a calibration control, and an empty array is
+// NOT NULL because it is a calibration control, and an empty array is
 // the honest value where an agent asserts none. A reader that treated absent and
 // empty alike would erase that distinction on the way to the screen.
 type Hypothesis struct {
@@ -203,22 +202,22 @@ type Hypothesis struct {
 	Cause        string
 	// CauseCategory is "" when the hypothesis names no class from the imported
 	// ten. Nullable for the same reason `Incident.Classification` is: the record
-	// evidences a locus and not a cause (plan §9.5).
+	// evidences a locus and not a cause.
 	CauseCategory         string
 	Confidence            float64
 	Rank                  int64
 	SupportingEvidence    []Evidence
 	ContradictingEvidence []Evidence
-	// Locus is the `AC.1` verdict the hypothesis was raised from, in the same
+	// Locus is the triage verdict the hypothesis was raised from, in the same
 	// nine-value vocabulary `Incident.Locus` carries and constrained by a CHECK
 	// built from the same list (`hypothesis_locus_ck`).
 	//
 	// **It is not redundant with the incident's locus and that is the point.**
-	// `AC.3` writes one incident per (session, locus) and each hypothesis under
+	// The shadow writer writes one incident per (session, locus) and each hypothesis under
 	// the incident of its own locus, so today the two agree by construction —
 	// but a ranker that proposed a cause at a locus triage did **not** find
-	// present would produce a row where they do not, and `AC.2` measured that as
-	// 20 of 29 on its model arm (plan §19.6). Without the column such a row is
+	// present would produce a row where they do not, and the ranker's evaluation measured that as
+	// 20 of 29 on its model arm. Without the column such a row is
 	// indistinguishable from a sound one once written.
 	Locus string
 	// Basis is the `basis` column: criterion 45's last clause, persisted.
@@ -236,7 +235,7 @@ type IncidentSummary struct {
 	IncidentId string
 	SessionId  string
 	// RunRef is the AgentRun that raised the incident, "" when nothing agentic
-	// did (AB.4, Q-32) — which is what decides whether a transition on this
+	// did — which is what decides whether a transition on this
 	// incident reaches the hash chain.
 	//
 	// It sits on the summary because `Incident` embeds this struct, so the
@@ -283,8 +282,8 @@ func (e *ErrNoIncident) Error() string { return fmt.Sprintf("no incident %s", e.
 //
 // **This is the precondition criterion 34 carried and its text did not say.**
 // `jetsapi.incident` and `jetsapi.hypothesis` reach a database only through
-// `audit.InstallSchema`, which runs on `update_db -migrateDb` (P3 F101, I-169),
-// so on any deployment that has not been migrated since AB.1 these tables are
+// `audit.InstallSchema`, which runs on `update_db -migrateDb`,
+// so on any deployment that has not been migrated since they were added these tables are
 // absent. Without this the screen shows *"ERROR: relation jetsapi.incident does
 // not exist"*, which reads as an outage; with it the screen can say the one true
 // thing, which is that a migration has not been run.
@@ -443,7 +442,7 @@ func HypothesesFor(ctx context.Context, db Querier, incidentRef string, phi PHIA
 		}
 		// Both columns are NOT NULL jsonb holding an array of Evidence. A shape
 		// this cannot parse is an error rather than a silently empty list: the
-		// first writer is AC.2 and a wrong shape reaching a screen as "no
+		// first writer is the ranker and a wrong shape reaching a screen as "no
 		// evidence" would read as a hypothesis nobody could argue with.
 		if h.SupportingEvidence, err = decodeEvidence(supporting); err != nil {
 			return nil, fmt.Errorf("hypothesis %s: supporting_evidence: %w", h.HypothesisId, err)
@@ -453,7 +452,7 @@ func HypothesesFor(ctx context.Context, db Querier, incidentRef string, phi PHIA
 		}
 		// The PHI decision is applied here rather than by the caller, so a
 		// caller cannot hold an unredacted Evidence without having said
-		// DisclosePHI (AE.2, I-311). See phi.go for why it is a parameter.
+		// DisclosePHI. See phi.go for why it is a parameter.
 		applyPHIPolicy(phi, h.SupportingEvidence, h.ContradictingEvidence)
 		out = append(out, h)
 	}

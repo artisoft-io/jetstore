@@ -30,7 +30,12 @@ The tests are the `*_test.cc` files under `jets/rdf/` and `jets/rete/`, built in
    ctest --test-dir build/jets
    ```
 
-   It ends with `100% tests passed out of <n>`.
+   It ends with `100% tests passed out of <n>`. When `go` is on the `PATH` at configure time, `ctest`
+   also runs the Go tests that link `libjets.so` and are behind a build tag, so that no plain
+   `go test` runs them. Their label is `go`, and `jets/CMakeLists.txt` lists them after the
+   engine's tests. They use the `libjets.so` of the build directory, so build `jets` before running
+   `ctest`. `ctest --test-dir build/jets -LE go` leaves them out, and `-DJETS_GO_ENGINE_TESTS=OFF`
+   does not register them.
 3. **To run the binary directly, run it from its own directory.** The build copies
    `jets/rete/test_data` beside `jets_test`, and some tests open it by a relative path, so they fail
    when the binary runs from anywhere else.

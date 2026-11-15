@@ -21,11 +21,11 @@ import (
 // **It is duplicated rather than shared, and that is recorded rather than
 // defended.** Those helpers are in `package triage`, so nothing outside that
 // package can call them; extracting them into a test-support package would edit
-// another task's suite on this task's authority, which is the extraction gap 2b
-// exists to prevent. The property that matters is preserved: **worker rows are
+// another package's suite on this package's authority, which is the unreviewed
+// extraction the gate exists to prevent. The property that matters is preserved: **worker rows are
 // written by the cpipes node's own two statements** rather than by SQL a test
-// composed, which is F104's point and the reason a query written here does not
-// simply agree with the hand that wrote the rows. Recorded as I-378.
+// composed, which is the point and the reason a query written here does not
+// simply agree with the hand that wrote the rows. Recorded as a known issue.
 
 const schemaPath = "../../jets_schema.json"
 
@@ -35,8 +35,8 @@ var migratedTables = []string{
 }
 
 // unmigratedTables is the execution record and nothing else — the state of a
-// deployment that has never run `update_db -migrateDb` since AB.1, which is
-// every deployment measured on 2026-08-25 (I-132).
+// deployment that has never run `update_db -migrateDb` since the incident tables were added, which is
+// every deployment measured on 2026-08-25.
 var unmigratedTables = []string{
 	"pipeline_execution_status", "pipeline_execution_details",
 }
@@ -208,7 +208,7 @@ const configNoErrorChannel = `[{"type":"fan_out","input_channel":{"name":"input"
 
 // multiLocusSession is triage's own census case: a failed worker, a stalled
 // worker, a collapsed worker, per-record errors and an operator configured with
-// no error channel, all in one run. Five loci fire (F280), which is what makes it
+// no error channel, all in one run. Five loci fire, which is what makes it
 // the right subject for a writer that emits one incident per locus.
 func multiLocusSession(t *testing.T, pool *pgxpool.Pool, session string) {
 	t.Helper()

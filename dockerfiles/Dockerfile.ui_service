@@ -19,13 +19,12 @@ RUN dnf update -y && \
 RUN ln -s /usr/bin/git /usr/local/bin/git
 ENV PATH=$PATH:/usr/local/bin
 
-# Node, for the workspace document validator -- jetstore_maintenance_02 AG.6
-# (R12, Q-9 answered `b`).
+# Node, for the workspace document validator.
 #
 # The apiserver compiles the workspace at startup when its version is behind, and
 # on the IDE's compile action; both now run `node jets_validate_workspace.mjs`
 # first and **fail the compile rather than skip** when node is absent
-# (jets/workspace/asset_validation.go). This image had no node until now (F45).
+# (jets/workspace/asset_validation.go). This image had no node until now.
 #
 # The same build as the Docker build's compile uses, copied out of the builder
 # rather than installed from dnf, so the two gates run one interpreter at one
@@ -61,7 +60,7 @@ COPY --from=builder $JETS_SOURCE_DIR/cbooter /usr/local/bin/
 COPY --from=builder $JETS_SOURCE_DIR/apiserver /usr/local/bin/
 COPY --from=builder $JETS_SOURCE_DIR/update_db /usr/local/bin/
 COPY --from=builder $JETS_SOURCE_DIR/run_reports /usr/local/bin/
-# The agentic detection commands -- agentic_ai I-861. This image is the one the
+# The agentic detection commands. This image is the one the
 # run_reports task and the scheduled detection task both run (JetStoreImage in
 # cdk/jetstore_one), and it already carries the database secret's consumers. Each
 # is asked for its usage, which exits 0 and proves the binary loads here.
@@ -72,8 +71,7 @@ RUN anomaly_detect -h > /dev/null 2>&1 && shadow_triage -h > /dev/null 2>&1
 # JETS_WORKSPACE_VALIDATOR is unset. Built in Dockerfile.cpipes_builder.
 COPY --from=builder $JETS_SOURCE_DIR/jets_validate_workspace.mjs /usr/local/bin/
 
-# The rules unit test harness, and the C++ rule engine it links --
-# rules_unit_test_harness AC.6.
+# The rules unit test harness, and the C++ rule engine it links.
 #
 # The apiserver runs one harness process per test, from a pool, and looks for it
 # beside itself when JETS_RULES_UNIT_TEST_HARNESS is unset

@@ -2,36 +2,34 @@
  * One incident: what the record evidences, what has been claimed about it, and
  * the ranked hypotheses with the evidence on both sides.
  *
- * Task AE.1, gap 11 residue.
- *
  * ## Three things this screen refuses to do
  *
- * **It does not show a locus without saying what the record cannot see.** Plan
- * §9.4 gives every one of the nine loci a *cannot see* column, and that column is
- * the part of the gate's finding that does not survive a summary (**R-27**). A
+ * **It does not show a locus without saying what the record cannot see.** Every
+ * one of the nine loci has a *cannot see* column, and that column is the part of
+ * the finding that does not survive a summary. A
  * screen that rendered `worker_failed` as a bare label would be handing an
  * operator a word that looks like a diagnosis. So the gloss and the blind spot
  * are rendered with the value, from `LOCUS_GLOSS`.
  *
  * **It does not show supporting evidence without the contradicting side.**
- * §A.2.8 calls `contradicting_evidence` a calibration control rather than a
+ * The domain model calls `contradicting_evidence` a calibration control rather than a
  * documentation nicety — an agent that can omit the evidence against its own
  * hypothesis will — and the column is NOT NULL for that reason. An empty array is
  * the honest value where an agent asserts none, so this renders *none asserted*
  * rather than nothing at all: the two are different claims and only one of them
  * is a hypothesis nobody argued with.
  *
- * **~~It does not write.~~ It writes exactly one thing, as of `AJ.2`.** This
+ * **~~It does not write.~~ It writes exactly one thing, as of 2026-09-05.** This
  * paragraph read *there is no reclassify button, no verify, no suppress*, and
  * gave the reason: a corrected label needs an actor and a timestamp on the
- * transition before it means anything (**I-276**, P4 §10.7). `AB.2` built those
- * on 2026-09-04 and `AB.4` made the transition chainable; Q-52 was answered
- * *Phase 5* on 2026-09-05 and the control is below.
+ * transition before it means anything. The event table supplied those
+ * on 2026-09-04 and the hash chain made the transition chainable; the control
+ * below followed on 2026-09-05.
  *
  * **What it writes is a verdict, and nothing else.** No field of the incident is
  * editable here, no hypothesis is, and the locus is not — a locus is computed
  * from the record by a deterministic step, so correcting one would be correcting
- * a computation rather than supplying a judgement (P4 §12.7). The buttons are
+ * a computation rather than supplying a judgement. The buttons are
  * whatever `permittedTransitions` says and the screen invents none.
  *
  * **And the honest thing to say about what it achieves is a schedule.**
@@ -99,13 +97,13 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
   }, [load]);
 
   /**
-   * Record a verdict (`AJ.2`, Q-52).
+   * Record a verdict.
    *
    * The confirmation names the actor, the kind and the audit seq, because those
    * three are what make the row a label rather than an edit — and because the
    * kind is set by the server, so seeing it come back is the only place a
    * supervisor learns it was recorded as theirs. Seq 0 is said in words: an
-   * incident nothing agentic raised chains nothing (AB.4, R-44), and a `0` on
+   * incident nothing agentic raised chains nothing, and a `0` on
    * its own reads as a failure.
    */
   const recordVerdict = useCallback(
@@ -184,7 +182,7 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
   const namesARun = incident.runRef !== "";
   const phiCapability = detail.phiCapability || AGENT_PHI_ACCESS;
   // Both default to empty rather than to a guess: a response from a server
-  // predating AJ.2 carries neither, and the screen is then read-only again
+  // predating the verdict control carries neither, and the screen is then read-only again
   // rather than offering buttons the server would refuse.
   const permitted = detail.permittedTransitions ?? [];
   const causes = detail.classifications ?? [];
@@ -234,7 +232,7 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
               {/* Not provenance trivia. A transition on an incident reaches the
                   audit hash chain through this run, so an incident with none is
                   one whose corrections are durable and attributable and not
-                  tamper-evident (AB.4, R-44). Saying so here is the only place
+                  tamper-evident. Saying so here is the only place
                   a supervisor could learn it. */}
               <p className="empty-sub">
                 {namesARun
@@ -316,7 +314,7 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
             // who meets three withheld statements should not have to work out
             // that they share one cause. The server names both the capability
             // and the classified properties, so this sentence does not encode a
-            // policy the browser could get wrong (AE.2, I-311).
+            // policy the browser could get wrong.
             <p className="empty-sub" role="status">
               Evidence marked as protected health information is withheld from this view
               {detail.phiProperties?.length ? ` — ${detail.phiProperties.join(", ")}` : ""}. It is
@@ -347,7 +345,7 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
             </p>
           ) : (
             <div className="verdict">
-              {/* The wording is deliberate and is R-27's mitigation in the one
+              {/* The wording is deliberate and is the mitigation in the one
                   place a supervisor acts rather than reads: a locus is evidence,
                   a cause is a claim, and choosing one here is a judgement the
                   record cannot make. */}
@@ -415,21 +413,21 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
  *
  * **This is where the reasoning is, and that is a property of the schema rather
  * than a layout choice.** `jetsapi.hypothesis` has no basis column and no locus
- * column, so `AC.2`'s account of why a hypothesis ranks where it does and of
+ * column, so the ranker's account of why a hypothesis ranks where it does and of
  * what was considered and dropped before any hypothesis existed has nowhere on
- * the rows it is about. `AC.3` writes the locus verdict's own basis onto the
+ * the rows it is about. The shadow writer puts the locus verdict's own basis onto the
  * `detected -> triaged` transition and the ranking's onto `triaged -> diagnosed`.
  * Rendering the rationale is therefore not a nicety: without it the reasoning
  * reaches the database and stops there.
  *
  * **An empty list is words rather than a blank**, on the same argument as *not
- * claimed* two sections up: a database migrated between `AB.1` and `AB.2` has
+ * claimed* two sections up: a database migrated before `incident_event` existed has
  * incidents and no history for them, and a blank reads as data that failed to
  * load.
  *
  * **A transition with no run says so.** `agent_audit` is keyed on an `AgentRun`,
  * a deterministic classifier is not one, and every transition on an incident
- * nothing agentic raised is outside the hash chain (`AB.4`, R-44). That is the
+ * nothing agentic raised is outside the hash chain. That is the
  * whole visible consequence of the arrangement and it belongs where a supervisor
  * is deciding how much to trust the row.
  */
@@ -483,15 +481,15 @@ function Transitions({ rows }: { rows: IncidentTransitionRow[] }) {
 /**
  * One hypothesis, with both sides of its evidence.
  *
- * The escalation flag is §B.3's own trigger, quoted in `Evidence`'s docstring in
+ * The escalation flag is the domain model's own trigger, quoted in `Evidence`'s docstring in
  * the domain model: contradictory evidence exceeding supporting is a
  * rule-countable fact rather than a judgement, which is what makes it renderable
  * without this screen deciding anything.
  */
 function Hypothesis({ h, incidentLocus }: { h: HypothesisRow; incidentLocus: string }) {
   const outweighed = h.contradictingEvidence.length > h.supportingEvidence.length;
-  // The two columns Q-46 added. A hypothesis raised at a locus other than the
-  // incident's is the shape AC.2 measured at 20 of 29 on its model arm, and it is
+  // The two locus columns. A hypothesis raised at a locus other than the
+  // incident's is the shape an evaluation measured at 20 of 29 on its model arm, and it is
   // the reason the locus is stored rather than joined: without it such a row is
   // indistinguishable from a sound one.
   const elsewhere = !!h.locus && h.locus !== incidentLocus;
@@ -519,7 +517,7 @@ function Hypothesis({ h, incidentLocus }: { h: HypothesisRow; incidentLocus: str
       </span>
       {basis && (
         // The rank as arithmetic rather than as a claim. A confidence with no
-        // visible denominator is the number R-48 warns will be read as a
+        // visible denominator is a number that will be read as a
         // probability; these two counts are the ones it was computed from and
         // they are the lengths of the lists below, so a reader can check it.
         <p className="empty-sub">

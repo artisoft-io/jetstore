@@ -28,7 +28,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesNativeSM(scope constructs.Cons
 // cpipesPythonReducingFlag is the field of ComputePipesRun that selects the Python worker for
 // one reducing iteration, in the shape useECSReducingTask and noMoreTask have.
 //
-// **Nothing produces it yet, and that is P9-I49 rather than an oversight here.** The two
+// **Nothing produces it yet, and that is a known gap rather than an oversight here.** The two
 // existing flags are fields of `ComputePipesRun` (jets/compute_pipes/actions_common_model.go)
 // with no `omitempty`, so the reducing starter's JSON always carries them; the ECS one is
 // computed per step by `EvalUseEcsTask` from the pipeline's own `use_ecs_tasks` /
@@ -195,7 +195,7 @@ func (jsComp *JetStoreStackComponents) buildCpipesSMInternal(stack awscdk.Stack,
 	// A node reads {id, jp, pe} and takes everything else out of jetsapi.cpipes_execution_status,
 	// so the Python worker and the Go worker are handed the same three fields.
 	//
-	// **Both state machines get it, because buildCpipesSMInternal is shared.** That is F1536's
+	// **Both state machines get it, because buildCpipesSMInternal is shared.** That is the
 	// reason for the ECS half being in both: the machines differ only in their node Lambda, and a
 	// deployment running the native machine and owning Python operators wants them on the same
 	// reducing iterations it would want them on in the other one.
@@ -280,12 +280,12 @@ func (jsComp *JetStoreStackComponents) buildCpipesSMInternal(stack awscdk.Stack,
 	runStartReducingTask.AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(ecsOrLambdaChoice)
 
 	// The Python arm comes first, and the order is the substance rather than the placement.
-	// That is **D-221**, taken in this task: a first-match-wins array is ordered by which way
+	// That is a decision, not an accident: a first-match-wins array is ordered by which way
 	// its failures point, and the two mistakes are not symmetrical.
 	//
 	// The two flags are evaluated per reducing step and a pipeline can author both. When it
 	// does, the Python worker has to win: a step naming an operator only the Python node
-	// implements cannot run on the Go ECS task, and the failure it would get is §20.1's --
+	// implements cannot run on the Go ECS task, and the failure it would get is the late one --
 	// inside a running worker, on a pipeline that looked correct. The reverse mistake is
 	// recoverable, since a step the Python node cannot serve aborts at startup naming the token
 	// (`cpipes-node check`). Ordering a choice by which way its failures point is what a

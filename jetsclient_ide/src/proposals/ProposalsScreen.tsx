@@ -2,12 +2,12 @@
  * The staging screen: every change proposal an agent has produced, and where
  * each one sits in the approval lifecycle.
  *
- * Task K.3, gap 11 — the "visible" half of criterion 31.
+ * The "visible" half of the supervision screens.
  *
  * **Three columns are here because of what they change about who should look**,
- * not because the row had space. The clinical-relevance flag is what §10
- * escalates on. The generated-test count is what tells a reviewer whether the
- * proposal is reviewable at all — a Phase-1 authoring run writes a draft with
+ * not because the row had space. The clinical-relevance flag is what
+ * escalation is decided on. The generated-test count is what tells a reviewer whether the
+ * proposal is reviewable at all — an authoring run writes a draft with
  * empty arrays, honestly, and "0 tests" is the single most useful thing to know
  * before opening one. And the last-decision time distinguishes a proposal
  * somebody is working through from one nobody has touched.
@@ -19,7 +19,7 @@
  * server rather than assumed.
  *
  * **It used to default to `audit.Terminal`'s complement and that was the wrong
- * audience** (2026-09-01, I-249). Non-terminal is a fact about the *machine* --
+ * audience** (2026-09-01). Non-terminal is a fact about the *machine* --
  * `approved` still has an outgoing edge to `deployed`, so it is movable and was
  * therefore "open". But `deployed` is left only by `superseded`, which nothing
  * routine does, so every decided proposal stayed in the default view for ever

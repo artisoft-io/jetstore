@@ -1,8 +1,8 @@
 /**
  * Binding a scalar widget to the form state.
  *
- * Task A.3. **Extends the form state A.4c built rather than introducing a
- * second one** — issue I-9. Two stores in one screen would let the data table
+ * **Extends the existing form state rather than introducing a
+ * second one.** Two stores in one screen would let the data table
  * publish a selection the inputs cannot see, with each half looking correct in
  * isolation.
  *
@@ -90,7 +90,7 @@ export function useFormField({
       setLocal(next);
       // Empty clears the binding rather than storing "", so a cleared field and
       // an untouched one look the same to the query builder — which is what
-      // A.4a's where-clause fallback tests for.
+      // the where-clause fallback tests for.
       formState.setValue(group, fieldKey, next === "" ? null : next);
       formState.notifyListeners();
     },

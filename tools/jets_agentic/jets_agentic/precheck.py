@@ -1,8 +1,8 @@
-"""The name-collision pre-check (A1.11) — run before the first install.
+"""The name-collision pre-check — run before the first install.
 
-F7 makes workspace names one flat namespace, and the compiler's own
+Workspace names are one flat namespace, and the compiler's own
 enforcement (`data_properties.name` is globally unique in workspace.db) fails
-without naming what collided (I-10). This check runs *before* A21.1's install
+without naming what collided. This check runs *before* the install
 step, against the target workspace's compiled `workspace.db`, and fails with
 the colliding names: every emitted class name against `domain_classes`, every
 emitted property name against `data_properties` and `object_properties`.
@@ -11,7 +11,7 @@ Because every emitted name carries the reserved `jetsa:` prefix, a collision
 means the target is already using the prefix — either a client squatting on
 it, or a previous install of this model. Both fail here: the pre-check's
 contract is a workspace that does not yet contain the model, and on
-*re*-install it is A21.3's file-level guard that governs, not this check.
+*re*-install it is the installer's file-level guard that governs, not this check.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from pathlib import Path
 from . import model as M
 from .compile_check import expected_classes, expected_properties
 
-# The three name tables F7 makes one flat workspace-wide namespace.
+# The three name tables that make one flat workspace-wide namespace.
 TABLES = ("domain_classes", "data_properties", "object_properties")
 
 

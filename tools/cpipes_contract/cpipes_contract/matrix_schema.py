@@ -1,6 +1,6 @@
 """Schema of the cpipes applicability matrix.
 
-The matrix is the primary deliverable of gap 2b: the contract that says which fields
+The matrix is the primary deliverable of the contract work: the contract that says which fields
 apply to which operator, which of those are required, and what the defaults are.
 Reflection over `pipes_model.go` recovers the field inventory and nothing about
 applicability, so the matrix is extracted from the code and the corpus and reviewed a
@@ -75,7 +75,7 @@ _VIRTUAL_TOKEN = re.compile(r"^~[a-z][a-z0-9_]*$")
 # set and not null; `absent(k)` means it is missing, null or the empty string - the
 # reading Go gives an omitted `string` field.
 #
-# **`unlisted(k)` is the third, added 2026-09-13 for gap 2b, and it is a different
+# **`unlisted(k)` is the third, added 2026-09-13 for the site operator, and it is a different
 # kind of membership from the other two.** `present` and `absent` read the *shape*
 # of the node; `unlisted` reads the discriminator and asks whether its value is one
 # this struct has a row for. It is the matrix's spelling of a `default:` branch, and
@@ -181,18 +181,18 @@ class DefaultBy(StrEnum):
 
 
 class Evidence(StrEnum):
-    """Where the row's claim comes from, in the authority order of the plan's §5.2.1."""
+    """Where the row's claim comes from, in the design's authority order."""
 
     VALIDATOR = "validator"  # CpipesStartup.ValidatePipeSpecConfig - hard
     BUILDER = "builder"  # the operator builders and their defaults - hard
     CORPUS = "corpus"  # the live .pc.json: strong for presence, weak for absence,
     # and worth nothing against the validator - see corpus.py
-    GENERATOR = "generator"  # the org1 lambda generators
+    GENERATOR = "generator"  # a deployment's generator lambdas, which write schema events
     COMMENT = "comment"  # the Go doc comments
 
 
 class Harness(StrEnum):
-    """The result of the B.7 harness for this row, so the review reads a test result."""
+    """The result of the validation harness for this row, so the review reads a test result."""
 
     PASS = "pass"
     FAIL = "fail"
@@ -279,7 +279,7 @@ class TypeRow(Row):
     exemplar_file: str  # a real occurrence, or `-` when the corpus has none
     exemplar_path: str  # dot path into that file, the OllamaMappingSpec.Path convention
     doc_ref: str  # file:line of the type definition
-    harness: Harness  # written by the B.7 harness: was the minimal config accepted?
+    harness: Harness  # written by the validation harness: was the minimal config accepted?
     description: str
     notes: str
 
@@ -315,7 +315,7 @@ class FieldRow(Row):
     """One field of one addressable type. The matrix proper.
 
     The identity columns (through `ref_struct`) are extracted from the source and are
-    never blank. The judgment columns load a blank as None — the unfilled state B.2's
+    never blank. The judgment columns load a blank as None — the unfilled state the
     mechanical extraction leaves behind for the review to settle — and every coherence
     rule below runs only once the cells it relates are filled, so filling one column
     does not demand the whole row at once. The exception is `reviewed`, which demands

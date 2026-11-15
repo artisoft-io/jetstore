@@ -1,12 +1,12 @@
 /**
- * The rules a JSON Schema cannot state. Task S.1.
+ * The rules a JSON Schema cannot state.
  *
  * `schema.ts` absorbs everything expressible in the document's *shape*,
  * including two rules the Dart validator either checks or only documents. What
  * is left here is reference integrity, which JSON Schema has no vocabulary for:
  * a `$ref` points at a schema, never at a sibling key's value.
  *
- * **S.4 ports this file to Go**, beside the schema check in
+ * **This file is ported to Go**, beside the schema check in
  * `SaveWorkspaceFileContent`. It is written to make that port mechanical — no
  * dependency on zod, plain data in and a list of findings out, and the same
  * shape of return the Dart's `validateConfiguration()` has
@@ -53,10 +53,10 @@ export const strictPolicy: Policy = { unreachableState: "error" };
  * browser**, and that is the whole reason this function takes its environment as
  * an argument rather than reaching for `process.env` or `import.meta.env`. A
  * bundle cannot carry a deployment-time value: vite bakes `import.meta.env` in
- * at build time — the same property that made `/ide/` non-relocatable in A.1 —
+ * at build time — the same property that made `/ide/` non-relocatable in the shell —
  * and a browser has no environment to read at run time.
  *
- * So the authority is Go, at the save-time check the gate settled on (G.3):
+ * So the authority is Go, at the save-time check:
  * `jets/userflow/policy.go` reads the variable and its `ValidateFlow` obeys it.
  * This side exists for the two consumers that *do* have an environment — the
  * tests, and any build-time or CLI validation — and to keep the two
@@ -67,7 +67,7 @@ export const strictPolicy: Policy = { unreachableState: "error" };
  * ships the policy to the browser today, so under a strict deployment an author
  * would see a warning and then have the save refused. That is the right way
  * round — the server is the enforcement point and a client check is presentation
- * (assessment §3.5) — but it is a worse message than it needs to be, and S.4
+ * — but it is a worse message than it needs to be, and the Go port
  * should send the policy along with the flow.
  *
  * Truthy is `1`, `true`, `yes` or `on`, case-insensitive and trimmed. Anything
@@ -100,7 +100,7 @@ export interface Finding {
    * Where in the document, as a JSON Pointer (RFC 6901) — empty for a finding
    * about the document as a whole.
    *
-   * **Added at the agentic_ai stream's request, and it was right that it helps
+   * **Added at the agentic layer's request, and it was right that it helps
    * this side sooner.** The structure was already here and was being stringified
    * into `message`: an `unknownTarget` knows which state and which transition
    * offended, and prose is not something an editor can jump to or a repair
@@ -125,11 +125,11 @@ export interface Transition {
  * Every state a state can transition to: choices, then the default, then the
  * ones an action takes.
  *
- * **The third kind was missing from S.1 and that made this function wrong.** An
- * action delegate can jump the flow to a named state, and two states in
- * `pipelineConfigUF` are reached only that way — which S.1 reported as dead
+ * **The third kind was missing from the first schema and that made this function
+ * wrong.** An action delegate can jump the flow to a named state, and two states in
+ * `pipelineConfigUF` are reached only that way — which were first reported as dead
  * code, on the strength of a nearby comment. `goToStates` is how a document
- * declares those edges; see `schema.ts` and I-18.
+ * declares those edges; see `schema.ts`.
  */
 export function targetsOf(flow: UserFlow, stateKey: string): Transition[] {
   const state = flow.states[stateKey];

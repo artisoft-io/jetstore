@@ -73,7 +73,7 @@ func main() {
 }
 
 // summary is the closing line. A removed file is a retired asset deleted from
-// the workspace, not an asset it holds, so it is counted apart (I-22).
+// the workspace, not an asset it holds, so it is counted apart.
 func summary(dir string, results []workspace_assets.Result) string {
 	assets := make(map[string]int, len(workspace_assets.AssetGroups))
 	removed := make(map[string]int)

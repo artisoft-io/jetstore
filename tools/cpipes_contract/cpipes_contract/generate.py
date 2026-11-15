@@ -1,10 +1,10 @@
 """Generate `cpipes_model.py` — the Pydantic v2 model — from the reviewed matrix.
 
-Post-B.10 this is the BOOTSTRAP direction only: the model is the source of
+Since the source-of-truth flip this is the BOOTSTRAP direction only: the model is the source of
 truth and `reflect` regenerates the matrix from it. Running `generate` again
 overwrites edits made in the model — it exists to re-bootstrap, not to sync.
 
-The design is the plan's §5.2.2: a base class per discriminated struct carrying
+The design: a base class per discriminated struct carrying
 the fields applicable to every token, one subclass per `type` token carrying
 only its own, and `Field(discriminator=...)` on the union — applicability stops
 being a table lookup and becomes the class structure. The wire format does not
@@ -23,7 +23,7 @@ Shapes the emitter treats specially, each grounded in the matrix itself:
 - `TransformationSpec`'s `~override` token exists only at
   `conditional_config.N.then` and becomes its own class, referenced there.
 
-The CSV remains the review artifact; this file is its projection. B.10 flips
+The CSV remains the review artifact; this file is its projection. The flip moved
 the source of truth to the Python model and regenerates the CSV from it.
 """
 
@@ -50,7 +50,7 @@ from .matrix_schema import (
 MERGED = {"ExpressionNode", "ContextSpec"}
 
 # Docstrings for the merged classes: the per-token descriptions describe one
-# shape each, and the merged class needs the whole story (B.12 carries the
+# shape each, and the merged class needs the whole story (this carries the
 # recursion depth guidance here, since a re-bootstrap must not lose it).
 MERGED_DOC = {
     "ExpressionNode": (
@@ -68,7 +68,7 @@ REF_OVERRIDES = {
     ("ConditionalTransformationSpec", "then"): "TransformationSpecOverride",
 }
 
-# The B.13 decisions on the untyped fields, as full-type replacements (the
+# The decisions on the untyped fields, as full-type replacements (the
 # container is part of the decision, so no wrapping applies on top). Each is
 # checked against the forms the corpus actually contains and the consuming
 # code: the *_any quartet reads through utils.ToIntWithEnv (int or env-var
@@ -98,9 +98,9 @@ _GO_BASE = {
     "map[string]string": "dict[str, str]",
 }
 
-HEADER = '''"""The cpipes contract - THE SOURCE OF TRUTH for the contract claims (B.10).
+HEADER = '''"""The cpipes contract - THE SOURCE OF TRUTH for the contract claims.
 
-Since the B.10 flip, this Pydantic v2 model is where the contract is edited:
+Since the source-of-truth flip, this Pydantic v2 model is where the contract is edited:
 which fields exist per operator token, which are required, their value ranges,
 and their descriptions. The matrix CSVs remain the review artifact and the
 audit/Go-binding record, regenerated FROM this file:
@@ -109,7 +109,7 @@ audit/Go-binding record, regenerated FROM this file:
     python -m cpipes_contract reflect --check  # the divergence guard (CI)
 
 The `generate` command is the bootstrap projection that first produced this
-file from the reviewed matrix (B.9) - running it again OVERWRITES edits made
+file from the reviewed matrix - running it again OVERWRITES edits made
 here. Engine-applied defaults are noted in the descriptions and deliberately
 NOT materialised as Pydantic defaults, so a dumped document stays minimal and
 the wire format unchanged.
@@ -371,7 +371,7 @@ class Emitter:
         # common fields from. The bootstrap has been unrunnable since that row
         # landed on 2026-09-11 and nothing said so, because `generate` is the one
         # command the working loop never runs - the model is the source of truth
-        # and `reflect` is what checks it. Found here only because gap 2b needed
+        # and `reflect` is what checks it. Found here only because the contract work needed
         # the bootstrap to verify a class it was about to write by hand.
         first: dict[str, FieldRow] = {}
         if real:

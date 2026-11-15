@@ -1,5 +1,5 @@
 /**
- * The client filter every screen's tables are queried against. Task C.6.
+ * The client filter every screen's tables are queried against.
  *
  * ## It is the shell's, not a screen's
  *
@@ -12,8 +12,9 @@
  *
  * So this is `actions/homeFilters.ts`'s shape exactly, and for the same stated
  * reason — **there is one build, so there is one selection**, and a per-screen
- * copy would make *is this table filtered?* depend on who asked. C.6 is the first
- * consumer; three of its tables have the column, and C.9, C.10 and C.13 follow.
+ * copy would make *is this table filtered?* depend on who asked. The home screen is
+ * the first consumer; three of its tables have the column, and Process Errors,
+ * Rules Configuration and User Administration follow.
  *
  * ## What the query builder does with it, which is not what the name suggests
  *
@@ -33,7 +34,7 @@
  * One `raw_query` against `jetsapi.client_registry`, which is what the Dart runs
  * at sign-in (`jetsclient/lib/modules/actions/user_delegates.dart`, the
  * `client_registry` query in the login delegate). This app has no sign-in
- * bootstrap (I-67), so the shell asks once when it mounts.
+ * bootstrap, so the shell asks once when it mounts.
  *
  * **A failure leaves the picker empty and every table unfiltered**, which is the
  * same state a deployment with no registered clients is in, and is deliberately

@@ -1,8 +1,8 @@
 /**
- * The statements a `query` step may run. Task F.6.
+ * The statements a `query` step may run.
  *
- * **One entry, and the corpus has exactly one site.** S.2a's sizing reported the
- * `query` primitive at zero sites and was wrong (I-23): `pcAddPipelineConfigUF`
+ * **One entry, and the corpus has exactly one site.** An earlier sizing reported the
+ * `query` primitive at zero sites and was wrong: `pcAddPipelineConfigUF`
  * reaches it through `getProcessInputRdfTypes`
  * (`modules/actions/utils/get_process_info.dart`, `getProcessInputRdfTypes`), a
  * directory the grep did not cover. `pipelineConfigUF` is therefore the first and
@@ -11,8 +11,8 @@
  * the gap and left it for the flow that would close it.
  *
  * **The document names the query and this file holds it**; `escapes.ts`
- * `NamedQuery` carries the reasoning, and I-112 carries the disagreement with
- * `FormQuerySchema.sql`, which puts the statement in the document instead.
+ * `NamedQuery` carries the reasoning, and `FormQuerySchema.sql` the opposite
+ * view, which puts the statement in the document instead.
  */
 
 import type { NamedQuery } from "./escapes";
@@ -28,11 +28,11 @@ import type { NamedQuery } from "./escapes";
  * skipped this step would show every data source of every entity type.
  *
  * **`process_name` is a parameter rather than an interpolation and the
- * difference is I-72's.** The Dart builds the statement with `'$processName'`
+ * difference matters.** The Dart builds the statement with `'$processName'`
  * inline; here the substitution goes through the same `{key}` mechanism a form's
  * queries use, so the value is quoted as a SQL literal
  * (`userflow/formQueries.ts`, `quoteLiteral`). The site lands inside a
- * single-quoted literal, which is where I-72 says doubling the quote is both
+ * single-quoted literal, which is where doubling the quote is both
  * correct and sufficient.
  */
 export const processInputRdfTypes: NamedQuery = {

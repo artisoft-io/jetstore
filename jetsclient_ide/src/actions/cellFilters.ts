@@ -1,10 +1,10 @@
 /**
- * The per-column display filters a table document names, resolved. Task D.10.
+ * The per-column display filters a table document names, resolved.
  *
  * **Extracted at the third copy rather than at the second.** `Home` and
  * `FlowRunner` each carried this loop, which was defensible while it was two
  * screens with different inputs — one a bundled document, one a loaded flow's
- * table by key. D.10 moves `inputLoaderStatusTable` off the home screen onto one
+ * table by key. `inputLoaderStatusTable` moved off the home screen onto one
  * of its own, and a screen whose whole reason for existing is a table with two
  * display filters is not a good place to copy the resolver a third time.
  *

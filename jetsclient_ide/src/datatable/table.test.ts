@@ -16,7 +16,7 @@
  *    cases both languages run.
  */
 
-import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -54,8 +54,8 @@ const tablesDir = fileURLToPath(new URL("./tables/", import.meta.url));
  * A table document a JetStore flow draws is installed into a workspace by
  * `install_workspace_assets` and read from there by `FlowStore.loadTables`; a
  * table a *screen* draws is imported into this bundle and never leaves it. So the
- * 61 documents this emitter owns are committed in two directories, and which one
- * a key belongs to is a property of who reads it rather than of this test.
+ * documents this test checks are committed in two directories, and which one a
+ * key belongs to is a property of who reads it rather than of this test.
  */
 const assetTablesDir = fileURLToPath(
   new URL("../../../jets/workspace_assets/table_configs/", import.meta.url),
@@ -74,9 +74,9 @@ const committedIn = (dir: string): Set<string> =>
  * **Read off disk rather than derived from the key**, because the rule is about
  * the consumer and this file cannot see one: `pipelineExecStatusTable` is drawn by
  * `homeFiltersUF` *and* by the Home screen, so it is committed in both places and
- * a rule that returned one directory would delete the other copy on the next
- * regeneration. A key in neither directory is new, and goes where the screens'
- * documents go — the emitter cannot know it is a flow's until a flow names it.
+ * a rule that returned one directory would have deleted the other copy on the
+ * next regeneration, while this test still wrote the documents. A key in neither
+ * directory is new, and was written where the screens' documents go.
  *
  * **Corrected 2026-10-01 (`jetstore_maintenance_02` `AD.2`): no key is committed
  * in both places any more.** Home stopped keeping its copy at 3dc322d5
@@ -208,7 +208,6 @@ const NON_FLOW_KEYS = [
   "wsDataPropertyTable",
   "wsDomainTableTable",
   "wsRuleTermsTable",
-  "wsMainSupportFilesTable",
   "wsDataModelFilesTable",
   "wsJetRulesFilesTable",
 ] as const;
@@ -346,6 +345,9 @@ const HAND_MAINTAINED_KEYS = [
   // A File column, the file each rule is written in (`jet_rules.authored_file_key`,
   // 2026-11-13); its main-file column is labelled for what it holds.
   "wsJetRulesTable",
+  // Its label was the Rule Terms tab's, carried over from the Dart; it is the
+  // Files Relationship tab's own, as the view's other tables are (2026-11-14).
+  "wsMainSupportFilesTable",
 ] as const;
 
 /**
@@ -428,35 +430,30 @@ describe("the emitted JSON Schema", () => {
   // merged and historical sources, and its three tables were retired.
   // **63 since 2026-11-08**: Home's two new tabs (`FEATURE_KEYS`). **64 since
   // 2026-11-12**: the Session Registry filters' process list (`FEATURE_KEYS`).
+  //
+  // **Nothing writes these documents from the corpus any more** (2026-11-14).
+  // This case emitted the translated ones under `UPDATE_SCHEMA=1`, and deleted
+  // any document it did not know, from fixtures the deleted Flutter app generated
+  // and nothing can regenerate. So a run could only rewrite what is committed,
+  // overwrite an edit, or delete a new document not yet listed here — and it ran
+  // with every `npm run emit-schema`, which the JSON Schemas above still need.
+  // The committed document is the source; the comparison below says which ones
+  // are still the Dart's, and a table edited by hand goes on
+  // `HAND_MAINTAINED_KEYS`.
   it("has the 64 configurations committed beside it, for the Go check", () => {
     // `jets/userflow/table_schema_test.go` reads this directory and the emitted
     // schema and asserts the same documents pass the Go validator that enforces
     // them at save time — two languages against one artifact rather than two
     // readings of it.
-    if (process.env.UPDATE_SCHEMA === "1") {
-      for (const dir of [tablesDir, assetTablesDir]) {
-        mkdirSync(dir, { recursive: true });
-        // **Removing what this emitter no longer owns rather than wiping the
-        // directory, as of C.9.** The wipe was right while every document was
-        // emitted here; two are now hand-authored and committed beside the rest, and
-        // a wipe would delete them on the next regeneration — silently, since the
-        // very next line would rewrite everything else and the suite would go green
-        // with two files gone.
-        for (const file of readdirSync(dir).filter((f) => f.endsWith(".tc.json"))) {
-          if (!(file.slice(0, -".tc.json".length) in documents)) rmSync(`${dir}${file}`);
-        }
-      }
-      // Written to every directory the key is committed in, which is two for the
-      // one table a flow and a screen both draw.
-      for (const key of Object.keys(translated)) {
-        for (const dir of dirsFor(key)) writeFileSync(`${dir}${key}.tc.json`, documentOf(key));
-      }
-    }
     const onDisk = [...committedIn(tablesDir), ...committedIn(assetTablesDir)];
     expect([...new Set(onDisk)].sort()).toEqual(Object.keys(documents).sort());
     for (const key of Object.keys(translated)) {
       for (const dir of dirsFor(key)) {
-        expect(readFileSync(`${dir}${key}.tc.json`, "utf8")).toBe(documentOf(key));
+        expect(
+          readFileSync(`${dir}${key}.tc.json`, "utf8"),
+          `${key}.tc.json differs from its translation from the Flutter corpus: a table edited by ` +
+            "hand is listed in HAND_MAINTAINED_KEYS",
+        ).toBe(documentOf(key));
       }
     }
   });
@@ -515,7 +512,8 @@ describe("the 28 configurations still translated from the flow fixture", () => {
     // `spInjectedProcessInput` were retired with their fixture entries.
     expect(Object.keys(flowDocuments).length).toBe(28);
     // **47 on 2026-11-13**, when `wsJetRulesTable` left to gain a File column.
-    expect(Object.keys(translated).length).toBe(47);
+    // **46 on 2026-11-14**, when `wsMainSupportFilesTable` left to be relabelled.
+    expect(Object.keys(translated).length).toBe(46);
     expect(Object.keys(handAuthored).length).toBe(2);
     // **8 since 2026-10-02**: `org` and the two `pcView*` tables, which keep
     // their fixture entry as the Flutter record other tests use as material —
@@ -530,7 +528,8 @@ describe("the 28 configurations still translated from the flow fixture", () => {
     // `lfFileKeyStagingTable` from the flows' fixes, and **19** with
     // `fmInputSourceMappingUF`; the total is unchanged.
     // **20 on 2026-11-13**, with `wsJetRulesTable`; the total is unchanged.
-    expect(Object.keys(handMaintained).length).toBe(20);
+    // **21 on 2026-11-14**, with `wsMainSupportFilesTable`; the total is unchanged.
+    expect(Object.keys(handMaintained).length).toBe(21);
     // **64 since 2026-10-11**: the three rules unit test tables
     // (`rules_unit_test_harness` `AD.4`), written rather than translated.
     // **5 and 63 since 2026-11-08**: *Session Registry* and *Archived

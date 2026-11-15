@@ -1,6 +1,6 @@
 package datatable
 
-// JM-087: update/users refuses malformed roles with 400 instead of panicking the
+// Update/users refuses malformed roles with 400 instead of panicking the
 // handler on an unchecked type assertion. The DB test reuses newUAFixture from
 // user_admin_test.go and is skipped unless JETS_TEST_DSN is set.
 

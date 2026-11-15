@@ -15,7 +15,7 @@ on the [Workspaces](/docs/user/screens/workspaces/) screen, which opens the sele
 `workspace_ide` capability: the top bar entry is disabled without it, and a user who reaches the
 screen anyway sees *Read only* and cannot save.
 
-![The Workspace IDE on jets_ws: the workspace picker and Save at the top, Refresh below, the file tree on the left with Data Model, Jets Rules, Lookups and Pipes Config, and the empty Workspace Changes table on the right.](../../../../assets/screenshots/user/screens/workspace-ide/ide-changes.png)
+![The Workspace IDE on jets_ws: the workspace picker, and Workspace guide and Save, at the top, Refresh below, the file tree on the left with Data Model, Jets Rules, Lookups and Pipes Config, and the empty Workspace Changes table on the right.](../../../../assets/screenshots/user/screens/workspace-ide/ide-changes.png)
 
 ## The bars at the top
 
@@ -49,6 +49,8 @@ included, is not in it until it is committed to the workspace's repository and t
 rebuilt. The top bar's *Help* still opens this page. How a workspace writes its guide is in
 [Document a workspace](/docs/developer/how-to/document-a-workspace/).
 
+![The page of jets_ws's guide that Workspace guide opens for data_model/hc_model.jr: the file's domain classes, each with its base classes and a table of its properties, their kind and type, and the rules written in the file listed on the right.](../../../../assets/screenshots/user/screens/workspace-ide/workspace-guide-page.png)
+
 ## The file tree
 
 The left panel lists the workspace's files by section: *Data Model*, *Jets Rules*, *Lookups*,
@@ -69,6 +71,8 @@ compile: nothing compiles it, and the guide shows it once it is committed and th
 The section has no **Add File**: a new page is added in the workspace's repository. How to write a page is in
 [Document a workspace](/docs/developer/how-to/document-a-workspace/).
 
+![The Documentation section of jets_ws's file tree, with its customisation folder, index.md and workspace_docs.json, and index.md open in the editor, its front matter highlighted as YAML.](../../../../assets/screenshots/user/screens/workspace-ide/ide-documentation.png)
+
 ## Editing a file
 
 ![hc_model.jr open in a tab of the editor, highlighted as JetRules, with the status bar at the bottom.](../../../../assets/screenshots/user/screens/workspace-ide/ide-file.png)
@@ -83,7 +87,9 @@ The status bar shows the file's path, its language, *Read only* when it cannot b
 whether it is saved. Files JetStore installs into every workspace are read-only: a workspace changes
 what one of them does by extending it, as
 [Workspace assets JetStore installs](/docs/developer/workspace/assets/) explains. A Markdown file,
-such as the workspace's `README.md`, is read-only too, except a page under `docs/`.
+such as a `README.md` beside the pipelines, is read-only too, except a page under `docs/` and the
+workspace's own `README.md`, at the top of the tree. Saving that README makes no start of JetStore
+compile the workspace.
 
 **Saving checks the file first.** A JSON file that does not parse is refused before it is sent. The
 server then checks the file types it knows, such as user flows, table documents, SQL scripts,
@@ -101,12 +107,18 @@ parse, or no `title`, `description` or `kind` (one of `tutorial`, `how-to`, `ref
 `explanation` or `overview`). The editor shows a page's front matter, its opening `---` block, as
 YAML. A file in the place of the workspace guide's generated pages, under `docs/reference/` or named
 `docs/reference.md` or `docs/reference.mdx`, in any case, is refused whatever it holds, with a message
-saying that place is generated. A page's links are checked when the images are built.
+saying that place is generated. A page's links are checked when the images are built. A
+`reports/config.json` is refused when a reports file it runs could not run: a statement with no name
+comment above it, a date pattern `{D:` that is not closed, or a report whose name gives no output
+format and whose `statementProperties` declare none. A reports file under `reports/` is refused for the
+same reasons when `reports/config.json` runs it. A SQL file under `runbooks/` is refused when it holds
+a statement no runbook step may run, such as `BEGIN`, `COMMIT`, `SET ROLE` or `COPY`.
 
 **A save can succeed with warnings.** A check may find something that does not stop the file working
 but that you should know about: in a pipeline definition, every key the pipeline does not know and so
 ignores (a misspelt setting is one that silently does not apply), and an output table column with no
-`rdf_type`, which creating the table needs. The file is saved, and the banner says so in the warning
+`rdf_type`, which creating the table needs; in a user flow's form, a table it draws that the
+workspace's `table_configs/` does not hold. The file is saved, and the banner says so in the warning
 colours, listing each warning at its place in the file (a JSON Pointer such as
 `/pipes_config/0/apply/1/device_writer_type`, or a line) until you dismiss it.
 
@@ -157,6 +169,10 @@ includes. A rule in a file that two main rule files include is listed once under
 *Files Relationship* lists, for each main rule file, every file it includes, directly or through
 another included file. *Jet Rules Files* lists the included rule files as well as the main ones, with
 *Main Rule File?* telling them apart.
+
+![The Jet Rules tab of the Jets Rules compiled view: jets_ws's rules by name, each with its salience, its text as written, the main rule file it is compiled under, jet_rules/clinical_intel/cintel_main.jr, and the file it is written in, an included rule file.](../../../../assets/screenshots/user/screens/workspace-ide/ide-compiled-jet-rules.png)
+
+![The Files Relationship tab of the Jets Rules compiled view: each of jets_ws's main rule files with every file it includes, cintel_main.jr with its data model, rule and lookup files, and each unit test's rule file with jets_model.jr.](../../../../assets/screenshots/user/screens/workspace-ide/ide-compiled-files-relationship.png)
 
 The *Data Model Files* and *Jet Rules Files* tabs also have **Add File**, which creates an empty file
 in the section, and **Delete**, which deletes the selected files. A compiled view reflects the last

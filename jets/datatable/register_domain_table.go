@@ -182,7 +182,7 @@ func (ca *StatusUpdate) RegisterFileInputSource() error {
 	// Register the origin session in session_registry. The rows above, the
 	// input_loader_status row and the loaded staging rows all carry it, and the
 	// loader run registers only a session of its own, so without this the origin
-	// session is seen by no retention purge (JM-083). RegisterFileKeys does the
+	// session is seen by no retention purge. RegisterFileKeys does the
 	// same for an automated file, but its error is not ignored here: a load whose
 	// session cannot be registered fails the status update, as a failed
 	// input_registry insert does.
@@ -201,7 +201,7 @@ func (ca *StatusUpdate) RegisterFileInputSource() error {
 //
 // In process (dev mode) the value is the []string startLoader put in the env.
 // Through the state machine the status-update lambda receives the env decoded
-// from JSON, so it is a []any of strings (JM-089). Only []string was accepted,
+// from JSON, so it is a []any of strings. Only []string was accepted,
 // so on the cluster every load fell back to the object type alone and a source
 // with several domain keys was registered under one of them. A nil, empty or
 // otherwise typed value falls back as before; a list holding a non-string is an
@@ -222,7 +222,7 @@ func originDomainKeysOf(originDomainKeys, objType any) ([]string, error) {
 			domainKeys = append(domainKeys, s)
 		}
 	default:
-		// Any other type fell back to the object type before JM-089, and still
+		// Any other type fell back to the object type before the domain keys fix, and still
 		// does: only the JSON-decoded list was a known producer's value.
 		log.Printf("Warning: $ORIGIN_DOMAIN_KEYS is a %T, expecting a list of strings; using $OBJECT_TYPE", originDomainKeys)
 	}

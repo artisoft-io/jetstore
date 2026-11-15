@@ -50,9 +50,8 @@ test("Your first rule change", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Rules Unit Test Runs" })).toBeVisible();
   await page.getByRole("button", { name: "+ Add" }).click();
   await expect(page.getByRole("heading", { name: "Select Rules Unit Tests" })).toBeVisible();
-  const cases = await waitForTable(page);
+  await waitForTable(page);
   await selectRow(page, TEST_FILE);
-  await hideColumn(cases, "Comment");
   await shot(page, "select-test");
   await page.getByRole("button", { name: "Start Test(s)" }).click();
   await expect(page.getByRole("heading", { name: "Rules Unit Test Runs" })).toBeVisible();

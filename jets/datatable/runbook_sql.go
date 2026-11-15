@@ -1,6 +1,6 @@
 package datatable
 
-// How a runbook's SQL reaches PostgreSQL. Project runbooks, Phase 1, track AB.
+// How a runbook's SQL reaches PostgreSQL.
 //
 // # Values only as bind parameters
 //
@@ -30,7 +30,7 @@ package datatable
 //
 // The step's timeout is `set_config('statement_timeout', <ms>, true)` — SET
 // LOCAL, with the value as a bind parameter — so the database cancels a
-// statement that runs past it (criterion 3). The client's context carries a
+// statement that runs past it. The client's context carries a
 // longer deadline as a backstop.
 //
 // # Read-only queries
@@ -43,15 +43,11 @@ package datatable
 //
 // # Statements no runbook may send
 //
-// Checked before anything runs, in both step types: transaction control
-// (BEGIN, COMMIT, ROLLBACK, END, ABORT, SAVEPOINT, RELEASE, START, PREPARE
-// TRANSACTION), changing the role or session authorization, COPY (it reads and
-// writes server files and can run a program), LOAD, DISCARD and LISTEN. A
-// COMMIT inside a ddl would end the step's transaction early, so the
-// statements after it would not be atomic and a preview would not roll back;
-// the transaction status is also checked after every statement as a second
-// line. This is the executor's check; the save-time validator does not make it
-// (reported as a finding for jets/runbook).
+// Transaction control, a change of role, COPY, LOAD and the rest
+// (runbook.ForbiddenStatement) are refused where the runbook is read: by
+// runbook.Validate when a run starts, so a run never starts with one, and by
+// runbook.Bind, which every statement sent here comes from. The transaction
+// status is also checked after every statement as a second line.
 
 import (
 	"context"
@@ -63,7 +59,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/artisoft-io/jetstore/jets/runbook"
 	"github.com/jackc/pgx/v5"
@@ -79,98 +74,6 @@ const runbookRowsByteCap = 256 * 1024
 // runbookClientGrace is how much longer than the statement timeout the client
 // waits before cancelling the statement itself.
 const runbookClientGrace = 30 * time.Second
-
-// firstWords is the first three keywords of a statement, upper case,
-// skipping whitespace, comments and opening parentheses.
-func firstWords(sql string) []string {
-	var words []string
-	i, n := 0, len(sql)
-	for i < n && len(words) < 3 {
-		c := sql[i]
-		switch {
-		case c == '-' && i+1 < n && sql[i+1] == '-':
-			j := strings.IndexByte(sql[i:], '\n')
-			if j < 0 {
-				i = n
-			} else {
-				i += j
-			}
-		case c == '/' && i+1 < n && sql[i+1] == '*':
-			depth := 0
-			for i < n {
-				if i+1 < n && sql[i] == '/' && sql[i+1] == '*' {
-					depth++
-					i += 2
-				} else if i+1 < n && sql[i] == '*' && sql[i+1] == '/' {
-					depth--
-					i += 2
-					if depth == 0 {
-						break
-					}
-				} else {
-					i++
-				}
-			}
-		case c == '(' || unicode.IsSpace(rune(c)):
-			i++
-		case unicode.IsLetter(rune(c)) || c == '_':
-			j := i
-			for j < n && (unicode.IsLetter(rune(sql[j])) || sql[j] == '_' || unicode.IsDigit(rune(sql[j]))) {
-				j++
-			}
-			words = append(words, strings.ToUpper(sql[i:j]))
-			i = j
-		default:
-			i = n
-		}
-	}
-	for len(words) < 3 {
-		words = append(words, "")
-	}
-	return words
-}
-
-// forbiddenStatement says why a statement may not be sent by a runbook, or "".
-func forbiddenStatement(sql string) string {
-	w := firstWords(sql)
-	switch w[0] {
-	case "BEGIN", "START", "COMMIT", "END", "ROLLBACK", "ABORT", "SAVEPOINT", "RELEASE":
-		return w[0] + " is transaction control: a step runs in one transaction the executor opens and closes"
-	case "PREPARE":
-		if w[1] == "TRANSACTION" {
-			return "PREPARE TRANSACTION is transaction control"
-		}
-	case "SET", "RESET":
-		for _, x := range w[1:] {
-			switch x {
-			case "ROLE", "AUTHORIZATION":
-				return w[0] + " " + x + " changes the database identity a step runs as"
-			case "TRANSACTION", "CHARACTERISTICS":
-				return w[0] + " " + x + " changes the step's transaction"
-			}
-		}
-		if w[0] == "RESET" && w[1] == "ALL" {
-			return "RESET ALL resets the step's transaction settings"
-		}
-	case "COPY":
-		return "COPY reads and writes server files and can run a program; a runbook does neither"
-	case "LOAD":
-		return "LOAD loads a shared library into the server"
-	case "DISCARD", "LISTEN", "UNLISTEN":
-		return w[0] + " changes the session, which a runbook does not do"
-	}
-	return ""
-}
-
-// checkStatements refuses a step whose statements a runbook may not send.
-func checkStatements(stmts []runbook.BoundStatement) error {
-	for i, st := range stmts {
-		if why := forbiddenStatement(st.SQL); why != "" {
-			return fmt.Errorf("statement %d is refused: %s", i+1, why)
-		}
-	}
-	return nil
-}
 
 // setStepSettings is a step transaction's first statement: its timeout and the
 // UTC time zone, both SET LOCAL.
@@ -202,9 +105,6 @@ func runReadOnlyQuery(ctx context.Context, conn *pgx.Conn, stmts []runbook.Bound
 	timeout time.Duration, maxRows int) (*queryResult, error) {
 	if len(stmts) != 1 {
 		return nil, fmt.Errorf("a query runs exactly one statement, the file has %d", len(stmts))
-	}
-	if err := checkStatements(stmts); err != nil {
-		return nil, err
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout+runbookClientGrace)
 	defer cancel()
@@ -264,9 +164,6 @@ type previewEntry struct {
 // commit together, and commits.
 func runDDL(ctx context.Context, conn *pgx.Conn, stmts []runbook.BoundStatement, timeout time.Duration,
 	preview bool, record func(tx pgx.Tx, entries []previewEntry) error) ([]previewEntry, error) {
-	if err := checkStatements(stmts); err != nil {
-		return nil, err
-	}
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(len(stmts)+1)*(timeout+runbookClientGrace))
 	defer cancel()
 	tx, err := conn.BeginTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadWrite})

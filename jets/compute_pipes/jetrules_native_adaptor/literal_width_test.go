@@ -1,6 +1,6 @@
 package jetrules_native_adaptor
 
-// INTEGER LITERALS KEEP 64 BITS (rules_benchmark I-150, Q-86).
+// INTEGER LITERALS KEEP 64 BITS.
 //
 // NewIntLiteral and NewUIntLiteral went through the bridge's 32-bit calls, so a
 // value outside 32 bits was truncated silently. A value that fits is still a
@@ -11,7 +11,7 @@ package jetrules_native_adaptor
 //
 // Runs in a child process over a compiled copy of jets/jetrules/test_ws, as
 // engine_mode_test.go does. Needs the cgo environment of
-// jets/cmds/rules_unit_test/README.md; run it with -count=1.
+// docs/src/content/docs/developer/testing/go-and-cpp.md; run it with -count=1.
 
 import (
 	"math"
@@ -79,8 +79,8 @@ func TestIntegerLiteralWidth(t *testing.T) {
 	}
 
 	// The meta graph's manager before any session opens: a meta literal made
-	// after one has opened is not made at all, whatever its width (I-15's
-	// territory, and not this test's).
+	// after one has opened is not made at all, whatever its width (another
+	// test's territory, not this one's).
 	meta := engine.GetMetaResourceManager()
 	check("meta", meta)
 	// And into the meta graph, as rule_config writes there, to be found from a

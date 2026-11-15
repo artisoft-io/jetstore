@@ -378,8 +378,7 @@ func loadEngine(name string, factory compute_pipes.JetRulesFactory, cfg *ruleste
 	st.load.ConfigNs = time.Since(t1).Nanoseconds()
 	st.legacyMode = rulestest.LegacyModeFixed
 	// The check, on a session no run uses. Contains rather than an iterator: the
-	// native adaptor's iterators need a rete session to exist (rules_benchmark
-	// I-13).
+	// native adaptor's iterators need a rete session to exist.
 	rdfSession, err := re.NewRdfSession()
 	if err != nil {
 		re.Release()
@@ -571,7 +570,7 @@ func (opts *Options) commitStats(stats *compute_pipes.OptimizerStatsSession, sr 
 // sessionFailure is why a session failed, or "" when it did not. A session that
 // fails makes its run's status error, as the command's README says: an err, an
 // execute_err or exceptions. Only err raised it before, so a run whose engine threw
-// reported ok (rules_benchmark I-34). A session that reached max_looping is counted
+// reported ok. A session that reached max_looping is counted
 // in Totals.Errors and does not fail the run. A session that reached the vertex cap
 // does: the engine reports the cap as an execute error (runSession sets
 // VertexCapReached from it), so a run whose spec sets a low max_vertex_visits on

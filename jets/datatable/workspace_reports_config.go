@@ -2,12 +2,14 @@ package datatable
 
 import (
 	"fmt"
+	"io/fs"
 	"path"
 	"reflect"
 	"sort"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
+	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
 	"github.com/artisoft-io/jetstore/jets/run_reports/directives"
 	"github.com/artisoft-io/jetstore/jets/wsvalidate"
 )
@@ -110,4 +112,91 @@ func escapeJSONPointer(segment string) string {
 func lastJSONPointerSegment(p string) string {
 	segment := p[strings.LastIndex(p, "/")+1:]
 	return strings.ReplaceAll(strings.ReplaceAll(segment, "~1", "/"), "~0", "~")
+}
+
+// reportsFilesFindings is the `reports/config.json` row's check against the
+// workspace (2026-11-14): what run_reports refuses in the reports files the
+// directives run, when it reads them, before any report of the file runs.
+// Each report's are checked, since each is the one some run follows
+// (directives.ReportDirectives.ReportsFileErrors): a file run_reports cannot
+// read as reports, a report name whose date pattern is not closed, and a
+// report with no output format, where its name decides that and not a run's
+// values.
+//
+// The refusals need the reports files and validateReportsConfig is given the
+// directives alone, which is why until this check they were found only when a
+// report ran. A reports file saved after the directives is checked against
+// them by its own save since later the same day (reportsSQLFindings).
+func reportsFilesFindings(_, content string, workspace fs.FS) []wsvalidate.Finding {
+	config, err := directives.Decode([]byte(content))
+	if err != nil {
+		return nil // validateReportsConfig refused it
+	}
+	var findings []wsvalidate.Finding
+	for _, name := range sortedNames(config) {
+		rd := config[name]
+		for _, e := range rd.ReportsFileErrors(name, workspace) {
+			findings = append(findings, wsvalidate.Finding{
+				Severity: wsvalidate.Error,
+				Code:     "reports_config_reports_file",
+				Message:  fmt.Sprintf("report %q cannot run: %v", name, e),
+				Path:     "/" + escapeJSONPointer(name),
+			})
+		}
+	}
+	return findings
+}
+
+// reportsDir is the workspace directory of the reports files and of the report
+// directives, `reports`.
+var reportsDir = path.Dir(directives.ConfigFile)
+
+// isReportsSQL reports whether the workspace-relative fileName is in reports/,
+// where run_reports reads its reports files and scripts.
+func isReportsSQL(fileName string) bool {
+	return wsfile.InDir(fileName, reportsDir)
+}
+
+// reportsSQLFindings is the reports `.sql` row's check against the workspace
+// (2026-11-14): a reports file is refused for what run_reports would refuse in
+// it under the directives in reports/config.json that run it, the checks the
+// directives' own save makes of it (reportsFilesFindings,
+// directives.ReportDirectives.CheckReportsFile), made of the content being
+// saved. Until this row a reports file saved after its directives was checked
+// lexically only, and run_reports found it wrong when a report ran.
+//
+// A file no directives run as a reports file is not checked: one declared
+// `reportOrScript: "script"` runs whole, and one no entry names is either run
+// by a report with no directives, for a process of its name, or by nothing,
+// and a save cannot tell which (the workspaces keep report SQL nothing runs,
+// for debugging). Nor is a file whose directives do not decode, which their
+// own save refuses and the run refuses.
+func reportsSQLFindings(fileName, content string, workspace fs.FS) []wsvalidate.Finding {
+	raw, err := fs.ReadFile(workspace, directives.ConfigFile)
+	if err != nil {
+		return nil
+	}
+	config, err := directives.Decode(raw)
+	if err != nil {
+		return nil
+	}
+	file := path.Clean(strings.ReplaceAll(fileName, "\\", "/"))
+	var findings []wsvalidate.Finding
+	for _, name := range sortedNames(config) {
+		rd := config[name]
+		for _, f := range rd.ReportsFiles(name) {
+			if f.File != file {
+				continue
+			}
+			for _, e := range rd.CheckReportsFile(f, content) {
+				findings = append(findings, wsvalidate.Finding{
+					Severity: wsvalidate.Error,
+					Code:     "reports_file",
+					Message:  fmt.Sprintf("report %q in %s cannot run: %v", name, directives.ConfigFile, e.Err),
+					Line:     e.Line,
+				})
+			}
+		}
+	}
+	return findings
 }

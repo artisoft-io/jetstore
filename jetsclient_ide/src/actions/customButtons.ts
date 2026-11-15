@@ -1,6 +1,5 @@
 /**
- * A deployment's own Pipeline Status buttons. jetstore_maintenance_02, defect `D04`,
- * task `AE.8` (2026-10-01).
+ * A deployment's own Pipeline Status buttons (2026-10-01).
  *
  * ## Where they come from, and why not from a document
  *
@@ -11,7 +10,7 @@
  * `repo_infra_jetstore_platform`) and drew its entries as a third row on the
  * Pipeline Status table only; they disappeared with that app. **They stay out of
  * every `.tc.json`** — both table schemas refuse `fromConfigRowActions`, which is
- * `ui_refresh` I-102's objection kept: a workspace file must not be a second way
+ * an earlier objection kept: a workspace file must not be a second way
  * to configure a deployment. What changes is that the field is filled at run time.
  *
  * ## The shape is Flutter's, and so is the all-or-nothing
@@ -34,9 +33,9 @@
  * ## Capability
  *
  * `jetstore_read`, which is what `fetch_file_from_stage` requires
- * (`jets/apiserver/api_tables.go`). Flutter declared `run_pipelines`. The plan's
- * rule for `D01` (`AD.3`, `I-2`) is *the endpoint's capability, not the retired
- * client's*, and it applies here unchanged (`Q-14`, answered so).
+ * (`jets/apiserver/api_tables.go`). Flutter declared `run_pipelines`. The
+ * rule is *the endpoint's capability, not the retired
+ * client's*, and it applies here unchanged.
  */
 
 import type { ActionConfig } from "../datatable/types";

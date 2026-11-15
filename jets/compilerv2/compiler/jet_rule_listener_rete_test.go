@@ -48,7 +48,7 @@ func TestJetRuleListener_BuildReteNetwork1(t *testing.T) {
 	// first two vertices and end on one each, so each fires at its own salience:
 	// the head node, three antecedents and the second terminal, plus two
 	// consequents. Until 2026-10-11 they shared the terminal too, 6 nodes, and
-	// the vertex fired both at one salience (rules_unit_test_harness I-25).
+	// the vertex fired both at one salience.
 	case len(jrCompiler.JetRuleModel().ReteNodes) != 7:
 		t.Error("Expected 7 rete nodes, got", len(jrCompiler.JetRuleModel().ReteNodes))
 	}

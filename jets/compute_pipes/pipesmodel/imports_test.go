@@ -14,8 +14,8 @@ import (
 // jsii runtime; a site operator implementing a three-method interface should
 // inherit none of it.
 //
-// **Criterion 90 said "no AWS, Arrow, pgx or jsii". `BC.1` made it stronger by
-// measurement** — the surface needs no `jets/agentic/template` either — so this
+// **The requirement said "no AWS, Arrow, pgx or jsii". Measurement made it
+// stronger** — the surface needs no `jets/agentic/template` either — so this
 // asserts the stronger property: **standard library only**. A named deny list
 // would pass the day somebody adds the dependency nobody thought to name.
 //
@@ -57,28 +57,28 @@ func TestPackageImportsStandardLibraryOnly(t *testing.T) {
 
 // The surface is 20 named types, and the number is load-bearing rather than
 // decorative: each one is a commitment to whoever writes a site operator, and
-// R-149 says a public surface is hard to shrink. A type arriving here should be
+// A public surface is hard to shrink. A type arriving here should be
 // a decision somebody took, not a field somebody added to a struct that already
 // crossed.
 //
-// **Twenty since Phase 9's P9-T02**, which added LookupTable and Lookup: the
-// second of the two extensions D-202 rules. LookupTable *moved* here rather than
+// **Twenty since LookupTable and Lookup were added**, the second of the two
+// sanctioned extensions. LookupTable *moved* here rather than
 // arriving -- `compute_pipes` keeps an alias -- for the reason
-// TransformationColumnEvaluator moved at `BD.2`: it is what OperatorArgs.Lookups
+// TransformationColumnEvaluator moved: it is what OperatorArgs.Lookups
 // hands across, so the contract package has to be able to name it. It crosses
 // clean because every method of it takes and returns standard library shapes;
 // the S3 and pgx reaches are in the *implementations*, which stayed put. Lookup
 // is the pair that carries a table's key beside it, since LookupTable has no
 // accessor for its own name and a site handed a bare list could not tell one
-// table from another (D-209).
+// table from another.
 //
-// **Eighteen since `Q-148` on 2026-09-15**, which added RowLevelError: the
+// **Eighteen since 2026-09-15**, which added RowLevelError: the
 // per-record half of an error row, which a site fills and OperatorEnv.ReportError
 // completes. It is three strings and it is on the surface because a site names it
 // at every call site -- the alternative shapes, a parameter list or an `error`,
-// were weighed in plan §22 and neither survives a fourth column.
+// were weighed and neither survives a fourth column.
 //
-// **Thirteen until `BD.2`**, which added the four the operator contract needs:
+// **Thirteen before the four the operator contract needs were added**:
 // OperatorEnv, OperatorArgs, SiteOperatorFactory, and
 // TransformationColumnEvaluator, the last moving out of `compute_pipes` because
 // it is OperatorEnv.ColumnEvaluator's return type. The name carries the count on
@@ -86,7 +86,7 @@ func TestPackageImportsStandardLibraryOnly(t *testing.T) {
 // point of the number is that moving it should feel like a decision.
 //
 // **It reads every non-test file in the package, and it read `model.go` alone
-// until `BD.2`.** That was a file-scoped assertion wearing a package-scoped
+// until the operator contract arrived.** That was a file-scoped assertion wearing a package-scoped
 // name: `operator.go` would have added four types to the surface with the test
 // still green and still reporting thirteen. Found by writing the second file,
 // which is the only way a single-file corpus ever finds it.

@@ -1,6 +1,6 @@
 """The bundle layer: abstract types between a root union and its concrete leaves.
 
-**Why the layer exists — corrected 2026-08-20 (Q-15).** As built, the argument
+**Why the layer exists — corrected 2026-08-20.** As built, the argument
 was fit: a schema addressed at `#/$defs/TransformationSpec` is 41,040 tokens
 against an infer-server context of 32,768. That premise was measured against the
 wrong quantity. The JSON Schema goes to Ollama as `format`, which becomes a
@@ -35,7 +35,7 @@ else across twelve instances, while `apply_map` holds distinct_count, sum and
 count.
 
 **Why this is a projection over the emitted `$defs` rather than classes in the
-model.** Since the B.10 flip, `cpipes_model.py` is the source of truth for the
+model.** Since the source-of-truth flip, `cpipes_model.py` is the source of truth for the
 contract *claims* - which fields exist per token, required, values, defaults.
 Bundles claim nothing new about any of that; they restrict what an existing
 field admits, for one addressable entry point. Emitting them here keeps
@@ -243,7 +243,7 @@ def check_corpus(schema: dict, matrix: Path, root: Path) -> tuple[int, list[str]
     """Validate every live TransformationSpec fragment against its bundle.
 
     This is what keeps the authored bundles honest. The corpus cannot *propose*
-    a bundle - with 45 live configs, most operators appear once or twice, and at
+    a bundle - with 45 live configs on 2026-08-19, most operators appear once or twice, and at
     those counts "semantically excluded" and "nobody has written one yet" are
     indistinguishable. What it can do is **falsify** one: a fragment JetStore
     runs that its own bundle rejects means the authoring is wrong, and the

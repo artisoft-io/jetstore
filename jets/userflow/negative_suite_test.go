@@ -47,7 +47,7 @@ var validatorsByDocument = map[string]func(string) []wsvalidate.Finding{
 	"table":  ValidateTableDocument,
 }
 
-// TestNegativeSuite is S.6, run where it matters: **in Go, against the emitted
+// TestNegativeSuite is the negative suite, run where it matters: **in Go, against the emitted
 // schemas, through the same validators the save path calls.**
 //
 // The rule the plan takes from the cpipes side: *a negative that validates is a

@@ -1,9 +1,9 @@
 package datatable
 
-// The executor pool (AC.3) and the recording of a run (AC.4), against fake
+// The executor pool and the recording of a run, against fake
 // harnesses: shell scripts named through JETS_RULES_UNIT_TEST_HARNESS that write
 // a result, exit without one, overrun the deadline, or allocate past the memory
-// ceiling. So the pool is tested without the C++ engine (plan §5). Needs
+// ceiling. So the pool is tested without the C++ engine. Needs
 // JETS_TEST_DSN like rules_unit_test_runs_test.go, whose fixture it uses; the
 // memory tests need python3.
 
@@ -213,7 +213,7 @@ print("allocated")'`
 		// alone costs.
 		{"overruns its deadline", `echo "looping"; sleep 30 & wait`, time.Second,
 			[]string{"timed out", "1s deadline"}, "looping", 4},
-		// The harness applies -rlimit_data_mb to itself first, as AB.9 will.
+		// The harness applies -rlimit_data_mb to itself first.
 		{"past its ceiling, self-limited", `ulimit -d $(( $4 * 1024 )); ` + alloc, 0,
 			[]string{"memory limit, inferred from the log", `"out of memory"`, "64 MiB", "exit status 2"}, "fatal error: out of memory", 10},
 		// The harness ignores the flag; the apiserver's prlimit holds it anyway.

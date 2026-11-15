@@ -1,11 +1,11 @@
-// Package eval measures whether the copilot works, under the reporting rules
-// decision 13 settled.
+// Package eval measures whether the copilot works, under a settled set of
+// reporting rules.
 //
 // **The rules are constraints on what may be said, not formatting.** They exist
 // because the corpus is skewed — map_record and partition_writer are 83% of 458
 // transformation instances, and nine operators have four instances or fewer —
 // so the obvious summary of a run would report the health of two operators and
-// conceal thirteen. Decision 13, accepted 2026-08-18:
+// conceal thirteen. The rules, accepted 2026-08-18:
 //
 //   - **Per operator, with denominators visible.** A rate without its
 //     denominator is unreadable when the denominators differ by two orders of
@@ -17,23 +17,23 @@
 //     sample cannot support.
 //   - **An operator with no live instances reports untested**, not zero. Zero
 //     is a measurement; untested is the absence of one, and clustering is the
-//     case (I-15 deleted its only instance).
-//   - **Every figure records which side of the gap-19 transition it came
+//     case (its only instance was deleted).
+//   - **Every figure records which side of the template transition it came
 //     from**, because templates absorb the fat head and leave the model the
 //     thin tail: a rate from before and a rate from after are two different
-//     populations (Phase 0 plan §5.3.7).
+//     populations.
 //
 // These are enforced here rather than left to whoever writes the summary. A
 // reporting discipline that depends on discipline is not one.
 //
-// **One rule was added at P.1, 2026-08-27, and it was already being enforced
+// **One rule was added 2026-08-27, and it was already being enforced
 // next door.** A report must name the model that answered and the population
-// its cases came from. Decision 13's own argument is that two populations
-// reported as one is the failure to prevent, and plan §4 raised provenance as
+// its cases came from. The rules' own argument is that two populations
+// reported as one is the failure to prevent, and provenance was raised as
 // the design constraint for the golden-case library — but this type could be
 // published saying neither, while ToolReport in toolcall.go has required both
-// since J.2 built it under the same decision. Nothing had called this one
-// (F32), so the asymmetry cost nothing until it did.
+// since it was built under the same rules. Nothing had called this one,
+// so the asymmetry cost nothing until it did.
 package eval
 
 import (
@@ -43,17 +43,17 @@ import (
 )
 
 // RateThreshold is the number of cases below which an operator reports cases
-// rather than a rate. Five, so "four of four" is still cases: decision 13 says
+// rather than a rate. Five, so "four of four" is still cases: the rules say
 // four or fewer, and the boundary is inclusive.
 const RateThreshold = 5
 
-// Era records which side of the gap-19 template transition a figure came from.
+// Era records which side of the template transition a figure came from.
 // It is mandatory: a report that cannot say is a report that will be compared
 // against one from the other side.
 type Era string
 
 const (
-	// EraPreTemplates is before gap 19's template mechanism exists. The model
+	// EraPreTemplates is before the template mechanism exists. The model
 	// is asked for everything, including the repetitive head.
 	EraPreTemplates Era = "pre_templates"
 	// EraPostTemplates is after it. Templates handle the head deterministically,
@@ -76,12 +76,12 @@ type OperatorResult struct {
 	// NotRun says why an operator with live instances was never attempted,
 	// when the reason is the harness rather than the split.
 	//
-	// **Added at P.1, 2026-08-27, because the first run needed it for every
+	// **Added 2026-08-27, because the first run needed it for every
 	// operator.** "not run — 241 live instances available" reads as *the split
 	// held none out*, which is a fact about the split and nobody's fault. It is
 	// the wrong sentence when the split held out plenty and the harness refused
 	// them — on this contract, because the operator's schema does not fit the
-	// context window (F112). Two different situations rendering in one line is
+	// context window. Two different situations rendering in one line is
 	// how a reader concludes the harness is fine and the split was unlucky.
 	NotRun string
 }
@@ -117,11 +117,11 @@ func (r OperatorResult) Line() string {
 
 // Report is a whole measurement.
 //
-// **There is deliberately no total, and its absence is the design.** Decision 13
-// bans an aggregate compile-pass figure outright — not "discouraged", and not
+// **There is deliberately no total, and its absence is the design.** The rules
+// ban an aggregate compile-pass figure outright — not "discouraged", and not
 // "acceptable beside the breakdown". Two operators are 83% of the corpus, so
 // any total is those two wearing a coat, and it is the number that would
-// travel. R-9 makes the related point that a compile-pass percentage arrives
+// travel. A related point is that a compile-pass percentage arrives
 // somewhere as a quality claim; the defence is not having one to quote.
 //
 // A caller that genuinely needs one number for a specific purpose should
@@ -132,28 +132,28 @@ type Report struct {
 	// Model is what the server said answered, which need not be what was asked
 	// for: a tag can resolve to a different build. Mandatory.
 	//
-	// **This field and CaseSource are P.1's provenance decision, 2026-08-27,
-	// and where they are is the decision.** Plan §4 posed the question as
+	// **This field and CaseSource are the provenance decision of 2026-08-27,
+	// and where they are is the decision.** The question was posed as
 	// *"`Case` gains a provenance field, or the two libraries stay apart"*. The
-	// libraries stay apart — I-115 and I-136 settled that a repair case and a
+	// libraries stay apart — it was settled that a repair case and a
 	// synthetic runtime case differ in *what a case contains* and not only in
 	// where it came from, so a label on `Case` would advertise a comparison
 	// that does not exist. What was actually missing is one layer up: a
 	// compile-pass report could be published without naming the model that
 	// produced it or the population it measured, while ToolReport — the sibling
-	// type in this package, written for J.2 under the same decision — has
+	// type in this package, written under the same rules — has
 	// required both since it was built. The asymmetry was invisible because
-	// nothing called this one (F32).
+	// nothing called this one.
 	Model string
 	// CaseSource says where the cases came from. Mandatory, for the reason the
 	// field exists on ToolReport: a reader who assumes a corpus will over-read
 	// figures drawn from anything else, and two populations reported as one is
-	// decision 13's own failure mode arriving through the door it left open.
+	// the rules' own failure mode arriving through the door it left open.
 	CaseSource string
 	Operators  []OperatorResult
 	// HeldOutFiles names the files the cases came from, so a reader can tell
 	// whether a figure was measured against material the few-shot pool also
-	// saw. File-level is decision 13's split; instance-level would leak,
+	// saw. File-level is the rules' split; instance-level would leak,
 	// because instances within one file share channel names and house idiom.
 	HeldOutFiles []string
 }

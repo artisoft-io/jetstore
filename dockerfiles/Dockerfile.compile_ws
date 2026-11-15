@@ -62,7 +62,7 @@ COPY . $WORKSPACES_REPO/$WORKSPACE/
 # image shipped on 2026-08-31 carried `build/`, `build/jet_rules` and
 # `build/jet_rules/clinical_intel` at 0770 — dated months before that build,
 # because they came in through the COPY above — against 222 files that were all
-# world-readable. See jets/workspace/README.md.
+# world-readable. See docs/src/content/docs/developer/workspace/index.md.
 #
 # **Here rather than only after the compile, because the archive is built in
 # between.** `compile_workspace` writes workspace.tgz from this tree, and a
@@ -84,8 +84,8 @@ RUN \
   && WORKSPACES_HOME=${WORKSPACES_REPO} /app/install_workspace_assets -w=${WORKSPACE}
 
 # **The compile validates the workspace's user_flows/ and table_configs/ first,
-# and an invalid document fails this build** (jetstore_maintenance_02 AG.4,
-# 2026-10-01; jets/workspace/asset_validation.go). Nothing here sets that up: the
+# and an invalid document fails this build** (2026-10-01;
+# jets/workspace/asset_validation.go). Nothing here sets that up: the
 # script is /app/jets_validate_workspace.mjs beside /app/compile_workspace and node
 # is on PATH, both inherited from cpipes_builder. The findings print with file and
 # JSON Pointer in the build log, above the error.

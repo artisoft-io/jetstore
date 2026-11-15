@@ -39,14 +39,10 @@ package datatable
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
-	"os"
 	"testing"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/artisoft-io/jetstore/jets/schema"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // The tables RegisterFileKeys touches with NoAutomatedLoad set: the three case
@@ -83,52 +79,13 @@ const (
 // one the deployment has — and seeds the registry rows.
 func registerFileKeysFixture(t *testing.T) *DataTableContext {
 	t.Helper()
-	dsn := os.Getenv("JETS_TEST_DSN")
-	if dsn == "" {
-		t.Skip("JETS_TEST_DSN is not set; see the header of this file")
-	}
 	// The folder listing is expected to fail and its failure is tolerated, but
 	// without this the AWS SDK spends five seconds asking EC2 IMDS for a role it
 	// will not find. The listing then fails on the empty bucket name instead,
 	// which is a client-side validation error and reaches no network at all.
 	t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Fatalf("connecting: %v", err)
-	}
-	t.Cleanup(pool.Close)
-
-	defs := make(map[string]*schema.TableDefinition)
-	buf, err := os.ReadFile("../jets_schema.json")
-	if err != nil {
-		t.Fatalf("reading ../jets_schema.json: %v", err)
-	}
-	var schemaDef []schema.TableDefinition
-	if err = json.Unmarshal(buf, &schemaDef); err != nil {
-		t.Fatalf("decoding ../jets_schema.json: %v", err)
-	}
-	for i := range schemaDef {
-		defs[schemaDef[i].TableName] = &schemaDef[i]
-	}
-	drop := func() {
-		for _, name := range registerFileKeysTables {
-			if _, err := pool.Exec(ctx, "DROP TABLE IF EXISTS jetsapi."+name+" CASCADE"); err != nil {
-				t.Logf("warning, while dropping jetsapi.%s: %v", name, err)
-			}
-		}
-	}
-	for _, name := range registerFileKeysTables {
-		def, ok := defs[name]
-		if !ok {
-			t.Fatalf("jets_schema.json carries no definition for jetsapi.%s", name)
-		}
-		// dropExisting, so the fixture owns the table whatever was there before
-		if err = def.UpdateTableSchema(pool, true); err != nil {
-			t.Fatalf("creating jetsapi.%s: %v", name, err)
-		}
-	}
-	t.Cleanup(drop)
+	pool := createTablesFromSchema(t, registerFileKeysTables...)
 
 	seed := []string{
 		`INSERT INTO jetsapi.client_registry (client) VALUES ('` + testClient + `')`,
@@ -141,7 +98,7 @@ func registerFileKeysFixture(t *testing.T) *DataTableContext {
 				'` + testTableName + `', '{` + testObjectType + `}', 'parquet_select', 1, 'system')`,
 	}
 	for _, stmt := range seed {
-		if _, err = pool.Exec(ctx, stmt); err != nil {
+		if _, err := pool.Exec(ctx, stmt); err != nil {
 			t.Fatalf("seeding: %v\n%s", err, stmt)
 		}
 	}
@@ -281,7 +238,7 @@ func TestRegisterFileKeysFileKeyAbsentIsSkipped(t *testing.T) {
 		NoAutomatedLoad: true,
 		IsSchemaEvent:   true,
 	}
-	// RegisterFileKeys skips the row with a 200 and says why (JM-096);
+	// RegisterFileKeys skips the row with a 200 and says why;
 	// RegisterSchemaEvent, whose one row this would be, makes that an error.
 	res, status, err := ctx.RegisterFileKeys(action, "")
 	if err != nil || status != http.StatusOK {

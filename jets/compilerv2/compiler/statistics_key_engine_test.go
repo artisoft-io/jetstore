@@ -2,7 +2,7 @@
 
 package compiler
 
-// THE STATISTICS KEY AGREES WITH THE ENGINE (rules_benchmark Phase 9, BY.1).
+// THE STATISTICS KEY AGREES WITH THE ENGINE.
 //
 // The cost order looks a rule constant up in the statistics file by termKey,
 // which renders it from the compiler's ResourceNode. The file's keys are the
@@ -17,6 +17,9 @@ package compiler
 // It needs libjets, so it is behind a build tag:
 //
 //	LD_LIBRARY_PATH=<jetstore>/build/jets go test -count=1 -tags engine_keys -run TestStatisticsKeyAgreesWithTheEngine ./compilerv2/compiler/
+//
+// ctest runs it with the engine's tests, as go_statistics_key_engine
+// (jets/CMakeLists.txt), against the libjets.so of that build.
 //
 // It runs on jets/jetrules/test_ws, or on the workspace JETS_ENGINE_KEYS_WORKSPACE
 // names, copied to a temporary directory either way. It prints counts only, and a

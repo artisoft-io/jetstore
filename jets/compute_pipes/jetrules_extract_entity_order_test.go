@@ -3,14 +3,13 @@ package compute_pipes
 // The reproducibility of the entity encoder's list order, measured rather than
 // asserted about.
 //
-// agentic_ai's Phase 7 found (plan §1.21.1, F801) that `extractAsEntity` built
+// It was found that `extractAsEntity` built
 // its lists in the order the graph's iterators drained, which is a range over a
 // `sync.Map` and therefore a function of the process's map hash seed. **Two
 // hundred encodings inside one process gave one ordering; twelve separate
 // processes gave five of the six orderings of three conditions.** That is the
 // worst shape a defect can take - a run is internally consistent, so nothing
-// looks wrong, and the next run over identical data produces a different prompt
-// (I-574, I-562).
+// looks wrong, and the next run over identical data produces a different prompt.
 //
 // # THE SCOPE OF THE MEASUREMENT IS THE POINT
 //
@@ -24,14 +23,14 @@ package compute_pipes
 //     encoding is a function of the content and of nothing else - checkable
 //     in-process, in one second, forever.
 //   - `TestEntityOrderIsStableAcrossProcesses` re-executes this test binary
-//     twelve times and counts distinct encodings, which is F801's own
+//     twelve times and counts distinct encodings, which is the original
 //     measurement made permanent.
 //
 // A stub rather than a real rule session: a real one brings in the C++ engine and a
 // compiled workspace, which is the wrong trade for a *weaker* source of disorder
 // than a map range. (Until the Go engine's deletion, October 2026, the stub stood in
 // for that engine's `rdf.RdfSession`, whose only bridge to `JetRdfSession` outside the
-// Go adaptor was a duplicated adaptor in the prose package's tests, I-561.) The real-session
+// Go adaptor was a duplicated adaptor in the prose package's tests.) The real-session
 // cross-process measurement is that package's
 // `TestConditionOrderIsAProcessProperty`, run N times from a shell; this file is
 // the regression test.
@@ -145,8 +144,8 @@ func (it *stubIterator) Release() error        { return nil }
 
 // --- the fixture -----------------------------------------------------------
 
-// briefingFixture is plan §1.10.6's entity as triples: one member, two
-// encounters and two medications, with the components `AT.1`(ii) keeps beside
+// briefingFixture is the specified briefing entity as triples: one member, two
+// encounters and two medications, with the components the projection keeps beside
 // the joined `Medication` value. It carries the three list shapes that matter -
 // a scalar set on the root (`Condition_Summary`), a set of sub-entities
 // (`has_Briefing_*_Events`) and a set of dates nested inside one of those
@@ -359,14 +358,14 @@ func TestMapKeyOrderIsNotASecondSourceOfVariation(t *testing.T) {
 const orderChildEnv = "JETS_ENTITY_ORDER_CHILD"
 const orderChildMarker = "ENTITY-ENCODING:"
 
-// **F801's measurement, made permanent: N separate processes, one encoding.**
+// **The original measurement, made permanent: N separate processes, one encoding.**
 //
 // The per-process measurement was stable *before* the fix and passes either way,
 // so it demonstrates nothing on its own. This one re-executes the test binary
 // twelve times - each child a fresh process with a fresh map hash seed - encodes
 // the same fixture once in each, and counts distinct results. Twelve processes
-// gave five orderings when this was first measured against the real rule session
-// (plan §1.21.1); the answer here must be one.
+// gave five orderings when this was first measured against the real rule session;
+// the answer here must be one.
 //
 // It is gated on an environment variable rather than on a build tag so that it
 // runs in the ordinary suite: the child branch is what the parent invokes, and a

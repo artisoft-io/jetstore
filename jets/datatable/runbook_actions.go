@@ -1,7 +1,7 @@
 package datatable
 
-// The operations behind /runbook (plan §3.4): reading runbooks and runs, and a
-// person's controls on a run. Project runbooks, Phase 1, track AB.
+// The operations behind /runbook: reading runbooks and runs, and a
+// person's controls on a run.
 //
 // Every control is one transaction that locks the run's row, checks the run's
 // state and the step the request names, records the decision on the step row
@@ -34,7 +34,7 @@ package datatable
 //   - abort: the run ends aborted; the running statement is cancelled; every
 //     step not yet final, and every step not yet reached, is recorded skipped.
 //
-// **Continue, skip and retry reload the runbook from the workspace** (§4.4):
+// **Continue, skip and retry reload the runbook from the workspace**:
 // when a file changed, the runbook must validate, every step that has run must
 // be unchanged (its definition and its SQL file's hash), and a new revision is
 // recorded, from the step that runs next. Accept does not reload: it runs what
@@ -640,7 +640,7 @@ func (e *RunbookExecutor) advanceAfter(ctx context.Context, tx pgx.Tx, run *rbRu
 
 // reload reads the runbook from the workspace again. When a file changed it
 // must validate and leave every step that has run unchanged, and a new
-// revision is recorded (§4.4, criterion 6).
+// revision is recorded.
 func (e *RunbookExecutor) reload(ctx context.Context, run *rbRun, steps []*rbStep) (*loadedRunbook, bool, error) {
 	disk, err := loadRunbookFromDisk(run.WorkspaceName, run.Runbook)
 	if err != nil {
@@ -760,7 +760,7 @@ func (e *RunbookExecutor) Abort(ctx context.Context, actor string, key int64) (*
 }
 
 // Release marks a finished run released and answers its result. Releasing is
-// what lets the result leave the database (R6); a second release answers the
+// what lets the result leave the database; a second release answers the
 // same result and keeps the first releaser.
 func (e *RunbookExecutor) Release(ctx context.Context, actor string, key int64) (*map[string]any, error) {
 	tx, err := e.pool.Begin(ctx)

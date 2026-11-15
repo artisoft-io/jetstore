@@ -509,8 +509,8 @@ func applyVllmDefaults(config *VllmSpec) {
 		// pins -- accepts `guided_json` and discards it. At temperature 0 with a fixed
 		// seed the same request with and without the field returns a byte-identical
 		// answer, sha256 and all, while `response_format: {"type":"json_schema"}`
-		// carrying the same schema returns a conformant one. AG.2 measured the two arms
-		// at 0 of 24 and 23 of 24.
+		// carrying the same schema returns a conformant one. Measured over the same 24
+		// requests, the two arms gave 0 and 23 conformant answers.
 		//
 		// **It is not specific to that field**: guided_regex, guided_choice and an
 		// invented field all return 200 with an unconstrained answer, so this server
@@ -523,7 +523,7 @@ func applyVllmDefaults(config *VllmSpec) {
 		// where the OpenAI-compatible arm is the weaker one. An author who needs the
 		// other arm sets `structured_output` explicitly, which is why this is a default
 		// rather than a removal of the guided_json path. Detecting the discard rather
-		// than defaulting around it is Q-82, and is the fix that would survive a
+		// than defaulting around it is still open, and is the fix that would survive a
 		// version change.
 		config.StructuredOutput = vllmStructuredJsonSchema
 	}

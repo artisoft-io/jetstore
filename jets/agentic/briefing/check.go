@@ -19,7 +19,7 @@ import (
 // answer, decoded. **Both are plain decoded documents on purpose**: a flat map
 // of the columns `output_mapping` set is as valid an argument as the whole
 // response object, so this package does not have to know which of the two
-// `AK.2` chooses, and can be built before it chooses.
+// the provenance schema chooses, and can be built before it chooses.
 //
 // The error return is a schema that does not compile. It is separate from the
 // findings because the two are addressed to different people: a finding is for
@@ -64,8 +64,8 @@ func Check(s *Schema, entity, brief map[string]any) (*Result, error) {
 	}
 
 	// A stable order, not document order: pointers sort lexicographically, so
-	// /events/10 precedes /events/2. Determinism is what is wanted here - phase
-	// 3's F118 measured what happens to a harness whose output reshuffles - and
+	// /events/10 precedes /events/2. Determinism is what is wanted here - a
+	// harness whose output reshuffles cannot be compared run to run - and
 	// claiming document order would be a claim this comparison does not make.
 	sort.SliceStable(res.Findings, func(i, j int) bool {
 		if res.Findings[i].Path != res.Findings[j].Path {
@@ -80,8 +80,8 @@ func Check(s *Schema, entity, brief map[string]any) (*Result, error) {
 // operator holds: the entity column is a json string and the response is a json
 // string.
 //
-// **The entity column may instead be toon, and CheckTOON reads it** (toon.go,
-// `AK.2`). What has not changed is why a format nothing can parse is refused
+// **The entity column may instead be toon, and CheckTOON reads it** (toon.go).
+// What has not changed is why a format nothing can parse is refused
 // rather than passed: a checker that silently accepted one would report a clean
 // briefing for every record.
 func CheckJSON(s *Schema, entityJSON, briefJSON string) (*Result, error) {
@@ -127,10 +127,10 @@ func applyRule(r *FieldRule, entity map[string]any, loc Located) (*Finding, []st
 	switch r.Kind {
 	case KindUngrounded:
 		// **Exempt from grounding, not exempt from the language check** - which
-		// is the whole of what `AK.3` changed about this kind, and it adds no
-		// sixth kind to a table two issues already want extended (I-436,
-		// I-437). A field nothing bounds is where the model writes its own
-		// prose, and A§8.3's first guardrail is about prose. See advisory.go
+		// is the whole of what the advisory check changed about this kind, and it
+		// adds no sixth kind to a table already asked to be extended. A field
+		// nothing bounds is where the model writes its own prose, and the first
+		// guardrail on a briefing is about prose. See advisory.go
 		// for why the scan runs here and nowhere else.
 		if marker, found := advisoryMarker(loc.Value); found {
 			return fail(CodeAdvisoryLanguage, fmt.Sprintf(

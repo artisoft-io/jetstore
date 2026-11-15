@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-// The write-side counterpart of read_capability_test.go. I-125, I-126.
+// The write-side counterpart of read_capability_test.go.
 //
 // **A source-level test rather than a behavioural one, for the same reason
 // read_capability_test.go is one**: exercising these paths needs a database, a
@@ -20,7 +20,7 @@ import (
 // DropTable, which accepted a token and never read it.
 //
 // **Why the write side had nothing and the read side did.** read_capability_test.go
-// was written for I-2, which was about four read functions. The write paths were
+// was written for four read functions. The write paths were
 // left to the per-statement Capability field in sql_stmts.go, which covers the
 // two handlers that resolve a statement and says nothing at all about a handler
 // that resolves none. DropTable resolves none. Neither did the /purgeData
@@ -36,7 +36,7 @@ import (
 //
 // **InsertRawRows is deliberately absent.** Its gate lives inside the
 // raw_rows/process_mapping arm rather than at the top of the function, because
-// the arm is what performs the delete (I-124), and insert_raw_rows_authz_test.go
+// the arm is what performs the delete, and insert_raw_rows_authz_test.go
 // asserts that ordering precisely. Duplicating it here with a coarser rule would
 // weaken it. TestInsertRawRowsIsCoveredByItsOwnTest keeps the delegation from
 // rotting silently.
@@ -88,7 +88,7 @@ func containsAny(s string, needles []string) bool {
 	return false
 }
 
-// TestEveryWritePathRequiresACapability is the guard I-125 asked for: not a fix
+// TestEveryWritePathRequiresACapability is the guard that was asked for: not a fix
 // to one function, but the assertion that would have failed on it.
 //
 // The rule is *gate before you act*, not *gate first*. InsertRows and
@@ -180,9 +180,9 @@ func TestInsertRawRowsIsCoveredByItsOwnTest(t *testing.T) {
 	}
 }
 
-// TestDropTableSanitisesItsIdentifiers pins the second half of I-125. The schema
+// TestDropTableSanitisesItsIdentifiers pins the second half of that fix. The schema
 // and table are request fields either way, so sanitising does not decide *which*
-// table may be dropped — see the TODO the function still carries and I-138. What
+// table may be dropped — see the TODO the function still carries. What
 // it does is stop a quoted identifier from being escaped out of, which is the
 // habit ResetDomainTables already has one package over.
 func TestDropTableSanitisesItsIdentifiers(t *testing.T) {

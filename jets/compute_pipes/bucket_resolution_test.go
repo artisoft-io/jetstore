@@ -95,7 +95,7 @@ func TestUnresolvedBucketErrorNamesTheBucket(t *testing.T) {
 // The two output writers (the merge writer and the partition writer) choose
 // their bucket through outputBucket. A bucket configured as a variable whose
 // value is the sentinel must reach the sinks as the deployment's bucket (""),
-// not as an external bucket spelled "jetstore_bucket": before JM-057 the
+// not as an external bucket spelled "jetstore_bucket": previously the
 // writers tested the raw value for the sentinel and substituted afterwards, so
 // this case slipped through as external and only the sinks' own re-tests kept
 // it out of a bucket of that name.

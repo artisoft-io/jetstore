@@ -1,11 +1,11 @@
 package jetrules_native_adaptor
 
-// THE NATIVE RdfNode AGREES WITH THE GO ONE (rules_unit_test_harness I-11, I-12, I-15).
+// THE NATIVE RdfNode AGREES WITH THE GO ONE.
 //
 // Equals compared two *bridge.Resource wrappers, and every read allocates one, so a
-// node was not Equal to itself read twice (I-11). Value had no case for blank nodes
-// or unsigned literals and returned nil (I-12). And a new meta resource made after
-// the first RDF session opened threw across cgo and aborted the process (I-15).
+// node was not Equal to itself read twice. Value had no case for blank nodes
+// or unsigned literals and returned nil. And a new meta resource made after
+// the first RDF session opened threw across cgo and aborted the process.
 //
 // Needs libjets.so with get_ulong_literal: set CGO_CFLAGS, CGO_LDFLAGS and
 // LD_LIBRARY_PATH to a build of this commit. Runs in a child process over a compiled
@@ -50,7 +50,7 @@ func TestNativeRdfNode(t *testing.T) {
 		t.Fatalf("Insert: %v", err)
 	}
 
-	// I-11: one node read twice is Equal, to itself and to what was inserted
+	// One node read twice is Equal, to itself and to what was inserted
 	obj1, obj2 := ses.GetObject(s, p), ses.GetObject(s, p)
 	if !obj1.Equals(obj2) || !obj1.Equals(o) {
 		t.Errorf("the object read twice: Equals false")
@@ -67,7 +67,7 @@ func TestNativeRdfNode(t *testing.T) {
 		t.Errorf("Equals(nil) is true")
 	}
 
-	// I-12: unsigned literals and blank nodes have values, as on the Go engine
+	// Unsigned literals and blank nodes have values, as on the Go engine
 	if v, ok := obj1.Value().(uint); !ok || v != 7 {
 		t.Errorf("uint literal Value = %v (%T), want uint 7", obj1.Value(), obj1.Value())
 	}
@@ -79,7 +79,7 @@ func TestNativeRdfNode(t *testing.T) {
 		t.Errorf("GetRdfNodeValue(blank node) = %v, want BN3 as on the Go engine", got)
 	}
 
-	// I-15: the meta graph is locked now; what it holds comes back, a new item is
+	// The meta graph is locked now; what it holds comes back, a new item is
 	// refused, and the process is still here
 	if again := meta.NewResource("i15_made_before_the_session"); !again.Equals(madeBefore) {
 		t.Errorf("an existing meta resource after the lock is not the same node")

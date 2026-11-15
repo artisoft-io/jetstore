@@ -445,7 +445,7 @@ var projectedKeys = map[string]bool{
 
 // A flow's documents are read together and a set that lost one fails at load in
 // the browser — the layer this repository has least visibility into, so the glob
-// is checked here instead (task U.2).
+// is checked here instead.
 //
 // **Two shapes since the ported flows moved in** — eleven on 2026-08-26, ten
 // since `registerFileKeyUF` was retired on 2026-10-01, and `rulesUnitTestUF`,

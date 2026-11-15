@@ -27,7 +27,7 @@ import (
 //	jets/awsi           files fetched from S3     0750 dirs, 0644 files
 //	jets/workspace_assets  installed assets       0755 dirs, 0644 files
 //
-// The first cost a production incident (see jets/workspace/README.md). Fixing it
+// The first cost a production incident (see docs/src/content/docs/developer/workspace/index.md). Fixing it
 // where it broke would have left the second as the identical trap one package
 // over, waiting for the next caller that reads the tree as a different identity —
 // which is precisely how the first one waited eleven months.

@@ -77,7 +77,7 @@ COPY --from=builder ${JETS_BUILD_DIR}/jets/libjets.so /usr/local/lib/
 # libsqlite3 is not copied: libjets.so needs libsqlite3.so.0, and nothing here
 # ever linked that soname to a copy, so the loader always took the base image's
 # /lib64/libsqlite3.so.0 and the builder's libsqlite3.so.0.8.6 sat unused --
-# measured on 2026-10-11 (rules_unit_test_harness I-35). The base's is what has
+# measured on 2026-10-11. The base's is what has
 # been running, and the ldd check below fails the build if it ever goes missing.
 #* Verify lib version when upgrading dependencies
 COPY --from=builder /usr/lib64/libboost_date_time.so.1.75.0 /usr/local/lib/
@@ -93,7 +93,7 @@ RUN echo "/usr/local/lib" > /etc/ld.so.conf.d/local.conf
 # them 0755 and COPY keeps the mode, and a chmod in a later layer stores every
 # file it touches again -- measured on 2026-10-11, a RUN that chmod'ed these two
 # added 60 MB, their sizes summed, and changed no mode. Dockerfile.ui_service
-# carries the same note (rules_unit_test_harness I-31, I-34).
+# carries the same note.
 #
 # **No chmod on the libraries either.** All four are already 0755 where they
 # are copied from in the builder (`ls -lL` there, 2026-10-11), COPY keeps the mode, and the dynamic loader needs no execute bit on a shared
@@ -111,7 +111,7 @@ RUN \
 
 # jemalloc is the C and C++ allocator of the processes this image starts: the
 # rule engine (libjets.so) and cgo allocate through it, the Go heap does not.
-# Measured on the rules benchmark (Phase 3, C6). Set last, so that no build step
+# Measured on the rules benchmark. Set last, so that no build step
 # above runs under it. Setting LD_PRELOAD to an empty value in the task's or the
 # function's environment turns it off without a new image.
 ENV LD_PRELOAD=/usr/lib64/libjemalloc.so.2

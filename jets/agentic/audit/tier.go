@@ -5,16 +5,15 @@ import (
 	"strings"
 )
 
-// The autonomy tier vocabulary, its ordering, and the comparison (task AJ.1,
-// gap 7b, criterion 51).
+// The autonomy tier vocabulary, its ordering, and the comparison.
 //
 // **Three parties record a tier and none compared one until this file.**
 // Loop.Tier is written onto every audit event, agent_run.tier persists the
 // authority a run was conducted under, approval_event.tier_at_event records the
 // authority a decision was taken at, and Remediation.autonomy_tier_required
-// names the authority an action needs. Phase 1 said in terms that recording was
-// all it was doing — "Tier is recorded and not enforced in Phase 1 —
-// enforcement is gap 7" — and Phase 4 gave the required tier a home while
+// names the authority an action needs. The agent loop said in terms that recording was
+// all it was doing — "Tier is recorded and not enforced" — and the
+// remediation table gave the required tier a home while
 // tabling Remediation for a different reason. What was missing was one
 // comparison, and this is it.
 //
@@ -34,11 +33,11 @@ import (
 //
 // # The ordering is asserted, not assumed
 //
-// AutonomyTier's own docstring says "Lexicographic order is tier order — the
-// ceiling comparisons of gap 7 work on the text directly, so do not relabel to
-// the §9.2 names". That is true today and is a property of the *labels*: it
+// AutonomyTier's own docstring says lexicographic order is tier order, that
+// ceiling comparisons work on the text directly, and not to relabel to
+// the descriptive names. That is true today and is a property of the *labels*: it
 // holds because the members are spelled T0…T4 and would stop holding the day
-// somebody renamed them to §9.2's Observe/Advise/Propose/Act/Bounded, which is
+// somebody renamed them to the descriptive Observe/Advise/Propose/Act/Bounded, which is
 // exactly what the docstring is warning against.
 //
 // **A comparison that relies on it silently inverts when that happens.**
@@ -56,7 +55,7 @@ type Tier string
 // The five members, mirroring model.py:74 and the CHECK constraints the DDL
 // generates from it.
 const (
-	// TierT0 is §9.2's Observe: read metadata and code, record analysis.
+	// TierT0 is Observe: read metadata and code, record analysis.
 	TierT0 Tier = "T0"
 	// TierT1 is Advise: advisory hypotheses and narratives, no modification.
 	TierT1 Tier = "T1"

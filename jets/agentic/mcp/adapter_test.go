@@ -1,4 +1,4 @@
-// T.1's premise, checked rather than repeated.
+// A premise, checked rather than repeated.
 //
 // The plan says MCP exposure of a new tool is *free* because the adapter
 // enumerates reg.List(). That is a claim about this package, and this package
@@ -71,8 +71,8 @@ func TestAdapterServesEveryRegistrySignature(t *testing.T) {
 	}
 }
 
-// T.2 changed both verifiers' schemas to a `oneOf` over two required sets, and
-// I-250 gave compile_rule_file a third, the symbolic 'rules' document; and
+// Both verifiers' schemas are a `oneOf` over two required sets, and
+// compile_rule_file has a third, the symbolic 'rules' document; and
 // the wire is where an MCP client meets them. relaxExternalRefs walks the whole
 // document, so a $ref inside a `oneOf` branch is the case that would have been
 // missed — asserted here because the two verifiers are exactly the tools whose

@@ -1,13 +1,18 @@
 package main
 
-import "strings"
+import (
+	"sort"
+	"strconv"
+	"strings"
+)
 
 // classify gives each line the first known difference that matches it. The
 // kinds are tried in this order, whatever their order in the list:
 //
 //  1. relabelled: A's labels are rewritten into B's through the one-to-one
-//     correspondence (see correspond), and a line that then equals a B line is
-//     relabelled. The rewritten line is what the later kinds see.
+//     pairing of labels (see correspond and pairRepeated), and a line that then
+//     equals a B line is relabelled. The rewritten line is what the later kinds
+//     see.
 //  2. merged: a label of one side that corresponds to several of the other.
 //  3. the value pairs, double_quantised, double_near, text_double_format,
 //     literal_regex_group and predicate_alias, in list order.
@@ -25,6 +30,7 @@ func classify(a, b []*line, allA, allB []string, member, file, labelA, labelB, s
 	c := correspond(a, b)
 	for _, e := range entries {
 		if e.Pair == PairRelabelled {
+			c.pairRepeated(a, b, allA, allB)
 			c.relabel(a, b, e.ID)
 			break
 		}
@@ -92,8 +98,14 @@ func classify(a, b []*line, allA, allB []string, member, file, labelA, labelB, s
 // correspondence links the minted labels of A and B. Two labels correspond when
 // they hold the same place in a line shape (the line with its labels blanked)
 // that occurs exactly once on each side.
+//
+// pair is the one-to-one map from A's labels to B's that relabelling rewrites
+// through: the labels that correspond one to one, and then the labels that only
+// repeating shapes hold, paired by pairRepeated. merged reads aToB and bToA only,
+// so pair changes nothing it sees.
 type correspondence struct {
 	aToB, bToA map[string]map[string]bool
+	pair       map[string]string
 }
 
 func correspond(a, b []*line) *correspondence {
@@ -180,15 +192,20 @@ func oneToOne(x string, there, back map[string]map[string]bool) (string, bool) {
 	return "", false
 }
 
-// relabel rewrites A's lines into B's labels and classifies as id each line
-// that then equals an unclassified B line.
+// relabel rewrites A's lines into B's labels through c.pair (or through the one
+// to one correspondence when pairRepeated has not run) and classifies as id each
+// line that then equals an unclassified B line.
 func (c *correspondence) relabel(a, b []*line, id string) {
 	byText := unclassifiedByText(b)
+	to := func(x string) (string, bool) { return oneToOne(x, c.aToB, c.bToA) }
+	if c.pair != nil {
+		to = func(x string) (string, bool) { y, ok := c.pair[x]; return y, ok }
+	}
 	for _, l := range a {
 		if l.known != "" {
 			continue
 		}
-		text, changed := rewrite(l.text, func(x string) (string, bool) { return oneToOne(x, c.aToB, c.bToA) })
+		text, changed := rewrite(l.text, to)
 		if !changed {
 			continue
 		}
@@ -198,6 +215,245 @@ func (c *correspondence) relabel(a, b []*line, id string) {
 			delete(byText, text)
 		}
 	}
+}
+
+// pairRepeated sets c.pair: the labels that correspond one to one, and then the
+// labels that only line shapes occurring more than once hold, which correspond
+// does not link. Those are paired by colour refinement over the differing lines,
+// the way graphdump names minted nodes:
+//
+//   - Fixed labels keep a colour of their own: a label paired one to one shares
+//     a colour with its partner; a label of a file whose other file has the same
+//     label, and that correspond links to nothing, is paired with itself; a label
+//     correspond links to several (merged's case) gets a colour nothing shares,
+//     so it is never paired here and merged sees it as before.
+//   - Every other label starts with one colour, and a round gives it the colour
+//     of its colour and its lines, each written with the label as @ and every
+//     other label as its colour, until the number of colours stops growing.
+//   - A colour held by one label on each side pairs them. A colour held by
+//     several on each side whose lines hold no other unpaired label holds
+//     interchangeable nodes: as many are paired as both sides have, in label
+//     order, and the rest stay unpaired.
+//   - When no colour pairs, the first colour held by the same number of labels on
+//     each side is paired in label order, all of it, and the refinement runs
+//     again, which pairs their neighbours next: individualisation, one class at
+//     a time. In a dump the minted nodes hang from named ones as trees, where
+//     nodes of one colour are interchangeable, so any order is right. In a
+//     regular structure that colour refinement cannot split (graphdump's one
+//     known exception) an order can be wrong, and then it costs classifications
+//     and never adds a wrong one.
+//
+// A colour held on one side only stays unpaired, so its lines stay unclassified.
+// Pairing never classifies a line by itself: relabel classifies a line only when
+// its rewritten text is a line of B, so a pair is only ever the bijection under
+// which the lines it classifies are equal.
+func (c *correspondence) pairRepeated(a, b []*line, allA, allB []string) {
+	c.pair = map[string]string{}
+	const fixedA, fixedB = "A", "B"
+	colA, colB := map[string]string{}, map[string]string{}
+	linesA, linesB := labelLines(a), labelLines(b)
+	labelsIn := func(all []string) map[string]bool {
+		m := map[string]bool{}
+		for _, t := range all {
+			_, labels := blank(t)
+			for _, x := range labels {
+				m[x] = true
+			}
+		}
+		return m
+	}
+	inA, inB := labelsIn(allA), labelsIn(allB)
+	n := 0
+	fix := func(x, y string) {
+		c.pair[x] = y
+		n++
+		colA[x], colB[y] = "="+strconv.Itoa(n), "="+strconv.Itoa(n)
+	}
+	for _, x := range sortedKeys(linesA) {
+		if y, ok := oneToOne(x, c.aToB, c.bToA); ok {
+			fix(x, y)
+		}
+	}
+	// A label both files have, and that correspond links on neither side, is
+	// the same node: it is pinned to itself. This rewrites nothing.
+	same := func(x string) bool {
+		return inA[x] && inB[x] && colA[x] == "" && colB[x] == "" && len(c.aToB[x]) == 0 && len(c.bToA[x]) == 0
+	}
+	for _, x := range sortedKeys(linesA) {
+		if same(x) {
+			fix(x, x)
+		}
+	}
+	for _, y := range sortedKeys(linesB) {
+		if same(y) {
+			fix(y, y)
+		}
+	}
+	for x := range linesA {
+		if colA[x] == "" && len(c.aToB[x]) > 0 {
+			colA[x] = fixedA + x
+		}
+	}
+	for y := range linesB {
+		if colB[y] == "" && len(c.bToA[y]) > 0 {
+			colB[y] = fixedB + y
+		}
+	}
+	free := func(col map[string]string, lines map[string][]string) []string {
+		var out []string
+		for x := range lines {
+			if col[x] == "" || col[x][0] == '?' {
+				out = append(out, x)
+			}
+		}
+		sort.Strings(out)
+		return out
+	}
+	for {
+		freeA, freeB := free(colA, linesA), free(colB, linesB)
+		if len(freeA) == 0 || len(freeB) == 0 {
+			return
+		}
+		refine(freeA, freeB, colA, colB, linesA, linesB)
+		classA, classB := map[string][]string{}, map[string][]string{}
+		for _, x := range freeA {
+			classA[colA[x]] = append(classA[colA[x]], x)
+		}
+		for _, y := range freeB {
+			classB[colB[y]] = append(classB[colB[y]], y)
+		}
+		progress := false
+		var tied []string
+		for _, k := range sortedKeys(classA) {
+			xs, ys := classA[k], classB[k]
+			switch {
+			case len(xs) == 0 || len(ys) == 0:
+			case len(xs) == 1 && len(ys) == 1:
+				fix(xs[0], ys[0])
+				progress = true
+			case interchangeable(xs, colA, linesA) && interchangeable(ys, colB, linesB):
+				for i := 0; i < len(xs) && i < len(ys); i++ {
+					fix(xs[i], ys[i])
+				}
+				progress = true
+			case len(xs) == len(ys):
+				tied = append(tied, k)
+			}
+		}
+		if !progress {
+			if len(tied) == 0 {
+				return
+			}
+			xs, ys := classA[tied[0]], classB[tied[0]]
+			for i := range xs {
+				fix(xs[i], ys[i])
+			}
+		}
+	}
+}
+
+// labelLines maps each minted label of lines to the texts of its lines.
+func labelLines(lines []*line) map[string][]string {
+	m := map[string][]string{}
+	for _, l := range lines {
+		_, labels := blank(l.text)
+		seen := map[string]bool{}
+		for _, x := range labels {
+			if !seen[x] {
+				seen[x] = true
+				m[x] = append(m[x], l.text)
+			}
+		}
+	}
+	return m
+}
+
+// refine recolours the free labels of both sides together until the number of
+// colours stops growing. A free label's colour starts with '?', and a label
+// with none is given "?"; a fixed label's colour is never changed. It starts
+// from the colours of the previous call, which pairing only made finer, so it
+// reaches the same partition as starting afresh in fewer rounds.
+func refine(freeA, freeB []string, colA, colB map[string]string, linesA, linesB map[string][]string) {
+	start := map[string]bool{}
+	for _, x := range freeA {
+		if colA[x] == "" {
+			colA[x] = "?"
+		}
+		start[colA[x]] = true
+	}
+	for _, y := range freeB {
+		if colB[y] == "" {
+			colB[y] = "?"
+		}
+		start[colB[y]] = true
+	}
+	signature := func(x string, col map[string]string, lines []string) string {
+		rendered := make([]string, len(lines))
+		for i, t := range lines {
+			rendered[i], _ = rewrite(t, func(label string) (string, bool) {
+				if label == x {
+					return "@", true
+				}
+				if k := col[label]; k != "" {
+					return "<" + k + ">", true
+				}
+				return "<>", true
+			})
+		}
+		sort.Strings(rendered)
+		return col[x] + "\n" + strings.Join(rendered, "\n")
+	}
+	count := len(start)
+	for {
+		sigA, sigB := make([]string, len(freeA)), make([]string, len(freeB))
+		ids := map[string]string{}
+		for i, x := range freeA {
+			sigA[i] = signature(x, colA, linesA[x])
+			ids[sigA[i]] = ""
+		}
+		for i, y := range freeB {
+			sigB[i] = signature(y, colB, linesB[y])
+			ids[sigB[i]] = ""
+		}
+		if len(ids) <= count {
+			return
+		}
+		count = len(ids)
+		for i, s := range sortedKeys(ids) {
+			ids[s] = "?" + strconv.Itoa(i)
+		}
+		for i, x := range freeA {
+			colA[x] = ids[sigA[i]]
+		}
+		for i, y := range freeB {
+			colB[y] = ids[sigB[i]]
+		}
+	}
+}
+
+// interchangeable is true when no line of xs holds an unpaired label other than
+// its own: swapping two of them cannot change a line elsewhere.
+func interchangeable(xs []string, col map[string]string, lines map[string][]string) bool {
+	for _, x := range xs {
+		for _, t := range lines[x] {
+			_, labels := blank(t)
+			for _, z := range labels {
+				if z != x && (col[z] == "" || col[z][0] == '?') {
+					return false
+				}
+			}
+		}
+	}
+	return true
+}
+
+func sortedKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // anchored is the set of minted labels that are the object of a line of all whose

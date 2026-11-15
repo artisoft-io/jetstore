@@ -2,8 +2,9 @@
 // own links, wait for a table to settle, and write a screenshot beside the
 // documentation page that shows it.
 //
-// An image is written only when it differs from the one already committed by
-// more than a small threshold, so a run with no change to the UI writes no file.
+// An image is written only when it differs from the one already committed in a
+// way a reader could see (see compareAndWrite), so a run with no change to the
+// UI writes no file.
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,13 +23,27 @@ export const RESULTS_FILE = resolve(here, "../test-results/shots.jsonl");
 /** The stack's admin. Its password is generated for each run and is only ever in the environment. */
 export const ADMIN_EMAIL = "admin@localhost.test";
 
-/**
- * The share of pixels that may differ before an image is rewritten. Small enough
- * to catch a changed label, large enough to ignore anti-aliasing noise.
- */
-const MAX_DIFF_RATIO = Number(process.env.SHOTS_MAX_DIFF_RATIO ?? "0.0005");
 /** Per-pixel colour tolerance, pixelmatch's `threshold` (0 to 1). */
 const PIXEL_THRESHOLD = 0.1;
+/** The side, in CSS pixels, of the square window differing pixels are counted in. */
+const WINDOW = 16;
+/**
+ * An image is rewritten when some WINDOW x WINDOW square holds at least this
+ * many differing pixels: a changed character, a button enabled, a check box
+ * ticked.
+ *
+ * Measured in November 2026. The smallest change is one digit in the file
+ * tree's sizes, its smallest type: every pair of digits rendered there differs
+ * by 6 to 28 in its densest square (2 and 7 by 6; 1 and 7, 3 and 5, 5 and 6,
+ * 6 and 8, 0 and 8 by 7), and by 16 or more in a table cell. An unchanged
+ * screen differs by 0, in every image of three full runs. The 6 an earlier
+ * measurement took for noise, in a dialog's rounded corner, was not: it was the
+ * page behind the corner, changed since the image was taken, and the same at
+ * every run. So 4 sits between the two with a margin on each side. A value that
+ * differs from run to run is a real change to the image too, and is rewritten:
+ * hide it in the spec (hideColumn, hideRunValues) or mask it.
+ */
+const MIN_WINDOW_PIXELS = Number(process.env.SHOTS_MIN_WINDOW_PIXELS ?? "4");
 
 /** Signs in as the stack's admin and waits for the top bar. */
 export async function signIn(page: Page): Promise<void> {
@@ -91,6 +106,22 @@ export async function settle(page: Page, scope?: Locator): Promise<void> {
   }
 }
 
+/**
+ * Ticks a row's checkbox and waits until the tick has held.
+ *
+ * Not Playwright's `check`, which reads the box once, straight after the click.
+ * Ticking a row of some tables sends the table's query again (Workspaces does),
+ * and the reply replaces the rows and clears the tick until the table restores
+ * the selection from the form. A `check` whose read fell between the two failed
+ * with "Clicking the checkbox did not change its state": twice in about ten
+ * full runs, each time on a spec ticking the jets_ws row of Workspaces.
+ */
+export async function tick(checkbox: Locator): Promise<void> {
+  if (!(await checkbox.isChecked())) await checkbox.click();
+  await expect(checkbox).toBeChecked();
+  await settle(checkbox.page());
+}
+
 /** Waits for a data table to have its rows, or to say it has none. */
 export async function waitForTable(page: Page, table?: Locator): Promise<Locator> {
   const t = table ?? page.locator(".jets-datatable").first();
@@ -103,7 +134,12 @@ export async function waitForTable(page: Page, table?: Locator): Promise<Locator
 export interface ShotOptions {
   /** Regions to paint over, for content that changes at every run. */
   mask?: Locator[];
+  /** The colour `mask` paints with: by default the screens' own rule grey, not Playwright's magenta. */
+  maskColor?: string;
 }
+
+/** The colour masked regions are painted with: the IDE's `--rule`, the grey of its table borders. */
+export const MASK_COLOR = "#dce3e7";
 
 export type ShotOutcome = "written" | "unchanged" | "new";
 
@@ -140,32 +176,84 @@ export function screenshotsFor(pagePath: string) {
       animations: "disabled",
       caret: "hide",
       mask: options.mask,
+      maskColor: options.maskColor ?? MASK_COLOR,
       scale: "css",
     });
     const file = join(dir, `${name}.png`);
-    const outcome = compareAndWrite(file, png);
+    const { outcome, pixels, densest } = compareAndWrite(file, png);
     mkdirSync(dirname(RESULTS_FILE), { recursive: true });
-    appendFileSync(RESULTS_FILE, JSON.stringify({ file: relative(DOCS_DIR, file), outcome }) + "\n");
+    appendFileSync(RESULTS_FILE, JSON.stringify({ file: relative(DOCS_DIR, file), outcome, pixels, densest }) + "\n");
     return outcome;
   }
 
   return { shot, dir };
 }
 
-function compareAndWrite(file: string, png: Buffer): ShotOutcome {
+interface Comparison {
+  outcome: ShotOutcome;
+  /** Pixels that differ from the committed image, anti-aliasing excluded; null for a new image or a new size. */
+  pixels: number | null;
+  /** The most differing pixels in any WINDOW x WINDOW square; null as for `pixels`. */
+  densest: number | null;
+}
+
+/**
+ * Writes `png` to `file` unless it matches the image already there.
+ *
+ * The rule is where the differing pixels are, not how many there are. A share
+ * of the whole image (0.05%, 648 pixels of a full window) let small real changes
+ * through: an enabled button (471 pixels), an email in place of "system", a
+ * label's typo corrected (40). What differs between two runs of an unchanged
+ * screen is a few pixels at most; what differs when the screen changed is a
+ * cluster, however small the change. So an image is rewritten when its densest
+ * WINDOW x WINDOW square holds MIN_WINDOW_PIXELS differing pixels or more.
+ */
+function compareAndWrite(file: string, png: Buffer): Comparison {
   if (existsSync(file)) {
     const before = PNG.sync.read(readFileSync(file));
     const after = PNG.sync.read(png);
     if (before.width === after.width && before.height === after.height) {
-      const differing = pixelmatch(before.data, after.data, null, after.width, after.height, {
+      const { width, height } = after;
+      const diff = new Uint8Array(width * height * 4);
+      const pixels = pixelmatch(before.data, after.data, diff, width, height, {
         threshold: PIXEL_THRESHOLD,
+        diffMask: true,
       });
-      if (differing / (after.width * after.height) <= MAX_DIFF_RATIO) return "unchanged";
+      const densest = pixels === 0 ? 0 : densestWindow(diff, width, height);
+      if (densest < MIN_WINDOW_PIXELS) return { outcome: "unchanged", pixels, densest };
+      writeFileSync(file, png);
+      return { outcome: "written", pixels, densest };
     }
     writeFileSync(file, png);
-    return "written";
+    return { outcome: "written", pixels: null, densest: null };
   }
   mkdirSync(dirname(file), { recursive: true });
   writeFileSync(file, png);
-  return "new";
+  return { outcome: "new", pixels: null, densest: null };
+}
+
+/**
+ * The most differing pixels in any WINDOW x WINDOW square of a pixelmatch
+ * diff mask (a differing pixel is opaque, every other one transparent), at
+ * every position, from a summed-area table.
+ */
+function densestWindow(mask: Uint8Array, width: number, height: number): number {
+  const w = width + 1;
+  const sums = new Uint32Array(w * (height + 1));
+  for (let y = 0; y < height; y++) {
+    let row = 0;
+    for (let x = 0; x < width; x++) {
+      row += mask[(y * width + x) * 4 + 3] > 0 ? 1 : 0;
+      sums[(y + 1) * w + x + 1] = sums[y * w + x + 1] + row;
+    }
+  }
+  const side = Math.min(WINDOW, width, height);
+  let densest = 0;
+  for (let y = side; y <= height; y++) {
+    for (let x = side; x <= width; x++) {
+      const n = sums[y * w + x] - sums[(y - side) * w + x] - sums[y * w + x - side] + sums[(y - side) * w + x - side];
+      if (n > densest) densest = n;
+    }
+  }
+  return densest;
 }

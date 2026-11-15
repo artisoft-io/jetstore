@@ -7,7 +7,7 @@ exercises, so an arm added on the other side of the seam goes red here rather
 than being silently unimplemented. That is the same discipline the ten existing
 Go-oracle tests in this package use, and it is the only guard available: a
 header line in the middle of a merged CSV is accepted by every downstream reader
-(P9-I09's neighbourhood), so nothing downstream can catch it.
+(the merged-directory question's neighbourhood), so nothing downstream can catch it.
 
 **The arms are exercised in order and one test is about the order alone.** They
 are not disjoint as predicates — a single csv part with
@@ -125,10 +125,10 @@ def run_merge(
     Through `coordinate` and not through `merge.run_merge` directly, because the
     thing under test includes the scope gate accepting a `stage` channel on this
     pipe kind and `_file_keys` resolving the listing — both of which a direct
-    call would skip, and both of which are D-224.
+    call would skip, and both of which are the merge-pipe decision.
 
     `buckets` maps an **external** bucket name to the directory standing in for
-    it, which is `Local.buckets` and is the seam D-242 put there: a local run
+    it, which is `Local.buckets` and is the seam the bucket decision put there: a local run
     that quietly wrote another account's bucket under this one would pass every
     byte comparison while hiding the destination a deployed run gets wrong.
     `env_extra` goes on the main-input schema provider's `env`, which is where
@@ -185,7 +185,7 @@ def test_the_graph_reads_the_flag_off_the_declaration_and_not_the_token():
 
     The same assertion `graph.py` makes about `fan_out`, extended to this task's
     token. Structural rather than behavioural, because a correct diagnosis in a
-    docstring has stopped nobody here (healthcare_corpus P7-I88).
+    docstring has stopped nobody here.
     """
     source = Path(__import__("cpipes_node.graph", fromlist=["x"]).__file__).read_text()
     assert '"merge_files"' not in source
@@ -385,7 +385,7 @@ def test_the_header_line_ends_with_a_newline_and_not_a_carriage_return_pair():
     """Python's csv writer terminates with `\\r\\n` and Go's with `\\n`.
 
     Asserted because it is a difference in the bytes of a merged file, which is
-    what X2 compares, and because it is invisible to every reader that accepts
+    what the run-to-run comparison compares, and because it is invisible to every reader that accepts
     both.
     """
     assert merge.package_headers(("a",)).endswith(b"a\n")
@@ -511,7 +511,7 @@ def test_the_environment_substitutes_and_the_partition_label_is_empty():
     passes its own label (`pipe_transformation_partition_writer.go:495`). So
     `$CURRENT_PARTITION_LABEL` in a merge's `key_prefix` resolves to nothing in
     Go, and this node was resolving it to the merge node's `jp`: a destination
-    divergence on a key no authored document reaches today (P9-I147).
+    divergence on a key no authored document reaches today.
 
     Asserted as the literal key, both halves — the environment reference
     substitutes and the partition reference does not — because asserting only
@@ -691,7 +691,7 @@ def test_a_merge_without_a_store_is_refused_before_anything_is_resolved(tmp_path
         )
 
 
-# --- the scope gate, D-224's second limb ------------------------------------
+# --- the scope gate, the merge-pipe decision's second limb -----------------
 
 
 def test_a_stage_channel_is_accepted_on_a_merge_pipe_and_counted(tmp_path):
@@ -980,7 +980,7 @@ def test_the_driver_dispatches_on_the_result_type_and_not_on_a_field(tmp_path):
 
 
 def test_an_unset_stage_prefix_is_refused_rather_than_merging_nothing(tmp_path):
-    """**A named divergence** (P9-I66), and the direction matters.
+    """**A named divergence**, and the direction matters.
 
     With the variable unset Go lists a prefix beginning with `/`, matches no
     object and merges an empty file. Refused here instead, because an empty
@@ -998,9 +998,9 @@ def test_an_unset_stage_prefix_is_refused_rather_than_merging_nothing(tmp_path):
 
 
 def test_a_merge_step_is_validated_to_run_on_exactly_one_partition():
-    """**P9-I68's premise, asserted against the Go source.**
+    """**The read-the-tree argument's premise, asserted against the Go source.**
 
-    The argument that Phase 8's harness should read the tree rather than a merged
+    The argument that the comparison harness should read the tree rather than a merged
     directory rests on this and on nothing softer: a merge step's partition set
     must be of size one, and that set is *derived* by listing the previous step's
     stage prefix. So a merge can only see part files one partition wrote, and
@@ -1022,7 +1022,7 @@ def test_a_merge_step_is_validated_to_run_on_exactly_one_partition():
     assert "jets_partition=%s" in go_source("jets/compute_pipes/actions_s3_utils.go")
 
 
-# --- the destination's two accessors (P9-I133, D-252) -----------------------
+# --- the destination's two accessors -----------------------
 
 
 def test_the_file_name_comes_from_name_when_the_document_spells_name():
@@ -1059,7 +1059,7 @@ def test_a_document_spelling_file_name_alone_still_resolves_to_file_name():
     """**The negative half**, without which the repair is an over-reach.
 
     `merge_document`'s own fixture spells `file_name` — which is why nothing in
-    this module could see P9-I133 — so this is the assertion that honouring
+    this module could see the `name` defect — so this is the assertion that honouring
     `name` did not stop honouring the field Go falls back to.
     """
     config = _parsed(merge_document())
@@ -1116,7 +1116,7 @@ def test_the_go_accessors_this_node_mirrors_are_still_a_pair_of_two_json_names()
     )
 
 
-# --- the bucket the merged object lands in (P9-I134, D-253) -----------------
+# --- the bucket the merged object lands in -----------------
 
 
 def test_the_merged_object_lands_in_the_external_bucket_the_entry_names(
@@ -1184,8 +1184,8 @@ def test_the_schema_providers_bucket_arm_is_refused_by_name(tmp_path: Path):
     """Go's second bucket case reads a schema provider this node does not have.
 
     Refused rather than resolved to the node's own bucket, which would be the
-    same file in the wrong account with nothing reporting it — D-242's judgement
-    one pipe kind over.
+    same file in the wrong account with nothing reporting it — the partition writer's
+    bucket judgement one pipe kind over.
     """
     document = merge_document(
         output_file={"output_location": "jetstore_s3_input", "schema_provider": "main"}
@@ -1248,7 +1248,7 @@ def test_the_two_readings_of_gos_bucket_switch_agree_on_every_input():
     assert refused == 1
 
 
-# --- the partition a merge is reading (P9-I132, D-251) ----------------------
+# --- the partition a merge is reading ----------------------
 
 
 def test_a_merge_over_more_than_one_partition_is_refused_with_gos_message(
@@ -1257,9 +1257,9 @@ def test_a_merge_over_more_than_one_partition_is_refused_with_gos_message(
     """`actions_start_reducing_cp.go:190-197`, made where the evidence is.
 
     Four partitions under the step's prefix and this node reading one of them is
-    the state P9-I132 produced at four nodes: it merged 1/4 of every table, said
+    the state an earlier defect produced at four nodes: it merged 1/4 of every table, said
     *merged 1 part file(s)*, and exited 0. Go's starter refuses it; this node is
-    not a starter and nothing in either repository is (P9-I136), so the refusal
+    not a starter and nothing in either repository is, so the refusal
     is made here from the same listing.
     """
     store = Local(tmp_path / "bucket")
@@ -1285,7 +1285,7 @@ def test_one_partition_that_is_not_this_nodes_is_refused_rather_than_merged_empt
     `0000P`: Go's starter would have passed the label it listed, so the only way
     here is an invoker that did not. Merging would write an **empty** object,
     which is exactly what a step whose partition wrote nothing writes — the
-    distinction `_stage_file_keys` already refuses to lose (P9-I66).
+    distinction `_stage_file_keys` already refuses to lose.
     """
     store = Local(tmp_path / "bucket")
     store.put(stage_key("p0", "member_parts"), b"a,b\n1,2\n")
@@ -1325,8 +1325,7 @@ def test_no_partition_at_all_is_not_this_refusal(tmp_path: Path):
     """A step whose partition wrote nothing writes no directory, so the set is empty.
 
     The partition check does **not** fire there, and refusing would turn a
-    legitimate state into a crashed run (P5-I19's lesson in the
-    healthcare_corpus register). What does fire over a zero-part csv merge is
+    legitimate state into a crashed run (an earlier lesson). What does fire over a zero-part csv merge is
     Go's own header switch, whose six arms all require at least one file and
     whose `default:` is the message asserted here — so this pins *which* refusal
     a caller gets, which is the whole point: a test asserting only that

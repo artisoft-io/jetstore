@@ -1,9 +1,9 @@
 /**
- * `homeFiltersUF`'s escapes, and the store they write. Task F.5.
+ * `homeFiltersUF`'s escapes, and the store they write.
  *
- * **This is the first action escape the port has, and it earned the name.** F.1
- * expected `mapFileUF` to need one and the grammar swallowed both of its save
- * buttons instead (I-74), so `productionRegistry.actions` has been `{}` since it
+ * **This is the first action escape the port has, and it earned the name.** The
+ * port expected `mapFileUF` to need one and the grammar swallowed both of its save
+ * buttons instead, so `productionRegistry.actions` has been `{}` since it
  * was written. `updateHomeFilters` is different in kind: it does not post, set or
  * navigate — it **compiles a filter into `WhereClause` objects** that a *different*
  * screen's query builder will splice into its `WHERE`, including `LIKE` patterns
@@ -13,7 +13,7 @@
  * and the flow that wanted it would still be the only caller.
  *
  * **So the answer to "could a primitive remove this?" is no, and the question was
- * asked.** I-74 is the direction this project travels — F.1 *removed* an escape by
+ * asked.** Fewer escapes is the port's direction — `mapFileUF` *removed* one by
  * adding two primitives — and the test that decides it is whether the primitive
  * would be justified beyond the one arm. `rows: "everyGroup"` and `require` were;
  * a where-clause builder is not.
@@ -50,8 +50,8 @@
  *
  * ## A third list, with no Dart original
  *
- * **`sessionRegistryFilters`, for the Session Registry tab** (`session_registry`
- * Phase 2, JM-081, 2026-11-08), set by that tab's *Set Filters* dialog and *Set
+ * **`sessionRegistryFilters`, for the Session Registry tab** (added
+ * 2026-11-08), set by that tab's *Set Filters* dialog and *Set
  * Session Id* prompt and read by `makeQuery` for `sessionRegistryTable` alone.
  * It is a list of its own rather than a share of the home filters because the
  * view it filters, `jetsapi.session_registry_view`, has none of
@@ -61,7 +61,7 @@
  *
  * **It refuses what the server would splice.** `ge` and `le` reach the SQL as
  * written (`jets/datatable/data_table_action.go`, `visitWhereClause`), which is
- * I-103 for the home filters' time bounds. This list builds its bounds only from
+ * also true of the home filters' time bounds. This list builds its bounds only from
  * input that has been checked to be digits, a date, or a count of units, so a
  * typed quote is a refusal rather than part of a query.
  */
@@ -170,7 +170,7 @@ function unpackToList(value: unknown): string[] | null {
  * (`datatable/query.ts`) and the Go builder splices it. That is the Flutter app's
  * behaviour and this port reproduces it rather than improving it, because a
  * different shape here would make the two apps disagree about a live table while
- * both are shipping. Recorded as **I-103**.
+ * both are shipping.
  */
 function timeBound(at: string | null, offset: string | null): string | null {
   const hasAt = at !== null && at !== "";
@@ -187,8 +187,8 @@ function timeBound(at: string | null, offset: string | null): string | null {
  * Step for step with the Dart: process names, statuses, the file-key match, the
  * start bound, the end bound. **The order matters and is asserted**, because the
  * lists are sent as an array and a server-side `WHERE` built from them in a
- * different order is a different query text — which is the trap F.3 found in a
- * coverage document (I-90).
+ * different order is a different query text — which is a trap found once in a
+ * coverage document.
  */
 export function updateHomeFilters(context: EscapeContext): Promise<string | null> {
   const { formState, group } = context;
@@ -338,7 +338,7 @@ export const alwaysEnabled = (_formState: FormState, _group: number): boolean =>
  * The one cross-field rule of the flow. The validator escape.
  *
  * **`homeFiltersFormValidator` is 70 lines in the Dart and about two rules here**,
- * for the reason I-73 gave about `mappingFormValidator`: most of a Dart validator
+ * for the reason given about `mappingFormValidator`: most of a Dart validator
  * is not validation. Six of its eight cases `return null` unconditionally after a
  * side effect, and the side effects are the accumulation this module's escape does
  * instead. What is left:
@@ -370,7 +370,7 @@ export function homeFiltersFormValidator(
 }
 
 // ---------------------------------------------------------------------------
-// The Session Registry tab's filters. `session_registry` Phase 2, 2026-11-08.
+// The Session Registry tab's filters. Added 2026-11-08.
 // ---------------------------------------------------------------------------
 
 /**
@@ -380,7 +380,7 @@ export function homeFiltersFormValidator(
  * a group of the screen's and a bare `source_type` there would be read by any
  * table whose where clause names it.
  *
- * **Changed 2026-11-12 (JM-185, from a client's sessions to delete).** The month
+ * **Changed 2026-11-12 (from a client's sessions to delete).** The month
  * period range is gone: a user does not know month periods, and a weekly or daily
  * session is not found by one. In its place, a file key fragment and a range on
  * the date in the file key, the view's `file_key_date`. The process names are
@@ -541,7 +541,7 @@ export const hasSessionRegistryFilters = (_formState: FormState, _group: number)
   store.sessionRegistryFilters !== null && store.sessionRegistryFilters.length > 0;
 
 /**
- * The Session Registry tab's *Set Session Id*: a comma list, or a range. `Q-6`.
+ * The Session Registry tab's *Set Session Id*: a comma list, or a range.
  *
  * - **`a, b, c`** filters `session_id` on those values, as `setIdFilter` does for
  *   the other tabs. The server puts each between quotes as written, so an id is

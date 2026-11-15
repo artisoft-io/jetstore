@@ -6,13 +6,13 @@ interface Props {
   activeFile: string | null;
   onOpen: (node: WorkspaceNode) => void;
   /**
-   * Whether this section's heading opens a compiled view. Task C.3.
+   * Whether this section's heading opens a compiled view.
    *
    * **The tree does not decide this and must not.** A section carries
    * `compiled_view` from the server, which says whether the section *has* a view;
    * whether *this app renders one* is `sectionContract.ts`'s question, and the
    * two are different — `lookups` answers yes to the first and no to the second
-   * until C.3a. Conflating them is what C.1 removed from the Flutter client.
+   * until it gained a view. Conflating them is what an earlier change removed from the Flutter client.
    */
   canOpenView?: (node: WorkspaceNode) => boolean;
   onOpenView?: (node: WorkspaceNode) => void;

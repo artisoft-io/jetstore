@@ -2,8 +2,7 @@
 // an account.
 //
 // The account is registered in the spec, through the sign-in page's Create
-// one, as its owner would; a fixture cannot insert it, because the stack sets
-// every address in a user_email column to its admin after the fixtures. Its
+// one, as its owner would, since registering is the page's first step. Its
 // password is generated here, typed into no image and kept nowhere. The page's
 // last step deletes the account, so the stack ends as it began.
 import { randomBytes } from "node:crypto";
@@ -22,7 +21,11 @@ test("Manage users", async ({ page }) => {
   await page.getByRole("textbox", { name: "Name" }).fill(NAME);
   await page.getByRole("textbox", { name: "Email" }).fill(EMAIL);
   await shot(page, "register");
-  const password = randomBytes(18).toString("base64url");
+  // The server refuses a password without a digit, an upper-case letter, a
+  // lower-case letter and a symbol (user.Validate), and the form does not check
+  // that first: about one random string in sixty has no digit, and the account
+  // was then not created. The suffix meets every class.
+  const password = `${randomBytes(18).toString("base64url")}Aa1!`;
   await page.getByRole("textbox", { name: "Password", exact: true }).fill(password);
   await page.getByRole("textbox", { name: "Confirm password" }).fill(password);
   await page.getByRole("button", { name: "Create account" }).click();

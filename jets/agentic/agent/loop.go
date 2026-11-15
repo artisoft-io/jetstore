@@ -68,8 +68,8 @@ const (
 type Task struct {
 	// Instruction is the human-readable request, in English.
 	Instruction string
-	// Schema constrains generation and validates the answer. For Phase 1's
-	// narrow tasks this is one $defs entry of the cpipes contract rather than
+	// Schema constrains generation and validates the answer. For the
+	// narrow authoring tasks this is one $defs entry of the cpipes contract rather than
 	// a whole document, which is what makes the task narrow at the wire and
 	// not merely in the instruction text.
 	Schema json.RawMessage
@@ -84,7 +84,7 @@ type Task struct {
 	VerifierArgs func(artifact json.RawMessage) (json.RawMessage, error)
 	// ContextTokens is the serving context this task will run against. Zero
 	// takes the deployed default. It is on the task rather than the loop
-	// because it bounds what may be *asked*, and gap 12 may move it.
+	// because it bounds what may be *asked*, and the deployment may move it.
 	ContextTokens int
 }
 
@@ -112,12 +112,12 @@ func (t *Task) validate() error {
 // Budget bounds a run: two caps and a meter.
 //
 // The caps stop a run and are enforced here. Token spend is accumulated and
-// recorded rather than capped, because what §4.3 needs is spend *comparable at
+// recorded rather than capped, because what the sampling comparison needs is spend *comparable at
 // equal budget* between sampling policies, and a token ceiling would truncate
 // the very runs being compared.
 //
 // **A budget bounds one run and nothing else.** Nothing stops a user starting a
-// hundred runs; that is a quota, it belongs with gap 7's tier machinery, and
+// hundred runs; that is a quota, it belongs with the tier machinery, and
 // enforcing it here would put a control in the wrong layer.
 type Budget struct {
 	// MaxIterations bounds the propose-verify-repair cycle. Exceeding it ends
@@ -138,7 +138,7 @@ type Verdict struct {
 }
 
 // Auditor is the loop's transcript. It is an interface so the loop can be
-// tested without Postgres and so D.4 can supply the transactional
+// tested without Postgres and so a recorder can supply the transactional
 // write-before-act implementation without the loop changing.
 //
 // Appends within one run must be serialised by the caller: two appends racing
@@ -176,7 +176,7 @@ type Loop struct {
 	// which is what the tests use — and what production must not be.
 	Guard Guard
 	// TierGate compares the tier an action requires against the authority this
-	// run is operating at, and refuses below it (AJ.1, gap 7b). Consulted
+	// run is operating at, and refuses below it. Consulted
 	// before every tool call and nowhere else — see the note at the Guard check
 	// in Run for why there is no tier check before the first model call. Nil
 	// means ungated, on Guard's precedent and for the same reason: it is what
@@ -188,7 +188,7 @@ type Loop struct {
 	// fan-out gives each candidate its own.
 	RunId string
 	// Actor and Tier are recorded on every event. Tier is recorded and not
-	// enforced in Phase 1 — enforcement is gap 7 — and recording it now is
+	// enforced here — enforcement is the TierGate's — and recording it is
 	// what makes that later work possible without backfilling.
 	Actor string
 	Tier  string
@@ -235,7 +235,7 @@ func (l *Loop) Run(ctx context.Context, task *Task) (*Result, error) {
 	// allowed to start, so this precedes even the intent.
 	//
 	// **There is deliberately no tier check here, and the asymmetry is the
-	// point rather than an omission (AJ.1).** Guard asks whether an identity
+	// point rather than an omission.** Guard asks whether an identity
 	// may act at all, which is answerable with no action in hand. A tier gate
 	// asks whether this run's authority reaches *this* action, and before the
 	// first model call there is no action to ask about — the loop does not yet
@@ -302,7 +302,7 @@ func (l *Loop) Run(ctx context.Context, task *Task) (*Result, error) {
 			}
 			// A call that died because a deadline passed is the budget
 			// binding, not the model failing. Classifying it as a failure
-			// would put budget exhaustion into the population §4.4 measures
+			// would put budget exhaustion into the population the evaluation measures
 			// the model against.
 			if out, stop := l.overrun(ctx, parent); stop {
 				result.Outcome = out
@@ -395,12 +395,12 @@ func (l *Loop) verify(ctx context.Context, task *Task, artifact json.RawMessage)
 	// Re-checked before the tool call rather than trusted from the start of the
 	// run: a revocation part-way through a long run should take effect at the
 	// next check, which is the whole of what "durable" buys over a flag in
-	// memory. Every Phase-1 tool is read-only, so today this guards a call that
+	// memory. Every current tool is read-only, so today this guards a call that
 	// changes nothing — it is here because the first write tool must not be the
 	// thing that introduces the check.
 	if l.Guard != nil {
 		if err := l.Guard.Allowed(ctx); err != nil {
-			// **The refusal goes on the transcript, and did not until AJ.1.**
+			// **The refusal goes on the transcript, and once did not.**
 			// The same check before the first model call has always appended an
 			// error event; this one returned silently, so a run stopped by a
 			// mid-run revocation left a trail ending at a decision with no
@@ -411,7 +411,7 @@ func (l *Loop) verify(ctx context.Context, task *Task, artifact json.RawMessage)
 			return nil, &refusal{Kind: "capability", Err: err}
 		}
 	}
-	// The autonomy gate (AJ.1, gap 7b, criterion 51). It sits behind the kill
+	// The autonomy gate. It sits behind the kill
 	// switch because the two refuse different things and the cheaper, broader
 	// one should answer first: an identity that may not act at all need not
 	// have its authority compared against anything.
@@ -443,7 +443,7 @@ func (l *Loop) verify(ctx context.Context, task *Task, artifact json.RawMessage)
 // than one the tool returned.
 //
 // **It exists because the transcript was blaming the verifier for both, and
-// AJ.1 is where that became visible.** A refusal from the kill switch or the
+// the autonomy gate is where that became visible.** A refusal from the kill switch or the
 // autonomy gate is appended at the point of refusal, with its own kind and its
 // own operands; Run then saw an error coming out of verify and appended a
 // second error event reading `"kind":"verifier"`, so a run stopped by a
@@ -462,8 +462,8 @@ type refusal struct {
 func (r *refusal) Error() string { return r.Err.Error() }
 func (r *refusal) Unwrap() error { return r.Err }
 
-// repairFromVerdict builds the next prompt from the diagnostics. This is Rung
-// 3 of the analysis's §7, and the reason it is worth more than its size: the
+// repairFromVerdict builds the next prompt from the diagnostics. This is the
+// diagnostic-repair rung, and the reason it is worth more than its size: the
 // diagnostics were written for humans, so they are already the right feedback
 // text, and passing them as JSON keeps the file, line and step a model needs
 // to locate the problem.
@@ -499,10 +499,10 @@ func repairFromSchema(task *Task, err *infer.SchemaError) *infer.Request {
 // event appends to the transcript. A failure to record is discarded rather
 // than aborting the run: losing the audit trail is bad, and killing a run that
 // is otherwise fine because its transcript hiccuped is worse. The intent event
-// is the exception and is D.4's, because that one must be durable before
+// is the exception and is the recorder's, because that one must be durable before
 // anything acts.
 //
-// **Discarded, not recorded — corrected at K.2, 2026-08-23.** This comment
+// **Discarded, not recorded — corrected 2026-08-23.** This comment
 // previously said the failure was "logged into the result", and it is not:
 // Result has no field for it and never had. The distinction matters because the
 // audit trigger assigns seq as max(seq)+1, so an append that never lands leaves

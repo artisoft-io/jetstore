@@ -1,32 +1,32 @@
 package prompt
 
-// The schema in the prompt as well as in `format` — the Go half of I-180's
-// remedy, ported at AG.2 (2026-09-05).
+// The schema in the prompt as well as in `format` — the Go half of the
+// remedy, ported 2026-09-05.
 //
-// **Why this exists at all.** Phase 1's I-41 measured four prompts against
+// **Why this exists at all.** An earlier measurement compared four prompts against
 // `granite4.1:3b` with no model change between them: the schema in `format`
 // alone scored 0 of 9, naming the discriminator tokens scored 0 of 9, the
 // schema rendered into the prompt as TypeScript scored 0 of 9 on one hole and
 // 1 of 1 on the other, and adding one worked example per variant scored 9 of 9.
-// The remedy Phase 1 wrote down — *the schema has to be in the prompt* — was
+// The remedy written down then — *the schema has to be in the prompt* — was
 // implemented in the Python toolchain (`as_typescript`,
 // `tools/cpipes_contract/cpipes_contract/authoring.py:466`) and never reached
-// Go. I-180 is that gap, and Phase 3's P.1 tried the cheap half of it — the
+// Go. That is the gap, and a later run tried the cheap half of it — the
 // JSON Schema pasted into the instruction — and the figure moved by nothing.
 //
 // **TypeScript rather than JSON Schema, and the reason is size rather than
-// taste.** I-41 measured `ColumnMapping` at 5,252 tokens as JSON Schema and
+// taste.** The same measurement put `ColumnMapping` at 5,252 tokens as JSON Schema and
 // 1,086 as TypeScript, `PartitionWriterPipe` at 11,747 against 2,173 — 18 to
 // 20%. A discriminated union is one line per variant instead of a `oneOf` and a
-// mapping. What goes in `format` costs 2 to 3 prompt tokens whatever its size
-// (Q-15, F113); what goes in the prompt costs its own rendering, so the
+// mapping. What goes in `format` costs 2 to 3 prompt tokens whatever its size;
+// what goes in the prompt costs its own rendering, so the
 // difference between the two encodings is the difference between an arm that
 // fits and one that does not.
 //
 // **This is a port and not a redesign**, so it renders what the Python renders
 // and diverges in exactly one respect, which is deliberate: property and
 // definition names are emitted in sorted order. Python preserves the JSON
-// document's key order; a Go map has none, and F118's lesson — a harness whose
+// document's key order; a Go map has none, and an earlier lesson — a harness whose
 // output reshuffles between runs cannot be compared with itself — says to sort
 // rather than to reach for an ordered decoder.
 

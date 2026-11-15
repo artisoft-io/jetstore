@@ -176,7 +176,7 @@ func TestIdeHandlerServesTheRealBundle(t *testing.T) {
 
 // TestIdeShipsItsOwnFavicon guards a dependency that is easy to reintroduce by
 // accident. With no <link rel="icon"> the browser falls back to /favicon.ico at
-// the origin root — which was the *Flutter* app's icon until X.1 and is now this
+// the origin root — which was the *Flutter* app's icon until 2026-08-26 and is now this
 // bundle's own file if one happens to be there and a 404 otherwise. The icon has
 // to ship with this bundle and be declared, which is what stops the tab from
 // depending on what else is in the deployment directory.

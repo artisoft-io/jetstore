@@ -84,8 +84,8 @@ func dMMMMyyyy(t time.Time) string {
 
 // latestBy returns the node whose named property holds the latest date.
 //
-// **It is applied to the events rather than to `Latest_Service_Date`**
-// (§1.10.6): element 2 needs the encounter the extremum belongs to, and the
+// **It is applied to the events rather than to `Latest_Service_Date`**:
+// element 2 needs the encounter the extremum belongs to, and the
 // briefing-level extremum is a bare date that belongs to nothing.
 //
 // A node with no readable date cannot win, and a tie is resolved to the first
@@ -129,7 +129,7 @@ func maxDate(vals []any) (time.Time, bool) {
 // stripCode removes a leading parenthesised diagnosis code: "(F1120) Alcohol
 // dependence" becomes "Alcohol dependence".
 //
-// **The code is stripped in the prose and stays on the entity** (§1.10.4). It
+// **The code is stripped in the prose and stays on the entity**. It
 // exists so a checker can match a whole string exactly, and it is noise to a
 // member and jargon to a representative. A value with no leading code is
 // returned unchanged, which is what makes this total over a projection that

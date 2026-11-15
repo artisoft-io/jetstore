@@ -28,7 +28,7 @@ import (
 )
 
 // Spec is a bench spec, a JSON file. jetrules_config and input_sessions are a
-// .tst.json's, in exactly its shape (jets/cmds/rules_unit_test/README.md), so
+// .tst.json's, in exactly its shape (docs/src/content/docs/developer/testing/rules-unit-tests/), so
 // that a test definition's input can be benchmarked as written; the test's
 // expectations are read and ignored. The other fields are the bench's own.
 type Spec struct {
@@ -60,7 +60,7 @@ type Spec struct {
 	// MaxVertexVisits is the cap on visits per vertex, set as
 	// (jets:iState jets:max_vertex_visits n) in the meta graph. A cap is
 	// required, so a bench does not measure under C++'s default of 10,000, which
-	// production processes do not use (rules_benchmark F9, Q-83): this, or
+	// production processes do not use: this, or
 	// -max_vertex_visits, or a jets:max_vertex_visits in rule_config, as a unit
 	// test's may have. This replaces rule_config's, so the cap is
 	// set once.
@@ -73,13 +73,13 @@ type Spec struct {
 	OutputClasses []OutputClass `json:"output_classes,omitempty"`
 
 	// Legacy chose the retraction mode, as a .tst.json's did, until the LEGACY
-	// retraction mode was deleted (October 2026). It is read as a .tst.json's is
-	// (rules_benchmark Q-102): a switch set true is refused, naming the deletion,
+	// retraction mode was deleted (October 2026). It is read as a .tst.json's is:
+	// a switch set true is refused, naming the deletion,
 	// and an object whose switches are false names the one behaviour and selects
 	// nothing, so a .tst.json that carries one still serves as a spec. A
 	// .tst.json's other fields are accepted and ignored; compare_engines, like
 	// jetrules_config.use_jet_rules_go, asks for the retired Go engine and is
-	// refused (rules_benchmark Q-77).
+	// refused.
 	Legacy          *rulestest.LegacyConfig `json:"legacy,omitempty"`
 	CompareEngines  bool                    `json:"compare_engines,omitzero"`
 	Expect          json.RawMessage         `json:"expect,omitempty"`

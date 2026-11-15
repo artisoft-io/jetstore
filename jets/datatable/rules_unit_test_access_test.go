@@ -1,9 +1,8 @@
 package datatable
 
-// Who may start rules unit tests and read their results. Project
-// rules_unit_test_harness, Phase 1, task AD.8; criterion 13's flow half.
+// Who may start rules unit tests and read their results: the flow's half.
 //
-// The flow's route has no client guard (definition F49), so it is protected
+// The flow's route has no client guard, so it is protected
 // exactly as well as the server protects what it reads and writes. A user who
 // holds every capability but workspace_ide -- client_config, run_pipelines and
 // jetstore_read -- is refused on the rules_unit_test insert target and on the
@@ -12,7 +11,7 @@ package datatable
 // knowledge engineer reading the same three gets the rows, which is what keeps
 // the refusals from being vacuous.
 //
-// Uses track AC's fixture (rules_unit_test_runs_test.go) and is skipped unless
+// Uses the fixture of rules_unit_test_runs_test.go and is skipped unless
 // JETS_TEST_DSN names a PostgreSQL; see that file's header.
 
 import (

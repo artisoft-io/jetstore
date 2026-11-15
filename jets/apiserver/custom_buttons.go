@@ -10,12 +10,12 @@ import (
 
 // customButtonsVariable names the deployment's own Pipeline Status buttons.
 //
-// jetstore_maintenance_02 Phase 1, defect D04, task AE.7 (2026-10-01). The CDK
+// Added 2026-10-01. The CDK
 // puts it in the UI service's environment (cdk/jetstore_one/stack/build_ui_service.go,
 // uiEnvironment), this serves it at sign-in, and the React app appends the buttons
 // to the table's last action row. It is a deployment setting so that no workspace
-// document can name a deployment's buttons -- ui_refresh I-102's objection,
-// which is why the table schemas refuse fromConfigRowActions.
+// document can name a deployment's buttons, which is also why the table
+// schemas refuse fromConfigRowActions.
 const customButtonsVariable = "JETS_CUSTOM_BUTTONS_CONFIG_JSON"
 
 // customButtons is the parsed value, read once per process.

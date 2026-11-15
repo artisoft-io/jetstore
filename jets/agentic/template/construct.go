@@ -10,9 +10,9 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/briefing"
 )
 
-// The ten constructs of plan §10.5, one entry each: `words`, `sentence`,
+// The ten constructs of the notation, one entry each: `words`, `sentence`,
 // `plural`, `d_MMMM`, `d_MMMM_yyyy`, `latest_by`, `strip_code`, `join`, `count`
-// and `max`. **There is no eleventh, and adding one is R-107 firing** - the
+// and `max`. **There is no eleventh, and adding one is the known risk firing** - the
 // risk is not that a construct is wrong but that the notation grows one per
 // sentence until it is `prose.go` with a parser in front of it.
 //
@@ -22,14 +22,14 @@ import (
 // that could fail would be a run-time failure the compiler cannot see.
 //
 // The functions are `jets/agentic/briefing/prose/filters.go`'s, and nine of the
-// ten are transcribed. `join` is the exception and it is I-624: `elementConditions`
+// ten are transcribed. `join` is the exception: `elementConditions`
 // filters empty values before calling `join` and `join` itself does not skip
 // them (`elementConditions`, `jets/agentic/briefing/prose/prose.go:256`), so
 // folding the filter into `join` is what lets a conditions element be one chain
 // rather than a chain plus a rule about what precedes it.
 
 // shape is what a construct does to the *list* a chain carries, and it is the
-// column that makes a chain checkable at compile time (§10.5).
+// column that makes a chain checkable at compile time.
 type shape int
 
 const (
@@ -93,8 +93,8 @@ func (k valueKind) String() string {
 //
 // **Text is the one direction that widens, and the reason is `scalar`.** Every
 // value in a document renders as text, so `strip_code` over a number is a
-// no-op rather than a mistake and refusing it would be the over-refusal R-114
-// describes. Nothing else widens: a number is not recoverable from `d_MMMM`'s
+// no-op rather than a mistake and refusing it would be an
+// over-refusal. Nothing else widens: a number is not recoverable from `d_MMMM`'s
 // output, and that asymmetry is the whole of what C9 catches.
 func accepts(want, got valueKind) bool {
 	switch {
@@ -125,7 +125,7 @@ func (a argKind) String() string {
 	return "a path"
 }
 
-// construct is one row of §10.5's table.
+// construct is one row of the construct table.
 type construct struct {
 	name  string
 	shape shape
@@ -219,7 +219,7 @@ var constructs = map[string]*construct{
 		fold: func(in []any, args []chainArg) (any, bool) {
 			items := make([]string, 0, len(in))
 			for _, v := range in {
-				// I-624: the skip is `join`'s here and is the caller's in the
+				// The skip is `join`'s here and is the caller's in the
 				// package this generalises.
 				if s := strings.TrimSpace(scalar(v)); s != "" {
 					items = append(items, s)
@@ -304,7 +304,7 @@ func words(n int) string {
 }
 
 // plural is the word as written for one and with an "s" otherwise. An irregular
-// plural would be a lookup, which §10.5's "none needs a lookup" rules out - and
+// plural would be a lookup, which the table's "none needs a lookup" rules out - and
 // a template that needs one writes the two words out under an `if` rather than
 // making every template carry a table.
 func plural(n int, word string) string {

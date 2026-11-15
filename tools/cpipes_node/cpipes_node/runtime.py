@@ -4,12 +4,12 @@
 here, and the split between them is kept: the channels and the registry are the
 engine's plumbing, and `OperatorEnv` / `OperatorArgs` are the *contract* a
 deployment's own operator is written against. A site operator imports the second
-half and never the first, which is §12.6's line drawn in Python.
+half and never the first, which is the site contract's line drawn in Python.
 
 **What is withheld is the point.** `OperatorEnv` hands over no registry, so an
 operator cannot name a channel its own step did not declare; `OperatorArgs`
 carries the channels the step *did* declare, resolved once by the graph. That is
-the argument `OperatorArgs.Outputs` was added under (P9-T01) and it survives the
+the argument `OperatorArgs.Outputs` was added under and it survives the
 language change unchanged, because it is a property of what is passed rather
 than of how.
 
@@ -35,7 +35,7 @@ The mapping, for anybody reading one contract against the other:
 `OperatorEnv.Done()`            `OperatorEnv.done() -> Done`
 `OperatorEnv.Substitute`        `substitute`
 `OperatorEnv.EnvValue`          `env_value`
-`OperatorEnv.ColumnEvaluator`   `column_evaluator` -- P9-T06's
+`OperatorEnv.ColumnEvaluator`   `column_evaluator`
 `OperatorEnv.SessionId`         `session_id`
 `OperatorEnv.IsDebugMode`       `is_debug_mode`
 `OperatorEnv.ReportError`       `report_error`
@@ -286,9 +286,9 @@ class TransformationColumnEvaluator(Protocol):
     its step's authored `columns` has to be able to name what it gets back — which
     is why the protocol lives here and not inside whatever builds one.
 
-    **Nothing builds one yet.** The authored column vocabulary is P9-T06's, and
+    **Nothing builds one here.** The authored column vocabulary is built separately, and
     `GraphOperatorEnv.column_evaluator` refuses by name rather than returning
-    something that evaluates to null. This declaration is the target that task
+    something that evaluates to null. This declaration is the target that work
     implements against.
     """
 
@@ -316,7 +316,7 @@ class RowLevelError:
 class Lookup:
     """`pipesmodel.Lookup`: a loaded table beside the key its step named it by.
 
-    A frozen pair in a list, never a map, which is D-209's ruling and its
+    A frozen pair in a list, never a map, which is a standing ruling, and its
     reason: a map's iteration order is unspecified in Go, so an operator that
     iterated its lookups would do so differently from run to run.
     """
@@ -360,7 +360,7 @@ class OperatorEnv(Protocol):
 
     Seven methods, the same seven, withholding the same fields. A deployment
     writing a test double should subclass `NullOperatorEnv` below and override
-    what the test needs — `I-781`'s advice, and it holds here for the same
+    what the test needs — the Go side's advice, and it holds here for the same
     reason: this is an interface a site *consumes*, so a method added later is
     backward compatible for a consumer and breaks an implementer.
     """
@@ -422,7 +422,7 @@ class NullOperatorEnv:
 
 
 #: The columns a `jetsapi.process_errors` row may carry. **Re-exported from
-#: `side_effects`, which owns the shape, and the shape changed in P9-T09.**
+#: `side_effects`, which owns the shape, and the shape changed there.**
 #:
 #: This tuple was eight names in a fixed order and the row was built
 #: positionally. It is now twelve and the row is placed **by name** — which is
@@ -448,7 +448,7 @@ class GraphOperatorEnv:
     """The graph's own `OperatorEnv`. One per step, as Go builds one per spec.
 
     It holds the graph's context and exposes seven methods over it, which is the
-    whole of §12.6: the fields are reachable from here and from nowhere a site
+    whole of the site contract: the fields are reachable from here and from nowhere a site
     operator can see.
     """
 
@@ -475,7 +475,7 @@ class GraphOperatorEnv:
     def column_evaluator(
         self, source: InputChannel, out_ch: OutputChannel | None, spec: Any
     ) -> Any:
-        """The authored `columns` vocabulary, which is **P9-T06's**.
+        """The authored `columns` vocabulary, which is **built elsewhere**.
 
         Refused by name rather than returning something that evaluates to null:
         a column evaluator that quietly produced nothing would write a corpus
@@ -538,7 +538,7 @@ class GraphOperatorEnv:
 class BuilderEnv(GraphOperatorEnv):
     """`BuilderContext`: the env a **built-in** transformation is built with.
 
-    **The asymmetry Go already has, restored** (P9-I55, D-226). In Go a built-in
+    **The asymmetry Go already has, restored**. In Go a built-in
     is constructed by a method on `*BuilderContext` and can reach the channel
     registry, the S3 device manager and the node's own identity; a site factory
     is handed `OperatorEnv` and `OperatorArgs` precisely so that it cannot.
@@ -553,7 +553,7 @@ class BuilderEnv(GraphOperatorEnv):
     reach nothing here — not by discipline but because the object it holds has
     no such attribute. Adding these three fields to `GraphOperatorEnv` instead
     would hand every site operator the node's store, which is the one thing
-    §12.6 is about withholding.
+    the site contract is about withholding.
 
     Three fields and no more, each answering something a Go built-in reads off
     its receiver:

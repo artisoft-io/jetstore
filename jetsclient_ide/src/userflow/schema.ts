@@ -1,24 +1,24 @@
 /**
- * The `UserFlowConfig` schema. Task S.1.
+ * The `UserFlowConfig` schema.
  *
  * A user flow is a state machine over screens, modelled on the Amazon States
  * Language (`jetsclient/lib/models/user_flow_config.dart:40`). It was Dart until
- * X.1 deleted the Flutter app on 2026-08-26: eleven `UserFlowConfig` objects
+ * the Flutter app was deleted on 2026-08-26: eleven `UserFlowConfig` objects
  * compiled into it. This file is
  * the representation that replaces them — a `.uf.json` document authored in the
  * Workspace IDE, validated in Go at save time, and interpreted in the browser.
  *
- * ## Authored in TypeScript with Zod — Q-2, confirmed rather than inherited
+ * ## Authored in TypeScript with Zod — confirmed rather than inherited
  *
- * The gate (`userflow_contract_sharing_assessment.md`) left the authoring
+ * The design assessment left the authoring
  * language open and named the criterion: **where is the schema actually edited
- * most**. Under decision 1 the answer is here, beside the interpreter that reads
- * a flow (S.2) and the editor that authors one — both TypeScript. Go was the
+ * most**. The answer is here, beside the interpreter that reads
+ * a flow and the editor that authors one — both TypeScript. Go was the
  * other candidate, being closest to the enforcement point, but the enforcement
  * point reads the *emitted* JSON Schema and never the source, so Go would put
  * the one consumer that does not use this file in charge of its form.
  *
- * Writing it confirmed the choice for a second reason the gate could not have
+ * Writing it confirmed the choice for a second reason the assessment could not have
  * seen: the interpreter needs the *types*, and `z.infer` gives them from the
  * same declaration that emits the schema. In Go the types would be a second
  * hand-maintained artifact.
@@ -28,17 +28,17 @@
  * written that way would be enforced in the browser and silently absent in Go —
  * the worst possible split. Everything expressible structurally is expressed
  * structurally; the three rules that are not live in `validate.ts`, which says
- * so and which S.4 ports.
+ * so and which the Go validator ports.
  *
  * ## Measured, not transcribed
  *
  * Every claim about what flows actually contain comes from
  * `fixtures/user_flows.json`, generated out of the running Flutter app by
  * `jetsclient/test/user_flow_corpus_test.dart` — the third corpus of this phase,
- * and for the reason the first two exist (I-3, I-12): the source text and the
+ * and for the reason the first two exist: the source text and the
  * constructed object graph have already disagreed three times.
  *
- * **Eleven flows, 46 states, 46 distinct forms** in the Dart corpus at S.1 — every
+ * **Eleven flows, 46 states, 46 distinct forms** in the Dart corpus as first measured — every
  * state had its own form, none was shared.
  */
 
@@ -50,7 +50,7 @@ import { z } from "zod";
  * 27 action names, 6 left-hand form-state keys, and the rest literals.
  *
  * Deliberately permissive about *shape* and silent about *membership*: whether
- * a named action may be run is S.7's question, is deployment-dependent, and does
+ * a named action may be run is the allowlist's question, is deployment-dependent, and does
  * not belong in a document schema.
  */
 export const Identifier = z
@@ -72,7 +72,7 @@ export const Identifier = z
  * All seven forms are kept although the corpus exercises four. `isNull` and the
  * boolean combinators have no uses today; they are two lines each here, and
  * their absence would be a silent behaviour change the first time a flow wants
- * one — the same reasoning A.3 applied to the unused text-input options.
+ * one — the same reasoning applied to the unused text-input options.
  *
  * **The four commented-out comparison operators are *not* carried over.**
  * `Operator` (`user_flow_config.dart:144`) declares `lessThan`, `lessThanEq`,
@@ -121,7 +121,7 @@ export const ConditionSchema: z.ZodType<Condition> = z.lazy(() =>
 ).meta({
   id: "Condition",
   // **Two consumers now, and the wording says so.** A choice picks the next
-  // state; F.2's `when` guards one step of an action (`actions/schema.ts`). The
+  // state; a step's `when` guards one step of an action (`actions/schema.ts`). The
   // predicate is the same one either way, which is the whole reason the action
   // grammar imports this rather than growing a second comparison vocabulary.
   description: "A predicate over form state, guarding a transition or a step",
@@ -149,11 +149,11 @@ export const ChoiceSchema = z
  *
  * `stateAction` is a *name*, dispatched into the flow's action delegate when the
  * user leaves the state (`modules/actions/user_flow_actions.dart:24`). 29 of the
- * 46 states set one, 27 names distinct. What those names may do is S.2's
- * grammar; which of them a document may name is S.7's allowlist.
+ * 46 states set one, 27 names distinct. What those names may do is the action
+ * grammar's business; which of them a document may name is the allowlist's.
  *
  * **`goToStates` exists because a transition can also come from an action, and
- * S.1 did not know that.** An action delegate may call
+ * the first schema did not know that.** An action delegate may call
  * `setCurrentUserFlowState` and jump the flow to a named state, doing the
  * `ufVisitedPages` bookkeeping `ufNext` would have done. There are exactly three
  * such sites, and the enumeration is mechanical rather than read: grep
@@ -166,9 +166,9 @@ export const ChoiceSchema = z
  * | `pipelineConfigUF` | `pcGotToAddInjectedProcessInputUF` | `add_injected_process_inputs` |
  *
  * These are edges of the state machine, so a document that omits them describes
- * a different machine — which is exactly what happened: S.1 reported the last
+ * a different machine — which is exactly what happened: the first schema reported the last
  * two states as unreachable and they are reached by a button. **The field is a
- * declaration, not an instruction**: S.2's grammar is what will contain the
+ * declaration, not an instruction**: the action grammar is what will contain the
  * `goToState` step, and this field is how the graph stays checkable whether or
  * not a reader can follow the action.
  */
@@ -225,7 +225,7 @@ export const StateSchema = z
  * value" as data without inventing a second grammar for it. So it takes the same
  * escape the action names take: the interpreter resolves the name against a
  * registered table, and a name that resolves to nothing is a load error rather
- * than a silent no-op. S.2 owns that table.
+ * than a silent no-op. The action grammar owns that table.
  *
  * `exitScreenPath` is a route to visit when the flow ends or is abandoned
  * (`user_flow_actions.dart:121`); two flows set it, both to `/workspaces`, and
@@ -236,13 +236,13 @@ export const StateSchema = z
  * field with no counterpart in the Dart, and the one field a later revision will
  * be glad of.
  *
- * ## `title` — added by D.7, and it is not the self-key I-14 refused
+ * ## `title` — added later, and it is not the refused self-key
  *
  * **The runner rendered `<h1>{key}</h1>` and a user saw `loadFilesUF` where a
- * title belongs** (I-263). The comment at that site read *"a flow document
- * carries no title — S.1 dropped it, because the key is the name and two names
- * for one thing is one too many (I-14)"*, and **that is a misreading of I-14
- * this field corrects.** I-14 is about a document naming *itself* — a
+ * title belongs**. The comment at that site read *"a flow document
+ * carries no title — the first schema dropped it, because the key is the name and two names
+ * for one thing is one too many"*, and **that is a misreading of the self-key
+ * rule this field corrects.** That rule is about a document naming *itself* — a
  * `FormConfig.key` beside the registry key it is reached by, which disagreed for
  * two of the fifty forms because nothing read it. Its rule is exact: *a name
  * written inside a document that duplicates a name outside it is a field that
@@ -255,10 +255,10 @@ export const StateSchema = z
  * (`jetsclient/lib/screens/user_flow_screen.dart:37`) — *Load Files*, *Pipeline
  * Configuration*, *Pull Workspace Changes*. It lived in the `ScreenConfig`
  * registered for the flow's *route*, which is why no corpus generated out of
- * `UserFlowConfig` ever saw it and why S.1 could believe there had never been
+ * `UserFlowConfig` ever saw it and why the first schema could believe there had never been
  * one.
  *
- * **Why here rather than in a React constant.** D.3's `FLOW_MENU` (`App.tsx`)
+ * **Why here rather than in a React constant.** `FLOW_MENU` (`App.tsx`)
  * now holds five labels and is the obvious place to look, and it is the wrong
  * one: it is a *launcher*, it names four flows plus one screen
  * that is not a flow, and a flow's heading would then depend on whether somebody
@@ -313,7 +313,7 @@ export function emitJsonSchema(): unknown {
  * where it was: its body at the top, `$defs` without it. Only when nothing else
  * refers to the root, which is true of all four documents; otherwise zod's form
  * is returned unchanged. Added for the zod 4.6.6 upgrade
- * (`jetstore_maintenance_02` `AI`, Dependabot #42).
+ * (Dependabot #42).
  */
 export function toJSONSchemaInlineRoot(schema: z.ZodType): Record<string, unknown> {
   const emitted = z.toJSONSchema(schema, { io: "input" }) as Record<string, unknown>;

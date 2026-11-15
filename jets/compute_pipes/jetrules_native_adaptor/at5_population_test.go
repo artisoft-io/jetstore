@@ -1,7 +1,7 @@
 package jetrules_native_adaptor
 
 // The 22-member evaluation population, driven into a rule session the way the
-// loader would (agentic_ai Phase 7 `AT.5`, issue I-549).
+// loader would.
 //
 // # What this file is
 //
@@ -19,8 +19,8 @@ package jetrules_native_adaptor
 // is what turns one into the other, and **it does more than rename**: it renames,
 // it drops, and on two columns it cleanses. Guessing it produces a load that is
 // wrong in a way nothing downstream reports - the rules run, a briefing is built,
-// and it is missing most of its conditions. That happened on 2026-09-09
-// (agentic_ai F789): asserting `M54.50` verbatim gave an 89% diagnosis-lookup
+// and it is missing most of its conditions. That happened on 2026-09-09:
+// asserting `M54.50` verbatim gave an 89% diagnosis-lookup
 // miss rate and a briefing with almost no conditions in it, which reads as a
 // finding about the pipeline and is a defect in the harness.
 //
@@ -32,7 +32,7 @@ package jetrules_native_adaptor
 //     through `scrub_characters` with argument `.`, so `M54.50` is asserted as
 //     `M5450` and `DiagnosisDescriptionLookup` is keyed dotless;
 //   - `NDC` maps to `hc:NDC` through `scrub_characters` with argument `-`;
-//   - `Primary_Diagnosis_Code` maps with **no** function, which is I-554 and is
+//   - `Primary_Diagnosis_Code` maps with **no** function, which is a known asymmetry and is
 //     invisible here because the column is empty in all 301 rows;
 //   - six populated columns map to nothing at all - `Claim_Type`,
 //     `Patient_Pay_Amount` and `Total_Paid_Amount` in both files, plus
@@ -52,7 +52,7 @@ package jetrules_native_adaptor
 // `Patient_Pay_Amount` and `Total_Paid_Amount` in both, plus `Drug_Name`,
 // `Drug_Strength` and `Drug_Type_Code` in the pharmacy one - where the first
 // occurrence is populated and the second is blank throughout. A name-keyed reader
-// cannot address them and silently takes one of the two (agentic_ai I-567). So
+// cannot address them and silently takes one of the two. So
 // the header is read once, the **first** occurrence of each mapped name fixes its
 // position, and every row is read by position after that.
 //
@@ -144,7 +144,7 @@ var at5MedicalColumns = []at5Column{
 	{input: "Diagnosis_Code2", prop: "hc:Seconday_Diagnosis_Code2", scrub: "."},
 	{input: "Diagnosis_Code3", prop: "hc:Seconday_Diagnosis_Code3", scrub: "."},
 	{input: "Diagnosis_Code4", prop: "hc:Seconday_Diagnosis_Code4", scrub: "."},
-	// Not cleansed, and that asymmetry is I-554. Empty in all 301 rows here.
+	// Not cleansed, and that asymmetry is known. Empty in all 301 rows here.
 	{input: "Primary_Diagnosis_Code", prop: "hc:Primary_Diagnosis_Code"},
 	{input: "Procedure_Code1", prop: "hc:Procedure_Code1"},
 	{input: "Procedure_Code2", prop: "hc:Procedure_Code2"},
@@ -218,8 +218,8 @@ type at5Population struct {
 //
 // **The first occurrence of a duplicated name wins**, which is not a tie-break
 // but the mapping's own semantics: the loader resolves an input column to a
-// position and the second `Claim_Type` is blank in every row of both files
-// (I-567). A reader taking the last occurrence would map every one of the six to
+// position and the second `Claim_Type` is blank in every row of both files.
+// A reader taking the last occurrence would map every one of the six to
 // an empty string and lose `Drug_Name` and `Days_Supply` silently.
 func at5ReadFile(t *testing.T, path string, cols []at5Column) ([]at5Row, error) {
 	t.Helper()
@@ -395,7 +395,7 @@ func at5ClaimSubject(kind string, row at5Row) string {
 
 // --- the load is right before anything downstream is believed -------------
 
-// **A count over an empty set passes for the wrong reason.** Everything `AT.5`
+// **A count over an empty set passes for the wrong reason.** Everything the side-by-side run
 // reports rests on the population reaching the rule session correctly, and the
 // failure mode that matters is silent: a mis-derived mapping produces a session
 // that runs, a briefing that is built, and conditions that are not in it.
@@ -432,7 +432,7 @@ func TestTheEvaluationPopulationLoadsAsTheMappingSpecifiesIt(t *testing.T) {
 			pr := readProjection(t, s, rm)
 
 			// (1) The counts. The briefing's own `Medical_Event_Count` is the
-			// rule session's arithmetic (`AT.1`(i)); the CSV row count is the
+			// rule session's arithmetic; the CSV row count is the
 			// input. **They are not the same number and must not be asserted
 			// equal**: `AM_PCreateEvent20` indexes pharmacy events by NDC, so
 			// three fills of one drug are one event, and a medical event is one
@@ -464,7 +464,7 @@ func TestTheEvaluationPopulationLoadsAsTheMappingSpecifiesIt(t *testing.T) {
 			}
 
 			// (2) Conditions. **Not asserted non-empty for every member**, and
-			// the reason is I-566 rather than tolerance: `M54.50` and `M54.51`
+			// the reason is a lookup gap rather than tolerance: `M54.50` and `M54.51`
 			// are in 27 of the 301 medical claims and resolve in no lookup, so a
 			// member all of whose codes are those two has no condition and is
 			// correct. What is asserted is the implication: a member with a
@@ -521,7 +521,7 @@ func TestTheEvaluationPopulationLoadsAsTheMappingSpecifiesIt(t *testing.T) {
 	// an empty briefing fails rather than reporting 22 passes.
 	if membersWithConditions < at5Members/2 {
 		t.Errorf("only %d of %d members have any condition at all; the diagnosis mapping is "+
-			"probably not scrubbing the dot (agentic_ai F789)", membersWithConditions, at5Members)
+			"probably not scrubbing the dot", membersWithConditions, at5Members)
 	}
 	if membersWithMedications < at5Members {
 		t.Errorf("the population produced %d pharmacy events across %d members, which is fewer "+

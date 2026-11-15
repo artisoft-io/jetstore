@@ -12,7 +12,7 @@ import (
 
 // A key a hook adds that RegisterFileKeys does not read is dropped there without
 // a word, so a misspelt key is a registration that silently lacks what the site
-// meant to add (JM-096, JM-040). doFileKey now names it in a warning. Keys the
+// meant to add. doFileKey now names it in a warning. Keys the
 // file key's path put there are not the hook's and are not named.
 func TestDoFileKeyWarnsOfAHookKeyNothingReads(t *testing.T) {
 	calls := withCapturedRegistration(t)

@@ -69,8 +69,7 @@ func header(t *testing.T, pool *pgxpool.Pool, client, process, objectType, sessi
 // workerRow writes one worker row the way a cpipes node does: the 'in progress'
 // insert, then the update that carries the counts and the terminal status. Pass
 // terminal == "" to leave the row as the insert left it, which is what a worker
-// that never came back looks like and is where the six NULL counts come from
-// (F99).
+// that never came back looks like and is where the six NULL counts come from.
 func workerRow(t *testing.T, pool *pgxpool.Pool, execKey int, client, process, session, stepId string,
 	shard int, terminal string, in, out int, start time.Time) int64 {
 	t.Helper()
@@ -168,7 +167,7 @@ func TestVolumeCollapseOverRowsTheCpipesWorkerWrote(t *testing.T) {
 		t.Errorf("observed value = %q, want the output count", a.ObservedValue)
 	}
 	// Row 2 is a within-run predicate and it does carry a range and a
-	// magnitude, which is the opposite of what I-126 classified it as: the
+	// magnitude, which is the opposite of what the model classified it as: the
 	// expectation comes from the other column of the same row.
 	if a.ExpectedMin == nil || *a.ExpectedMin != "500" {
 		t.Errorf("expected minimum = %v, want half of the input count", a.ExpectedMin)
@@ -189,7 +188,7 @@ func TestVolumeCollapseOverRowsTheCpipesWorkerWrote(t *testing.T) {
 	}
 }
 
-// F99: the six counts are NULL for exactly as long as the worker is running,
+// The six counts are NULL for exactly as long as the worker is running,
 // and that is row 4's observation rather than row 2's. A coalesce written for
 // tidiness would make every stalled worker a total collapse.
 func TestVolumeCollapseIsSilentOnAWorkerStillRunning(t *testing.T) {
@@ -215,7 +214,7 @@ func TestVolumeCollapseIsSilentOnAWorkerStillRunning(t *testing.T) {
 		t.Errorf("a worker that never reported counts produced %d volume anomalies", len(found))
 	}
 	// And it is not invisible: it is row 4's, which the extraction already
-	// answers and which N.4 did not build a detector for.
+	// answers and which has no detector yet.
 	if !ev.Workers.Rows[0].Stalled() {
 		t.Error("the row is not reported as a stall either, so it is invisible to both")
 	}
@@ -241,7 +240,7 @@ func TestVolumeCollapseIsSilentOnAFailedWorker(t *testing.T) {
 	}
 }
 
-// I-168's first honest answer: read the configuration and say what was found,
+// The first honest answer: read the configuration and say what was found,
 // with the limits of what the record kept.
 func TestVolumeCollapseCarriesTheConfigurationsConfounders(t *testing.T) {
 	pool := testPool(t)
@@ -288,7 +287,7 @@ func TestVolumeCollapseCarriesTheConfigurationsConfounders(t *testing.T) {
 	}
 }
 
-// I-168's second honest answer, and the one it says must never be silent: a run
+// The second honest answer, and the one that must never be silent: a run
 // that failed at sharding validation leaves no configuration at all, and the
 // anomaly has to say the check was not made.
 func TestAnUnreadConfigurationIsSaidRatherThanOmitted(t *testing.T) {
@@ -306,7 +305,7 @@ func TestAnUnreadConfigurationIsSaidRatherThanOmitted(t *testing.T) {
 	}
 	cc := ev.Configs[session]
 	if cc == nil {
-		t.Fatal("a session with no configuration row produced no report at all, which is the silence I-168 forbids")
+		t.Fatal("a session with no configuration row produced no report at all, which is the silence the detector must not leave")
 	}
 	if cc.Read {
 		t.Fatal("a session with no configuration row reports that it read one")
@@ -431,7 +430,7 @@ func TestStepRegressionNeedsAPriorSuccessAndAHistory(t *testing.T) {
 		t.Errorf("observed value = %q", a.ObservedValue)
 	}
 	// A status compared against a history of statuses has no range to be
-	// outside of and no distance to measure. I-126 made the three properties
+	// outside of and no distance to measure. The model made the three properties
 	// optional for the within-run rows; this is a windowed row that needs the
 	// same permission, and row 2 above is a within-run row that does not.
 	if a.ExpectedMin != nil || a.ExpectedMax != nil || a.DeviationMagnitude != nil {
@@ -598,9 +597,9 @@ func TestBothDetectorsEmitAPersistedAnomaly(t *testing.T) {
 }
 
 // The deployment precondition, asked of a database where nothing has been
-// migrated. Section 18.7 says ReadExtent "reports both tables' presence rather
+// migrated. The design says ReadExtent "reports both tables' presence rather
 // than assuming, which makes the precondition checkable at run time instead of
-// diagnosable afterwards"; before N.4 that held only where the execution tables
+// diagnosable afterwards"; before 2026-08-27 that held only where the execution tables
 // already existed, because the two to_regclass calls shared a statement with a
 // count over pipeline_execution_status. On an unmigrated database the query
 // failed on that relation and reported nothing at all — which is the failure
@@ -639,9 +638,9 @@ func TestReadExtentAnswersOnAnUnmigratedDatabase(t *testing.T) {
 	}
 }
 
-// I-127's extensions, confirmed by the only test there is: a caller that has to
-// choose a value. Section A.2.6's ten signal types can name row 2's signal and
-// cannot name row 3's, and neither of its six subject types is a worker.
+// The vocabulary's extensions, confirmed by the only test there is: a caller
+// that has to choose a value. The source proposal's ten signal types can name
+// row 2's signal and cannot name row 3's, and neither of its six subject types is a worker.
 func TestTheDetectorsUseTheExtendedVocabularies(t *testing.T) {
 	appendixSignals := []string{"volume", "freshness", "schema", "distribution", "rule_breach",
 		"cost", "duration", "rejection_rate", "cardinality", "referential"}

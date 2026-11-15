@@ -25,15 +25,21 @@ The `.ua.json` documents are described in [Flow actions](/docs/developer/workspa
 Pipeline Status table's *Put Schema Event* dialog now — and an install deletes a workspace's unedited
 copy of a retired document (`RetiredAssets` in `jets/workspace_assets/install.go`). **A flow leaves
 this directory by being added to that list as well as deleted here**, or its installed copy stays
-loadable by URL in every workspace that already has it.
+loadable by URL in every workspace that already has it. Since 2026-11-14 the same list keeps an IDE
+override of a retired document from bringing it back: the override sync at a start skips a
+`workspace_changes` row for a path on the list (`IsRetired`, called by `SyncWorkspaceFiles` in
+`jets/workspace`), and leaves the row in place, in *Workspace Changes*, to be deleted there.
 
 **The ported flows**, three documents each — `<key>.uf.json`, `<key>.ua.json`, `<key>.form.json` —
 keyed by the flow key the React router serves them under and the Flutter app handed off to until it
 was deleted on 2026-08-26 (`jetsclient/lib/routes/migrated_user_flows.dart`). Eleven were ported, and
-ten remain (above). Two of the three are emitted rather than hand-written:
-`jetsclient_ide/src/userflow/schema.test.ts` writes the `.uf.json` from the Flutter corpus under
-`UPDATE_SCHEMA=1`, and `jetsclient_ide/src/datatable/table.test.ts` writes their tables the same way.
-The `.ua.json` and `.form.json` are authored.
+ten remain (above). **All of their documents are edited by hand.** The `.uf.json` and their tables were
+emitted from the Flutter corpus by `jetsclient_ide/src/userflow/schema.test.ts` and
+`jetsclient_ide/src/datatable/table.test.ts` under `UPDATE_SCHEMA=1` until 2026-11-14; the corpus
+cannot be regenerated, so the committed documents are the source. The two tests still compare each
+document nobody has edited with its translation from the corpus, so a change to one also lists it in
+the test (`HAND_AUTHORED`, `HAND_MAINTAINED_KEYS`). The `.ua.json` and `.form.json` were always
+authored.
 
 **Three of the `.uf.json` are hand-authored since 2026-10-01** — `clientRegistryUF`,
 `sourceConfigUF` and `pipelineConfigUF`, with their tables `client`, `scSourceConfigKey` and
@@ -83,9 +89,9 @@ to the build.
 **For the ported flows, that last argument is the whole of it, and it is the stronger half.** They
 are the application's own screens expressed as documents — every escape name they use is registered
 in `jetsclient_ide/src/actions/registry.ts` and resolved when the bundle is built, so a workspace that
-owned them could not change one without the change being refused at load. Two of their three
-documents are emitted from the Flutter corpus as well, which puts them in the same position as
-`data_model/jets_agentic.jr`: output of a generator that lives in the `jetstore` repository.
+owned them could not change one without the change being refused at load. They are maintained in the
+`jetstore` repository, with the tests that check them, which puts them in the same position as
+`data_model/jets_agentic.jr`.
 
 What a client does when they need one changed and cannot wait is in
 [Change or extend an installed asset](/docs/developer/workspace/assets/change-an-installed-asset/).

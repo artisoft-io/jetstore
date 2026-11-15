@@ -8,7 +8,7 @@ package compute_pipes
 // schema provider, where no reader consults them. They then travelled in the runtime
 // document a starter hands a worker, and the Python cp_node's contract refuses them on a
 // stage input channel: the first merge_files step routed to the Python node
-// (healthcare_corpus, use_python_node_when) failed on nbr_rows_in_record and
+// (use_python_node_when) failed on nbr_rows_in_record and
 // put_headers_on_first_partition before merging anything. A scan of every pipeline in
 // workspaces/*/pipes_config and of this repository's fixtures found no input channel
 // authoring any of the four, so the sync lost nothing by dropping them.

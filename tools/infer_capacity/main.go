@@ -1,11 +1,11 @@
-// G.2: measure where the KV cache leaves the GPU, on whatever instance is in use.
+// Measure where the KV cache leaves the GPU, on whatever instance is in use.
 //
 // **The failure this exists to catch is silent.** Ollama sizes the KV cache up front
 // from `OLLAMA_CONTEXT_LENGTH`, against total VRAM *plus* total host RAM. When the cache
 // no longer fits in VRAM the model still loads and still answers; it just answers at
 // host-RAM speed. Nothing logs, nothing errors, and the only symptom is throughput -
-// which is why `infer_server_readme.md` carries a measured table rather than a formula,
-// and why criterion 25 asks for numbers from the instance actually in use.
+// which is why `docs/src/content/docs/install/planning/infer-server-memory.md` carries a measured table
+// rather than a formula, and why numbers are asked for from the instance actually in use.
 //
 // **`/api/ps` is the detector, and it is exact.** It reports `size` and `size_vram`
 // separately, so `size - size_vram` is the number of bytes that went to host RAM. That

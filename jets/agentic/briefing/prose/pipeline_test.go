@@ -5,7 +5,7 @@ package prose_test
 // believed.
 //
 // It links the C++ engine: build against a libjets.so of this commit with the cgo
-// override in jets/cmds/rules_unit_test/README.md, and run it with -count=1:
+// override in docs/src/content/docs/developer/testing/go-and-cpp.md, and run it with -count=1:
 //
 //	CGO_CFLAGS="-I$PWD/jets" CGO_LDFLAGS="-L$LIB" LD_LIBRARY_PATH=$LIB \
 //	  go test -count=1 ./jets/agentic/briefing/prose/
@@ -26,7 +26,7 @@ package prose_test
 //
 // Until the Go engine's retirement this file ran on its rdf session, through a ~90-line
 // bridge to `compute_pipes.JetRdfSession` written here because the Go adaptor's
-// session could not be constructed outside its package (I-561). The C++ session is
+// session could not be constructed outside its package. The C++ session is
 // the shipped one and is built through its factory, so the bridge is gone and what the
 // tests assert is unchanged.
 //
@@ -136,9 +136,9 @@ const shippedNotice = "Informational only. Prepared from claims data for a call-
 	"recommendation, and it must not be used to make or support a clinical decision. " +
 	"Downstream use is governed by the service agreement."
 
-// projectedBriefing asserts plan §1.10.6's entity as triples: the same member,
+// projectedBriefing asserts the projected entity as triples: the same member,
 // the same two encounters and the same two medications, with the components
-// `AT.1`(ii) keeps beside the joined `Medication` value.
+// the projection keeps beside the joined `Medication` value.
 //
 // It returns false in the parent process, where the test runs in a child (see
 // nativeSession), and the caller returns.
@@ -257,7 +257,7 @@ func TestTheProseEncodingRendersFromARealSession(t *testing.T) {
 	}
 	for _, forbidden := range []string{"(F1120)", "0.89", "900123456"} {
 		if strings.Contains(flat, forbidden) {
-			t.Errorf("the prose carries %q, which §1.10.4 keeps out of it:\n%s", forbidden, text)
+			t.Errorf("the prose carries %q, which must stay out of it:\n%s", forbidden, text)
 		}
 	}
 	for _, line := range strings.Split(text, "\n") {
@@ -323,8 +323,8 @@ func TestPipelineEntityShape(t *testing.T) {
 // machine, not a guarantee of the engine, so the renderer still inherits the order
 // rather than sorting, and the fix, if one is wanted, still belongs in
 // `extractAsEntity`, where it reaches the toon column the model arm reads as well
-// as this one (I-562). The Go measurement is why `AU.1` and `AV.2` were told not to
-// read a difference between two runs as an effect of what they changed.
+// as this one. The Go measurement is why the encoding and prompt benchmarks
+// do not read a difference between two runs as an effect of what they changed.
 //
 // It is a **report** rather than a pass/fail: asserting in-process stability
 // would be asserting an implementation detail of the engine, and asserting

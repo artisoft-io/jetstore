@@ -1,10 +1,10 @@
 package datatable
 
-// Reading a workspace's runbooks from disk. Project runbooks, Phase 1, track AB.
+// Reading a workspace's runbooks from disk.
 //
 // **The files are read from the active workspace's runbooks/ folder**, under
 // WORKSPACES_HOME, which is where the IDE's save path writes them. Nothing is
-// recorded at compile (plan §1): a run reads and validates the files when it
+// recorded at compile: a run reads and validates the files when it
 // starts and whenever a person resumes it, and pins what it read in the run row.
 //
 // **Every path is checked before it is opened.** A runbook names its SQL files

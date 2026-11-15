@@ -28,7 +28,7 @@ func TestRestrictedLoginsHoldAgainstTheSQLTheyRun(t *testing.T) {
 	if _, err := pool.Exec(bg, "CREATE SCHEMA jetsapi"); err != nil {
 		t.Fatal(err)
 	}
-	defs := rutTableDefs(t)
+	defs := jetsSchemaTables(t)
 	for _, name := range []string{"users", "roles", "role_capability", "secret_rotation", "source_config"} {
 		if err := defs[name].UpdateTableSchema(pool, true); err != nil {
 			t.Fatalf("creating jetsapi.%s: %v", name, err)

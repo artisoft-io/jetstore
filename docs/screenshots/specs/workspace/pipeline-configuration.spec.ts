@@ -3,7 +3,7 @@
 // Patient_Profile_Template up to its summary. Nothing is saved: the summary is
 // left with Cancel.
 import { expect, test } from "@playwright/test";
-import { openFlowMenu, screenshotsFor, settle, signIn, waitForTable } from "../../lib/shots";
+import { openFlowMenu, screenshotsFor, settle, signIn, tick, waitForTable } from "../../lib/shots";
 
 const { shot } = screenshotsFor("user/screens/flows/pipeline-configuration");
 
@@ -20,7 +20,7 @@ test("Pipeline Configuration flow", async ({ page }) => {
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await waitForTable(page);
 
-  await configs.locator("tbody tr").filter({ hasText: "Patient_Profile_Template" }).getByRole("checkbox").check();
+  await tick(configs.locator("tbody tr").filter({ hasText: "Patient_Profile_Template" }).getByRole("checkbox"));
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await waitForTable(page);
   await shot(page, "main-process-input");

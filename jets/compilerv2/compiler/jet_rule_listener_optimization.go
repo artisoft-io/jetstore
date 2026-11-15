@@ -20,18 +20,18 @@ import (
 // This is a greedy algorithm and may not produce the optimal ordering in all cases.
 // More advanced algorithms can be implemented in the future.
 //
-// Two constraints hold whatever the scores (rules_benchmark Phase 8, BS.2, 2026-10-24):
+// Two constraints hold whatever the scores (2026-10-24):
 //   - A negated term binds nothing, so it is placed only once the terms placed before it
 //     bind every variable it reads, as validation checks of the authored order. Until
 //     then it was scored as a positive term, and rdf:type's bonus could put it first,
-//     where the engine matched it against every subject (I-200).
+//     where the engine matched it against every subject.
 //   - Terms of equal priority keep their authored order: the sort is stable. It was
-//     slices.SortFunc, which is not past 12 elements (I-201).
+//     slices.SortFunc, which is not past 12 elements.
 //
 // When the workspace commits statistics of its graphs, a rule they cover is
 // ordered by the rows each antecedent is estimated to add instead of by the
-// score (rules_benchmark Phase 9, BY.1; jet_rule_listener_cost_order.go). Both
-// orders are then checked as validation checks the authored one (I-232).
+// score (jet_rule_listener_cost_order.go). Both
+// orders are then checked as validation checks the authored one.
 func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 	if !rule.Optimization || !rule.IsValid {
 		// Optimization is disabled for this rule or the rule is not valid
@@ -203,7 +203,7 @@ post_process:
 	rule.Label = s.makeRuleLabel(rule, false)
 	rule.NormalizedLabel = s.makeRuleLabel(rule, true)
 
-	// Validate the order: validation checked the authored one (I-232)
+	// Validate the order: validation checked the authored one
 	if !s.validateOrderedRule(rule) {
 		rule.IsValid = false
 	}

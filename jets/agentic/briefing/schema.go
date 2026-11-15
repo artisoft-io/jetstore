@@ -8,7 +8,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/wsvalidate"
 )
 
-// Kind is what obligation a field carries. The five are A§8.3's own sentence
+// Kind is what obligation a field carries. The five are the guardrail's own sentence
 // split at its commas plus one escape hatch, rather than a taxonomy this package
 // invented:
 //
@@ -90,7 +90,7 @@ type FieldRule struct {
 // Schema is the provenance contract for one briefing shape.
 //
 // It is a document rather than a Go type on purpose, and that is what lets this
-// package be built before the projection it checks. `AK.2` writes a schema; it
+// package be built before the projection it checks. The provenance schema is a schema; it
 // does not write a checker, and it cannot add a field without adding a rule
 // because Check refuses a field no rule covers.
 type Schema struct {
@@ -99,7 +99,7 @@ type Schema struct {
 	// anything here and is required anyway: a provenance schema with no name is
 	// one nobody can say a briefing was checked against, and *which schema*
 	// belongs in the audit record beside *which model* and *which prompt
-	// version* (A§8.3's last guardrail).
+	// version* (the last briefing guardrail).
 	Key string `json:"key"`
 	// Version is the schema version, recorded for the same reason.
 	Version string `json:"version,omitempty"`
@@ -113,8 +113,8 @@ type Schema struct {
 	// halves of gap 18 are one document.** A provenance schema that does not
 	// know what fields the briefing has can only wait for one to arrive.
 	Response json.RawMessage `json:"response_format,omitempty"`
-	// Disclaimer is A§8.3's intended-use notice, declared here and populated by
-	// the projection rather than by the model. `AK.3` added it, and Confine is
+	// Disclaimer is the intended-use notice, declared here and populated by
+	// the projection rather than by the model. The advisory check added it, and Confine is
 	// what asserts the part a document can assert.
 	Disclaimer *Disclaimer `json:"disclaimer,omitempty"`
 	Rules      []FieldRule `json:"rules"`
@@ -125,7 +125,7 @@ type Schema struct {
 // It returns wsvalidate.Finding rather than this package's Finding, because a
 // schema **is** a file and that is the type the repository's save path already
 // speaks (`Validator`, `jets/wsvalidate/wsvalidate.go:66`). Whether it gets a
-// suffix row in the per-suffix validator table is `AK.2`'s to decide, once the
+// suffix row in the per-suffix validator table is decided once the
 // schema has a home and a suffix; this signature is what makes that a row rather
 // than a rewrite.
 //
@@ -161,7 +161,7 @@ func ParseSchema(content string) (*Schema, []wsvalidate.Finding) {
 	}
 	// Confine runs after Cover and for the same reason: it is a check on the
 	// document, and it reads the leaf set Cover has just established is
-	// walkable. `AK.3`.
+	// walkable.
 	findings = append(findings, s.Confine()...)
 	for _, f := range findings {
 		if f.Severity == wsvalidate.Error {
@@ -173,7 +173,7 @@ func ParseSchema(content string) (*Schema, []wsvalidate.Finding) {
 
 // compile parses every selector and checks each rule against its kind. It is
 // separate from ParseSchema so that a Schema built in Go - by a test, or by
-// AK.2's generator before it has a file to write - goes through the same gate as
+// a generator before it has a file to write - goes through the same gate as
 // one read from disk.
 func (s *Schema) compile() []wsvalidate.Finding {
 	var out []wsvalidate.Finding

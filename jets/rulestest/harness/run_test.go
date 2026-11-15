@@ -2,12 +2,12 @@ package harness
 
 // harness.Run end to end on the C++ engine: a scratch workspace with test
 // definitions and CSVs, compiled in a child process (the rete, workspace and
-// compute_pipes packages bind the workspace in init, definition F16), then each
+// compute_pipes packages bind the workspace in init), then each
 // test run through Run as the rules_unit_test command runs it.
 //
 // These ran on the Go engine, which kept them buildable without libjets.so, until
-// the Go engine's retirement (rules_benchmark Phase 6, October 2026); they now link
-// the C++ engine and need the cgo environment of jets/cmds/rules_unit_test/README.md
+// the Go engine's retirement (October 2026); they now link
+// the C++ engine and need the cgo environment of docs/src/content/docs/developer/testing/go-and-cpp.md
 // (CGO_CFLAGS, CGO_LDFLAGS and LD_LIBRARY_PATH set to a libjets.so of this commit).
 // A C++ engine that does not build fails the test, as a test that does not run does.
 //
@@ -138,7 +138,7 @@ p3,lp:Person,
 `
 
 // vertexCap is 10,000 visits, given to the fixtures through rule_config: the Go
-// engine's default, and C++'s since rules_benchmark Q-83, set explicitly so a rule
+// engine's default, and C++'s since 2026-10, set explicitly so a rule
 // that stopped terminating fails the test instead of hanging it, whatever the default.
 func vertexCap() []any {
 	return []any{map[string]any{"jets:key": "jets:iState",
@@ -191,7 +191,7 @@ func TestRunOnTestWs(t *testing.T) {
 		u + "persons_badcol.csv":  "jets:key,rdf:type,lp:nme\np1,lp:Person,Ann\n",
 		u + "persons_badcell.csv": "jets:key,rdf:type,lp:name\np1,lp:Person\n",
 		u + "state.csv":           "jets:key,rdf:type\njets:iState,jets:State\n",
-		// I-20: rule-local columns, typed and untyped, a blank cell, an array
+		// Rule-local columns, typed and untyped, a blank cell, an array
 		u + "local.csv": "jets:key,rdf:type,lp:name,_0:score as int,_0:tag\n" +
 			"p1,lp:Person,Ann,3,\"{\"\"a\"\",\"\"b\"\"}\"\np2,lp:Person,Bob,,c\np3,lp:Person,Cy,{},{}\n",
 		u + "local_nokey.csv":         "rdf:type,lp:name,_0:score\nlp:Person,Ann,3\n",
@@ -237,7 +237,7 @@ func TestRunOnTestWs(t *testing.T) {
 	runChild(t, "TestRunOnTestWs", home, "test_ws")
 }
 
-// localTest asserts file, whose _0: columns are rule-local properties (I-20),
+// localTest asserts file, whose _0: columns are rule-local properties,
 // and checks what the session holds for them.
 func localTest(file string) string {
 	count := func(s, p, n string) map[string]any {
@@ -309,7 +309,7 @@ func runOnTestWsChild(t *testing.T) {
 		"input file persons_badcol.csv: column 'lp:nme' is not a data property of the workspace; did you mean 'lp:name'?")
 	wantResult(t, runTest(root, u+"badcell.tst.json"), rulestest.StatusError, "wrong number of fields")
 
-	// I-20: a _0: column is asserted on the row's jets:key, cast by the type its
+	// A _0: column is asserted on the row's jets:key, cast by the type its
 	// header gives (text by default); without a jets:key, with a type the grammar
 	// does not have, or with a cell that does not cast, the test is an error.
 	r = runTest(root, u+"local.tst.json")
@@ -335,7 +335,7 @@ func runOnTestWsChild(t *testing.T) {
 		t.Errorf("engine %q, want native", r.Engine)
 	}
 
-	// The Go engine is retired (rules_benchmark Q-77): a test asking for it, alone
+	// The Go engine is retired: a test asking for it, alone
 	// or compared, fails validation naming the retirement.
 	for _, name := range []string{"go.tst.json", "compare.tst.json"} {
 		r = runTest(root, u+name)
@@ -343,7 +343,7 @@ func runOnTestWsChild(t *testing.T) {
 		wantResult(t, r, rulestest.StatusError, rulestest.GoEngineRetired)
 	}
 
-	// The LEGACY retraction mode is deleted (rules_benchmark Q-102): a legacy object
+	// The LEGACY retraction mode is deleted: a legacy object
 	// whose switches are false names the one behaviour and runs; a switch set true,
 	// or a rule_config setting _0:no_truth_main_on_exist, fails validation naming the
 	// deletion. Every result records legacy_mode fixed.
@@ -383,7 +383,7 @@ func runOnTestWsChild(t *testing.T) {
 
 // TestRunOnJetsWsEligibility asserts the input document's own example row,
 // an hc:Eligibility export with the properties in alphabetical order and no
-// jets:source_period_sequence (definition F26), through Run on jets_ws.
+// jets:source_period_sequence, through Run on jets_ws.
 func TestRunOnJetsWsEligibility(t *testing.T) {
 	if os.Getenv("RULESTEST_HARNESS_CHILD") == "1" {
 		jetsWsChild(t)
@@ -399,8 +399,8 @@ func TestRunOnJetsWsEligibility(t *testing.T) {
 	u := "jet_rules/unit_tests/elig/"
 	files := map[string]string{
 		u + "elig.jr": "import \"data_model/jets_model.jr\"\nimport \"data_model/hc_model.jr\"\n",
-		// The input document's row has 30 cells for 31 columns (rules_unit_test_harness
-		// F98). Verbatim, it is refused; with the missing cell restored as a trailing
+		// The input document's row has 30 cells for 31 columns. Verbatim, it
+		// is refused; with the missing cell restored as a trailing
 		// blank, CI is jets:client and jets:org is blank.
 		u + "eligibility_verbatim.csv": `jets:key,rdf:type,hc:Effective_Date,hc:Group_Number,hc:Medicare_Indicator,hc:Member_Address_Line_1,hc:Member_Address_Line_2,hc:Member_City,hc:Member_DOB,hc:Member_First_Name,hc:Member_Gender,hc:Member_ID,hc:Member_Last_Name,hc:Member_Relationship,hc:Member_State_Code,hc:Member_Zip,hc:Plan_Name,hc:Plan_Type,hc:Subscriber_Address_Line_1,hc:Subscriber_Address_Line_2,hc:Subscriber_City,hc:Subscriber_DOB,hc:Subscriber_First_Name,hc:Subscriber_Gender,hc:Subscriber_ID,hc:Subscriber_Last_Name,hc:Subscriber_State_Code,hc:Subscriber_Zip,hc:Termination_Date,jets:client,jets:org
 b10305943c9a5e5e,"{""hc:Eligibility""}",2024-01-01T00:00:00,G01,,,,,1953-04-14T00:00:00,Patient5,F,M005,Last_Name,self,,10023,,,,,,,,,,,,,,CI

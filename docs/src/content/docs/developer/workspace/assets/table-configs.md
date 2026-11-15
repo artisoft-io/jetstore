@@ -56,5 +56,6 @@ both directories — rather than the exception.
 `client_advocate`. The runtime read is `get_workspace_document`, at `jetstore_read`, confined to this
 directory and `user_flows/`.
 
-These documents are emitted, not hand-written; see
-[Regenerate the generated assets](/docs/developer/workspace/assets/regenerate-assets/).
+These documents are edited by hand; until 2026-11-14 they were emitted from the Flutter corpus. See
+[Regenerate the generated assets](/docs/developer/workspace/assets/regenerate-assets/) for the test
+that still compares the unedited ones with it.

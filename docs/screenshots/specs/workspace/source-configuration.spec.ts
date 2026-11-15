@@ -3,7 +3,7 @@
 // hc:PharmacyClaim up to its summary. Nothing is saved: the summary is left
 // with Cancel.
 import { expect, test } from "@playwright/test";
-import { openFlowMenu, screenshotsFor, settle, signIn, waitForTable } from "../../lib/shots";
+import { openFlowMenu, screenshotsFor, settle, signIn, tick, waitForTable } from "../../lib/shots";
 
 const { shot } = screenshotsFor("user/screens/flows/source-configuration");
 
@@ -22,7 +22,7 @@ test("Source Configuration flow", async ({ page }) => {
   await waitForTable(page);
 
   // Edit hc:PharmacyClaim, page by page.
-  await configs.locator("tbody tr").filter({ hasText: "hc:PharmacyClaim" }).getByRole("checkbox").check();
+  await tick(configs.locator("tbody tr").filter({ hasText: "hc:PharmacyClaim" }).getByRole("checkbox"));
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await waitForTable(page);
   await shot(page, "file-format");

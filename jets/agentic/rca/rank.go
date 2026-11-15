@@ -12,30 +12,30 @@ import (
 
 // The deterministic floor.
 //
-// §9.8's instruction is that the contradicting side "should be populated from
+// The design's instruction is that the contradicting side "should be populated from
 // Anomaly.Confounders before any model is asked for one, so that a model's
 // contribution is measurable against a floor rather than against nothing". This
 // file is that floor. It holds no threshold and asks no model; everything it
-// emits is either transcribed from the gate's §9.5 table, read off an AC.1
+// emits is either transcribed from the gate's table, read off a triage
 // finding, or read off an anomaly a detector wrote.
 //
 // # Why confidence is counted rather than weighted
 //
 // A weighted score would need weights, and this repository already carries
-// three unsourced numbers between observe and triage (R-21, R-36); a fourth set
+// three unsourced numbers between observe and triage; a fourth set
 // invented to order hypotheses would be a judgement wearing arithmetic. So the
 // floor counts: confidence is the fraction of a hypothesis's evidence items
-// that are for it, which is §B.3's escalation trigger — contradictory evidence
+// that are for it, which is the escalation trigger — contradictory evidence
 // exceeding supporting — expressed as a number rather than as a rule. The
 // gate's own reading enters the count as evidence rather than as a coefficient:
-// a class §9.5 says the record cannot evidence gets a contradicting item saying
+// a class the table says the record cannot evidence gets a contradicting item saying
 // so, and therefore ranks below one it can, without anything here deciding by
 // how much.
 //
 // **What that buys and what it costs.** It buys a ranking whose basis is a
 // sentence an operator can check by counting the two lists, and it costs
 // resolution: three hypotheses with one supporting item and one contradicting
-// item each are tied at 0.5, and the tie is broken by §9.4's locus order rather
+// item each are tied at 0.5, and the tie is broken by locus order rather
 // than by anything about the run. The ties are reported as ties in the basis
 // rather than hidden by the sort.
 
@@ -55,23 +55,23 @@ func (r Ranker) Ref() string { return fmt.Sprintf("rca@%d", r.Generation) }
 
 // Input is what the floor reads for one session.
 type Input struct {
-	// Report is AC.1's nine verdicts. Required.
+	// Report is triage's nine verdicts. Required.
 	Report *triage.Report
-	// Evidence is what AC.1 gathered, reused rather than re-read so that a
+	// Evidence is what triage gathered, reused rather than re-read so that a
 	// hypothesis's corroborators are the same rows the verdict was reached on.
 	// Optional: a caller holding only a Report gets a ranking with the findings
 	// as its only supporting evidence.
 	Evidence *triage.Evidence
-	// Anomalies are what N.4's detectors said about this session. Optional, and
+	// Anomalies are what the detectors said about this session. Optional, and
 	// empty is the ordinary case — jetsapi.anomaly is deployed nowhere that has
-	// not run `update_db -migrateDb` (P3 F101, I-169), and the detectors run on a
+	// not run `update_db -migrateDb`, and the detectors run on a
 	// schedule only where a deployment sets JETS_AGENTIC_DETECT_HOUR_UTC.
 	Anomalies []observe.Anomaly
 }
 
 // Rank returns the session's ranked hypotheses.
 //
-// It emits one hypothesis per (present locus, cause class §9.5 maps that locus
+// It emits one hypothesis per (present locus, cause class the table maps that locus
 // to) and nothing else: it does not invent a class for a locus the gate's table
 // does not reach, and it does not emit a hypothesis for a locus that did not
 // fire. A session with no present locus yields no hypotheses and a Basis saying
@@ -147,7 +147,7 @@ func (r Ranker) hypothesis(in *Input, byLocus map[string]*triage.Finding,
 		RankerRef:     r.Ref(),
 		// Not nil. An empty list is the claim that nothing was found against
 		// this hypothesis; the code below is what decides whether it stays
-		// empty, and for eight of the ten classes §9.5 alone guarantees it does
+		// empty, and for eight of the ten classes the table alone guarantees it does
 		// not.
 		ContradictingEvidence: []Evidence{},
 	}
@@ -161,10 +161,10 @@ func (r Ranker) hypothesis(in *Input, byLocus map[string]*triage.Finding,
 		SourceRef: fmt.Sprintf("%s/%s (%s)", in.Report.SessionId, locus, f.ClassifierRef),
 	})
 
-	// Other positions §9.5 says this class shows at, that also fired. A class
+	// Other positions the table says this class shows at, that also fired. A class
 	// evidenced at two of its four positions is better supported than one
 	// evidenced at one, and this is the only place the floor compares classes
-	// on anything but their §9.5 row.
+	// on anything but their table row.
 	for _, other := range c.Loci {
 		if other == locus {
 			continue
@@ -192,7 +192,7 @@ func (r Ranker) hypothesis(in *Input, byLocus map[string]*triage.Finding,
 
 	// --- the case against ----------------------------------------------------
 
-	// §9.5's own verdict on whether the record can evidence this class. Every
+	// The table's own verdict on whether the record can evidence this class. Every
 	// class but parse_failure carries one, which is what makes the floor
 	// advisory by construction rather than by intention.
 	if c.Evidenceability != Evidenced {
@@ -205,7 +205,7 @@ func (r Ranker) hypothesis(in *Input, byLocus map[string]*triage.Finding,
 	}
 
 	// The confounders the classifier and the detectors declared. This is the
-	// substrate §9.8 named, and it is the reason the contradicting side is
+	// substrate the design named, and it is the reason the contradicting side is
 	// populated before a model is asked for one.
 	for_, against := confounderEvidence(in.Report.SessionId, locus, f.Confounders, c,
 		"triage finding "+f.ClassifierRef)
@@ -248,9 +248,9 @@ func (r Ranker) hypothesis(in *Input, byLocus map[string]*triage.Finding,
 		}
 	}
 
-	// The one cross-locus rule, and it is the use for a locus §9.5 maps to
+	// The one cross-locus rule, and it is the use for a locus the table maps to
 	// nothing. Locus per_record_failures_unreportable's stated *cannot see* is
-	// that the record cannot distinguish it from a clean run (§9.4 row 8), so a
+	// that the record cannot distinguish it from a clean run, so a
 	// run in that state cannot be called benign on the record's silence.
 	if c.Name == CauseBenignVariation {
 		if g := byLocus[triage.LocusPerRecordFailuresUnreportable]; g != nil && g.Verdict == triage.Present {
@@ -275,7 +275,7 @@ func (r Ranker) hypothesis(in *Input, byLocus map[string]*triage.Finding,
 // A configured-behaviour confounder — on_error_drop, sampling_cap and the three
 // beside them — is an explanation rather than a doubt, so it is evidence *for*
 // benign_variation and against every other class. A record-limit confounder is
-// against all ten, benign included, because §9.5's last row is that benign can
+// against all ten, benign included, because the table's last row is that benign can
 // be proposed and not established.
 func confounderEvidence(session, locus string, confounders []string, c CauseClass,
 	ref string) (supporting, against []Evidence) {
@@ -310,9 +310,9 @@ func confounderStatement(name string, c CauseClass) string {
 		"explanation other than %s", name, c.Name)
 }
 
-// corroborators are the class-specific readings §9.5 names as the record's
-// instruments, taken off the evidence AC.1 already gathered. They are
-// deliberately few: §9.5 names an instrument for four of the ten classes and
+// corroborators are the class-specific readings the table names as the record's
+// instruments, taken off the evidence triage already gathered. They are
+// deliberately few: the table names an instrument for four of the ten classes and
 // inventing one for the others is the step this floor exists not to take.
 func corroborators(in *Input, locus string, c CauseClass) []Evidence {
 	ev := in.Evidence
@@ -322,7 +322,7 @@ func corroborators(in *Input, locus string, c CauseClass) []Evidence {
 	var out []Evidence
 	switch c.Name {
 	case CauseParseFailure:
-		// §9.5: "input_bad_records_count is exactly this and it counts without
+		// "input_bad_records_count is exactly this and it counts without
 		// sampling."
 		var bad, rows int64
 		if ev.Workers != nil {
@@ -342,8 +342,8 @@ func corroborators(in *Input, locus string, c CauseClass) []Evidence {
 			})
 		}
 	case CauseValidationBreach:
-		// §9.5: a jets:exception reaches process_errors, and the jetrules
-		// family is the one that saves a rete session with it (F185).
+		// A jets:exception reaches process_errors, and the jetrules
+		// family is the one that saves a rete session with it.
 		if ev.Errors != nil && ev.Errors.WithReteSession > 0 {
 			out = append(out, Evidence{
 				Statement: fmt.Sprintf("%d of %d process_errors rows carry a saved rete session, which is "+
@@ -402,16 +402,16 @@ func confidence(sup, con int) float64 {
 	return float64(sup) / float64(sup+con)
 }
 
-// causeSentence is the hypothesis's cause in words. §A.2.8 caps it at 500
+// causeSentence is the hypothesis's cause in words. The model caps it at 500
 // characters and this stays well inside; it names the class and the position it
-// was inferred from, because a cause read without its locus is R-27.
+// was inferred from, because a cause read without its locus reads as a diagnosis.
 func causeSentence(locus string, c CauseClass) string {
 	return fmt.Sprintf("%s, inferred from locus %s — §9.5 lists %s among the loci that can carry this "+
 		"class", c.Name, locus, locus)
 }
 
-// sortHypotheses orders by §9.5's evidenceability tier, then by confidence,
-// then by §9.4's locus order, then by §9.5's class order. The two tie-breaks
+// sortHypotheses orders by the table's evidenceability tier, then by confidence,
+// then by locus order, then by the table's class order. The two tie-breaks
 // are positional rather than evaluative so that a ranking is reproducible;
 // rankBasis says when one was used.
 //

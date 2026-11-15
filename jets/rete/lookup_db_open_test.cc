@@ -23,7 +23,7 @@ std::filesystem::path scratch(std::string const& name)
     (name + "_" + std::to_string(getpid()) + ".db");
 }
 
-// I-167: lookup.db was opened on every engine build, with sqlite3_open's default
+// lookup.db was opened on every engine build, with sqlite3_open's default
 // flags, so a workspace with no lookup table created an empty file at the path.
 TEST(LookupDbOpenTest, NoLookupTableOpensNoLookupDb)
 {
@@ -46,7 +46,7 @@ TEST(LookupDbOpenTest, NoLookupTableOpensNoLookupDb)
   std::filesystem::remove(ws);
 }
 
-// I-167: with a lookup table declared, a missing lookup.db is an error and is not
+// With a lookup table declared, a missing lookup.db is an error and is not
 // created; it used to be created empty, and the error came from the empty table.
 TEST(LookupDbOpenTest, AMissingLookupDbIsAnErrorAndIsNotCreated)
 {
@@ -90,7 +90,7 @@ void run_one_factory()
   ASSERT_GE(meta_store->get_lookup_sql_helper()->type_of(rete_session.get(), "acme:key"), -1);
 }
 
-// I-144, I-170: a factory that goes closes every connection it and its lookup
+// A factory that goes closes every connection it and its lookup
 // helper opened, with no terminate() call. ~ReteMetaStoreFactory had its reset()
 // commented out, LookupSqlHelper had no destructor, and the TypeOf pool was never
 // closed, so each factory left its connections' memory behind. SQLite counts its

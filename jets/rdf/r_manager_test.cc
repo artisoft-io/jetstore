@@ -194,7 +194,6 @@ TEST(RManagerTest, MetaManager)
 
   // creating what a locked meta manager already holds returns it, as the Go
   // engine's ResourceManager does; it threw until 2026-10-11
-  // (rules_unit_test_harness I-15)
   EXPECT_EQ(meta_mgr->create_resource("r1"), r1);
   auto l5 = meta_mgr->get_literal(int32_t(5));
   EXPECT_EQ(l5, nullptr);

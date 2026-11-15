@@ -152,7 +152,7 @@ var reservedOperatorTypes = func() map[string]bool {
 // The startup path runs in cp_sharding_starter and cp_reducing_starter; the
 // registry is an argument to CoordinateComputePipes, which runs in cp_node. So a
 // mistyped site token cannot be caught at startup and is reported by the
-// dispatch inside a running worker instead (`I-779`). What *is* catchable from
+// dispatch inside a running worker instead. What *is* catchable from
 // the document alone is a site_config on a token the dispatch will never take it
 // for -- the eighteen built-ins -- and leaving that to be inferred from an
 // operator silently ignoring its configuration is the failure this whole design
@@ -221,8 +221,8 @@ func (e operatorEnv) SessionId() string {
 // padding: ClusterConfig is a *ClusterSpec, and `&ComputePipesConfig{}` -- which
 // is what a dozen tests in this package build -- leaves it nil. The rest of the
 // package reads `ctx.cpConfig.ClusterConfig.IsDebugMode` unguarded because
-// UnmarshalComputePipesConfig always fills it in; an accessor a site calls is
-// reached from places that never went through that decoder.
+// UnmarshalComputePipesConfig refuses a config with no cluster_config; an accessor
+// a site calls is reached from places that never went through that decoder.
 func (e operatorEnv) IsDebugMode() bool {
 	if e.ctx.cpConfig == nil || e.ctx.cpConfig.ClusterConfig == nil {
 		return false
@@ -344,7 +344,7 @@ func (ctx *BuilderContext) siteOperatorArgs(source *InputChannel, outCh *OutputC
 // It is the error channel's resolution pluralised -- the same two emptiness
 // checks per entry, then the same GetOutputChannel -- and the same argument
 // carries it: the builder owns the registry, resolves what the step named, and
-// hands over the result, so the operator can name nothing else (§12.6).
+// hands over the result, so the operator can name nothing else.
 //
 // **Authored order is preserved and is the operator's only handle on which is
 // which**, since a resolved channel carries its own name and the operator reads
@@ -394,7 +394,7 @@ func (ctx *BuilderContext) resolveSiteOutputChannels(args *OperatorArgs,
 // It is resolveSiteOutputChannels on the other withheld field: the builder owns
 // the lookup table manager, resolves the keys the step itself named, and hands
 // the loaded tables over — so the operator reads no table its own step did not
-// declare, and never sees the manager (§12.6).
+// declare, and never sees the manager.
 //
 // **A miss is an error here rather than a nil table**, and that is the one place
 // this departs from what the built-ins do. `map_record`, `anonymize` and

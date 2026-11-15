@@ -15,7 +15,7 @@ import (
 
 // This file contains the cost order: the antecedents of a rule ordered by the
 // rows each is estimated to add, from statistics of the graph a workspace
-// commits in OptimizerStatisticsFile (rules_benchmark Phase 9, BY.1). The file's
+// commits in OptimizerStatisticsFile. The file's
 // format is version 1 of jetstore.optimizer_statistics.
 //
 // Without statistics nothing here runs, and a rule is ordered by evaluateScore
@@ -60,7 +60,7 @@ type costOrderReport struct {
 }
 
 // termKey renders a rule constant as the statistics file keys it: its form in
-// the engine's graph (BX.1 rule 5), by optstats.TermKey, given the resource's
+// the engine's graph, by optstats.TermKey, given the resource's
 // Value, which is what the engine names it by, never its Id. The engine makes a
 // node from the row the compiler writes in workspace.db's resources table
 // (ReteMetaStoreFactory::read_resources_cb). A volatile resource's Value has
@@ -142,7 +142,7 @@ func (c *Compiler) SetCostOrderTrace(on bool) {
 }
 
 // costEstimator estimates, for one rule, the rows a positive antecedent adds
-// per row of the antecedents placed before it (BX.1 rule 8).
+// per row of the antecedents placed before it.
 type costEstimator struct {
 	s     *JetRuleListener
 	st    RuleSetStatistics
@@ -279,7 +279,7 @@ func (s *JetRuleListener) orderByCost(antecedents []*rete.RuleTerm, e *costEstim
 }
 
 // orderLabel writes an order as the antecedents' authored positions, T for a
-// positive antecedent and N for a negation, as rules_benchmark's feasibility
+// positive antecedent and N for a negation, as the rules benchmark's feasibility
 // study printed them: positions only, never a value.
 func orderLabel(order []*rete.RuleTerm, authored map[*rete.RuleTerm]int) string {
 	parts := make([]string, len(order))
@@ -297,7 +297,7 @@ func orderLabel(order []*rete.RuleTerm, authored map[*rete.RuleTerm]int) string 
 // authored one: every variable of a negated antecedent, and of a filter, is
 // bound by a positive antecedent placed before it (a filter's own antecedent
 // included). Validation runs before the optimizer, so without this an order
-// that placed a negation too early compiled with a clean exit (I-232).
+// that placed a negation too early compiled with a clean exit.
 func (s *JetRuleListener) validateOrderedRule(rule *rete.JetruleNode) bool {
 	isValid := true
 	bound := make(map[string]bool)

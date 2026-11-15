@@ -536,7 +536,7 @@ type RuleSetOutcome struct {
 	// MaxLoopReached is true when the loop ran out of iterations: every loop
 	// MaxLooping allows ran, and none set jets:completed or returned an
 	// ExecuteRules error. Completion or an error on the last allowed loop is not
-	// the maximum reached (rules_unit_test_harness I-7, fixed by AA.3).
+	// the maximum reached.
 	MaxLoopReached bool
 	// ExecuteErr is the error ExecuteRules returned, which ends the rule set's
 	// loop; the max vertex visit limit is one.
@@ -545,7 +545,7 @@ type RuleSetOutcome struct {
 	// rule set raised: in the rdf session once it has run, and not there when it
 	// started. An exception stays in the session for the later rule sets, whose
 	// rules may read it, but only the rule set that raised it reports it
-	// (rules_unit_test_harness I-8, Michel 2026-10-11: report each exception
+	// (decided 2026-10-11: report each exception
 	// once). See exceptionKey for what makes two exceptions the same.
 	Exceptions []string
 }
@@ -600,8 +600,8 @@ func (o *RuleSetsOutcome) Failed() bool {
 // adaptors create the JetResources on first use, through the meta graph's
 // resource manager, and the meta graph locks when the first rdf session opens:
 // after that a new meta resource is refused, a nil node on Go and an error on
-// C++. (On C++ it aborted the process until 2026-10-11, rules_unit_test_harness
-// I-15.) A pipeline meets it because
+// C++. (On C++ it aborted the process until 2026-10-11.) A pipeline meets it
+// because
 // AssertSourcePeriodInfo, at pipe construction, and executeRules both call it
 // first; the harness must call it before NewRdfSession. RunRuleSets cannot do it
 // for the caller, since the session is already open when it is called. The
@@ -664,7 +664,7 @@ func RunRuleSets(rdfSession JetRdfSession, engine JetRuleEngine, config *RuleSet
 			return
 		}
 		// From here every return releases the rete session, as the end of the
-		// rule set does (rules_unit_test_harness I-10).
+		// rule set does.
 		if !inputAsserted {
 			// Assert the input records to rdf session
 			if timer != nil {
@@ -823,8 +823,8 @@ func RunRuleSets(rdfSession JetRdfSession, engine JetRuleEngine, config *RuleSet
 // fixed it is the object node; the rdf session is a set of triples, so one
 // exception value is one triple however many rules or rule sets assert it. The
 // node itself cannot be the key, because neither adaptor exposes it: Hdle()
-// returns the RdfNode wrapper, which GetObject allocates afresh on every call
-// (rules_unit_test_harness F93). The type and the text name the node instead,
+// returns the RdfNode wrapper, which GetObject allocates afresh on every call.
+// The type and the text name the node instead,
 // the type keeping the text "1" apart from the int 1 and a resource from a
 // literal of the same name.
 //
@@ -908,7 +908,7 @@ type PredicateKeyer interface {
 
 // columnReader reads the columns of an output channel that come from the graph,
 // for one subject at a time, in one pass over the subject's triples grouped by
-// predicate, rather than with one FindSP per column (rules_benchmark G11).
+// predicate, rather than with one FindSP per column.
 //
 // Each column's predicate is the node FindSP read, rm.NewResource(column), looked
 // up once per session rather than once per subject, and a triple is put in the
@@ -1077,7 +1077,7 @@ func (ctx *JrPoolWorker) extractLiteralValue(rdfSession JetRdfSession, subject R
 		if isArray {
 			// The graph returns a subject's values in its hash set's order, which
 			// is seeded per process; sorting makes the cell a function of its
-			// values alone (JM-047). A single value is left as it is.
+			// values alone. A single value is left as it is.
 			sortCellValues(dataArr)
 		}
 		if ctx.multiValueDataProperties[pname] {

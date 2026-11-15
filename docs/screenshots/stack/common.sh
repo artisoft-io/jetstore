@@ -33,7 +33,7 @@ STACK_ADMIN_EMAIL="admin@localhost.test"
 # JETS_WS_REPO defaults to the jets_ws checkout beside jetstore in a parent
 # checkout that holds both.
 JETS_WS_REPO="${JETS_WS_REPO:-$REPO_ROOT/../workspaces/jets_ws}"
-JETS_WS_REF="${JETS_WS_REF:-789dd9b2}"
+JETS_WS_REF="${JETS_WS_REF:-904b663}"
 
 log() { printf '[stack] %s\n' "$*" >&2; }
 die() { printf '[stack] error: %s\n' "$*" >&2; exit 1; }

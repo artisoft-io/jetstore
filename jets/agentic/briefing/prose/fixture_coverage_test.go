@@ -8,20 +8,20 @@ import (
 	"testing"
 )
 
-// **I-679's residual, closed by a tripwire rather than by sharing the
+// **A residual gap, closed by a tripwire rather than by sharing the
 // fixtures.**
 //
 // Criterion 82 is checked in `jets/agentic/briefing/briefingtmpl`, against a
 // **transcription** of this package's render cases: `section1106Entity` and
 // `TestRenderCases`' table are unexported helpers of this test binary, so no
-// other package can call them. `I-679` accepted that and named what it cannot
+// other package can call them. That was accepted, naming what it cannot
 // catch - *a fixture `prose_test.go` gains later*, which would be a case the
 // equivalence test has never seen and nothing would say so.
 //
-// **Exporting the fixtures was the repair `I-679` proposed and it is not the
+// **Exporting the fixtures was the repair first proposed and it is not the
 // one taken.** It would put test data in a non-test file of a shipped package,
 // and it would only pay once the equivalence test called it - which is an edit
-// to `briefingtmpl`, a package `AY.5` was told not to touch. A tripwire needs
+// to `briefingtmpl`, a package this work was not to touch. A tripwire needs
 // neither: it fails here, in the package that grew the case, at the moment the
 // case is added.
 //
@@ -73,7 +73,7 @@ func TestEveryRenderCaseIsAlsoAnEquivalenceCase(t *testing.T) {
 	sort.Strings(missing)
 	if len(missing) > 0 {
 		t.Errorf("criterion 82 does not see %d of this package's %d render cases, because the equivalence "+
-			"test carries a transcription of them (I-679): %s\n\nAdd each one to TestRenderCases in "+
+			"test carries a transcription of them: %s\n\nAdd each one to TestRenderCases in "+
 			"jets/agentic/briefing/briefingtmpl/equivalence_test.go, where it is rendered through both "+
 			"arms and compared.", len(missing), len(mine), strings.Join(missing, ", "))
 	}

@@ -1,18 +1,18 @@
-"""X6: the declared scope, and that a token outside it aborts by name.
+"""The declared scope, and that a token outside it aborts by name.
 
 **The universe is derived, not listed.** Every test here that needs "the
 tokens JetStore has" reads them off `cpipes_model._MATRIX_KEYS` through
 `contract.contract_tokens`. A hand-kept list of the nineteen would make
 `test_every_contract_token_outside_the_scope_is_refused` pass over a twentieth
 the day JetStore added one — which is the shape of failure this repository has
-recorded thirty-seven times, and the one the phase's highest risk (P9-R01) runs
+recorded thirty-seven times, and the one the phase's highest risk runs
 straight into.
 
 **One assertion here is deliberately a literal**, and it is
 `test_the_declared_scope_is_the_subset_the_charter_names`. The scope is a
 *decision* rather than a derivation; pinning it is what makes widening it an
 act somebody has to take on purpose. It carries the charter's own six and the
-two the charter's pipeline cannot exist without, and it names P9-I26.
+two the charter's pipeline cannot exist without, and it names the issue.
 """
 
 from __future__ import annotations
@@ -94,7 +94,7 @@ def test_a_token_nobody_has_is_refused_with_a_different_reason():
     assert typo.category is builtin.category is FindingKind.OUT_OF_SCOPE
     assert typo.reason != builtin.reason
     assert "site operator" in typo.reason
-    assert "P9-I04" in builtin.reason
+    assert "subset of the built-ins by design" in builtin.reason
 
 
 def test_a_twenty_ninth_operator_that_did_not_join_the_scope_fails_loudly():
@@ -119,7 +119,7 @@ def test_a_twenty_ninth_operator_that_did_not_join_the_scope_fails_loudly():
 def test_a_declared_token_with_no_build_is_a_different_refusal(declared_and_unbuilt):
     """The subject is a declaration this test makes, not a token that is behind.
 
-    It named `map_record` until P9-T06 built it. The *mechanism* is what the test
+    It named `map_record` until that was built. The *mechanism* is what the test
     is about, so the fixture declares a token with no `build` and this keeps
     working once every real declaration has one — see the fixture's docstring.
     """
@@ -158,15 +158,15 @@ def test_implementedness_is_derived_and_not_declared():
 
     The first half is the derivation and holds for every declaration. The second
     was `assert not cls.implemented()` with the note *update this file when the
-    first one lands*, then P9-T04's three, and **P9-T06 and P9-T07 take it to
+    first one lands*, then three, and **the transformations take it to
     seven of eight**: the three transformations now carry a `build` and
-    `merge_files` is P9-T08's. **The census is asserted rather than the absence**,
+    `merge_files` was built separately. **The census is asserted rather than the absence**,
     so a token gaining or losing an implementation is a failure here and not a
     silence — and every unimplemented one still has to name its owner, which is
     the half that was always about the declaration rather than about progress.
 
     *This literal is the one line of this file two concurrent branches both
-    move, which is P7-I62's shape: re-measure it at the merge rather than taking
+    move, which is a known shape: re-measure it at the merge rather than taking
     either branch's count.*
     """
     implemented: list[str] = []
@@ -176,9 +176,9 @@ def test_implementedness_is_derived_and_not_declared():
             implemented.append(cls.token)
         else:
             assert cls.owed_by, f"{cls.__name__} declares a stub owing nobody"
-    # **Measured over the merged state rather than taken from either branch**
-    # (P7-I62). P9-T04 implemented the two input-channel types and `fan_out`;
-    # P9-T08 added `merge_files`; P9-T06 and P9-T07 added the three
+    # **Measured over the merged state rather than taken from either branch**.
+    # One branch implemented the two input-channel types and `fan_out`;
+    # another added `merge_files`; others added the three
     # transformations. Neither branch could see the other's four, and each was
     # correct about its own — so the union is the only right answer and it was
     # re-derived here rather than reasoned about.
@@ -201,7 +201,7 @@ def test_implementedness_is_derived_and_not_declared():
 def test_the_base_build_refuses_and_names_the_task(declared_and_unbuilt):
     """`Operator.build`'s own refusal, over a declaration that defines none.
 
-    It named `PartitionWriter` until P9-T07 gave that class a `build` of its
+    It named `PartitionWriter` until that class was given a `build` of its
     own — whose refusal is a different one, about the seam rather than about the
     task (`transformations.SeamNotWired`). The base method is what this test is
     about, so its subject is now a declaration with no `build` at all.
@@ -280,7 +280,7 @@ def test_a_site_operator_cannot_shadow_a_declared_built_in(caplog):
     assert "map_record" in registry.tokens()
     assert any("built-in" in r.getMessage() for r in caplog.records)
     # The built-in still wins: `classify` asks the declaration registry first.
-    # **The assertion inverted at P9-T06** — it read `UNIMPLEMENTED`, because the
+    # **The assertion inverted once the built-in was built** — it read `UNIMPLEMENTED`, because the
     # built-in was declared and unbuilt and the registration did not change that.
     # Now the built-in is built, so the same registration is shadowed by a token
     # that is *in scope and finished*: `classify` answers None, which is the same

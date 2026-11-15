@@ -1,7 +1,7 @@
 // Command rules_unit_test runs one rules unit test (a .tst.json under a
 // workspace's jet_rules/unit_tests/) and writes its result file.
 //
-// It is the harness process of the rules_unit_test_harness project: the
+// It is the harness process of the rules unit tests: the
 // apiserver launches it once per test, from a pool, and records the result file
 // it writes; a rule author runs the same binary from a shell against a
 // checked-out workspace. **It opens no database connection**: the workspace is
@@ -55,7 +55,7 @@ func main() {
 	// The memory ceiling comes first, before anything allocates in earnest: the
 	// apiserver shares its memory with every test it runs (definition R-8).
 	// RLIMIT_DATA, not RLIMIT_AS, which a Go process exceeds before loading
-	// anything (rules_unit_test_harness F91).
+	// anything.
 	limitErr := applyMemoryCeiling()
 
 	testPath := *testFlag
@@ -100,7 +100,7 @@ func run(testPath string, limitErr error) *rulestest.Result {
 }
 
 // checkEngineFlag accepts -engine native, the only engine, or no -engine. -engine go
-// is refused naming the retirement rather than run on C++ (rules_benchmark Q-77).
+// is refused naming the retirement rather than run on C++.
 func checkEngineFlag(e string) error {
 	switch e {
 	case "", rulestest.EngineNative:

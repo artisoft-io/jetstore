@@ -1,4 +1,4 @@
-// The proposal read paths of task K.3 — the staging half of criterion 31 —
+// The proposal read paths — the staging half of the approval screens —
 // tested against a real Postgres. Needs JETS_TEST_DSN; see the note at the head
 // of audit_test.go.
 //
@@ -21,7 +21,7 @@ import (
 )
 
 // seedProposalIn is seedProposal with a chosen approval state, for the list
-// tests. Ids are time-based per I-72: JETS_TEST_DSN names a database that
+// tests. Ids are time-based: JETS_TEST_DSN names a database that
 // persists between runs, and fixed ids pass in isolation and collide in a
 // package run.
 func seedProposalIn(t *testing.T, pool *pgxpool.Pool, suffix, state string) (runId, proposalId string) {

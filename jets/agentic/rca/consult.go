@@ -13,7 +13,7 @@ import (
 
 // The model arm, and what it is for.
 //
-// §9.8 says AC.2 is where the model earns its place, because mapping a locus to
+// The design says the ranker is where the model earns its place, because mapping a locus to
 // one of the imported ten is the step the record does not determine. It also
 // says the contradicting side should be populated from the record's own
 // vocabulary **before** a model is asked, so that a model's contribution is
@@ -22,7 +22,7 @@ import (
 //
 // # What can be measured here without labels, and what cannot
 //
-// AA.2 counted the labelled population and it is **zero** (plan §10): no
+// A count of the labelled population found it **zero**: no
 // incident anywhere in reach of this repository is paired with a written cause.
 // So *is the model right* is not a question this or any harness here can ask,
 // and a hit rate would be a number with no denominator. What can be asked is
@@ -30,11 +30,11 @@ import (
 // answerable from the gate's own table:
 //
 //   - does it carry contradicting evidence at all, and is that side non-empty;
-//   - does it cite an EvidenceSource that §9.7 found has no substrate in
+//   - does it cite an EvidenceSource that has no substrate in
 //     JetStore — commit_history, infrastructure_log, prior_incident;
-//   - does it name a cause class §9.5 attaches to no locus, so that no record
+//   - does it name a cause class the table attaches to no locus, so that no record
 //     could evidence it;
-//   - does it attribute a class to a locus §9.5 says cannot carry it.
+//   - does it attribute a class to a locus the table says cannot carry it.
 //
 // Each is a property of the answer rather than of the world, so each is
 // countable today. **None of them says the model is useful**, and ConsultReport
@@ -42,10 +42,10 @@ import (
 //
 // # The schema goes in the prompt as well as in the format
 //
-// I-180: infer.Client puts the schema in Ollama's `format` field and builds its
-// messages from the system and user strings alone, and Phase 1's I-41 measured
+// infer.Client puts the schema in Ollama's `format` field and builds its
+// messages from the system and user strings alone, and an earlier measurement put
 // that shape at nine parseable, non-conformant fragments out of nine. The
-// remedy Phase 1 recorded — the schema has to be in the prompt — was
+// remedy recorded then — the schema has to be in the prompt — was
 // implemented in the Python toolchain and never ported to Go. This caller
 // applies it at the call site rather than waiting for the port: instruction()
 // renders the schema into the user message, so a bare Chat's known-bad shape is
@@ -60,7 +60,7 @@ type Inferer interface {
 // ConsultReport is what one model arm produced, with the denominators that make
 // each count readable. It is a report about an answer and never about a run.
 //
-// Report.Model is mandatory for P.1's reason (F113, R-23): a rate without its
+// Report.Model is mandatory for the compile-pass report's reason: a rate without its
 // model is not a rate, and this machine has no GPU, so the model that answered
 // is as much a property of a figure as the count is.
 type ConsultReport struct {
@@ -81,22 +81,22 @@ type ConsultReport struct {
 	Hypotheses int
 	// WithContradicting counts hypotheses whose contradicting list is
 	// non-empty. **The schema can require the key and cannot require content**,
-	// which is the whole of what §A.2.8's calibration control is worth once a
+	// which is the whole of what the calibration control is worth once a
 	// generator is constrained rather than asked.
 	WithContradicting int
-	// SupportingItems and ContradictingItems are the two totals §B.3's
+	// SupportingItems and ContradictingItems are the two totals the
 	// escalation trigger compares.
 	SupportingItems, ContradictingItems int
 
 	// UnsubstantiatedSources counts evidence items citing one of the three
-	// EvidenceSource members §9.7 found has no substrate in JetStore. An item
+	// EvidenceSource members found to have no substrate in JetStore. An item
 	// sourced from a commit history no run names is not evidence.
 	UnsubstantiatedSources int
-	// ClassesWithNoLocus counts hypotheses naming a cause class §9.5 attaches
+	// ClassesWithNoLocus counts hypotheses naming a cause class the table attaches
 	// to no locus, so that nothing in the record could evidence one.
 	ClassesWithNoLocus int
 	// PairsOutsideTheTable counts hypotheses whose (locus, class) pair is not a
-	// row of §9.5 — the model attributing a class to a position the gate says
+	// row of the gate's table — the model attributing a class to a position the gate says
 	// cannot carry it.
 	PairsOutsideTheTable int
 	// LociNotPresent counts hypotheses at a locus triage did not find present,
@@ -105,7 +105,7 @@ type ConsultReport struct {
 	// LociAbsent and LociNotEvaluable split LociNotPresent by which of the two
 	// answers the classifier actually gave, and they sum to it.
 	//
-	// **The split is AD.1's and the reason is §13.4's, arriving one layer up.**
+	// **The split is the census's and the reason is the classifier's, arriving one layer up.**
 	// triage.Verdict is three-valued precisely because *the predicate was asked
 	// and does not hold* and *the predicate could not be asked* are different
 	// claims; a counter that adds them together undoes that distinction in the
@@ -114,9 +114,9 @@ type ConsultReport struct {
 	// the record contradicts, and one at a **not_evaluable** locus is a claim
 	// about something nobody looked at — the second is unfalsifiable rather than
 	// false, and on the deployment state all four production environments were
-	// measured in, four of the nine loci are not_evaluable by default (F282).
+	// measured in, four of the nine loci are not_evaluable by default.
 	//
-	// LociNotPresent is kept rather than replaced so that §19.6's figures stay
+	// LociNotPresent is kept rather than replaced so that earlier figures stay
 	// comparable as a sum.
 	LociAbsent, LociNotEvaluable int
 
@@ -154,33 +154,33 @@ func (r *ConsultReport) Describe() string {
 	return b.String()
 }
 
-// sourcesWithNoSubstrate is §9.7's list, **and it is one member rather than
-// three** — which is a correction to §9.7 rather than a disagreement with it.
+// sourcesWithNoSubstrate is the evidence-source review's list, **and it is one member rather than
+// three** — which is a correction to that review rather than a disagreement with it.
 //
-// §9.7 read `EvidenceSource`'s nine against what JetStore holds and found three
-// with no substrate at all: `commit_history` (no run names a commit, F196),
+// The review read `EvidenceSource`'s nine against what JetStore holds and found three
+// with no substrate at all: `commit_history` (no run names a commit),
 // `infrastructure_log`, and `prior_incident`, whose own entry says *absent until
-// AB.1*. **Two of the three acquired one on the day §9.7 was written**, by
-// tasks in this same phase:
+// the incident table exists*. **Two of the three acquired one on the day the review was written**, by
+// changes made the same day:
 //
-//   - `prior_incident` — `AB.1` created `jetsapi.incident`, which is the
-//     condition §9.7 itself named. The table exists and holds no rows until
-//     `AC.3` writes them, so the substrate is present and empty; those are
+//   - `prior_incident` — `jetsapi.incident` was created, which is the
+//     condition the review itself named. The table exists and holds no rows until
+//     the shadow writer writes them, so the substrate is present and empty; those are
 //     different states and only the first is what this list is about.
-//   - `commit_history` — `AB.3` gave the run header a `workspace_name` and a
-//     `workspace_version`, and `AH.2` gave `jetsapi.workspace_version` a
+//   - `commit_history` — the run header gained a `workspace_name` and a
+//     `workspace_version`, and `jetsapi.workspace_version` gained a
 //     `workspace_commit`. A run therefore reaches a commit through two joins,
-//     which is exactly what F196 said nothing did.
+//     which is exactly what the review said nothing did.
 //
-// `infrastructure_log` is the one that has not moved, and `AB.3` came close
+// `infrastructure_log` is the one that has not moved, and the run-header change came close
 // without doing it: `failure_class` and `failure_source` record the decoded
-// class and which decoder arm produced it (§16.2 row 1), which is a *classified
-// string* rather than a log. §9.7's own words — *what the record holds is a
+// class and which decoder arm produced it, which is a *classified
+// string* rather than a log. The review's own words — *what the record holds is a
 // decoded StoppedReason string, not a log* — are still exact.
 //
 // **This is why the list is here rather than inlined at its use.** It is a
 // dated reading of a substrate that three tasks moved inside one afternoon, and
-// the next task to move one has to find it (I-360).
+// the next task to move one has to find it.
 var sourcesWithNoSubstrate = []string{SourceInfrastructureLog}
 
 // Consult asks a model for a ranking over the same evidence the floor read, and
@@ -396,8 +396,8 @@ Rules you must follow:
 
 // instruction renders the evidence and the schema into one user message. The
 // schema is included here because infer.Client sends it only as Ollama's format
-// field (I-180) and Phase 1 measured that shape at nine non-conformant
-// fragments out of nine (I-41, F114).
+// field and an earlier measurement put that shape at nine non-conformant
+// fragments out of nine.
 func instruction(in *Input) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Run: session %s.\n\nTriage verdicts (%s):\n\n",

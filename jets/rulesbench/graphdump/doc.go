@@ -1,8 +1,8 @@
 // Package graphdump writes an RDF session as a canonical dump: one triple per
 // line, sorted, in a text form that is the same on the Go and the C++ engine, so
 // that two runs can be compared by a line diff. It is the equivalence check of
-// projects/rules_benchmark (§5.7 of its plan, task AB.4); jets/cmds/rules_bench_diff
-// compares two dump trees (AB.5).
+// the rules benchmark; jets/cmds/rules_bench_diff
+// compares two dump trees.
 //
 // # What is written
 //
@@ -43,7 +43,7 @@
 //	minted node        _:<label>, and _:<label>^^text for its text form (below)
 //
 // Doubles are written as held, not rounded: the Go engine quantised a double
-// literal to 15 bits of mantissa until rules_benchmark Phase 4 (jets/rete/README.md,
+// literal to 15 bits of mantissa until October 2026 (docs/src/content/docs/developer/engine/rule-engine/,
 // "The Go and C++ engines are independently maintained and they disagree", item 3)
 // and the C++ engine does not, so the same amount read 12345.67 on C++ and 12345.5 on Go.
 // That difference is kept in the dump and classified by the diff, which knows
@@ -68,8 +68,8 @@
 //     difference on such a node is reported by label rather than by value;
 //   - a lookup subject: the object of a lookup cache triple. Both engines cache
 //     a lookup as (<table> jets:lookup_row jets:<table>:<key>), or
-//     jets:rand:<table>:<n> for multi_lookup_rand. Until rules_benchmark I-15
-//     (2026-10-22) the Go engine cached it as (jets:cache:<table>
+//     jets:rand:<table>:<n> for multi_lookup_rand. Until
+//     2026-10-22 the Go engine cached it as (jets:cache:<table>
 //     jets:lookup_row jets:lookup:<key>), with jets:lookup_multi_rows for a
 //     multi-lookup, and dumps made before then carry those names. So a cache
 //     resource in the current form, recognised by that pattern, is renamed
@@ -106,14 +106,14 @@
 // runs. None has been seen in a workspace.
 //
 // The labels are not numbered by first appearance in the sorted dump, the
-// alternative §5.7 names: a number given by position changes for every node
+// alternative: a number given by position changes for every node
 // after an inserted one, so a single extra minted node would rename every node
 // after it and make the whole dump differ.
 //
 // # Lookup bookkeeping
 //
 // Both engines now cache a multi-lookup with jets:lookup_row. A Go dump made
-// before rules_benchmark I-15 (2026-10-22) caches it with jets:lookup_multi_rows.
+// before 2026-10-22 caches it with jets:lookup_multi_rows.
 // Cache triples are written as the dump holds them, and the diff classifies them;
 // their predicate is written jets:lookup_cache in the colours either way.
 package graphdump

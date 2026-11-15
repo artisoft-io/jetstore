@@ -1,7 +1,6 @@
 package main
 
-// The workspace runbook endpoint, /runbook (project runbooks, Phase 1, track
-// AB; plan §3.4). One POST route with an action name, shaped as /agentic is and
+// The workspace runbook endpoint, /runbook. One POST route with an action name, shaped as /agentic is and
 // for the same reasons (the client's POST helper reads the refreshed token out
 // of every response body).
 //

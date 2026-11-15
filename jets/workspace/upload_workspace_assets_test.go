@@ -1,4 +1,4 @@
-// UploadWorkspaceAssets skips a file the database already holds (I-41).
+// UploadWorkspaceAssets skips a file the database already holds.
 //
 // Needs JETS_TEST_DSN (any throwaway database; the test installs
 // workspace_changes and drops it after); skipped otherwise. Locally:

@@ -1,43 +1,43 @@
-// AD.1's instrument: the denominators §11.3.1's metrics need, computed rather
+// The census instrument: the denominators the capability metrics need, computed rather
 // than quoted.
 //
 // # What this file is for
 //
-// Task AD.1 asks what the source proposal's §11.3.1 capability metrics can be
-// computed on, per metric, with denominators and no aggregate. AA.2 counted the
-// labelled population at **zero** (plan §10), so six of the seven metrics are
-// not computable and the reasons differ; plan §22 is the per-metric table and
-// this file is what the numbers in it were read off.
+// The question is what the source proposal's capability metrics can be
+// computed on, per metric, with denominators and no aggregate. A count found the
+// labelled population at **zero**, so six of the seven metrics are
+// not computable and the reasons differ; this file is what the per-metric
+// numbers were read off.
 //
 // It produces three things and refuses to produce a fourth:
 //
-//   - **A per-locus census** — for each of AC.1's nine loci, how many runs
+//   - **A per-locus census** — for each of the classifier's nine loci, how many runs
 //     answered present, absent and not_evaluable. Classify returns all nine
-//     verdicts per run rather than the hits (§13.4), which is what makes the
+//     verdicts per run rather than the hits, which is what makes the
 //     denominator exist at all; this asserts that it does, per locus, over a
 //     population rather than over one fixture.
 //   - **A per-cause-class census** — for each of the imported ten, how many
-//     hypotheses the deterministic floor emitted, beside §9.5's evidenceability
+//     hypotheses the deterministic floor emitted, beside the gate table's evidenceability
 //     tier and the number of loci the gate attaches to the class. Two of the ten
 //     are attached to no locus at all, so their denominator is **structurally**
 //     zero rather than empirically zero, and the assertion below is what makes
 //     that a measured claim.
 //   - **A model-against-rule comparison**, when a model is named. That is the
-//     one comparison this phase can make without inventing labels (plan §10.6,
-//     I-275): it scores AC.2's model arm against AC.1's deterministic locus,
+//     one comparison this phase can make without inventing labels: it
+//     scores the model arm against the classifier's deterministic locus,
 //     which is a model against a rule and is not an accuracy.
 //
 // **What it refuses to produce is Classification Accuracy over the locus
-// taxonomy.** AC.1 is the implementation of the nine predicates, so scoring it
+// taxonomy.** The classifier is the implementation of the nine predicates, so scoring it
 // against them is a definition against itself and would print 100% in a row
-// whose published target is 90% (I-275). Nothing here computes that number.
+// whose published target is 90%. Nothing here computes that number.
 //
 // # What the population is, and it is not a deployment's
 //
 // The five sessions below were built by this file. **No pipeline ran** — the
-// same sentence criterion 43's fourth clause turns on (I-379) — so every count
+// same sentence criterion 43's fourth clause turns on — so every count
 // here is a property of a fixture and of the code that read it, and none of them
-// is a base rate for how JetStore pipelines fail (R-37). The shapes were chosen
+// is a base rate for how JetStore pipelines fail. The shapes were chosen
 // to exercise the loci rather than sampled from anything, which is the whole of
 // why the census is reported with its denominator and never as a rate.
 //
@@ -47,7 +47,7 @@
 //	JETS_RCA_MODEL=granite4.1:3b go test -run TestTheModelAgainstTheDeterministicLocus \
 //	  -v -timeout 60m ./jets/agentic/rca/
 //
-// This machine has no GPU and the models are CPU-bound (R-23), so budget an hour
+// This machine has no GPU and the models are CPU-bound, so budget an hour
 // and read every model figure with the model's name beside it.
 
 package rca
@@ -66,7 +66,7 @@ import (
 )
 
 // A configuration whose one reporting operator instance declares an error
-// channel, which is the 9-of-12 jetrules case (F188) and the state in which
+// channel, which is the 9-of-12 jetrules case and the state in which
 // locus per_record_failures_unreportable answers absent rather than present.
 const configWithErrorChannel = `{"pipes_config":[{"type":"fan_out","input_channel":{"name":"input"},
   "apply":[{"type":"jetrules","jetrules_config":{"error_channel":{"name":"process_errors.out"}},
@@ -154,7 +154,7 @@ func TestTheLocusAndClassCensusesCarryTheirDenominators(t *testing.T) {
 		rep, ranking := rank(t, pool, s)
 		if len(rep.Findings) != len(triage.Loci) {
 			t.Fatalf("%s produced %d findings, want %d: a classifier that returns its hits supplies "+
-				"numerators and no denominators (§13.4)", s, len(rep.Findings), len(triage.Loci))
+				"numerators and no denominators", s, len(rep.Findings), len(triage.Loci))
 		}
 		findings += len(rep.Findings)
 		evaluable += rep.Evaluable
@@ -171,7 +171,7 @@ func TestTheLocusAndClassCensusesCarryTheirDenominators(t *testing.T) {
 	// The denominator is the population, per locus, and it is the same number
 	// for every locus by construction. That is the property criterion 44 needs
 	// and it is asserted rather than assumed.
-	t.Logf("locus census over %d run(s) this file created; no pipeline ran (I-379)", len(sessions))
+	t.Logf("locus census over %d run(s) this file created; no pipeline ran", len(sessions))
 	t.Logf("%-38s %8s %8s %14s %8s", "locus", "present", "absent", "not_evaluable", "denom")
 	for _, l := range triage.Loci {
 		c := locusCensus[l]
@@ -188,11 +188,11 @@ func TestTheLocusAndClassCensusesCarryTheirDenominators(t *testing.T) {
 	t.Logf("evaluable findings: %d of %d (Report.Evaluable summed over the population)",
 		evaluable, findings)
 
-	// F271: locus written_not_arrived is not answerable from jetsapi at all, so
+	// Locus written_not_arrived is not answerable from jetsapi at all, so
 	// its denominator is a population and its evaluable count is zero, wherever
 	// this runs.
 	if n := locusCensus[triage.LocusWrittenNotArrived][triage.NotEvaluable]; n != len(sessions) {
-		t.Errorf("locus %s was evaluable on %d of %d runs; F271 says it is answerable on none",
+		t.Errorf("locus %s was evaluable on %d of %d runs; it is answerable on none",
 			triage.LocusWrittenNotArrived, len(sessions)-n, len(sessions))
 	}
 
@@ -207,7 +207,7 @@ func TestTheLocusAndClassCensusesCarryTheirDenominators(t *testing.T) {
 		}
 		// A class the gate attaches to no locus has no evidence position in any
 		// run, so its denominator is structurally zero: the floor cannot emit
-		// one however many runs it reads (F395).
+		// one however many runs it reads.
 		structurallyZero++
 		if classCensus[c.Name] != 0 {
 			t.Errorf("class %s is attached to no locus and the floor emitted %d hypotheses for it",
@@ -215,8 +215,8 @@ func TestTheLocusAndClassCensusesCarryTheirDenominators(t *testing.T) {
 		}
 	}
 	if structurallyZero != 2 {
-		t.Errorf("%d classes are attached to no locus, want 2 (F395); I-262 counts three classes the "+
-			"record cannot evidence and one of those three does have a locus", structurallyZero)
+		t.Errorf("%d classes are attached to no locus, want 2; three classes are ones the "+
+			"record cannot evidence, and one of those three does have a locus", structurallyZero)
 	}
 	// **The rows above have to account for every hypothesis, not merely be
 	// non-empty, and `counted` sums the rows rather than the map.** Two versions
@@ -233,8 +233,8 @@ func TestTheLocusAndClassCensusesCarryTheirDenominators(t *testing.T) {
 			"in any class row says nothing", counted, hypotheses)
 	}
 
-	// The other half of the class denominator: two loci are in no row of §9.5,
-	// so a run exhibiting either produces no hypothesis for it (F394). A census
+	// The other half of the class denominator: two loci are in no row of the gate's table,
+	// so a run exhibiting either produces no hypothesis for it. A census
 	// that did not say so would report a zero that looks like a measurement.
 	unmapped := 0
 	for _, l := range triage.Loci {
@@ -244,16 +244,16 @@ func TestTheLocusAndClassCensusesCarryTheirDenominators(t *testing.T) {
 		}
 	}
 	if unmapped != 2 {
-		t.Errorf("%d loci map to no cause class, want 2 (F394)", unmapped)
+		t.Errorf("%d loci map to no cause class, want 2", unmapped)
 	}
 }
 
-// The model against the rule — plan §10.6's independence route, and the only
+// The model against the rule — the independence route, and the only
 // labelled comparison this phase can make without inventing labels.
 //
 // **It asserts nothing about the model.** Every count is a property of the
-// answer; the label it is scored against is AC.1's deterministic verdict, which
-// is a rule rather than a truth. R-49 is the standing warning that a table of
+// answer; the label it is scored against is the classifier's deterministic verdict, which
+// is a rule rather than a truth. The standing warning is that a table of
 // counts with a model name on it reads as an evaluation, and the reason this
 // prints its denominators beside every figure.
 func TestTheModelAgainstTheDeterministicLocus(t *testing.T) {
@@ -274,7 +274,7 @@ func TestTheModelAgainstTheDeterministicLocus(t *testing.T) {
 	var tot ConsultReport
 	tot.Model = model
 	calls, answered, produced, admitted := 0, 0, 0, 0
-	// byLocus counts the model's hypotheses at each locus, split by what AC.1
+	// byLocus counts the model's hypotheses at each locus, split by what the classifier
 	// said about that locus in the same run.
 	byLocus := map[string]map[triage.Verdict]int{}
 	for _, l := range triage.Loci {
@@ -339,8 +339,8 @@ func TestTheModelAgainstTheDeterministicLocus(t *testing.T) {
 		tot.FloorUnsubstantiatedSource += cr.FloorUnsubstantiatedSource
 	}
 
-	// Tier A, at the two grains it has. §11.3.1 defines the Schema Rejection
-	// Rate as Tier A failures over total outputs and §11.1.3 defines Tier A as
+	// Tier A, at the two grains it has. The source proposal defines the Schema Rejection
+	// Rate as Tier A failures over total outputs and defines Tier A as
 	// schema conformance, referential integrity and lifecycle legality — so an
 	// answer and a hypothesis are both outputs, and the two denominators are
 	// different numbers rather than one reported twice.
@@ -348,7 +348,7 @@ func TestTheModelAgainstTheDeterministicLocus(t *testing.T) {
 		"%d hypotheses produced, %d admitted by Hypothesis.Validate, %d refused",
 		model, calls, answered, calls-answered, produced, admitted, produced-admitted)
 
-	t.Logf("model hypotheses per locus, against what AC.1 said about that locus in the same run "+
+	t.Logf("model hypotheses per locus, against what the classifier said about that locus in the same run "+
 		"(denominator %d admitted hypotheses over %d run(s)); this is a model against a rule and is "+
 		"not an accuracy", admitted, len(sessions))
 	t.Logf("%-38s %8s %8s %14s", "locus", "present", "absent", "not_evaluable")

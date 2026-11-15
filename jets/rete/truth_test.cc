@@ -1,4 +1,4 @@
-// rules_unit_test_harness I-45 on the C++ engine, 2026-10-11.
+// Bool parsing on the C++ engine, 2026-10-11.
 //
 // rdf::parse_bool accepts exactly the spellings Go's rdf.ParseBool accepts
 // (jets/jetrules/rdf/parse_bool_test.go is the same table). A rule testing text
@@ -90,7 +90,7 @@ TEST_F(TruthTest, AFilterOnTextReadsItAsABool) {
 
 TEST_F(TruthTest, NotAndConjunctionOnText) {
   NotVisitor not_op(rete_session.get(), nullptr);
-  // not on text raised "Invalid arguments for not" until I-45, even for "false".
+  // not on text raised "Invalid arguments for not" until 2026-10-11, even for "false".
   EXPECT_TRUE(rdf::to_bool(boost::apply_visitor(not_op, rdf::RdfAstType(rdf::LString("false")))));
   EXPECT_FALSE(rdf::to_bool(boost::apply_visitor(not_op, rdf::RdfAstType(rdf::LString("Y")))));
   auto empty = boost::apply_visitor(not_op, rdf::RdfAstType(rdf::LString("")));

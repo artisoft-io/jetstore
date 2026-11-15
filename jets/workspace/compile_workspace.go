@@ -13,7 +13,7 @@ import (
 // Workspace compilation function
 //
 // **The workspace's user-flow and table documents are validated first, and an
-// invalid one fails the compile** (jetstore_maintenance_02 AG.4, 2026-10-01): see
+// invalid one fails the compile** (2026-10-01): see
 // asset_validation.go. Every caller gets the gate unless it passes
 // SkipAssetValidation with a reason -- run_reports does, and says why.
 
@@ -66,7 +66,7 @@ func UploadWorkspaceAssets(dbpool *pgxpool.Pool, workspaceName, version string) 
 		// A file the database already holds is not written again. lookup.db is
 		// most of what this uploads, tens of megabytes and about two seconds on a
 		// local database (measured 2026-10-27), and a compile keeps it byte for
-		// byte when its inputs have not changed (EnsureLookupDb). I-41.
+		// byte when its inputs have not changed (EnsureLookupDb).
 		held, err := fo[i].HoldsContent(dbpool, data)
 		switch {
 		case err != nil:

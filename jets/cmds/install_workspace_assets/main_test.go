@@ -9,7 +9,7 @@ import (
 )
 
 // The summary counts a removed retired file apart from the assets the workspace
-// holds (I-22): before, three removals in a fresh-enough workspace read as three
+// holds: before, three removals in a fresh-enough workspace read as three
 // more assets.
 func TestSummaryCountsRemovedFilesApart(t *testing.T) {
 	results := []workspace_assets.Result{

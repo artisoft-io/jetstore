@@ -26,6 +26,7 @@ const (
 	CodeSQLStatements = "runbookSqlStatements" // the wrong number of statements for the step type
 	CodeSQLBind       = "runbookSqlBind"       // a `:name` that resolves to nothing, or an unused bind
 	CodeSQLSubst      = "runbookSqlSubstitution"
+	CodeSQLForbidden  = "runbookSqlForbidden" // a statement no step may run (ForbiddenStatement)
 )
 
 // findings accumulates findings; its zero value is ready to use.

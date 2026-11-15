@@ -150,7 +150,7 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 	// The fields a submitted run's start reads from the request, checked here,
 	// before anything is read or written. Unchecked, a missing file_key let the
 	// row be inserted and then panicked the handler at the start, leaving a
-	// submitted run that nothing would start (JM-076).
+	// submitted run that nothing would start.
 	var startFields map[string]string
 	if dataTableAction.FromClauses[0].Table == "pipeline_execution_status" && status == "submitted" {
 		startFields, err = requiredStrings(dataTableAction.Data[irow], "file_key", "client", "user_email")
@@ -401,6 +401,14 @@ func (ctx *DataTableContext) StartPendingTasks() (err error) {
 		log.Println("StartPendingTasks: No pending tasks found")
 		return
 	}
+	// Dev mode starts no state machine (startStateMachine), so it leaves the
+	// pending tasks as they are rather than failing them: a workstation may be
+	// reading a deployment's database, whose pending tasks are the deployment's
+	// to start.
+	if ctx.DevMode {
+		log.Printf("StartPendingTasks: dev mode starts no state machine; %d pending task(s) left pending", pendCount.Int64)
+		return
+	}
 
 	// Lock the state machine tasks
 	var lockToken string
@@ -624,9 +632,25 @@ func (ctx *DataTableContext) startPipeline(devModeCode string, task *PendingTask
 	return ctx.startStateMachine(task)
 }
 
+// errDevModeNoStateMachine is startStateMachine's refusal in dev mode.
+var errDevModeNoStateMachine = errors.New("error: dev mode starts no state machine; run the pipeline from the Start Pipeline dialog, which runs it locally")
+
+// startExecution starts a state machine; a variable so that a test can see
+// whether it is called.
+var startExecution = awsi.StartExecution
+
+// startStateMachine starts the task's state machine. **Never in dev mode**: a
+// workstation has no state machine of its own, and one with AWS credentials
+// would start a deployment's. Dev mode runs a pipeline locally instead
+// (startPipeline, runPipelineLocally), and StartPendingTasks leaves pending
+// tasks pending; this refusal keeps any other caller from reaching AWS.
 func (ctx *DataTableContext) startStateMachine(task *PendingTask) error {
 	var err error
 	var name string
+
+	if ctx.DevMode {
+		return errDevModeNoStateMachine
+	}
 
 	// Guard against option-style argument injection before building command args.
 	if err = task.validateForCommand(); err != nil {
@@ -699,7 +723,7 @@ func (ctx *DataTableContext) startStateMachine(task *PendingTask) error {
 	// StartExecution execute rule
 	log.Printf("calling StartExecution on processArn: %s", processArn)
 	log.Printf("calling StartExecution with: %v", smInput)
-	name, err = awsi.StartExecution(processArn, smInput, task.SessionId)
+	name, err = startExecution(processArn, smInput, task.SessionId)
 	if err != nil {
 		log.Printf("while calling StartExecution on processUrn '%s': %v", processArn, err)
 		err = errors.New("error while calling StartExecution")
@@ -1009,7 +1033,7 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 // This is also used by the register key v2 lambda once the event is downloaded from s3.
 func (ctx *DataTableContext) RegisterSchemaEvent(dbpool *pgxpool.Pool, schemaEvent *compute_pipes.SchemaProviderSpec, token string) error {
 
-	// A nil event is an error rather than a panic (JM-035 review). The
+	// A nil event is an error rather than a panic. The
 	// register-key lambda decodes a schema-event file holding a list into
 	// []*SchemaProviderSpec, where a JSON null element is a nil pointer, and a
 	// coordinator map's steps are the same type.
@@ -1077,7 +1101,7 @@ func (ctx *DataTableContext) RegisterSchemaEvent(dbpool *pgxpool.Pool, schemaEve
 	if err != nil {
 		return err
 	}
-	// The event's one row must register input (JM-096). RegisterFileKeys skips
+	// The event's one row must register input. RegisterFileKeys skips
 	// such a row with a 200, by design for a request of many keys, so a schema
 	// event for an unknown source config, or with no file_key, was reported as
 	// handled when nothing would ever run.
@@ -1145,7 +1169,7 @@ func (ctx *DataTableContext) ProcessCoordinatorMapRegisterSchemaEvent(dbpool *pg
 		// schemaInfo["request_id"] = requestId
 		return fmt.Errorf("request_id is missing in schemaInfo, it must be provided for pipeline coordinator map register schema event")
 	}
-	// Check every step before writing anything (JM-096): a step that cannot
+	// Check every step before writing anything: a step that cannot
 	// register left the map in_progress for ever, with the steps before it
 	// running.
 	for i, step := range coordinatedPipesMap {

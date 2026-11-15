@@ -13,7 +13,7 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// Tool 1 — list_domain_classes: the workspace-wide class view (F5).
+// Tool 1 — list_domain_classes: the workspace-wide class view.
 // ---------------------------------------------------------------------------
 
 type ClassSummary struct {
@@ -153,7 +153,7 @@ func DescribeDomainClass(_ context.Context, ws *Workspace, args json.RawMessage)
 
 type validateArgs struct {
 	Config json.RawMessage `json:"config"`
-	// ConfigPath is I-94's remedy on this tool (T.2). `config` relaxes to
+	// ConfigPath is the path remedy on this tool. `config` relaxes to
 	// {"type":"object"} at the wire — relaxExternalRefs must, since an MCP
 	// client cannot resolve a cross-file $ref — so a config arriving with half
 	// its pipes missing satisfies the schema. A path is not carried and cannot
@@ -176,7 +176,7 @@ type ValidationReport struct {
 // (actions_start_common.go), step by step, exactly the way the startup
 // actions and the track-B harness run it. The submitted JSON is unmarshalled
 // into a private CpipesStartup, so the validator's default-applying
-// mutations (I-4) touch a copy and nothing the caller holds. The env is the
+// mutations touch a copy and nothing the caller holds. The env is the
 // quiet single-shard case the harness uses.
 func ValidateCpipesConfig(_ context.Context, ws *Workspace, args json.RawMessage) (any, error) {
 	var in validateArgs

@@ -1,16 +1,16 @@
-"""Criterion 22: fragments authored from an English description, not recovered.
+"""Fragments authored from an English description, not recovered.
 
-**Why this is a separate module from `expand`.** §5.3.9's third qualification is that a
-harness recovering payload from the target proves *placement*, not authoring, and §6.4
-says criterion 21 does not discharge criterion 22. F.4 put the fill behind a callable and
-F.5 supplied `from_target`; this supplies the third filler, the one that asks a model to
+**Why this is a separate module from `expand`.** A harness recovering payload from the
+target proves *placement*, not authoring, and the placement test does not discharge the
+authoring test. `expand` puts the fill behind a callable and `from_target` is one
+filler; this supplies the third filler, the one that asks a model to
 write a fragment it has never seen, constrained by the hole's own schema. Nothing here
 reads the library or the target.
 
 **The bundle layer is what makes this practical**, though not for the reason first
 given. A hole's `schema_ref` names a bundle, and `subschema` emits a self-contained
-document rooted at it. I-29 recorded the flat `TransformationSpec` union as 41,040
-tokens against a 32,768-token context and called it a blocker; Q-15 measured that number
+document rooted at it. The flat `TransformationSpec` union was once recorded as 41,040
+tokens against a 32,768-token context and called a blocker; that number was measured
 against the wrong thing. **The JSON Schema does not enter the context at all** - Ollama
 compiles `format` into a sampling grammar, at a measured cost of 2-3 prompt tokens
 whether the schema is 5,252 or 41,029. What occupies the window is the prompt, where the
@@ -23,7 +23,7 @@ fifteen, and the prompt shrinks two- to six-fold as a side effect. That is a bet
 reason than the one recorded, and it survives the correction.
 
 **Reported per hole, never in aggregate.** One bad hole in a 453-column config would
-otherwise report as total failure, and decision 13's rule against an aggregate figure
+otherwise report as total failure, and the evaluation rule against an aggregate figure
 applies here for the same reason it applies to compile-pass: a total over a skewed
 population measures the population.
 """
@@ -112,7 +112,7 @@ class Report:
     """Per-hole outcomes. **There is deliberately no aggregate.**"""
 
     model: str
-    # Which candidate-selection method produced the few-shot examples (T.3).
+    # Which candidate-selection method produced the few-shot examples.
     # Mandatory in the sense that it is always rendered: a fragment pass rate whose
     # report cannot say how examples were chosen will be compared with one produced
     # the other way, which is `eval.ToolReport.Mechanism`'s argument one toolchain over.
@@ -132,7 +132,7 @@ class Report:
     def per_operator(self) -> dict[str, tuple[int, int]]:
         """schema_ref -> (passed, attempted).
 
-        **The operator is the reporting unit criterion 38 names, and it is not the
+        **The operator is the reporting unit the generate-and-compile run names, and it is not the
         hole.** Two holes of one template can bind the same bundle - `qc_report` has
         four `ColumnAggregation` holes - so a per-hole table splits one operator's
         evidence four ways and a reader comparing arms compares eight small numbers
@@ -224,16 +224,16 @@ def examples_for(
     pick is one part per member type, best-first within a type, before any second
     example of a type it already has.
 
-    **Few-shot from the library is legitimate for criterion 22 and few-shot from the
-    target is not.** §5.3.9's qualification is about a harness recovering *the answer*;
-    the library is general corpus material and A§6.1(3) proposes it as a source for
-    exactly this. The boundary is that no example may come from the config a template was
+    **Few-shot from the library is legitimate for the authoring test and few-shot from
+    the target is not.** The placement qualification is about a harness recovering *the
+    answer*; the library is general corpus material and the proposal names it as a
+    source for exactly this. The boundary is that no example may come from the config a template was
     derived from - which is why this reads the library and `from_target` remains a
     separate function nothing here calls.
 
-    **`method` is T.3's axis and `cited` is what this function has always done** - most
+    **`method` is the generate-and-compile run's axis and `cited` is what this function has always done** - most
     production instances first, then most instances. `lexical` and `semantic` reorder
-    *within* a member type and leave the diversity rule alone, which is I-96's stated
+    *within* a member type and leave the diversity rule alone, which is a stated
     caution rather than a convenience. The picker itself lives in `retrieval.pick` so all
     three arms share it exactly; a comparison whose arms did not would be measuring the
     picker.
@@ -245,11 +245,11 @@ def examples_for(
 
 
 # ---------------------------------------------------------------------------
-# What actually occupies the context window (Q-15)
+# What actually occupies the context window
 # ---------------------------------------------------------------------------
 
 
-# Measured against `granite4.1:3b`'s `prompt_eval_count`, 2026-08-20 (I-42). Characters
+# Measured against `granite4.1:3b`'s `prompt_eval_count`, 2026-08-20. Characters
 # per token, by what the region contains:
 #
 #   typescript  4.6   declarations: long identifiers, few delimiters
@@ -328,7 +328,7 @@ def fits(tokens: int, budget: int) -> str:
     """`"fits"`, `"unclear"` or `"over"` - three answers, because there are three.
 
     A hole within `FIT_MARGIN` of the budget is reported as **unclear** rather than
-    rounded to a yes or a no. I-42's whole content is that the estimate has error in it,
+    rounded to a yes or a no. The estimate has error in it,
     and a two-valued verdict over a number with error hides exactly the cases where the
     error decides the answer.
     """
@@ -355,11 +355,11 @@ def instruction_for(
     """The prompt `from_model` sends for one hole.
 
     **Assembled in one place because it is also what gets measured.** The fit check used
-    to size a hole by its JSON Schema and the prompt was built separately; Q-15 measured
+    to size a hole by its JSON Schema and the prompt was built separately; it was measured
     that the schema does not enter the context at all, so the two had to become one
     function or drift apart again.
 
-    **The selection method changes which examples appear and nothing else** (T.3). The
+    **The selection method changes which examples appear and nothing else**. The
     instruction's structure, the TypeScript declarations, the token list and the
     ordering of the regions are identical across arms, so a difference in compile-pass
     is attributable to the examples rather than to the prompt.
@@ -431,17 +431,17 @@ def from_model(
 ) -> Fill:
     """A `Fill` that asks the infer server to author each fragment.
 
-    The hole's `prompt` is the English description criterion 22 is about; the hole's
+    The hole's `prompt` is the English description the authoring test is about; the hole's
     `schema_ref` becomes the `format`, so the model is constrained by the contract rather
     than asked to remember it. **The target is never consulted**; the library is, as
-    few-shot material, and `method` is which of it (T.3).
+    few-shot material, and `method` is which of it.
 
     ~~**Neither the library nor the target is consulted.**~~ That sentence was left
-    behind by F.6, which added the `library` parameter above it: `instruction_for`
+    behind when the `library` parameter was added above it: `instruction_for`
     reads the library on every call and has since the day few-shot examples were added.
     The clause that matters — and is still true — is the one about the *target*, which
-    is what §5.3.9's qualification is about. Corrected 2026-08-31 at T.3, which had to
-    know exactly what the prompt contains before changing which examples reach it.
+    is what the placement-versus-authoring distinction is about. Corrected 2026-08-31, when
+    the retrieval comparison had to know exactly what the prompt contains before changing which examples reach it.
     """
     members = _bundle_members(matrix)
     tokens = _bundle_tokens(matrix)
@@ -458,15 +458,15 @@ def from_model(
             method=method, embedder=embedder,
         )
         # The server is already in hand here, so take its count and fall back to the
-        # estimate only when it will not answer (I-42).
+        # estimate only when it will not answer.
         exact = count_tokens(instruction, model, host, timeout)
         size = exact if exact is not None else estimate_tokens(instruction)
         verdict = fits(size, budget)
         if verdict == "over":
             # Refused here rather than sent and truncated. An over-budget *prompt* gets
             # cut by the server, which changes what the model reads without saying so -
-            # the failure I-29 called out, and the reason `Fits` exists. What is
-            # measured is the assembled instruction, not the schema: see Q-15.
+            # the failure that was called out, and the reason `Fits` exists. What is
+            # measured is the assembled instruction, not the schema.
             attempt = Attempt(hole=hole.name, schema_ref=hole.schema_ref, item=item)
             attempt.error = (
                 f"prompt for {hole.schema_ref} is {size} tokens "
@@ -514,7 +514,7 @@ def from_model(
             if report is not None:
                 report.attempts.append(attempt)
             # A hole the model could not fill is a *result*, not a crash: the run must
-            # continue so the other holes are still measured. Criterion 22 is a per-hole
+            # continue so the other holes are still measured. The authoring test is a per-hole
             # pass rate, and a rate needs the failures counted rather than raised.
             return {"$unfilled": hole.name}
 
@@ -532,12 +532,12 @@ def as_typescript(document: dict, root: str) -> str:
     **`format` alone is not sufficient**, measured here and independently by the
     `tools/sample_projects/tasks_go` sample: with the type declaration removed from that
     sample's prompt the model stops returning a valid task list, and `format` carrying
-    the same schema does not save it. F.6's first reading of 0 of 9 was a version that
+    the same schema does not save it. The first reading of 0 of 9 was a version that
     sent the schema only as `format`.
 
     TypeScript rather than JSON Schema because it is what the sample uses and because it
     is far denser - a discriminated union is one line per variant instead of a `oneOf`
-    with a mapping - which matters when the budget is what I-29 was about.
+    with a mapping - which matters when the budget is what is at stake.
     """
     defs = document.get("$defs", {})
     lines: list[str] = []

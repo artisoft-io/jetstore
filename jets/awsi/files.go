@@ -53,7 +53,7 @@ func SyncS3Files(dbpool *pgxpool.Pool, workspaceName, keyPrefix, trimPrefix, con
 		// tighter than its own contents costs. `os.Create` below writes 0644, so
 		// this tree had the same asymmetry `jets/workspace` did — latent only
 		// because the process that fetches is the process that reads. See
-		// jets/workspace/README.md.
+		// docs/src/content/docs/developer/workspace/index.md.
 		if err = utils.EnsureWorkspaceDir(fileDir); err != nil {
 			return fmt.Errorf("while creating file directory structure: %v", err)
 		}

@@ -58,7 +58,7 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 
 		// fetch file from stage
 	case "fetch_file_from_stage":
-		// **This arm asked for nothing until 2026-08-25** (ui_refresh I-136's sweep).
+		// **This arm asked for nothing until 2026-08-25** (a capability sweep).
 		// It is handled here rather than by a method on DataTableContext, so the
 		// per-statement Capability in sql_stmts.go never applied to it and no test
 		// over that type's methods could see it. It reads an object out of the S3
@@ -90,13 +90,13 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 
 		// resubmit pipeline
 	case "resubmit_pipeline":
-		// **A second route to a gated table, and it was the ungated one** (ui_refresh
-		// I-136's sweep, 2026-08-25). insert_rows on jetsapi.pipeline_execution_status
+		// **A second route to a gated table, and it was the ungated one** (a
+		// capability sweep, 2026-08-25). insert_rows on jetsapi.pipeline_execution_status
 		// resolves sqlInsertStmts and is refused without run_pipelines; this arm
 		// hand-writes the same INSERT, resolves no statement, and inherited no
 		// capability -- then calls StartPendingTasks, so it does not merely record a
 		// run, it starts one. It stamps the token's user onto the row, which is the
-		// same pairing I-124 named: careful about attribution, silent about
+		// same pairing found on other routes: careful about attribution, silent about
 		// authorisation. datatable.TestResubmitPipelineUsesTheSameCapabilityAsItsInsert
 		// ties the constant below to the statement's own Capability so the two routes
 		// to this table cannot drift apart.
@@ -137,7 +137,7 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		// The copy reads the same input sessions as the runs it copies, so it is
 		// guarded as InsertPipelineExecutionStatus guards a start: in one
 		// transaction, each input session locked and refused with 409 when it is
-		// queued for deletion or deleted (session_registry Q-16).
+		// queued for deletion or deleted.
 		tx, err := server.dbpool.Begin(context.TODO())
 		if err != nil {
 			log.Printf("Error: %v", err)
@@ -202,7 +202,7 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		code = 200
 
 	case "resubmit_sessions_as_pending":
-		// Session Registry's Resubmit as Pending (JM-185, 2026-11-12): copies the
+		// Session Registry's Resubmit as Pending (2026-11-12): copies the
 		// selected sessions' runs into new sessions with status pending and starts
 		// nothing, so the sessions they replace can be deleted before Check Pending
 		// starts them (datatable.ResubmitSessionsAsPending). It inserts what
@@ -215,8 +215,8 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 
 	case "preview_session_deletion":
 		// The sessions a Delete of the selected ones would delete: each selected
-		// session and, transitively, every session whose run read one of them
-		// (session_registry Q-4). It writes nothing, and answers
+		// session and, transitively, every session whose run read one of them.
+		// It writes nothing, and answers
 		// {"rows": [...]} (datatable.PreviewSessionDeletion). Asked for
 		// delete_session because what it shows is the confirmation of a deletion.
 		if code, err = ctx.RequireCapability(datatable.CapabilityDeleteSession, token); err != nil {
@@ -333,7 +333,7 @@ func addToken(r *http.Request, results *map[string]any) {
 // stageFetchStatus is the status fetch_file_from_stage answers a failed download
 // with: 404 when there is no such object, 400 for anything else.
 //
-// jetstore_maintenance_02 I-23, 2026-10-01. Every failure was a 400, so a client
+// Changed 2026-10-01. Every failure was a 400, so a client
 // could tell "no such object" from "the read failed" only by finding NoSuchKey in
 // the message text. The difference matters to the Pipeline Status screen's Get
 // Run Manifest: a manifest is written for completed cpipes runs only, so its

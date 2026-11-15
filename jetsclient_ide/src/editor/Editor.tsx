@@ -7,7 +7,7 @@
  * exception:
  *
  *  - a new `docKey` (a different file) gets a fresh `EditorState`, not a
- *    transaction. **Corrected 2026-10-27** (`jetstore_maintenance_02` `I-65`): it
+ *    transaction. **Corrected 2026-10-27**: it
  *    was a whole-document replace dispatched into the same state, which `history()`
  *    recorded, so one undo after opening a file put the previous file's text in its
  *    tab, ready to be saved over it. A fresh state starts with an empty history and
@@ -132,7 +132,7 @@ export function Editor({ docKey, fileName, content, readOnly, onChange, onSave }
   }, []);
 
   // A different file: a fresh state, so undo cannot walk backwards into the
-  // previous file's text. A replace transaction here was `I-65`: `history()`
+  // previous file's text. A replace transaction here was a defect: `history()`
   // recorded it. `setState` dispatches nothing, so no `onChange` fires either,
   // and the document is the caller's `content` for that file.
   useEffect(() => {

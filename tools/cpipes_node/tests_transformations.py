@@ -3,14 +3,14 @@
 **All three run a document end to end**, through `coordinate` and the real
 contract model, and that is deliberate rather than thorough: a component whose
 own tests pass and which is absent from the path a run takes is the class this
-repository has recorded thirty-seven times (P4-I43).
+repository has recorded thirty-seven times.
 
-**`partition_writer` joined them with P9-I55's repair.** It could not be reached
+**`partition_writer` joined them with the builder-context repair.** It could not be reached
 from a document at all before it: `graph._site_operator_args` handed a built-in
 neither its own `*_config` block nor the object store, and the contract makes
 `partition_writer_config` required, so `args.config is None` was provably the
 dispatch. `graph._builtin_config` now fills the block and a built-in is handed a
-`BuilderEnv` carrying the node context (D-226).
+`BuilderEnv` carrying the node context.
 
 `test_the_seam_is_wired` is what `test_the_seam_is_not_wired_yet` became.
 **Inverted rather than deleted**: a test that pinned an absence and is deleted
@@ -110,7 +110,7 @@ def args_for(
 
     `config`, `error_channel` and `max_error_count` are separate parameters
     because on a built-in the graph fills all three from the **one** authored
-    `{type}_config` block (P9-I55) and on a site operator they come from
+    `{type}_config` block and on a site operator they come from
     `site_config`. A test that set the cap only inside `config` would be
     describing a call the graph never makes.
     """
@@ -209,7 +209,7 @@ def test_each_build_returns_the_three_calls_a_pipe_evaluator_is(cls):
 
 
 def test_map_record_maps_a_record_through_a_whole_document(tmp_path: Path):
-    """**The anti-P4-I43 assertion**: the operator on the path a run takes.
+    """**The reachability assertion**: the operator on the path a run takes.
 
     Ten rows of two empty columns in, ten mapped rows out, counted per channel
     by the graph's own `RunResult` — which is a figure this test does not compute
@@ -361,11 +361,11 @@ def test_the_error_ladder_reports_up_to_the_cap_and_then_stops():
     # **The columns are `process_errors`' own names, not eight placeholders.**
     # This line read `tuple(f"c{i}" for i in range(8))` on this branch alone, and
     # the assertion below indexed the message at 5 — both correct against a
-    # `report_error` that placed eight values positionally. P9-T08/T09 measured
+    # `report_error` that placed eight values positionally. Another branch measured
     # `write2Chan` and found it places **up to twelve by name**, sizing from the
     # channel's own width, so the positional shape was wrong three ways. **Neither
     # branch could see the other**: this test passed on one and that repair passed
-    # on the other, and only the merged state fails (P7-I87). Resolved towards the
+    # on the other, and only the merged state fails. Resolved towards the
     # measurement, and asserted **by name** so a reordering cannot break it again.
     errors = channel("errors", PROCESS_ERROR_COLUMNS)
     pipe = MapRecord.build(
@@ -474,7 +474,7 @@ def test_filter_runs_through_a_whole_document(tmp_path: Path):
     )
     result = run(doc, tmp_path)
     assert result.source_rows == 10
-    # **The cap is honoured, and that is P9-I55's repair measured**: this read
+    # **The cap is honoured, and that is the builder-context repair measured**: this read
     # `== 10` while `filter_config` could not reach the operator, and it is the
     # one assertion in this file that states the seam's cost in records rather
     # than in an object's identity.
@@ -493,7 +493,7 @@ def test_filter_applies_its_columns_to_the_records_it_keeps():
 
 
 def test_the_seam_is_wired(tmp_path: Path):
-    """**P9-I55, from the graph's side. `test_the_seam_is_not_wired_yet` was
+    """**The builder-context repair, from the graph's side. `test_the_seam_is_not_wired_yet` was
     this test asserting the opposite.**
 
     A built-in used to reach its factory with `args.config is None` whatever its
@@ -539,10 +539,10 @@ def test_the_seam_is_wired(tmp_path: Path):
 def test_a_builtin_is_handed_the_builder_env_and_a_site_operator_is_not(
     tmp_path: Path,
 ):
-    """D-226's whole substance, asserted on both halves of the dispatch.
+    """The dispatch decision's whole substance, asserted on both halves of the dispatch.
 
     The negative half matters more than the positive one: a site factory
-    reaching the node's store would make §12.6's withholding a convention
+    reaching the node's store would make the site contract's withholding a convention
     rather than a property of what it was handed.
     """
     seen: dict[str, object] = {}
@@ -810,7 +810,7 @@ def test_the_writer_sends_nothing_to_its_output_channel(tmp_path: Path):
     records leave the DAG; here they go to the store. The consequence is that
     `RunResult.channel_rows` reports 0 for a partition writer's channel, and the
     volume is `total_rows` — which is the pair the Go engine reports through
-    `ComputePipesResult` and is P9-T09's to write.
+    `ComputePipesResult` and is the side effects' to write.
     """
     store = Local(tmp_path)
     writer = build_writer(store)
@@ -921,7 +921,7 @@ def test_a_memory_output_channel_is_refused(tmp_path: Path):
 def test_a_stage_channel_defaults_to_headerless_csv_and_snappy(tmp_path: Path):
     """The starter's defaults, applied here because the local driver has none.
 
-    And the consequence is the refusal P9-I59 records: a stage channel that says
+    And the consequence is the recorded refusal: a stage channel that says
     nothing about compression asks for the snappy framing format, which this node
     does not produce — so the corpus document must say `"compression": "none"`.
     """
@@ -953,11 +953,11 @@ def test_a_config_with_no_device_writer_type_is_refused(tmp_path: Path):
 def test_the_writer_takes_its_columns_from_the_resolved_output_channel(tmp_path: Path):
     """**The column list is the channel's, and nothing else's.**
 
-    This is the derivation X3 rests on, asserted rather than described: the
+    This is the derivation the cell-for-cell criterion rests on, asserted rather than described: the
     writer's `columns` are the `ResolvedChannelSpec`'s, which the graph built
     from the document's own `channels` entry. The other half of the chain — that
-    the document's entry is generated from Phase 8's output data dictionary
-    rather than typed — is P9-I56 and is P9-T18's.
+    the document's entry is generated from the corpus's output data dictionary
+    rather than typed — is recorded as an issue and belongs to the document's author.
     """
     writer = build_writer(Local(tmp_path), output_columns=("one", "two", "three"))
     assert writer.columns == ("one", "two", "three")
@@ -999,7 +999,7 @@ def test_the_env_reaches_a_column_transformation_through_the_operator_env():
 
 # --- partition_writer, through a whole document ------------------------------
 #
-# **The anti-P4-I43 assertion for the third operator.** Before P9-I55's repair
+# **The reachability assertion for the third operator.** Before the builder-context repair
 # none of these could exist: the operator refused at build time whatever the
 # document said, so every check on it went through `build_from` and the dispatch
 # was exercised by nothing.
@@ -1067,7 +1067,7 @@ def test_the_key_a_partition_file_lands_under_carries_the_node(tmp_path: Path):
     """`$JETS_PARTITION_LABEL` is `%04dP` of the node id, and it is in the path.
 
     Which is what keeps two nodes of one run from writing the same key — the
-    property X2 rests on, asserted here at the one place the key is formed.
+    property the run-to-run comparison rests on, asserted here at the one place the key is formed.
     """
     doc = partition_writer_document(
         {
@@ -1091,7 +1091,7 @@ def test_a_stage_channel_writes_under_the_stage_prefix(tmp_path: Path):
 
     The document authors `jets_partition_key: "$JETS_PARTITION_LABEL"` because
     that is what **53 of the 74 authored keys** in `workspaces/` spell and it is
-    the one that resolves to the node's own label. Before P9-I132's repair this
+    the one that resolves to the node's own label. Before the partition-key repair this
     test passed over a document authoring *no* key, which is why it could not
     tell the key being honoured from the key being ignored.
     """
@@ -1116,7 +1116,7 @@ def test_a_stage_channel_writes_under_the_stage_prefix(tmp_path: Path):
     )
 
 
-# --- jets_partition_key (P9-I132, D-250) ------------------------------------
+# --- jets_partition_key ------------------------------------
 
 
 def _stage_keys(tmp_path: Path, node_id: int, **config: object) -> list[str]:
@@ -1144,7 +1144,7 @@ def _stage_keys(tmp_path: Path, node_id: int, **config: object) -> list[str]:
 def test_an_authored_jets_partition_key_is_the_label_every_node_writes_under(
     tmp_path: Path,
 ):
-    """The defect, from the direction that loses data (P9-I132).
+    """The defect, from the direction that loses data.
 
     A key naming a fixed label makes **every** node write one partition, which
     is what the step after it needs: `actions_start_reducing_cp.go:190` refuses
@@ -1275,7 +1275,7 @@ def failing_column_document(config: dict) -> dict:
 def test_a_map_record_error_channel_a_document_authors_reaches_the_operator(
     tmp_path: Path,
 ):
-    """The half of P9-I55 that is not about files.
+    """The half of the builder-context repair that is not about files.
 
     `map_record_config.error_channel` is resolved by the graph through the same
     registry path `site_config.error_channel` takes, so a built-in that reports
@@ -1313,7 +1313,7 @@ def test_an_authored_on_error_fail_is_distinguishable_from_an_unreachable_one(
         run(doc, tmp_path)
 
 
-# --- the destination bucket, through a whole document (D-242) ----------------
+# --- the destination bucket, through a whole document ----------------
 #
 # **This is the gap the wave was sent for.** `output_channel.bucket` is a field
 # of the contract model and was read by nothing: a document naming a bucket had
@@ -1382,7 +1382,7 @@ def test_a_bucket_naming_the_jetstore_sentinel_is_the_nodes_own(tmp_path: Path):
 
 
 def test_an_env_variable_in_the_bucket_is_substituted(tmp_path: Path):
-    """`ReplaceEnvVars(externalBucket, ctx.env)`, which is how D-234 spells it.
+    """`ReplaceEnvVars(externalBucket, ctx.env)`, which is how the bucket decision spells it.
 
     Michel's wording is `${CORPUS_OUT_BUCKET}`, so the substitution is on the
     path a corpus actually takes and not a nicety.
@@ -1404,7 +1404,7 @@ def test_an_env_variable_in_the_bucket_is_substituted(tmp_path: Path):
 
 
 def test_a_bucket_on_a_stage_channel_is_refused(tmp_path: Path):
-    """D-242's refusal, on the arm Go never consults a bucket on.
+    """The bucket refusal, on the arm Go never consults a bucket on.
 
     Measured over the 51 authored `.pc.json` on 2026-09-19: **no partition
     writer authors a bucket on a stage channel**, so this refuses nothing that
@@ -1560,7 +1560,7 @@ def test_a_writer_built_with_a_bucket_binds_its_store_to_it(tmp_path: Path):
     )
 
 
-# --- stream_data_out (D-243) -------------------------------------------------
+# --- stream_data_out -------------------------------------------------
 
 
 def test_stream_data_out_writes_the_same_object(tmp_path: Path):
@@ -1645,7 +1645,7 @@ def test_stream_data_out_over_parquet_writes_a_readable_file(tmp_path: Path):
     assert store.get(key)[:4] == b"PAR1"
 
 
-# --- the pairing this node cannot author, guarded anyway (D-243) -------------
+# --- the pairing this node cannot author, guarded anyway -------------
 
 
 def test_this_node_declares_no_splitter_pipe_kind():
@@ -1664,7 +1664,7 @@ def test_streaming_under_a_declared_splitter_is_refused(tmp_path: Path):
     """The guard fires the day the scope grows, and it is made to fire here.
 
     A guard that cannot be shown to fire is a guard nobody can distinguish from
-    an empty branch (P7-I88). A splitter pipe kind is registered for the length
+    an empty branch. A splitter pipe kind is registered for the length
     of this test and removed after it, and the same `build_from` that passes
     above is asserted to refuse.
     """
@@ -1696,7 +1696,7 @@ def test_streaming_under_a_declared_splitter_is_refused(tmp_path: Path):
     assert declaration(TokenKind.PIPE, SPLITTER_PIPE_TOKEN) is None
 
 
-# --- put_headers_on_first_partition (P9-I117) -------------------------------
+# --- put_headers_on_first_partition -------------------------------
 
 
 def _part_bytes(tmp_path: Path, node_id: int, **channel: object) -> bytes:
@@ -1724,7 +1724,7 @@ def _part_bytes(tmp_path: Path, node_id: int, **channel: object) -> bytes:
 
 
 def test_put_headers_on_first_partition_puts_them_on_node_zero_alone(tmp_path: Path):
-    """Go's header condition, whose second half nothing here read (P9-I117).
+    """Go's header condition, whose second half nothing here read.
 
     `Format == "csv" && (!PutHeadersOnFirstPartition || nodeId == 0)`. Both
     nodes are asserted and the assertion is on the **first line's bytes**: node
@@ -1745,8 +1745,8 @@ def test_without_the_flag_every_node_writes_its_own_header(tmp_path: Path):
     """**The negative half.** Unset, every part carries a header, in Go and here.
 
     That is what a partition-aware reader wants, and it is the setting on which
-    the two engines agree even while the flag is unread -- which is why P9-T19's
-    four-node byte comparison was valid. **P9-I117 is the other half**: with the
+    the two engines agree even while the flag is unread -- which is why the
+    four-node byte comparison was valid. **The header defect is the other half**: with the
     flag *set* the two engines diverged, and the repair must not move this one
     while fixing that one.
     """

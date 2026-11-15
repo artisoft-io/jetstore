@@ -17,12 +17,12 @@ import (
 )
 
 // The incident the supervision screens render, produced by triage rather than
-// typed (task AC.3, criterion 50's fourth clause).
+// typed.
 //
 // **Criterion 50 asks for the screens to show a supervisor an incident and its
 // ranked hypotheses "over an incident triage wrote", and until this file the
 // screen tests rendered a hand-written row.** A hand-written fixture is a fixture
-// its author agreed with by construction, which is I-147's shape at the wire: the
+// its author agreed with by construction, which is the same failure at the wire: the
 // stub is shaped like the caller, so it passes whatever the caller does.
 //
 // So the fixture is generated here — a real execution record, `shadow.Writer`
@@ -116,7 +116,7 @@ func TestTheScreensFixtureIsAnIncidentTriageWrote(t *testing.T) {
 	}
 	if inc["classification"] != "" {
 		t.Errorf("the generated incident claims a cause (%v); triage evidences a locus and never a "+
-			"cause (§9.5)", inc["classification"])
+			"cause", inc["classification"])
 	}
 	if n := len(decoded["transitions"].([]any)); n < 2 {
 		t.Errorf("the payload carries %d transitions; a diagnosed incident has at least two, and "+
@@ -177,7 +177,7 @@ func goldenDB(t *testing.T, name string) *pgxpool.Pool {
 // goldenRecord writes one failed run.
 //
 // **The worker rows go in through the cpipes node's own two statements** rather
-// than through SQL this test composed, which is F104's point: a payload derived
+// than through SQL this test composed, because a payload derived
 // from rows a test typed agrees with the test that typed them. The run header is
 // composed, because its production writer is the apiserver at submission and is
 // not reachable without a state machine.

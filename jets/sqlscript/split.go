@@ -112,7 +112,6 @@ func Split(script string) ([]Statement, error) {
 	var out []Statement
 	start := 0     // byte offset where the current chunk starts
 	startLine := 1 // line on which the current chunk starts
-	line := 1
 
 	flush := func(end int) {
 		if s, ok := statementOf(script[start:end], startLine); ok {
@@ -120,81 +119,21 @@ func Split(script string) ([]Statement, error) {
 		}
 	}
 
-	i, n := 0, len(script)
-	for i < n {
-		switch c := script[i]; {
-		case c == '\n':
-			line++
-			i++
-
-		case c == ';':
-			flush(i)
-			i++
-			start, startLine = i, line
-
-		case c == '-' && i+1 < n && script[i+1] == '-':
-			// Line comment: runs to the newline, which the next loop pass counts.
-			if j := strings.IndexByte(script[i:], '\n'); j >= 0 {
-				i += j
-			} else {
-				i = n
-			}
-
-		case c == '/' && i+1 < n && script[i+1] == '*':
-			end, endLine, err := skipBlockComment(script, i, line)
-			if err != nil {
-				return nil, err
-			}
-			i, line = end, endLine
-
-		case c == '\'':
-			end, endLine, err := skipQuoted(script, i+1, line, '\'', false)
-			if err != nil {
-				return nil, err
-			}
-			i, line = end, endLine
-
-		case c == '"':
-			end, endLine, err := skipQuoted(script, i+1, line, '"', false)
-			if err != nil {
-				return nil, err
-			}
-			i, line = end, endLine
-
-		case (c == 'e' || c == 'E') && i+1 < n && script[i+1] == '\'' && !isIdentCont(prevByte(script, i)):
-			// E'...' — backslash escapes are honoured inside it.
-			end, endLine, err := skipQuoted(script, i+2, line, '\'', true)
-			if err != nil {
-				return nil, err
-			}
-			i, line = end, endLine
-
-		case c == '$':
-			if tag, ok := dollarTag(script, i); ok {
-				end, endLine, err := skipDollarQuoted(script, i+len(tag), line, tag)
-				if err != nil {
-					return nil, err
-				}
-				i, line = end, endLine
-			} else {
-				// A parameter placeholder ($1) or a stray dollar sign.
-				i++
-			}
-
-		case isIdentStart(c):
-			// Consume the whole identifier so that a `$` within it — which
-			// PostgreSQL allows after the first character — cannot be read as
-			// the start of a dollar-quoted string.
-			i++
-			for i < n && isIdentCont(script[i]) {
-				i++
-			}
-
-		default:
-			i++
+	sc := NewScanner(script)
+	for {
+		tok, ok, err := sc.Next()
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			break
+		}
+		if tok.Kind == Other && tok.Text == ";" {
+			flush(tok.Offset)
+			start, startLine = tok.Offset+1, tok.Line
 		}
 	}
-	flush(n)
+	flush(len(script))
 	return out, nil
 }
 

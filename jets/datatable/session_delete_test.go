@@ -1,7 +1,7 @@
 package datatable
 
-// The start guard and the two Delete actions (session_registry Phase 2, E.1 and
-// E.3), against a real PostgreSQL. Needs JETS_TEST_DSN; skipped otherwise. Each
+// The start guard and the two Delete actions, against a real PostgreSQL. Needs
+// JETS_TEST_DSN; skipped otherwise. Each
 // test rebuilds the database srg_session_delete. Locally:
 //
 //	docker run -d --rm --name srg-e-pg -e POSTGRES_PASSWORD=pw -p 55432:5432 postgres:16
@@ -123,7 +123,7 @@ func TestStartOnAnUnqueuedSessionIsUnchanged(t *testing.T) {
 	}
 }
 
-// Q-16: a start on a session queued for deletion, for any reason, is refused with
+// A start on a session queued for deletion, for any reason, is refused with
 // 409 and inserts nothing; on one deleted, likewise, with its own message.
 func TestStartOnAQueuedSessionIsRefused(t *testing.T) {
 	f := newStartFixture(t)
@@ -142,7 +142,7 @@ func TestStartOnAQueuedSessionIsRefused(t *testing.T) {
 	}
 }
 
-// E.1: a deletion holding the session lock makes the start wait, and the start
+// A deletion holding the session lock makes the start wait, and the start
 // then finds the session queued and is refused. The deletion here queues the
 // session inside the transaction that holds the lock, so a start that did not
 // wait would read no deletion row and go ahead.
@@ -241,7 +241,7 @@ func ids(rows []sessionpurge.Dependent) []string {
 	return out
 }
 
-// E.3: the preview of a file session lists the session that mapped it and that
+// The preview of a file session lists the session that mapped it and that
 // session's readers, and writes nothing; delete_sessions with the previewed set
 // queues all of them, user and requested by the caller, and reports the session
 // with an active run as waiting; with a set that has changed since, 409.

@@ -21,7 +21,7 @@ RUN wget -q https://go.dev/dl/go1.27.4.linux-amd64.tar.gz \
 ENV PATH=$PATH:/usr/local/go/bin
 RUN go version
 
-# **Flutter and Dart were installed here and are not any more** — X.1, 2026-08-26.
+# **Flutter and Dart were installed here and are not any more** — 2026-08-26.
 # The toolchain was ~1GB of image for one `flutter build web`, and there is no
 # Flutter left to build: `jetsclient/` was deleted when the React app took over
 # the root.

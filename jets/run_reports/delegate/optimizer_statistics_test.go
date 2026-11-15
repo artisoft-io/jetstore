@@ -214,8 +214,7 @@ func TestReportDirectivesWithAComment(t *testing.T) {
 
 // The session's file is the process's own: jet_rules/<process>.optimizer_statistics.json.
 // Two statistics processes write two files and neither reads or touches the
-// other's, so no run can drop another's rule sets. jetstore_agentic_ai
-// rules_benchmark, after CC.4 (2026-10-26).
+// other's, so no run can drop another's rule sets (2026-10-26).
 func TestEachProcessWritesItsOwnFile(t *testing.T) {
 	objects := map[string][]byte{}
 	fakeS3(t, objects)

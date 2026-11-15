@@ -107,8 +107,7 @@ RUN echo "----------------JetStore-Version------------------" >> /VERSION.txt &&
 #
 # No chmod after it: the go build above writes /cbooter 0755 (checked in that
 # stage on 2026-10-11) and COPY keeps the mode, and a chmod in a later layer
-# stores the file again -- 5.2 MB as measured in Dockerfile.infer_service
-# (rules_unit_test_harness I-31, I-34).
+# stores the file again -- 5.2 MB as measured in Dockerfile.infer_service.
 COPY --from=builder /cbooter /usr/local/bin/
 
 # The backend is carried by the image rather than only by the container definition,

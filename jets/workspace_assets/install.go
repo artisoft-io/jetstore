@@ -17,7 +17,7 @@
 // pipes_config/ carries the pipeline configurations JetStore owns — jets_loader,
 // which every workspace had its own identical copy of, and the pipelines the
 // platform itself runs. user_flows/ carries the wizards: the projections a
-// template generates (U.2) and the ported application flows. table_configs/
+// template generates and the ported application flows. table_configs/
 // carries the table documents those flows draw.
 //
 // All four are installed the same way and guarded the same way; they differ in
@@ -70,7 +70,7 @@
 //
 // # Retirement: the install deletes, on the same evidence it overwrites on
 //
-// **Until 2026-10-01 nothing here deleted a file** (jetstore_maintenance_02 F39),
+// **Until 2026-10-01 nothing here deleted a file**,
 // so an asset dropped from the embed stayed installed in every workspace that
 // already had it — and a user flow stays loadable by URL for as long as its
 // documents are on disk. RetiredAssets lists the paths JetStore used to install
@@ -98,6 +98,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -140,7 +141,7 @@ type AssetGroup struct {
 	// Where it is false the manifest carries the whole of the evidence.
 	//
 	// It is false for user_flows too, and for a harder reason than
-	// pipes_config's (task U.2, 2026-08-25). A .uf.json has nowhere to put a
+	// pipes_config's (2026-08-25). A .uf.json has nowhere to put a
 	// token: userflow.schema.json, form.schema.json and action.schema.json all
 	// set additionalProperties false at their root, so a field JetStore adds
 	// for its own bookkeeping is refused by the save-path validator. The
@@ -166,8 +167,8 @@ type AssetGroup struct {
 // evidence the guard has.
 //
 // Three as of 2026-08-25, and the third is the first whose assets are written
-// by a generator rather than by a person (task U.2). That is the condition I-61
-// named as the moment its second asymmetry would matter: `jets-agentic generate
+// by a generator rather than by a person. That is the condition named
+// as the moment a second asymmetry would matter: `jets-agentic generate
 // --check` accounts for data_model alone, and there is now a second generator
 // writing into a second asset directory with nothing checking that what is
 // committed is what the generator would emit. The check is owed to
@@ -281,14 +282,14 @@ type RetiredAsset struct {
 // A name here must not also be embedded — Install refuses to run if it is,
 // because it would install the file and then delete it.
 var RetiredAssets = []RetiredAsset{
-	// jetstore_maintenance_02, Q-6 and task AD.4. The flow submitted a schema
+	// Retired 2026-10-01. The flow submitted a schema
 	// event with a file key the user typed; the Pipeline Status table's *Put
-	// Schema Event* dialog does it now, with the key decided by the server (D01).
+	// Schema Event* dialog does it now, with the key decided by the server.
 	{Dir: "user_flows", Name: "registerFileKeyUF.uf.json", Why: "2026-10-01, D01: Put Schema Event on Pipeline Status"},
 	{Dir: "user_flows", Name: "registerFileKeyUF.ua.json", Why: "2026-10-01, D01: Put Schema Event on Pipeline Status"},
 	{Dir: "user_flows", Name: "registerFileKeyUF.form.json", Why: "2026-10-01, D01: Put Schema Event on Pipeline Status"},
-	// jetstore_maintenance_02, tasks AF.2 to AF.4. The three option tables of the
-	// add-or-edit steps D06 removed: Clients & Vendors, Source Configuration and
+	// Retired 2026-10-01. The three option tables of the
+	// add-or-edit steps a UI change removed: Clients & Vendors, Source Configuration and
 	// Pipeline Configuration open on their table now, with a + Add button on it.
 	{Dir: "table_configs", Name: "ufClientOrVendorOption.tc.json", Why: "2026-10-01, D06: Clients & Vendors opens on the client table"},
 	{Dir: "table_configs", Name: "scAddOrEditSourceConfigOption.tc.json", Why: "2026-10-01, D06: Source Configuration opens on its table"},
@@ -300,6 +301,21 @@ var RetiredAssets = []RetiredAsset{
 	{Dir: "table_configs", Name: "mergeProcessInputTable.tc.json", Why: "2026-10-15, 4.0.4: Start Pipeline no longer chooses merged sources"},
 	{Dir: "table_configs", Name: "merged_input_registry_keys.tc.json", Why: "2026-10-15, 4.0.4: Start Pipeline no longer chooses merged sources"},
 	{Dir: "table_configs", Name: "spInjectedProcessInput.tc.json", Why: "2026-10-15, 4.0.4: Start Pipeline no longer lists historical sources"},
+}
+
+// IsRetired reports whether the workspace-relative fileName is a path in
+// RetiredAssets, `user_flows/registerFileKeyUF.uf.json` say. The override sync
+// at a start (workspace.SyncWorkspaceFiles) asks it, so that an IDE edit of a
+// retired document, kept in jetsapi.workspace_changes, does not write the
+// document back after the install deleted it (2026-11-14).
+func IsRetired(fileName string) bool {
+	cleaned := path.Clean(strings.ReplaceAll(fileName, "\\", "/"))
+	for _, r := range RetiredAssets {
+		if cleaned == r.Dir+"/"+r.Name {
+			return true
+		}
+	}
+	return false
 }
 
 // Result reports the disposition of one asset.

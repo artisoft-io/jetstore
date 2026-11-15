@@ -45,8 +45,8 @@ always listed in full. Files in one tree only are listed, and so are the totals 
 ## The known-difference list
 
 A JSON file of entries. **A difference is unclassified unless an entry matches it.** Each entry has an
-`id`, `refs` (where the difference is recorded, such as a section of the rule engine's readme,
-`jets/rete/README.md`) and a `description`, and then:
+`id`, `refs` (where the difference is recorded, such as a section of
+[the rule engine's page](/docs/developer/engine/rule-engine/)) and a `description`, and then:
 
 | Field | |
 |---|---|
@@ -66,7 +66,7 @@ fields each kind reads.
 
 | Kind | Matches | Reads |
 |---|---|---|
-| `relabelled` | the same line up to the labels of minted nodes, under a one-to-one correspondence of labels. The correspondence comes from the line shapes (a line with its labels blanked) that occur once on each side. The node exists on both sides and was renamed because its neighbourhood differs; that difference is in its own lines, which are classified on their own | nothing |
+| `relabelled` | the same line up to the labels of minted nodes, under a one-to-one correspondence of labels. The correspondence comes first from the line shapes (a line with its labels blanked) that occur once on each side; the labels that only repeating shapes hold, such as several minted children alike under one subject, are then paired by colour refinement over the differing lines, as `graphdump` names minted nodes, and a label of one side that has no counterpart of the same structure on the other stays unpaired. The node exists on both sides and was renamed because its neighbourhood differs; that difference is in its own lines, which are classified on their own | nothing |
 | `merged` | the lines of a node on the `only_on` side that corresponds to several nodes of the other side, each of which corresponds to it alone: one node where the other side has several. **The node must be the object of a line of its side whose subject and predicate match the entry's** (the anchor) | `subject`, `predicate` (both required), `only_on` |
 | `double_quantised` | the same subject and predicate, two doubles equal once both are quantised as the Go engine quantised a literal (`graphdump.Quantise`) | `subject`, `predicate` |
 | `double_near` | the same subject and predicate, two doubles at most `quanta` quanta apart at the larger magnitude | `subject`, `predicate` |

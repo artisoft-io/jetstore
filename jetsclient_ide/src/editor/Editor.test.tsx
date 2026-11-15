@@ -1,8 +1,8 @@
 /**
  * @vitest-environment jsdom
  *
- * **Undo never crosses from one file into another.** `jetstore_maintenance_02`
- * `I-65`, found in the browser on 2026-10-27: the editor showed a new file by
+ * **Undo never crosses from one file into another.** Found in the browser on
+ * 2026-10-27: the editor showed a new file by
  * dispatching a whole-document replace into the same state, `history()` recorded
  * it, and one Ctrl+Z after opening a file put the previous file's text in its tab,
  * marked modified, ready to be saved over it. A new file now gets a fresh state.

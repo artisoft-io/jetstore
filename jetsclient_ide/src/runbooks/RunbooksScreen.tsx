@@ -2,8 +2,6 @@
  * The runbooks of one workspace: what each is, whether it validates, how it
  * last ran, and *Start*, which asks for its declared parameters.
  *
- * `runbooks` project, Phase 1, task AC.2.
- *
  * **Two routes, one screen**, as the Workspace IDE has them: `/runbooks`, where
  * the picker chooses, and `/workspaces/:workspace_name/runbooks`, where the url
  * chooses and the picker follows. The picker navigates, so the url is always the

@@ -22,7 +22,7 @@
 //   - a keyed create_entity re-inserted jets:key on every retraction, so its reference
 //     count never came back to zero.
 //
-// Found by a client workspace's assessment (jetstore_agentic_ai, its Q-37 / R-13),
+// Found by a client workspace's assessment,
 // where one rule's create_entity was keyed as a workaround.
 //
 // THE FIX: a node vertex with a consequent that mints a resource -- create_entity,
@@ -38,7 +38,7 @@
 // from its relation, so an equal row arriving later fires again. Both were kept as
 // LEGACY defects from 2026-10-09, selectable off for the rules unit test harness only,
 // and became the engine's only behaviour in 2026-10, when the mode was deleted (see
-// loop_through_negation_test.cc and jets/rete/README.md). Four cases were renamed then,
+// loop_through_negation_test.cc and docs/src/content/docs/developer/engine/rule-engine/). Four cases were renamed then,
 // from the defect they pinned to the behaviour they assert: AggregateConsequentRecords,
 // CreateEntityKeyedCyclesRefire, ConsequentAggregateRetractionReplays and
 // PureConsequentRefires.

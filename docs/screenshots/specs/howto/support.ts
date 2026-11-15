@@ -12,7 +12,7 @@
 //    `submitDdl` does that through the Query Tool, as a user with the
 //    workspace_ide capability would, and takes no image.
 import { expect, type Locator, type Page } from "@playwright/test";
-import { openScreen, settle, signIn } from "../../lib/shots";
+import { openScreen, settle, signIn, tick } from "../../lib/shots";
 
 const STYLE_ID = "shots-run-values";
 const MARK = "data-shots-run-value";
@@ -82,7 +82,7 @@ export async function hideColumn(table: Locator, header: string, rowText?: strin
 export async function selectRow(scope: Page | Locator, text: string): Promise<Locator> {
   const row = scope.getByRole("row").filter({ hasText: text });
   await expect(row).toHaveCount(1);
-  await row.getByRole("checkbox").check();
+  await tick(row.getByRole("checkbox"));
   const page = "page" in scope ? scope.page() : scope;
   await settle(page);
   return row;

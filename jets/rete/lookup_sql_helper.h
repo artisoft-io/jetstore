@@ -132,7 +132,7 @@ class DBConnectionPool {
   {}
 
   // The pool closes its connections when it goes, so a lookup table or a TypeOf
-  // whose owner never calls terminate() leaks none (I-170)
+  // whose owner never calls terminate() leaks none
   ~DBConnectionPool()
   {
     this->terminate();
@@ -168,7 +168,7 @@ class DBConnectionPool {
       lc.stmt1 = nullptr;
       lc.stmt2 = nullptr;
       // Read-only: every statement of a pool is a SELECT, and a missing file is
-      // an error rather than an empty database created in its place (I-167)
+      // an error rather than an empty database created in its place
       int err = sqlite3_open_v2(this->db_path_.c_str(), &lc.db, SQLITE_OPEN_READONLY, nullptr);
       if( err ) {
         LOG(ERROR) << "DBConnection::get_connection: ERROR: Can't open database: '" <<
@@ -435,7 +435,7 @@ class TypeOf {
   {
     // Get the db connection and bind it to the key
     // Every return gives the connection back. An unknown data property kept it,
-    // so each such call opened a connection that nothing closed (I-180).
+    // so each such call opened a connection that nothing closed.
     auto lc = this->db_pool_.get_connection();
     int err = sqlite3_reset(lc.stmt1);
     if( err != SQLITE_OK ) {
@@ -495,7 +495,7 @@ class LookupSqlHelper {
     {}
 
   // Closes the workspace-db connection and every pool, which no production code
-  // did: terminate() had no caller outside the tests (I-170). The helper is owned
+  // did: terminate() had no caller outside the tests. The helper is owned
   // by the factory's meta stores, so this runs when the last of them goes.
   ~LookupSqlHelper()
   {
@@ -526,7 +526,7 @@ class LookupSqlHelper {
     err = 0;
     // Open lookup_db to get the range of __key__, only when a lookup table is
     // declared, and read-only: it used to be opened on every engine build with
-    // sqlite3_open's default flags, which create a missing file (I-167)
+    // sqlite3_open's default flags, which create a missing file
     sqlite3 * lkdb = nullptr;
     if(not this->lookup_tbl_info_.empty()) {
       err = sqlite3_open_v2(this->lookup_db_path_.c_str(), &lkdb, SQLITE_OPEN_READONLY, nullptr);

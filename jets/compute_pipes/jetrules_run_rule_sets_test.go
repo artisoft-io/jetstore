@@ -2,8 +2,7 @@ package compute_pipes_test
 
 // Tests of the two entry points the rules unit-test harness calls:
 // RunRuleSets, the rule loop extracted from executeRules, and AssertTextRow,
-// typed assertion of a row of text cells (rules_unit_test_harness Phase 1,
-// task AA.2).
+// typed assertion of a row of text cells.
 //
 // jetrules_execute_rules_test.go pins what executeRules does and is unchanged
 // by the extraction; this file states what the harness may rely on in the
@@ -12,7 +11,8 @@ package compute_pipes_test
 // fixes its workspace at init. Run it with -count=1.
 //
 // These ran on the Go engine until its retirement (October 2026). They run on the
-// C++ engine now, and need the cgo environment of jets/cmds/rules_unit_test/README.md
+// C++ engine now, and need the cgo environment of
+// docs/src/content/docs/developer/testing/go-and-cpp.md
 // (CGO_CFLAGS, CGO_LDFLAGS, LD_LIBRARY_PATH); a C++ engine that does not build
 // fails the test.
 
@@ -260,18 +260,18 @@ func TestRunRuleSets(t *testing.T) {
 				t.Errorf("outcome = %+v, want not completed, loop 2 the last run, the maximum reached", o)
 			}
 		})
-		// I-7, fixed by AA.3: completion or an error on the last allowed loop is not
+		// Fixed defect: completion or an error on the last allowed loop is not
 		// the maximum reached.
-		t.Run("I7_completion_on_last_allowed_loop_not_max_loop", func(t *testing.T) {
+		t.Run("completion_on_last_allowed_loop_not_max_loop", func(t *testing.T) {
 			o := runRuleSets(t, loopingRuleFile, "ok", &compute_pipes.RuleSetsConfig{MaxLooping: 3})
 			if !o.Completed || o.Loops != 3 || o.MaxLoopReached || o.Failed() {
-				t.Errorf("outcome = %+v, want completed on loop 3 and nothing failed (I-7)", o)
+				t.Errorf("outcome = %+v, want completed on loop 3 and nothing failed", o)
 			}
 		})
-		t.Run("I7_execute_rules_error_on_last_allowed_loop_not_max_loop", func(t *testing.T) {
+		t.Run("execute_rules_error_on_last_allowed_loop_not_max_loop", func(t *testing.T) {
 			o := runRuleSets(t, executeRulesRuleFile, "late_runaway", &compute_pipes.RuleSetsConfig{})
 			if o.ExecuteErr == nil || o.Loops != 2 || o.MaxLoopReached {
-				t.Errorf("outcome = %+v, want the ExecuteRules error on loop 2 and not the maximum (I-7)", o)
+				t.Errorf("outcome = %+v, want the ExecuteRules error on loop 2 and not the maximum", o)
 			}
 		})
 		t.Run("execute_rules_error", func(t *testing.T) {
@@ -313,7 +313,7 @@ func TestRunRuleSets(t *testing.T) {
 			if len(o.RuleSets) != 2 || o.RuleSets[0].MaxLooping != 2 || o.RuleSets[1].MaxLooping != 5 {
 				t.Errorf("rule sets = %+v, want two, each with its own $max_looping", o.RuleSets)
 			}
-			// I-8: the exception stays in the session for the second rule set, and only
+			// The exception stays in the session for the second rule set, and only
 			// the first, which raised it, reports it.
 			if !o.Completed || o.Loops != 3 || !slices.Equal(o.Exceptions, []string{"xr exception raised"}) {
 				t.Errorf("outcome = %+v, want completed, the last rule set on loop 3, the exception once", o)
@@ -323,7 +323,7 @@ func TestRunRuleSets(t *testing.T) {
 					o.RuleSets[0].Exceptions, o.RuleSets[1].Exceptions)
 			}
 		})
-		// I-8: two distinct exceptions from two rule sets, once each; the second rule
+		// Two distinct exceptions from two rule sets, once each; the second rule
 		// set raising the first exception again is the same triple and reports nothing.
 		t.Run("two_exceptions_once_each", func(t *testing.T) {
 			o := runRuleSets(t, twoExceptionsSequence, "exception", &compute_pipes.RuleSetsConfig{})
@@ -351,7 +351,7 @@ func TestRunRuleSets(t *testing.T) {
 		})
 		// executeRules creates the engine's JetResources before it opens the rdf
 		// session, because on C++ the first creation after a session exists aborts
-		// the process (I-15). Recorded through a wrapping engine.
+		// the process. Recorded through a wrapping engine.
 		t.Run("executeRules_creates_jet_resources_before_the_rdf_session", func(t *testing.T) {
 			engine, _ := engineSession(t, loopingRuleFile)
 			var calls []string
@@ -370,7 +370,7 @@ func TestRunRuleSets(t *testing.T) {
 				t.Errorf("engine calls = %q, want JetResources before NewRdfSession", calls)
 			}
 		})
-		// I-10: every rete session RunRuleSets creates is released, on the paths that
+		// Every rete session RunRuleSets creates is released, on the paths that
 		// end the rule sets early as on the one that runs them all.
 		t.Run("rete_session_released_on_every_path", func(t *testing.T) {
 			for _, c := range []struct {

@@ -262,7 +262,7 @@ func (l *JetRuleListener) makeRuleLabel(rule *rete.JetruleNode, normalize bool) 
 		}
 	}
 	// Write other properties, in name order so the label is the same at every
-	// compile (Q-49)
+	// compile
 	for _, k := range slices.Sorted(maps.Keys(rule.Properties)) {
 		if k == "o" || k == "s" || k == "flag" {
 			continue

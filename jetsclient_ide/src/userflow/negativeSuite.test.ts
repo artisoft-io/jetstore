@@ -1,5 +1,5 @@
 /**
- * The negative suite, run where the schemas are authored. Task S.6.
+ * The negative suite, run where the schemas are authored.
  *
  * **The same file the Go tests drive** (`jets/userflow/negative_suite_test.go`),
  * for the reason both sides exist: the schema is authored here and enforced
@@ -55,7 +55,7 @@ describe("the negative suite", () => {
     // A suite that gets smaller is a deletion, not a pass.
     expect(cases.length).toBeGreaterThanOrEqual(20);
     // **Six valid cases now, and the count alone stopped saying what it meant.**
-    // It was five and it meant "the five bases are all here"; C.4 added a
+    // It was five and it meant "the five bases are all here"; the Query Tool added a
     // *positive* case — a query table with no columns, which the server describes
     // — because a schema relaxation is a hole unless something asserts the thing
     // it now admits. So the bases are named rather than counted, and the count is

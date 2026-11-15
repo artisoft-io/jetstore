@@ -45,6 +45,12 @@ import { parseCompiledView, type CompiledViewDocument } from "./compiledView";
  * jetstore#2398), the tenth section, with no compiled view. `docs=` added
  * 2026-11-13, the eleventh: the workspace's documentation pages, with no
  * compiled view.
+ *
+ * **The Go side reads this array** (2026-11-14,
+ * `TestTheIdeCarriesTheSameSectionDeclaration` in
+ * `jets/datatable/wsfile/sections_test.go`), and the checksum below, so a
+ * section added to the server and not here fails the Go test. Keep it an array
+ * of plain string literals joined with `"\n"`, which is what that test parses.
  */
 export const SERVER_SECTION_DECLARATION = [
   "data_model=data_model",

@@ -1,5 +1,5 @@
 /*
- * Styles for the Detection screen (agentic_ai I-861), in a file of its own for
+ * Styles for the Detection screen, in a file of its own for
  * the reason src/incidents/incidents.css gives: every colour is one of the app's
  * custom properties, so the theme follows through the cascade, and nothing is
  * added to a stylesheet this project does not own.

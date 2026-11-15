@@ -64,7 +64,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), *props.MkId("cpipesSM")),
 		DeployCpipesNative: strings.ToUpper(os.Getenv("DEPLOY_CPIPES_NATIVE")) == "TRUE" || strings.ToUpper(os.Getenv("DEPLOY_CPIPES_NATIVE")) == "1",
 		// Read through a function rather than inline, so that the unset case -- which is the
-		// whole of exit criterion 96 for the Python arm -- is reachable by a test in the stack
+		// whole of the claim that the Python arm changes nothing when off -- is reachable by a test in the stack
 		// package. See DeployCpipesPythonFromEnv.
 		DeployCpipesPython: jetstorestack.DeployCpipesPythonFromEnv(),
 		SkipReportsSM:      jetstorestack.SkipReportsSMFromEnv(),
@@ -534,7 +534,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // AWS_REGION (required)
 // BASTION_HOST_KEYPAIR_NAME (optional, no keys deployed if not defined)
 // ENVIRONMENT (used by run_report)
-// EXTERNAL_BUCKETS (optional, list of third party buckets to read/write file for cpipes)
+// EXTERNAL_BUCKETS (optional, comma-separated list of third party buckets to read/write file for cpipes;
+//   an empty name, the jetstore_bucket sentinel or a name S3 would not accept stops the synth)
 // EXTERNAL_S3_KMS_KEY_ARN (optional, additional kms keys for reading external buckets)
 // EXTERNAL_SQS_ARN (optional, sqs queue for sqs register key lambda)
 // JETS_PIVOT_YEAR_TIME_PARSING (optional, pivot year used in date_util.ParseDateTime function)
@@ -579,10 +580,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 //	refuses it, by serving no buttons rather than failing the login.
 //	Until 2026-10-01 nothing read this variable: it was a compile-time constant of the Flutter
 //	app, and its Docker build argument was removed with that app. This synth-time half landed
-//	first; ~~the apiserver and React halves are jetstore_maintenance_02 tasks AE.7 and AE.8, and
-//	until they land the entry reaches the container and nothing there reads it.~~ The apiserver
-//	serves it at sign-in as of AE.7 (jets/apiserver/custom_buttons.go, 2026-10-01), and the React
-//	app draws the buttons on the Pipeline Status table as of AE.8 the same day
+//	first. The apiserver serves it at sign-in (jets/apiserver/custom_buttons.go, 2026-10-01),
+//	and the React app draws the buttons on the Pipeline Status table from the same day
 //	(jetsclient_ide/src/actions/customButtons.ts).
 // JETS_DB_MAX_CAPACITY (required, Aurora Serverless v2 max capacity in ACU units, default 6)
 // JETS_DB_MIN_CAPACITY (required, Aurora Serverless v2 min capacity in ACU units, default 0.5)
@@ -623,8 +622,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 //	ecsOrLambdaChoice that routes a reducing iteration to it, in **both** cpipes state
 //	machines. Requires CPIPES_PYTHON_LAMBDA_ECR_REPO_ARN and CPIPES_PYTHON_LAMBDA_IMAGE_TAG.
 //	**With it unset nothing changes**: the two blocks it gates are the whole of the change,
-//	so the synthesised template is the one a deployment gets today (exit criterion 96,
-//	measured as a byte comparison rather than claimed). It is a separate gate from
+//	so the synthesised template is the one a deployment gets today (measured as a byte
+//	comparison rather than claimed). It is a separate gate from
 //	DEPLOY_CPIPES_NATIVE and not a value of one selector, because the two are not
 //	alternatives -- a deployment can want the native node for jetrules steps and the Python
 //	node for its own operators.
@@ -770,7 +769,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // INFER_ROOT_VOLUME_GB (optional) size of the infer instance root volume in GB, default 50
 // OLLAMA_NUM_PARALLEL, OLLAMA_MAX_LOADED_MODELS, OLLAMA_KEEP_ALIVE, OLLAMA_CONTEXT_LENGTH
 // (optional) Ollama tuning passed through to the infer container, defaults 4 / 1 / 30m / 32768
-// (see infer_server_readme.md before changing the last two — they are GPU-memory bound)
+// (see docs/src/content/docs/install/planning/infer-server-memory.md before changing the last two — they are GPU-memory bound)
 // INFER_BACKEND (optional) which model server the infer service runs, "ollama" (default) or
 // "vllm". It must agree with the image INFER_IMAGE_TAG names — Dockerfile.infer_service builds
 // the first, Dockerfile.infer_service_vllm the second — and nothing checks that it does.
@@ -961,6 +960,10 @@ func main() {
 	// operator find out at synth rather than by the button not appearing after a deploy.
 	if v := os.Getenv("JETS_CUSTOM_BUTTONS_CONFIG_JSON"); v != "" && !json.Valid([]byte(v)) {
 		log.Println("Warning: env var JETS_CUSTOM_BUTTONS_CONFIG_JSON is not valid JSON; it is passed to the UI service unchanged and the apiserver will serve no custom buttons")
+	}
+	if _, err := jetstorestack.ExternalBucketNames(os.Getenv("EXTERNAL_BUCKETS")); err != nil {
+		hasErr = true
+		errMsg = append(errMsg, err.Error())
 	}
 	if os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO") == "" && os.Getenv("JETS_DOMAIN_KEY_HASH_SEED") == "" {
 		log.Println("Warning: env var JETS_DOMAIN_KEY_HASH_ALGO and JETS_DOMAIN_KEY_HASH_SEED not provided, no hashing of the domain keys will be applied")

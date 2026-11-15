@@ -86,7 +86,7 @@ def test_keys_under_several_prefixes_are_deduplicated(tmp_path: Path):
     assert keys_under(store, ["a/", "b/", "a/"]) == ("a/1.csv", "b/1.csv")
 
 
-# --- the destination bucket (D-242) -----------------------------------------
+# --- the destination bucket -----------------------------------------
 #
 # Go resolves a partition writer's bucket in two steps and this file holds the
 # second: `is_own_bucket` is the *sentinel*, checked at the upload in both Go
@@ -97,11 +97,12 @@ def test_keys_under_several_prefixes_are_deduplicated(tmp_path: Path):
 
 @pytest.mark.parametrize("spelling", ["", None, "jetstore_bucket"])
 def test_both_of_gos_spellings_mean_the_nodes_own_bucket(spelling):
-    """`externalBucket == "" || externalBucket == "jetstore_bucket"`.
+    """`name == "" || name == JetStoreBucketSentinel`.
 
-    Go writes that condition three times — `awsi.go:598`, `s3_device_worker.go:63`
-    and `actions_s3_utils.go:349` — and a node honouring one of the two spellings
-    would create a bucket literally named `jetstore_bucket` on the other.
+    Go writes that condition once, in `awsi.IsJetStoreBucket`, and every reader
+    and writer that resolves a bucket calls it; a node honouring one of the two
+    spellings would create a bucket literally named `jetstore_bucket` on the
+    other.
     """
     assert is_own_bucket(spelling) is True
 
@@ -111,10 +112,22 @@ def test_a_named_bucket_is_not_the_nodes_own():
 
 
 def test_the_sentinel_is_the_literal_go_checks_against():
-    """Against the Go source, not against recollection."""
+    """Against the Go source, not against recollection.
+
+    The test used to look for the condition spelled out by hand in `awsi.go`.
+    Go now spells it once, in `bucket_sentinel.go`, and the upload path and the
+    S3 device worker call it, so this reads the sentinel's value and the
+    function's test from there, and checks that both write paths still ask it.
+    """
     from conftest import go_source
 
-    assert f'externalBucket == "{JETSTORE_BUCKET}"' in go_source("jets/awsi/awsi.go")
+    sentinel = go_source("jets/awsi/bucket_sentinel.go")
+    assert f'const JetStoreBucketSentinel = "{JETSTORE_BUCKET}"' in sentinel
+    assert 'return name == "" || name == JetStoreBucketSentinel' in sentinel
+    upload = go_source("jets/awsi/awsi.go").split("func UploadToS3FromReader(", 1)[1]
+    assert "IsJetStoreBucket(externalBucket)" in upload.split("\n}\n", 1)[0]
+    worker = go_source("jets/compute_pipes/s3_device_worker.go")
+    assert "awsi.IsJetStoreBucket(task.ExternalBucket)" in worker
 
 
 def test_for_bucket_returns_the_same_store_for_the_nodes_own(tmp_path: Path):
@@ -170,7 +183,7 @@ def test_a_mapped_bucket_carries_the_mapping_forward(tmp_path: Path):
     assert store.for_bucket("b").for_bucket("b") == Local(tmp_path / "b")
 
 
-# --- put_stream (D-243) ------------------------------------------------------
+# --- put_stream ------------------------------------------------------
 
 
 def test_put_stream_and_put_write_the_same_object(tmp_path: Path):

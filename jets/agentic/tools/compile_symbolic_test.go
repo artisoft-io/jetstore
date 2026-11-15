@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// I-250's arm: the rules as a symbolic JSON document, rendered by the tool.
+// The symbolic arm: the rules as a symbolic JSON document, rendered by the tool.
 
 const symbolicRules = `{
   "imports": ["data_model/jets_model.jr"],
@@ -62,7 +62,7 @@ func TestCompileRuleFile_SymbolicRulesCompile(t *testing.T) {
 
 // The arm's other readings: a whole document under 'rules', and a string
 // holding either form, each of which a model sends often enough to matter
-// (I-250's measurement) and each of which has one meaning.
+// (as measured) and each of which has one meaning.
 func TestCompileRuleFile_SymbolicRulesOtherReadings(t *testing.T) {
 	quotedDoc, _ := json.Marshal(symbolicRules)
 	var d struct {

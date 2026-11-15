@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * Scheduling a form's named queries. Task I.2b.
+ * Scheduling a form's named queries.
  *
  * `formQueries.test.ts` covers the rules; what is asserted here is the part that
  * needs React: **how often a request is made.** The Dart spends two guards on

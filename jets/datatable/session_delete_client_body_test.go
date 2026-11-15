@@ -1,7 +1,7 @@
 package datatable
 
 // The body the client's Delete posts, read by the server's own parsers.
-// session_registry Phase 2 (JM-081), 2026-11-08: the client's half is
+// Added 2026-11-08: the client's half is
 // jetsclient_ide/src/screens/documents/homeScreen.ua.json (deleteSessions) and
 // jetsclient_ide/src/actions/sessionDeletion.ts (previewRequest); this checks
 // the two halves agree without a browser.

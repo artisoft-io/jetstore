@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * The runbook screens (`runbooks` project, Phase 1, track AC).
+ * The runbook screens.
  *
  * One test per control and state, driven through a stubbed `fetch` as
  * `proposals.test.tsx` drives its screens, so these exercise
@@ -26,6 +26,7 @@ import { answerConfirm } from "../shell/promptsTesting";
 import {
   RunbooksApi,
   currentStep,
+  initialText,
   parseTyped,
   runControls,
   shouldPoll,
@@ -142,7 +143,7 @@ const healthDoc = {
     {
       id: "loop",
       type: "repeat",
-      steps: [{ id: "confirm_box", type: "manual", instruction: "Look at the box and record what it says.", records: { reading: "integer", note: "text" } }],
+      steps: [{ id: "confirm_box", type: "manual", instruction: "Look at the box and record what it says.", records: { reading: "integer", note: "text", seen: "boolean" } }],
     },
   ],
 };
@@ -254,6 +255,10 @@ describe("parseTyped", () => {
     expect(parseTyped("integer", "4.2")).toHaveProperty("error");
     expect(parseTyped("numeric", "4.2")).toEqual({ value: 4.2 });
     expect(parseTyped("boolean", true)).toEqual({ value: true });
+    expect(parseTyped("boolean", "")).toHaveProperty("error");
+    expect(initialText("boolean", undefined)).toBe("");
+    expect(initialText("boolean", false)).toBe(false);
+    expect(initialText("boolean", true)).toBe(true);
     expect(parseTyped("session_id", "1724000")).toEqual({ value: "1724000" });
     expect(parseTyped("session_id", "17a")).toHaveProperty("error");
     expect(parseTyped("timestamp", "yesterday")).toHaveProperty("error");
@@ -569,9 +574,47 @@ describe("the run screen", () => {
     await within(panel).findByText("Look at the box and record what it says.");
     fireEvent.change(await within(panel).findByLabelText(/reading/), { target: { value: "7" } });
     fireEvent.change(within(panel).getByLabelText(/note/), { target: { value: "fine" } });
+    fireEvent.click(within(within(panel).getByRole("radiogroup", { name: /seen/ })).getByLabelText("Yes"));
     fireEvent.click(within(panel).getByRole("button", { name: "Record" }));
     await screen.findByText("confirm_box.reading");
-    expect(actions("record")[0]!.body).toEqual({ action: "record", run_key: 12, step_key: 107, values: { reading: 7, note: "fine" } });
+    expect(actions("record")[0]!.body).toEqual({
+      action: "record",
+      run_key: 12,
+      step_key: 107,
+      values: { reading: 7, note: "fine", seen: true },
+    });
+  });
+
+  // A yes-or-no record is two choices, neither chosen: Record asks for one
+  // rather than sending false for a box nobody ticked.
+  it("asks for an explicit Yes or No for a boolean record", async () => {
+    const manual = step({ step_key: 107, sequence: 1, step_id: "confirm_box", type: "manual", status: "awaiting_input" });
+    const { api, actions } = await clientWith({
+      ...sessionsScript(),
+      get_run: { body: { run: runWith("paused", [manual]) } },
+      record: { body: { run: runWith("running", [{ ...manual, status: "completed", outputs: { seen: false } }]) } },
+    });
+    renderAt(api, "/runbooks/run/12");
+    const panel = await screen.findByRole("region", { name: "Record confirm_box" });
+    const seen = await within(panel).findByRole("radiogroup", { name: /seen/ });
+    const yes = within(seen).getByLabelText("Yes") as HTMLInputElement;
+    const no = within(seen).getByLabelText("No") as HTMLInputElement;
+    expect(yes.checked).toBe(false);
+    expect(no.checked).toBe(false);
+    expect(within(panel).queryByRole("checkbox")).toBeNull();
+    fireEvent.change(within(panel).getByLabelText(/reading/), { target: { value: "7" } });
+    fireEvent.click(within(panel).getByRole("button", { name: "Record" }));
+    await within(panel).findByText("choose Yes or No");
+    expect(actions("record")).toHaveLength(0);
+    fireEvent.click(no);
+    fireEvent.click(within(panel).getByRole("button", { name: "Record" }));
+    await screen.findByText("confirm_box.seen");
+    expect(actions("record")[0]!.body).toEqual({
+      action: "record",
+      run_key: 12,
+      step_key: 107,
+      values: { reading: 7, note: "", seen: false },
+    });
   });
 
   // The server records a pause step as awaiting input on a paused run, and

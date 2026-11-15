@@ -185,7 +185,7 @@ func ParseRdfNodeValue(re JetResourceManager, value, rdfType string) (node RdfNo
 		}
 		node = re.NewIntLiteral(v)
 	case "bool":
-		// The accepted spellings and nothing else; empty is null (I-45). This
+		// The accepted spellings and nothing else; empty is null. This
 		// read the first letter until 2026-10-11, so "tomato" was true.
 		b, err := rdf.ParseBool(value)
 		switch {

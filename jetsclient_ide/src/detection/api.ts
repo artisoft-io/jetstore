@@ -1,10 +1,9 @@
 /**
- * Typed wrappers over the Detection screen's two actions on `/agentic`
- * (agentic_ai I-861).
+ * Typed wrappers over the Detection screen's two actions on `/agentic`.
  *
- * **This directory is the agentic_ai project's**, on the terms `src/incidents/`
+ * **This directory is the agentic layer's**, on the terms `src/incidents/`
  * and `src/proposals/` already hold: self-contained, its own stylesheet, and
- * nothing of ui_refresh's touched but the nav item and the route in `App.tsx`.
+ * nothing of the application's touched but the nav item and the route in `App.tsx`.
  *
  * The wire shapes mirror the Go side:
  *   - the envelope and both action names are `AgenticAction` and

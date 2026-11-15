@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// sampleButtons is the value build_jetstore_scripts sets for a client workspace
+// sampleButtons is the value a deployment script sets for a client workspace
 // (read 2026-10-01), verbatim.
 const sampleButtons = `[{"type":"fetch_stage_to_clipboard","key":"analysis_report_to_clipboard","description":"Get Analysis Report from JetStore stage s3 location to clipboard","label":"Analysis Report","replace_text":"|","replace_with":",","fsk_params":["process_name","session_id"],"file_path":"process_name={{process_name}}/session_id={{session_id}}/step_id=analysis_lookup/jets_partition=analysis_data/part0000-0000001.csv"}]`
 

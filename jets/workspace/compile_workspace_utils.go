@@ -16,6 +16,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/run_reports/tarextract"
 	"github.com/artisoft-io/jetstore/jets/utils"
+	workspace_assets "github.com/artisoft-io/jetstore/jets/workspace_assets"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -75,13 +76,18 @@ func WorkspaceControlFilePath() string {
 // the workspace's repository (docs/scripts/workspace_docs.mjs). The path is
 // cleaned first, so `docs/../jet_rules/a.jr` still requires one.
 //
+// **Nor does the workspace's root README, since 2026-11-14**, when the IDE
+// began saving it (wsfile.IsRootReadme): nothing compiles or reads it, and
+// without this one edited README would make every start on a new image
+// compile the workspace instead of taking the image's.
+//
 // Its one consumer is the apiserver's start-up on a new image (server.go,
 // checkWorkspaceVersion): an override that requires a compile makes it compile
 // the workspace under a version of its own instead of taking the image's
 // compiled workspace (startupCompileVersion). The compressed and compiled files
 // (.tgz, .db) are decided before this is asked.
 func overrideRequiresCompile(fileName string) bool {
-	return !wsfile.InDir(fileName, wsfile.WritableMarkdownDir)
+	return !wsfile.InDir(fileName, wsfile.WritableMarkdownDir) && !wsfile.IsRootReadme(fileName)
 }
 
 // Function to pull override workspace files from databse to the
@@ -114,6 +120,15 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, contentType string,
 		return false, err
 	}
 	for _, fo := range fileObjects {
+		// An override of a document JetStore has retired is not applied: the
+		// install deleted the document (workspace_assets.RetiredAssets), and
+		// writing the override would bring it back, a retired flow loadable by
+		// URL again. The row is kept, so that it can still be seen and deleted
+		// from the IDE, and nothing is lost if the retirement is ever undone.
+		if workspace_assets.IsRetired(fo.FileName) {
+			log.Printf("Skipping the override of %s: JetStore has retired that file", fo.FileName)
+			continue
+		}
 		// When in skipSqliteFiles == true, do not override lookup.db and workspace.db
 		// When in skipTgzFiles == true, do not override *.tgz files
 		if (!skipSqliteFiles || !strings.HasSuffix(fo.FileName, ".db")) &&

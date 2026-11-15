@@ -40,7 +40,7 @@ func (q oneTableOnly) Query(ctx context.Context, sql string, args ...any) (pgx.R
 
 // seedRun writes one run's whole story: the intent that opened it, a tool call,
 // a decision, a recovered error, and the outcome that closed it. Unique per
-// call — I-72's lesson is that a test sharing a run id with another passes in
+// call — a test sharing a run id with another passes in
 // isolation and fails in a suite.
 func seedRun(t *testing.T, pool *pgxpool.Pool, suffix string) string {
 	t.Helper()
@@ -118,7 +118,7 @@ func TestTranscriptIsReadableFromTheAuditRecordAlone(t *testing.T) {
 	}
 }
 
-// K.1 carried this forward: run_ref is the originating run, not the approver's
+// The approval record carried this forward: run_ref is the originating run, not the approver's
 // session, so a decision taken after the run ended still belongs to its story.
 // A transcript that stopped at ended_at would omit the approval entirely.
 func TestTranscriptCarriesApprovalsTakenAfterTheRunEnded(t *testing.T) {

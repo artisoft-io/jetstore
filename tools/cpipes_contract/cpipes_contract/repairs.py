@@ -4,12 +4,12 @@
 *mutation* case (``eval.Case``) is a working config with a hole cut in it and the
 removed instance as ground truth; a *synthetic runtime* case is an input file and
 the failure it should produce. A **repair** case is a config that was wrong in
-production and the commit that fixed it. I-115 and I-136 settled that the three
-stay apart, and P.1 made ``eval.Case`` more firmly the mutation type still, since
+production and the commit that fixed it. It was settled that the three
+stay apart, and the compile-pass work made ``eval.Case`` more firmly the mutation type still, since
 ``Hole`` and ``Fill`` are mutation-specific. Hence ``provenance``, mandatory on
 every record here.
 
-**What the library is for, which is not what P.2 set out to build.** Measuring the
+**What the library is for, which is not what it set out to be.** Measuring the
 whole corpus found that **77% of real repairs change nothing the schema can see**:
 the config was valid before the fix and valid after it, and the defect shipped
 because every automated layer passed it. ``negative_suite.json`` already covers
@@ -20,7 +20,7 @@ its classification is the deliverable rather than any pass rate.
 **Classification is by error-set delta, not by absolute validity, and the
 difference is not a detail.** Judging a 2024 config against the 2026 schema puts
 48 of 75 pairs in "invalid both before and after", because the contract itself
-moved: W.1 added ``required`` fields in August 2026. That measures contract drift
+moved: ``required`` fields were added in August 2026. That measures contract drift
 and says nothing about the repair. Comparing the *set* of schema errors before
 against after is robust to it — an unrelated pre-existing error appears on both
 sides and cancels.
@@ -266,7 +266,7 @@ def _looks_like_repair(subject: str) -> bool:
 def candidates(corpus_root: Path, workspace: str, schema: dict) -> Iterator[Case]:
     """Every commit in one workspace that modifies a live config and claims a fix.
 
-    **An extractor, not a scraper**, and the distinction is R-17's *curation
+    **An extractor, not a scraper**, and the distinction is the library's *curation
     rather than extraction* with a fifth reason behind it: the ground truth of a
     repair is the diagnosis, the diagnosis is prose in the commit body, and no
     parser recovers it. What comes out of here is a candidate for a human to

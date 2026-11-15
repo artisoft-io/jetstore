@@ -1,13 +1,12 @@
 /**
- * The build information the shell shows at its foot. jetstore_maintenance_02
- * Phase 1, task AC.2, for defect D05.
+ * The build information the shell shows at its foot.
  *
  * **Two facts, not one twice.** The report asked for *R `<version>` built on
  * YYYY-MM-DD*, and a deployed `JETS_VERSION` *is* the build time — `date +%s`,
  * stamped into every image of a build run — so that text prints one number and
  * its own translation. What the line carries instead is the image's
  * `JETS_GIT_SHA`, which the build stamps as `<branch>-<sha>`, and the date
- * `JETS_VERSION` encodes: *`<branch>-<sha>` · built YYYY-MM-DD* (`Q-1`, answered
+ * `JETS_VERSION` encodes: *`<branch>-<sha>` · built YYYY-MM-DD* (settled
  * 2026-10-01). The raw `JETS_VERSION` is the tooltip, so nothing is lost.
  *
  * **`JETS_VERSION` is parsed defensively, because it is not always seconds.** A

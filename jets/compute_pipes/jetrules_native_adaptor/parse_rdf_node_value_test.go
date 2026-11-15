@@ -8,8 +8,8 @@ import (
 
 // ParseRdfNodeValue is the typed-value notation rule_config and the rules unit
 // test harness read ({"value": "...", "type": "..."}). These tests ran against the
-// Go engine's resource manager until its retirement (rules_benchmark Phase 6,
-// 2026-10-22) and run against the C++ engine's now, in a child process over a
+// Go engine's resource manager until its retirement
+// (2026-10-22) and run against the C++ engine's now, in a child process over a
 // compiled copy of test_ws (newSession, briefing_projection_test.go). Node
 // identity is Equals, the identity Contains and FindSPO use.
 
@@ -55,8 +55,8 @@ func TestParseRdfNodeValueUint(t *testing.T) {
 //
 // The native adaptor made every unsigned literal through the bridge's 32-bit
 // create_uint (C.uint), so 18446744073709551615 came back as 4294967295 of type
-// uint32 (measured 2026-10-22, rules_benchmark Phase 6, I-150). Since Phase 7 a
-// value outside 32 bits is a uint64 literal and comes back whole (Q-86); one that
+// uint32 (measured 2026-10-22). Since a later fix a
+// value outside 32 bits is a uint64 literal and comes back whole; one that
 // fits is a uint32 literal, as before.
 func TestParseRdfNodeValueUlong(t *testing.T) {
 	if inScratchTestWs(t) {
@@ -85,7 +85,7 @@ func TestParseRdfNodeValueUlong(t *testing.T) {
 		t.Errorf("ulong: \"-7\" accepted; want an error")
 	}
 	// The adaptor truncated a value outside 32 bits to uint 4294967295 until
-	// I-150; it is now a 64-bit literal, whole.
+	// a fix; it is now a 64-bit literal, whole.
 	big, err := compute_pipes.ParseRdfNodeValue(rm, "18446744073709551615", "ulong")
 	if err != nil {
 		t.Fatalf("ulong max: unexpected error: %v", err)
@@ -95,8 +95,8 @@ func TestParseRdfNodeValueUlong(t *testing.T) {
 	}
 }
 
-// TestParseRdfNodeValueBool: rule configuration reads a bool as the engines do
-// (rules_unit_test_harness I-45): the accepted spellings, trimmed and in any
+// TestParseRdfNodeValueBool: rule configuration reads a bool as the engines do:
+// the accepted spellings, trimmed and in any
 // case; empty is null; anything else is an error, which fails the pipeline at
 // start. It read the first letter until 2026-10-11, so "tomato" was true.
 func TestParseRdfNodeValueBool(t *testing.T) {

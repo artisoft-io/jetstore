@@ -10,11 +10,11 @@ import (
 )
 
 // Every function reachable from the /dataTable dispatch that reads data, and the
-// capability it must require. I-2.
+// capability it must require.
 //
 // **A source-level test rather than a behavioural one, deliberately.** Exercising
 // these through HTTP needs a database, a token and a seeded role, which is why
-// nothing covered them for as long as it did — the same gap S.4 hit with its
+// nothing covered them for as long as it did — the same gap the save-path validation hit with its
 // wiring. A test that reads the source cannot prove the check *works*, but it can
 // prove the check is *present*, and "present" is exactly what was missing here
 // for four functions.
@@ -94,8 +94,8 @@ func TestEveryReadPathRequiresACapability(t *testing.T) {
 // as a configuration error rather than as "no requirement", and this helper must
 // not paper over that.
 //
-// **The status is 500 as of ui_refresh D.2, and it was 401 until 2026-08-27** --
-// I-241. What the empty capability means did not change; what changed is that
+// **The status is 500, and it was 401 until 2026-08-27**. What the empty capability
+// means did not change; what changed is that
 // saying it with a 401 signed the user out for a mistake in the server. This is
 // also the reachable end of that defect: every production caller of
 // requireCapability passes one of the Capability* constants, so the string that
@@ -107,7 +107,7 @@ func TestRequireCapabilityRefusesAnEmptyCapability(t *testing.T) {
 		t.Fatal("an empty capability must not authorise anything")
 	}
 	if code != http.StatusInternalServerError {
-		t.Errorf("expected %d, got %d (I-241: a missing capability on a statement is "+
+		t.Errorf("expected %d, got %d (a missing capability on a statement is "+
 			"a defect in the server, not a refusal of the caller)",
 			http.StatusInternalServerError, code)
 	}

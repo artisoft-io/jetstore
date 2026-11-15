@@ -59,7 +59,7 @@ class ReteSession {
 
   // The vertex-visit limit of a session whose meta graph does not set
   // (jets:iState jets:max_vertex_visits <n>): without one, a rule that never
-  // settles ran until the pipeline timed out, with no message (Q-83, 2026-10-23).
+  // settles ran until the pipeline timed out, with no message (2026-10-23).
   // A process that sets the triple gets its own value, and a value of 0 or less
   // turns the limit off, as before.
   static constexpr int kDefaultMaxVertexVisits = 10000;
@@ -163,7 +163,7 @@ class ReteSession {
   };
 
   /**
-   * @brief The candidates a relation's first scan holds until it ends (I-91)
+   * @brief The candidates a relation's first scan holds until it ends
    *
    * A filter can write to the graph, and the write's callbacks re-enter the session
    * at once: they can remove a parent row the scan built candidates from, or change
@@ -454,7 +454,7 @@ class ReteSession {
   compute_consequent_triples();
 
   /**
-   * @brief Whether a candidate a filter kept is still supported (I-91)
+   * @brief Whether a candidate a filter kept is still supported
    *
    * Called by keep_candidate, in a scan of an activated relation, when a callback has
    * seen a graph change since the scan began: a filter wrote a triple (create_entity,
@@ -493,7 +493,7 @@ class ReteSession {
   current_filter(b_index meta_node, BetaRow const* row);
 
   /**
-   * @brief Whether a candidate to insert into an activated relation is kept (I-91)
+   * @brief Whether a candidate to insert into an activated relation is kept
    *
    * Its filter's current answer and, when the session was re-entered since `mark`
    * (the count when the caller's scan began), candidate_still_supported. Without a
@@ -682,7 +682,7 @@ BetaRelation::row_removed(ReteSession * rete_session, beta_row_set::const_iterat
 {
   if(itor==this->all_beta_rows_.end()) {
     // Already deleted!
-    // VLOG(50)<<"    BetaRowPtr not found, must be already deleted.(D01)";
+    // VLOG(50)<<"    BetaRowPtr not found, must be already deleted.";
     return 0;
   }
   // make sure we point to the right instance

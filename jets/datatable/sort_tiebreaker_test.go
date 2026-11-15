@@ -221,7 +221,7 @@ func TestReadWithNoColumnsSortsOnTheRequestedColumn(t *testing.T) {
 	if _, err := pool.Exec(bg, "CREATE SCHEMA IF NOT EXISTS jetsapi"); err != nil {
 		t.Fatal(err)
 	}
-	defs := rutTableDefs(t)
+	defs := jetsSchemaTables(t)
 	for _, name := range []string{"users", "roles", "role_capability"} {
 		if _, err := pool.Exec(bg, "DROP TABLE IF EXISTS jetsapi."+name); err != nil {
 			t.Fatal(err)

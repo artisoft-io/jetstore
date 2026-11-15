@@ -1,7 +1,6 @@
 package workspace
 
 // Rules unit tests recorded in workspace.db at compile.
-// Project rules_unit_test_harness, Phase 1, task AD.1.
 
 import (
 	"context"
@@ -85,8 +84,8 @@ func readUnitTestRows(t *testing.T, db *sql.DB) map[string]unitTestRow {
 	return out
 }
 
-// runnable is the predicate the rules_unit_test insert target applies (track AC,
-// I-17): a test may be started when its findings are NULL, the empty string, '[]' or 'null'.
+// runnable is the predicate the rules_unit_test insert target applies: a test
+// may be started when its findings are NULL, the empty string, '[]' or 'null'.
 func runnable(r unitTestRow) bool {
 	return !r.findings.Valid || r.findings.String == "" || r.findings.String == "[]" || r.findings.String == "null"
 }

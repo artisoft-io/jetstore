@@ -16,8 +16,9 @@ package awsi
 // when it already matches, so calling StartInferServer on a running server is a no-op
 // rather than an error. Skipping the call also avoids provoking a fresh ECS deployment.
 //
-// See infer_server_readme.md at the repo root for the equivalent CLI commands, the
-// timings to expect, and what continues to bill after a stop.
+// See the Installation Guide, docs/src/content/docs/install/how-to/start-and-stop-the-infer-server.md,
+// for the equivalent CLI commands, the timings to expect, and what continues to bill
+// after a stop.
 
 import (
 	"context"

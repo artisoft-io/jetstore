@@ -48,7 +48,7 @@ func report(session string, verdicts map[string]triage.Verdict,
 // The one thing criterion 45 asks for, asserted over every hypothesis the floor
 // can emit rather than over a chosen example.
 //
-// The census is deliberate: it fires every locus §9.5 maps, so every one of the
+// The census is deliberate: it fires every locus the gate's table maps, so every one of the
 // eight emittable classes is produced at least once and each is checked for
 // both sides.
 func TestEveryHypothesisCarriesBothSidesOfTheCase(t *testing.T) {
@@ -86,11 +86,11 @@ func TestEveryHypothesisCarriesBothSidesOfTheCase(t *testing.T) {
 	t.Logf("%d hypotheses over %d present loci; %d classes reached; %d with an empty case against",
 		len(got.Hypotheses), len(triage.Loci), len(seen), withNothingAgainst)
 
-	// The two classes §9.5 attaches to no locus can never be emitted, whatever
-	// fired. That is I-262 as a property of the output rather than of the table.
+	// The two classes the table attaches to no locus can never be emitted, whatever
+	// fired. That is the missing substrate as a property of the output rather than of the table.
 	for _, never := range []string{CauseDependencyFailure, CauseCapacityOrCostDeviation} {
 		if seen[never] {
-			t.Errorf("class %s was emitted; §9.5 attaches it to no locus, so nothing in the record can "+
+			t.Errorf("class %s was emitted; the gate's table attaches it to no locus, so nothing in the record can "+
 				"put it in front of a reader", never)
 		}
 	}
@@ -115,7 +115,7 @@ func TestNilContradictingEvidenceIsRefused(t *testing.T) {
 	err := h.Validate()
 	if err == nil {
 		t.Fatal("a hypothesis with nil contradicting evidence validated; the calibration control is not " +
-			"enforced and §A.2.8's required column is decorative")
+			"enforced and the required column is decorative")
 	}
 	if !strings.Contains(err.Error(), "calibration control") {
 		t.Errorf("the message does not say why the field is required: %v", err)
@@ -129,7 +129,7 @@ func TestNilContradictingEvidenceIsRefused(t *testing.T) {
 }
 
 // A hypothesis must say which of the two vocabularies its claim is in, which is
-// Q-27's answer as a field rather than as a convention. AD.1 scores per locus
+// the per-class answer as a field rather than as a convention. The census scores per locus
 // and reports cause-class denominators beside it; a hypothesis with no locus is
 // countable in neither.
 func TestAHypothesisWithoutALocusIsRefused(t *testing.T) {
@@ -177,7 +177,7 @@ func TestNoPresentLocusYieldsNoHypothesis(t *testing.T) {
 	}
 }
 
-// A locus §9.5 maps to no class is reported rather than dropped. A caller
+// A locus the gate's table maps to no class is reported rather than dropped. A caller
 // counting hypotheses per locus otherwise cannot tell a locus that produced
 // none from one that was never asked, which is the same conflation
 // triage.NotEvaluable exists to prevent, one level up.
@@ -186,7 +186,7 @@ func TestAnUnmappedLocusIsReportedRatherThanDropped(t *testing.T) {
 		triage.LocusStepNeverStarted: triage.Present,
 	}, nil)})
 	if len(got.Hypotheses) != 0 {
-		t.Errorf("locus step_never_started produced %d hypotheses; §9.5 lists it in no row",
+		t.Errorf("locus step_never_started produced %d hypotheses; the gate's table lists it in no row",
 			len(got.Hypotheses))
 	}
 	if len(got.UnmappedLoci) != 1 || got.UnmappedLoci[0] != triage.LocusStepNeverStarted {
@@ -289,7 +289,7 @@ func TestAnUnaskedSiblingLocusBoundsTheCaseRatherThanRefutingIt(t *testing.T) {
 }
 
 // Locus per_record_failures_unreportable maps to no cause class and is not
-// therefore useless: §9.4 row 8's *cannot see* is that the record cannot
+// therefore useless: its *cannot see* is that the record cannot
 // distinguish it from a clean run, so a run in that state cannot be called
 // benign on the record's silence. It is the only cross-locus rule in the floor.
 func TestAnUnreportableOperatorContradictsBenign(t *testing.T) {
@@ -382,7 +382,7 @@ func TestTheRankingBasisIsCheckableByCounting(t *testing.T) {
 			t.Errorf("rank %d's basis does not name the locus it came from:\n  %s", h.Rank, h.Basis)
 		}
 	}
-	// And the ranking is in confidence order *within* §9.5's evidenceability
+	// And the ranking is in confidence order *within* the table's evidenceability
 	// tier, with every class the record cannot evidence below every class it
 	// can. Asserting plain confidence order here would pass the version of this
 	// package that ranked source_delivery_failure first on a run that never
@@ -412,9 +412,9 @@ func TestTheRankingBasisIsCheckableByCounting(t *testing.T) {
 	}
 }
 
-// An anomaly's confounders reach the case against, which is §9.8's instruction
+// An anomaly's confounders reach the case against, which is the design's instruction
 // in one assertion: the contradicting side is populated from Anomaly.Confounders
-// before any model is asked for one. An anomaly whose signal §9.4 has no locus
+// before any model is asked for one. An anomaly whose signal has no locus
 // for reaches no hypothesis and is named in the ranking's basis instead.
 func TestAnomalyConfoundersReachTheCaseAgainst(t *testing.T) {
 	in := &Input{

@@ -1,13 +1,13 @@
 /**
  * The deployment's custom buttons, on every screen that draws Pipeline Status.
- * jetstore_maintenance_02, defect `D04`, `I-26` (2026-10-01).
+ * Decided 2026-10-01.
  *
  * **Decided: the buttons appear wherever the table is drawn**, not on Home alone.
- * `AE.8` built them into Home, and `homeFiltersUF`'s status step draws the same
+ * They were first built into Home, and `homeFiltersUF`'s status step draws the same
  * table through `FlowRunner` without them — narrower than Flutter, which drew the
- * custom row wherever the table appeared, and against the rule `AD.3` and `AE.4`
+ * custom row wherever the table appeared, and against the rule earlier work
  * had already found for this table's authored buttons: *a button on this table
- * belongs to every screen that draws it*. Plan `AE.8`'s "Pipeline Status only"
+ * belongs to every screen that draws it*. The request's "Pipeline Status only"
  * means *this table only*.
  *
  * **So the two halves a screen needs are here, once**, rather than copied into

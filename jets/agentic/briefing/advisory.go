@@ -8,7 +8,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/wsvalidate"
 )
 
-// A§8.3's first guardrail, in its own words: *the briefing must carry no
+// The first briefing guardrail, in its own words: *the briefing must carry no
 // imperative or advisory language - nothing a representative could relay as
 // guidance. Do not rely on a prompt instruction alone; make it checkable.*
 //
@@ -42,7 +42,7 @@ import (
 // `Confine` reports the fields of that last kind when the document is saved, and
 // `applyRule` scans their values when a briefing is checked. The delivered
 // `patient_briefing.pv.json` has none, so the exposure is 0 by construction
-// rather than 0 by a rate - which is `AK.2`'s move on `match: substring` applied
+// rather than 0 by a rate - the move `match: substring` makes, applied
 // to the guardrail rather than to the projection.
 //
 // # What still gets past it
@@ -50,14 +50,14 @@ import (
 // A closed field carries whatever the claim data carries. If a diagnosis
 // description in the lookup were phrased as guidance, a briefing quoting it
 // verbatim would be grounded and would pass. That is the residual and it is the
-// right one to accept: A§8.3 forbids *nothing a representative could relay as
+// right one to accept: the guardrail forbids *nothing a representative could relay as
 // guidance* in the sense of guidance the briefing produced, and a description
 // copied character for character out of a claim is the claim speaking.
 const (
 	// CodeFieldAdmitsProse is a field the briefing can carry whose rule bounds
 	// nothing, so its value is whatever the model wrote. A Warning rather than
 	// an Error: `ungrounded` is a declared exemption with a required reason, and
-	// refusing it here would delete `AK.1`'s escape hatch on `AK.3`'s authority.
+	// refusing it here would delete that escape hatch on this check's authority.
 	CodeFieldAdmitsProse = "briefing_field_admits_free_text"
 	// CodeAdvisoryLanguage is a value on such a field that reads as guidance.
 	CodeAdvisoryLanguage = "briefing_field_carries_advisory_language"
@@ -70,9 +70,9 @@ const (
 	CodeDisclaimerIsModelWritten = "briefing_disclaimer_is_the_models_to_write"
 )
 
-// Disclaimer is A§8.3's intended-use notice, declared rather than duplicated.
+// Disclaimer is the intended-use notice, declared rather than duplicated.
 //
-// A§8.3: *carry the intended-use and not-medical-advice notice as a **required
+// The guardrail: *carry the intended-use and not-medical-advice notice as a **required
 // field in the output record**, populated deterministically rather than by the
 // model. A banner rendered in a screen is lost the moment the text is copied,
 // exported to a CRM, or read aloud; a field travels with the record.* Decision 5
@@ -85,7 +85,7 @@ const (
 // `workspaces/jets_ws/jet_rules/clinical_intel/briefing_projection.jr` - onto a
 // data property of the briefing class, which is what makes it a column of the
 // record. **Putting the text here as well would be a second copy nothing
-// compares**, which is exactly the seam `I-438` records for the response schema;
+// compares**, which is exactly the seam already recorded for the response schema;
 // adding a second instance of a defect while fixing something else is not a
 // trade worth making. What this block declares is the *field*, and what
 // `Confine` asserts about it is the part a document can assert: that the model
@@ -100,7 +100,7 @@ const (
 //   - a model that omits the field produces a briefing with no notice, and only
 //     the check would catch it; a column asserted by a rule cannot be omitted;
 //   - a constant legal sentence costs prompt and response tokens on every
-//     record, against A§8.2's measurement that prompt tokens dominate this
+//     record, against the measurement that prompt tokens dominate this
 //     workload roughly 9:1 - the arithmetic the projection is itself argued on;
 //   - **the notice is the one string in the artefact that must carry imperative
 //     language.** *It must not be used to make a clinical decision* is advice
@@ -127,7 +127,7 @@ type Disclaimer struct {
 //
 // A schema with no `response_format` is not asked either question - the briefing
 // shape is undeclared, so there is no field set to reason about. That is the
-// shape `AK.1` shipped and it keeps working.
+// shape first shipped and it keeps working.
 func (s *Schema) Confine() []wsvalidate.Finding {
 	if len(s.Response) == 0 {
 		return nil
@@ -135,7 +135,7 @@ func (s *Schema) Confine() []wsvalidate.Finding {
 	var out []wsvalidate.Finding
 
 	// The notice. Required once the briefing's shape is declared, because a
-	// declared shape is a delivered artefact and A§8.3 makes the notice part of
+	// declared shape is a delivered artefact and the guardrails make the notice part of
 	// it. There is deliberately no way to turn this off: a guardrail with a
 	// switch is bypassed by throwing the switch, which is the argument
 	// `KindUngrounded`'s required `reason` is built on one level down.
@@ -280,7 +280,7 @@ func (s *Schema) ProseSurfaces() []string {
 // AdvisoryMarker is advisoryMarker for a caller outside this package, and it is
 // exported for one reason rather than as a convenience.
 //
-// `AK.3` polices advisory language on the fields of a briefing *record*.
+// The advisory check polices language on the fields of a briefing *record*.
 // `jets/agentic/briefing/score` has to ask the same question of a briefing that
 // is one string of prose, because the pipeline this phase measures asks the
 // model for prose rather than for a record. **Those are the same lexicon and

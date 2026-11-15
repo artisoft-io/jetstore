@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "label": "Rule Terms",
+  "label": "Files Relationship",
   "columns": [
     {
       "name": "source_file_name",

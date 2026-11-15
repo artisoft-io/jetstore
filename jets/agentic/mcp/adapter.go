@@ -1,7 +1,7 @@
 // Package mcpadapter is the stdio exposure of the agentic tool registry —
-// an adapter over jets/agentic/tools, not the calling convention (plan
-// section 6, settled Q-4). The Phase-1 loop calls the registry in-process;
-// this package exists so an MCP client (Claude Code, criterion 12) can
+// an adapter over jets/agentic/tools, not the calling convention. The agent
+// loop calls the registry in-process;
+// this package exists so an MCP client (Claude Code, for one) can
 // drive the same tools over stdio — whichever ones the registry carries,
 // which is the point of the adapter and the reason this sentence no longer
 // names a count. The modelcontextprotocol/go-sdk
@@ -46,7 +46,7 @@ func NewServer(reg *tools.Registry, ws *tools.Workspace) (*mcp.Server, error) {
 			Description: sig.Description,
 			InputSchema: wireSchema,
 			// Read-only is derived from the signature rather than asserted
-			// here: the catalogue J.1 decided includes a write tool, and a
+			// here: the catalogue includes a write tool, and a
 			// hint that says otherwise is worse than none. The day-one
 			// reversibility and tier metadata ride in _meta for clients that
 			// look.
@@ -97,9 +97,9 @@ func Run(ctx context.Context, reg *tools.Registry, ws *tools.Workspace) error {
 // `#/...` refs pass through untouched.
 // WireSchema is relaxExternalRefs under an exported name, for callers that
 // must send the registry's schemas to a model over a wire that cannot resolve
-// a cross-file $ref — the tool-conformance measurement of J.2 among them.
+// a cross-file $ref — the tool-conformance measurement among them.
 //
-// **Exported so the measurement cannot drift from the adapter.** J.2 asks
+// **Exported so the measurement cannot drift from the adapter.** The measurement asks
 // whether a local model can drive the same catalogue Claude drives; a harness
 // that relaxed the refs its own way would be measuring a schema no client is
 // ever served, and the discrepancy would be invisible in the result.

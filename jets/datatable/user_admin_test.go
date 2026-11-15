@@ -22,7 +22,6 @@ import (
 	"go/parser"
 	"go/token"
 	"net/http"
-	"net/url"
 	"os"
 	"sort"
 	"strings"
@@ -179,38 +178,7 @@ type uaFixture struct {
 
 func uaDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	dsn := os.Getenv("JETS_TEST_DSN")
-	if dsn == "" {
-		t.Skip("JETS_TEST_DSN is not set; see the header of this file")
-	}
-	bg := context.Background()
-	admin, err := pgxpool.New(bg, dsn)
-	if err != nil {
-		t.Fatalf("connecting: %v", err)
-	}
-	var n int
-	if err = admin.QueryRow(bg, "SELECT count(*) FROM pg_database WHERE datname = 'srg_user_admin'").Scan(&n); err != nil {
-		admin.Close()
-		t.Fatalf("looking for the test database: %v", err)
-	}
-	if n == 0 {
-		if _, err = admin.Exec(bg, "CREATE DATABASE srg_user_admin"); err != nil {
-			admin.Close()
-			t.Fatalf("creating the test database: %v", err)
-		}
-	}
-	admin.Close()
-	u, err := url.Parse(dsn)
-	if err != nil {
-		t.Fatalf("parsing JETS_TEST_DSN: %v", err)
-	}
-	u.Path = "/srg_user_admin"
-	pool, err := pgxpool.New(bg, u.String())
-	if err != nil {
-		t.Fatalf("connecting to the test database: %v", err)
-	}
-	t.Cleanup(pool.Close)
-	return pool
+	return scratchDatabase(t, "srg_user_admin")
 }
 
 // seededRoleBlock returns the part of the shipped jets_init_db.sql that fills
@@ -242,7 +210,7 @@ func newUAFixture(t *testing.T) *uaFixture {
 	if _, err := pool.Exec(bg, "CREATE SCHEMA IF NOT EXISTS jetsapi"); err != nil {
 		t.Fatal(err)
 	}
-	defs := rutTableDefs(t)
+	defs := jetsSchemaTables(t)
 	for _, name := range []string{"users", "roles", "role_capability"} {
 		if _, err := pool.Exec(bg, "DROP TABLE IF EXISTS jetsapi."+name); err != nil {
 			t.Fatal(err)
@@ -346,7 +314,7 @@ func (f *uaFixture) capabilities(t *testing.T, role string) []string {
 	return out
 }
 
-// B.1: the seeded designated_admin holds knowledge_engineer's nine capabilities plus
+// The seeded designated_admin holds knowledge_engineer's nine capabilities plus
 // delete_session and user_admin, eleven in all, and knowledge_engineer holds neither.
 func TestUserAdminDBSeededRoles(t *testing.T) {
 	f := newUAFixture(t)

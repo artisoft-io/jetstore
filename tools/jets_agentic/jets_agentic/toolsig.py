@@ -1,37 +1,37 @@
-"""The MCP tool-signature emitter (A3.2) — the tool catalogue, typed, classed.
+"""The MCP tool-signature emitter — the tool catalogue, typed, classed.
 
-**Six tools as of T.1/T.2 (2026-08-31), and the count is deliberately not in this
-line any more.** It said "three tools" through Phase 1's fourth and would have
-said "four" through Phase 3's sixth; a docstring that carries an inventory is a
+**Six tools as of 2026-08-31, and the count is deliberately not in this
+line any more.** It said "three tools" past the fourth and would have
+said "four" past the sixth; a docstring that carries an inventory is a
 docstring that lags the list twenty lines below it, which `TOOLS` already is.
 
 Emits `jets/agentic/tools/jets_agentic_tools.json`, which the Go tool
 registry embeds: the signatures live here, in the one Python source, and Go
 binds behaviour to the names — a registry test fails if the two sets drift.
 
-Every tool carries its **reversibility class** (proposal §6.3: `na` for
+Every tool carries its **reversibility class** (from the proposal: `na` for
 reads, `reversible`, `irreversible` — the last is definitionally absent from
 any catalogue) and its **minimum autonomy tier**, validated against
-`AutonomyTier`, from day one: retrofitting either across a Phase-2 catalogue
+`AutonomyTier`, from day one: retrofitting either across a later catalogue
 is worse than carrying them with three tools.
 
 Parameter typing: a parameter that is a domain entity `$ref`s into the
-item-2a schema via `entity_ref()`; `validate_cpipes_config`'s payload
-`$ref`s the item-2b schema the same way. No read-only tool
+domain-model schema via `entity_ref()`; `validate_cpipes_config`'s payload
+`$ref`s the cpipes schema the same way. No read-only tool
 takes an entity-typed parameter — the first entity-typed parameters arrive
-with the Phase-2 write tools — so `entity_ref` is exercised by the emitter's
+with the write tools — so `entity_ref` is exercised by the emitter's
 own self-check rather than by a shipped signature. External `$ref`s are the
 *typed* truth; the stdio adapter relaxes them to a self-contained schema at
 the wire, because an MCP client cannot resolve a cross-file reference.
 
 **A path argument is not the local-disk shape `Workspace`'s comment refuses**
-(T.2, I-94's remedy). That rule is about the *workspace root* — the stdio
+(the path remedy). That rule is about the *workspace root* — the stdio
 adapter resolves it, so the registry interface never learns where a checkout
 sits on this machine. A **workspace-relative** path names a file *inside* a
 workspace the handle already resolved, and carries nothing about the host. The
 distinction is what lets `compile_rule_file` and `validate_cpipes_config` take
-a path instead of a payload, which is the whole of I-94's remedy: I-68 measured
-the model reproducing a rule file correctly 9 times in 18, worse with a
+a path instead of a payload, which is the whole of the path remedy: it was measured
+that the model reproduces a rule file correctly 9 times in 18, worse with a
 verbatim-copy instruction, and a model that never holds the text cannot mangle
 it.
 
@@ -47,20 +47,20 @@ import json
 
 from . import model as M
 
-# Reversibility classes, proposal §6.3. Irreversible tools are excluded from
+# Reversibility classes, from the proposal. Irreversible tools are excluded from
 # any catalogue by definition; the value exists so the exclusion is visible.
 REVERSIBILITY = ("na", "reversible", "irreversible")
 
 DOMAIN_SCHEMA = "jets/workspace_assets/data_model/jets_agentic.schema.json"
 CPIPES_SCHEMA = "tools/cpipes_contract/cpipes_schema.json"
-# I-250's authoring form: rules as JSON, rendered to JetRules by the tool. The
+# The symbolic authoring form: rules as JSON, rendered to JetRules by the tool. The
 # schema is hand-written beside the Go types and held to them by the corpus
 # round trip (jets/compilerv2/symbolic, TestCorpusRoundTrip).
 SYMBOLIC_RULES_SCHEMA = "jets/compilerv2/symbolic/rule_file.schema.json"
 
 
 def entity_ref(entity_name: str) -> dict:
-    """A parameter typed against a domain entity — §5.2's 'parameters typed
+    """A parameter typed against a domain entity — the design's 'parameters typed
     against domain entities', concretely. Raises on an unknown entity so a
     signature cannot point at nothing."""
     if entity_name not in {e.__name__ for e in M.ENTITIES}:
@@ -323,7 +323,7 @@ def emit() -> str:
         assert tool["reversibility"] in REVERSIBILITY, tool["name"]
         assert tool["min_tier"] in {m.value for m in M.AutonomyTier}, tool["name"]
     # entity_ref's self-check: the mechanism must hold even while no shipped
-    # signature uses it (the Phase-2 write tools are its first consumers).
+    # signature uses it (the write tools are its first consumers).
     assert entity_ref("Incident")["$ref"].endswith("#/$defs/Incident")
     return json.dumps(
         {

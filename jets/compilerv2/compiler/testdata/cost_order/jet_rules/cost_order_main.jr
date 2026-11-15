@@ -1,4 +1,4 @@
-# The cost order's fixture (rules_benchmark Phase 9, BY.2): three rules whose
+# The cost order's fixture: three rules whose
 # best order is a property of the data, as optimizer_statistics.json describes
 # it, and two the cost order must leave to the score.
 main {

@@ -1,5 +1,5 @@
 /**
- * The one escape `/ruleConfig` needs. Task C.10.
+ * The one escape `/ruleConfig` needs.
  *
  * ## What the grammar cannot say, stated precisely
  *
@@ -16,7 +16,7 @@
  * not.** A `fromQueryRow` value would need a query name, a match column, a match
  * value and a result column — four fields for one site, and a vocabulary for
  * joining a query to form state that nothing else in either corpus asks for. This
- * project's answer to computation in a document is a named escape, and I-74's
+ * project's answer to computation in a document is a named escape, and its
  * rule says the escape count is an upper bound on what the grammar cannot say
  * rather than a target.
  *

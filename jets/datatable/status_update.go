@@ -305,7 +305,7 @@ func (ca *StatusUpdate) CoordinateWork() error {
 	// "interrupted" and left ca.Status holding whatever the state machine passed
 	// in, which on the success path is "completed", so input_loader_status
 	// recorded an interrupted run as completed and its partial outputs were
-	// registered (I-51). Every arm now sets ca.Status, so the two agree and the
+	// registered. Every arm now sets ca.Status, so the two agree and the
 	// readers below see the run's outcome. The manifest branch reads runStatus.
 	var runStatus string
 	switch {
@@ -340,7 +340,7 @@ func (ca *StatusUpdate) CoordinateWork() error {
 	}
 
 	// The run manifest: what the run's document declared, and what the run
-	// wrote for each declaration. D-255.
+	// wrote for each declaration.
 	//
 	// **The branch is here, immediately after the status was computed, and
 	// that placement is the whole of the guard.** This Lambda is invoked on the
@@ -433,7 +433,7 @@ func (ca *StatusUpdate) CoordinateWork() error {
 			}
 			// Register origin file to input_registry since process is "Jets_Loader".
 			// A failed load has always registered its file and still does; an
-			// interrupted one registers nothing (I-51).
+			// interrupted one registers nothing.
 			isJetsLoader = true
 			if outputsAreUsable(ca.Status) || ca.Status == "failed" {
 				err = ca.RegisterFileInputSource()

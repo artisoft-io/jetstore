@@ -1,4 +1,4 @@
-"""The projection: a template and its bindings become a UserFlow document. Task M.4.
+"""The projection: a template and its bindings become a UserFlow document.
 
 **Author-time, like `expand`, and for the same reason.** The output is an ordinary
 `.uf.json` / `.form.json` pair that `jetsclient_ide` interprets without knowing a
@@ -9,8 +9,8 @@ vocabulary into a UserFlow document would reverse that on the first commit.
 
 ## What the projection walks, and why it is two surfaces
 
-**Holes and scalar bindings both** (M.1). Every one of the contract's 200 `$defs`
-entries is an object type, so a hole cannot produce a bare string (I-43) and everything
+**Holes and scalar bindings both**. Every one of the contract's 200 `$defs`
+entries is an object type, so a hole cannot produce a bare string and everything
 a config needs that *is* a bare string lives in the bindings. For two of the three
 shipped templates the bindings are *entirely* that residue: a wizard walking only holes
 could fill each `ConditionalPipeSpec` of `map_claim_load_stages` and could not choose
@@ -18,16 +18,16 @@ which three entities to load.
 
 ## One state per *fill*, not per hole
 
-A hole carrying a `$body` is a loop rather than a blank (I-76), and a hole nested inside
+A hole carrying a `$body` is a loop rather than a blank, and a hole nested inside
 a repeating hole fires the product of the two counts — `qc_metrics.metric_columns` fires
 nine times from two lists of three. **So this module does not walk the template.** It
 drives `expand` with a recording `Fill` and projects what the expander actually asks
-for. That is deliberate: §5.3.9's failure was an expander that could not tell one
+for. That is deliberate: an earlier failure was an expander that could not tell one
 nesting level from another, and a second traversal written here could drift from the
 first without either being obviously wrong. There is one traversal, and the projection
 is a consumer of it.
 
-## How a composite property is rendered (M.2)
+## How a composite property is rendered
 
 Three renderings, chosen by two structural tests on the property rather than by taste —
 its arity, and whether its target closes a cycle in the contract:
@@ -46,7 +46,7 @@ its arity, and whether its target closes a cycle in the contract:
 
 **The `text` field under the `json` rule is not used for a composite.** `validateForm`
 applies that rule by calling `JSON.parse` and nothing else, so a typed object arriving
-through it is checked only when the finished document is — the untyped fill §5.3.2
+through it is checked only when the finished document is — the untyped fill the design
 refused, with a border. The one place a `json` rule is emitted is a list of *scalars*,
 where what the rule cannot check is arity and element type rather than a whole contract
 type, and where there is no variant to choose and no structure to nest.
@@ -57,7 +57,7 @@ type, and where there is no variant to choose and no structure to nest.
 cannot add a metric, because the number of states is decided when the document is
 generated and UserFlow has no way to create one at run time. Changing a count means
 editing the bindings and re-projecting. That is a real boundary and it is stated rather
-than discovered at M.5.
+than discovered in use.
 """
 
 from __future__ import annotations
@@ -149,7 +149,7 @@ class Contract:
         """A union's variant choices, read from its `discriminator.mapping`.
 
         **The mapping's key is exactly the `type` literal a config needs**, which is why
-        `ui_refresh` handed this half back rather than taking it: I.2a owes a field kind
+        the UI side handed this half back rather than taking it: it owes a field kind
         that *accepts* a list, not the thing that computes one. All three multi-variant
         hole types carry an explicit discriminator.
         """
@@ -247,14 +247,14 @@ class _Fills:
         # call sequence, and an object keeps `expand`'s list splicing honest — a
         # repeating hole must still return a list for the splice branch to see one.
         # The marker carries the state key, so the same run that yields the fill
-        # sequence also yields the skeleton the apply substitutes into (M.5).
+        # sequence also yields the skeleton the apply substitutes into.
         return {FILL_MARKER: state_key(hole, index)}
 
 
 def state_key(hole: Hole, index: int) -> str:
     """The state a fill is configured in. One definition, read from two places.
 
-    It was two identical expressions until M.5 needed the marker to agree with the
+    It was two identical expressions until the end-to-end demonstration needed the marker to agree with the
     state, which is the point at which a duplicated key scheme stops being harmless.
     """
     return _identifier(hole.name, index) if hole.repeat_over else _identifier(hole.name)
@@ -299,7 +299,7 @@ def _marker_context(context: dict, scalars: list[tuple[str, object]],
 def _is_record(path: str, in_list: bool) -> bool:
     """Whether a dict at `path` is a *container of bindings* rather than a binding.
 
-    The distinction is I-78's and it is the one the classifier turns on: **an
+    That distinction is the one the classifier turns on: **an
     object-valued binding could have been a hole; a scalar-valued one could not.** So a
     dict is descended into when it is the root, an element of a list, or the singleton
     `$item` record — those are rows of bindings. A dict found as the *value* of a
@@ -312,10 +312,10 @@ def _is_record(path: str, in_list: bool) -> bool:
 def _walk_bindings(context: dict) -> tuple[list[tuple[str, object]], list[str]]:
     """`(scalar leaves, object-valued bindings)`, both as dotted paths.
 
-    Cross-checked against M.1's census, which counted these by hand from the same three
+    Cross-checked against a census, which counted these by hand from the same three
     files: 1/3/21 scalars and 0/0/8 objects for `map_claim_load_stages`, `qc_metrics`
     and `qc_report`. A traversal that disagrees with a count derived another way is
-    wrong until shown otherwise — the lesson of M.2's first corpus walk, which handled
+    wrong until shown otherwise — the lesson of the first corpus walk, which handled
     one level of list nesting and reported zero `where` clauses where `grep -c` finds
     136.
     """
@@ -344,7 +344,7 @@ def _walk_bindings(context: dict) -> tuple[list[tuple[str, object]], list[str]]:
 
 def _note_field(text: str) -> dict:
     """A `label`. **A refusal is visible rather than silent**, which is the whole of why
-    this exists: a control that does nothing and says nothing is the failure I-77
+    this exists: a control that does nothing and says nothing is the failure
     measured on the Flutter side, and a `label` costs one of the four field kinds that
     were already there."""
     return {"field": "label", "text": text}
@@ -378,16 +378,16 @@ class _Projector:
         #: A chooser's key looks exactly like a field's, and a contract type may
         #: legitimately declare a property called `type`; and a `json` field's value is
         #: a string in form state and a list in the config. Both are recorded here
-        #: rather than re-derived, for the reason the fill sequence is (M.4).
+        #: rather than re-derived, for the reason the fill sequence is.
         self.choosers: dict[str, dict] = {}
         self.json_fields: list[str] = []
         #: Properties the schema fixes, per value key. **A `const` is not a field and it
         #: is not nothing.** `fields_for` skips it because a variant chooser has already
         #: supplied it — true for a union, and false for the single-concrete case, where
         #: no chooser exists and the property would simply be missing from the config.
-        #: M.5's demonstration is what found that: `PartitionWriterPipe.type` is `const`
+        #: The end-to-end demonstration is what found that: `PartitionWriterPipe.type` is `const`
         #: and required, and the wizard produced a `partition_writer` operator with no
-        #: `type`. No layer M.4 ran could see it — all four validate the *flow*
+        #: `type`. No validation layer could see it — all four validate the *flow*
         #: documents, and this is a property of the config they produce.
         self.constants: dict[str, dict] = {}
 
@@ -432,7 +432,7 @@ class _Projector:
 
         **Required properties first, then optional, separated by a `label`.** Every
         declarable property gets a field: `InputChannelConfigStage` declares 43 and the
-        corpus sets a median of 5 (I-80), so this is a long form — and the alternative,
+        corpus sets a median of 5, so this is a long form — and the alternative,
         offering only what four workspaces happen to use, makes a legal config
         unreachable in the IDE while remaining legal in the file. **A wizard that cannot
         express a legal config is a worse failure than a wizard that is long**, and the
@@ -504,7 +504,7 @@ class _Projector:
             if hint:
                 field["hint"] = hint[:200]
             if kind == "scalar_list":
-                # **The one place a `json` rule is emitted, and it is not the escape M.2
+                # **The one place a `json` rule is emitted, and it is not the escape that was
                 # rejected.** For a typed object that rule checks syntax and never the
                 # contract; for a list of scalars what it cannot check is arity and
                 # element type — there is no variant to choose and nothing to nest.
@@ -594,10 +594,10 @@ class Projection:
     """The three documents the loader needs, the apply plan behind them, and what the
     projection would not do.
 
-    **It was two documents until M.5, and that was a defect rather than a scope**
-    (I-84). `FlowStore.load` reads `<key>.uf.json` *and* `<key>.ua.json` in one
+    **It was two documents once, and that was a defect rather than a scope**.
+    `FlowStore.load` reads `<key>.uf.json` *and* `<key>.ua.json` in one
     `Promise.all` and throws before it reaches the escape registry, so a pair does not
-    fail at the missing registration M.4 predicted — it fails at *read*, one layer
+    fail at the missing registration that was predicted — it fails at *read*, one layer
     earlier, with a message about a file. None of the four validation layers could see
     it: each validates one document alone, and the save path is per-file by
     construction, so the completeness of the *set* is only checkable at load.
@@ -686,14 +686,14 @@ def _action_document(name: str) -> dict:
 
     **A projected flow has exactly one thing to do and does it at the end**: the states
     before it only collect. So the action document is a formality — and it is a
-    formality the loader requires, which is the distinction I-84 turned on.
+    formality the loader requires, which is the distinction that matters.
 
     The step is an `escape` rather than a `post` because the work is neither a query nor
     an insert into one of `InsertTarget`'s fifteen tables: it assembles a `.pc.json` and
     writes it to the workspace, which is exactly what `escapes.ts` says an escape is
     for. The *name* resolves against a registry compiled into the IDE bundle; the body
-    behind it is this project's, by the division agreed with `ui_refresh` on
-    2026-08-23 — their registry slot, our function.
+    behind it is this module's, by the division agreed on
+    2026-08-23 — the IDE's registry slot, this function.
     """
     return {
         "schemaVersion": SCHEMA_VERSION,
@@ -731,8 +731,8 @@ def _apply_plan(name: str, skeleton: object, projector: "_Projector") -> dict:
       state. `FormStateValue` is `string | string[]`, so every field's value arrives as
       text and the arity has to be restored from somewhere.
 
-    **The plan is sized when it is generated and cannot grow** (I-82). That is Q-19's
-    consequence rather than a choice made here: a repeat count is read from the bindings
+    **The plan is sized when it is generated and cannot grow**. That is a
+    consequence of an earlier decision rather than a choice made here: a repeat count is read from the bindings
     and never from the filler, so a projected flow edits the values of a fixed shape.
     Editing a count means editing the bindings and projecting again.
     """
@@ -761,8 +761,8 @@ def project(template: Template, context: dict, schema: dict) -> Projection:
     # **One traversal, run over marked-up bindings.** The expander is invoked once and
     # yields two things at once: the sequence of fills, which decides the states, and
     # the *skeleton* — the config as it would be expanded, with a marker wherever a
-    # collected value belongs. §5.3.9's failure was an expander that could not tell one
-    # nesting level from another, and M.4's answer was to consume the one traversal
+    # collected value belongs. The earlier failure was an expander that could not tell one
+    # nesting level from another, and the answer was to consume the one traversal
     # rather than write a second beside it. The apply is the same answer one step on: it
     # substitutes into the skeleton instead of expanding again, so no expander is needed
     # where the wizard runs and there is nothing for a second implementation to drift
@@ -777,17 +777,17 @@ def project(template: Template, context: dict, schema: dict) -> Projection:
     blocks: list[_Block] = []
 
     # 1. The scalar bindings, first — they are where the repeat counts came from, so an
-    #    author meets the entities before the steps that configure them (M.1).
+    #    author meets the entities before the steps that configure them.
     if scalars:
         rows = []
         for path, value in scalars:
             if path in sizing:
-                # **The one place I-82 is visible to the author it constrains.** This
+                # **The one place the fixed plan size is visible to the author it constrains.** This
                 # binding is what a hole repeats over, so its length is the number of
                 # states this flow has — decided when the documents were generated, and
                 # unchangeable from inside a flow that has no way to make a state. An
                 # editable field here would accept an edit and drop it, which is the
-                # silent failure I-77 measured on the Flutter side; a label says so.
+                # silent failure measured on the Flutter side; a label says so.
                 rows.append([_note_field(
                     f"{_label(path)} — not editable here. Its "
                     f"{len(value) if isinstance(value, list) else 1} entries decide how many "
@@ -829,14 +829,14 @@ def project(template: Template, context: dict, schema: dict) -> Projection:
         state.pop("defaultNextState", None)
         state["isEnd"] = True
         state["stateAction"] = APPLY_ACTION
-        # **An end state's form offers `ufCompleted`, and M.4 left it offering `ufNext`.**
+        # **An end state's form offers `ufCompleted`, and it once offered `ufNext`.**
         # `step` runs the state action either way, so the apply fired — and then
         # `nextStateKey` returned null and the press came back as the outcome string
         # *"No next step from …"*, an error message in front of an author whose config
         # had just been written. The corpus is unanimous the other way
         # (`loadFilesUF.form.json`), and neither schema can express the rule: `isEnd`
         # lives in the flow document and the button set in the form document, so this is
-        # I-84's shape a third time — a cross-document consistency that every per-document
+        # the same shape a third time — a cross-document consistency that every per-document
         # layer passes.
         actions = projector.forms[key]["actions"]
         for action in actions:

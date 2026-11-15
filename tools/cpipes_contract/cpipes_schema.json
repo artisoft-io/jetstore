@@ -4154,23 +4154,6 @@
           "description": "Free text for the reader; ignored by JetStore.",
           "title": "Comment"
         },
-        "compression": {
-          "anyOf": [
-            {
-              "enum": [
-                "none",
-                "snappy"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Compression: none, snappy",
-          "title": "Compression"
-        },
         "delimiter": {
           "anyOf": [
             {
@@ -4183,23 +4166,6 @@
           "default": null,
           "description": "Field delimiter as a code point; default ',' (44). Engine default: 44 (builder).",
           "title": "Delimiter"
-        },
-        "format": {
-          "anyOf": [
-            {
-              "enum": [
-                "csv",
-                "headerless_csv"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Format: csv, headerless_csv",
-          "title": "Format"
         },
         "make_empty_source_when_no_files_found": {
           "anyOf": [
@@ -4262,7 +4228,7 @@
             }
           ],
           "default": null,
-          "description": "Compression: none, snappy",
+          "description": "Compression: none, snappy. Unset reads a stage file, which is snappy-compressed. Engine default: snappy (builder).",
           "title": "Compression"
         },
         "delimiter": {
@@ -4292,7 +4258,7 @@
             }
           ],
           "default": null,
-          "description": "Format: csv, headerless_csv",
+          "description": "Format: csv, headerless_csv. Unset reads a stage file, which has no header row. Engine default: headerless_csv (builder).",
           "title": "Format"
         },
         "jets_partition": {
@@ -4417,7 +4383,7 @@
             }
           ],
           "default": null,
-          "description": "Compression: none, snappy",
+          "description": "Compression: none, snappy. Unset reads an object named in full as uncompressed. Engine default: none (builder).",
           "title": "Compression"
         },
         "csv_source_file_key": {
@@ -4452,7 +4418,7 @@
             }
           ],
           "default": null,
-          "description": "Format: csv, headerless_csv",
+          "description": "Format: csv, headerless_csv. Unset reads an object named in full as a csv carrying its header row. Engine default: csv (builder).",
           "title": "Format"
         },
         "make_empty_source_when_no_files_found": {

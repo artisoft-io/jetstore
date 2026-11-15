@@ -12,7 +12,7 @@ import (
 )
 
 // RowWriter writes every row a run extracts, for comparing an extraction before
-// and after a change to it (rules_benchmark G11): graph dumps are made before
+// and after a change to it: graph dumps are made before
 // extraction and do not cover it. Its Write is an Options.OnExtractedRow and its
 // SessionDone an Options.AfterExtraction.
 //

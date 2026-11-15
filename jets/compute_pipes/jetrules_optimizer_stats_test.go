@@ -1,7 +1,6 @@
 package compute_pipes_test
 
-// The jetrules step's optimizer_statistics option (rules_benchmark Phase 9,
-// CC.1 and CC.3), on the C++ engine over a compiled copy of test_ws, in a child
+// The jetrules step's optimizer_statistics option, on the C++ engine over a compiled copy of test_ws, in a child
 // process as TestExecuteRulesCharacterisation is. Run it with -count=1.
 
 import (
@@ -46,7 +45,7 @@ func TestOptimizerStatisticsOption(t *testing.T) {
 
 	// Off, the step counts nothing and its output is unchanged; on, it extracts
 	// the same rows and counts each bundle that did not fail once per rule set: a
-	// bundle with a jets:exception contributes nothing (Q-113), though its rows
+	// bundle with a jets:exception contributes nothing, though its rows
 	// are extracted under on_error pass_through, as with the option off.
 	t.Run("option_off_changes_nothing", func(t *testing.T) {
 		off := newHarness(t, executeRulesSequence, &compute_pipes.JetrulesSpec{})
@@ -151,8 +150,8 @@ func TestOptimizerStatisticsOption(t *testing.T) {
 		if !bytes.Equal(a, b) {
 			t.Errorf("%d partials merged:\n%s\none node over the same bundles:\n%s", k, a, b)
 		}
-		// The three ok bundles; the two with a jets:exception contribute nothing
-		// (Q-113). Node 1 ran only those two, and its partial is still written,
+		// The three ok bundles; the two with a jets:exception contribute nothing.
+		// Node 1 ran only those two, and its partial is still written,
 		// with no rule set, so it merges as nothing.
 		if rs := merged.ForRuleSet(executeRulesRuleFile); rs == nil || rs.Sessions != 3 {
 			t.Errorf("%s: %+v, want 3 sessions", executeRulesRuleFile, rs)

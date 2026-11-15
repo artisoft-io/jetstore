@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -132,7 +133,7 @@ type JetStoreStackComponents struct {
 	// It is a separate gate from DeployCpipesNative rather than a value of one selector,
 	// because the two are not alternatives: a deployment may want the native node Lambda for
 	// its jetrules steps and the Python node for its own operators, and both state machines
-	// get the Python arm when this is on (buildCpipesSMInternal is shared, which is F1536's
+	// get the Python arm when this is on (buildCpipesSMInternal is shared, which is the
 	// reason for the ECS half being in both).
 	DeployCpipesPython bool
 
@@ -457,12 +458,56 @@ func (jsComp *JetStoreStackComponents) TempDir() string {
 	return tmpDir
 }
 
+// jetStoreBucketSentinel is the name a pipeline document writes to mean the
+// deployment's own bucket (awsi.JetStoreBucketSentinel; the stack package does
+// not import awsi, and a test holds the two equal). It is resolved at run time
+// and is never the name of a bucket, so granting IAM on it grants nothing.
+const jetStoreBucketSentinel = "jetstore_bucket"
+
+// externalBucketName matches a bucket name as S3 accepts it, including the
+// legacy names an older bucket may still carry (upper case and underscores, up
+// to 255 characters): letters, digits, dots, hyphens and underscores only, with
+// no whitespace, no scheme and no path.
+var externalBucketName = regexp.MustCompile(`^[A-Za-z0-9._-]{3,255}$`)
+
+// ExternalBucketNames splits EXTERNAL_BUCKETS on commas and checks each name.
+// It refuses an empty name (",," or a trailing comma), the jetstore_bucket
+// sentinel, and a name S3 would not accept, rather than granting IAM on it:
+// each of those was passed to Bucket_FromBucketName as a literal bucket name.
+// Names are not trimmed, because a name with a space in it was never a bucket.
+// The error lists every name refused.
+func ExternalBucketNames(value string) ([]string, error) {
+	if value == "" {
+		return nil, nil
+	}
+	names := strings.Split(value, ",")
+	var refused []string
+	for i, name := range names {
+		switch {
+		case name == "":
+			refused = append(refused, fmt.Sprintf("name %d is empty", i+1))
+		case name == jetStoreBucketSentinel:
+			refused = append(refused, fmt.Sprintf(
+				"name %d is %q, which means the deployment's own bucket in a pipeline document and is not a bucket name; leave it out",
+				i+1, name))
+		case !externalBucketName.MatchString(name):
+			refused = append(refused, fmt.Sprintf("name %d, %q, is not a bucket name", i+1, name))
+		}
+	}
+	if len(refused) > 0 {
+		return nil, fmt.Errorf("EXTERNAL_BUCKETS=%q: %s", value, strings.Join(refused, "; "))
+	}
+	return names, nil
+}
+
 func (jsComp *JetStoreStackComponents) ResolveExternalBuckets(stack awscdk.Stack) {
-	externalBuckets := os.Getenv("EXTERNAL_BUCKETS")
-	if externalBuckets == "" {
+	bucketNames, err := ExternalBucketNames(os.Getenv("EXTERNAL_BUCKETS"))
+	if err != nil {
+		log.Panicf("Terminated due to an invalid env variable: %v", err)
+	}
+	if len(bucketNames) == 0 {
 		return
 	}
-	bucketNames := strings.Split(externalBuckets, ",")
 	jsComp.ExternalBuckets = make([]awss3.IBucket, 0)
 	for i, bucketName := range bucketNames {
 		b := awss3.Bucket_FromBucketName(stack, jsii.String(fmt.Sprintf("ExternalBucket%d", i)), jsii.String(bucketName))

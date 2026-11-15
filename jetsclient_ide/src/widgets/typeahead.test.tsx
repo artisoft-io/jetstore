@@ -1,15 +1,15 @@
 /**
  * @vitest-environment jsdom
  *
- * The typeahead widget. Task I.2b.
+ * The typeahead widget.
  *
  * The ordering and filtering rules are `suggestionsFor`'s and are tested without
  * a DOM in `userflow/formQueries.test.ts`. What is asserted here is the part that
  * needs one: that the value written to **form state** is what the user typed or
  * chose, and that the listbox opens and closes when the Flutter widget's does.
  *
- * The form-state assertions matter more than the markup ones for the reason A.3
- * gives: the query builder downstream distinguishes an absent key from an empty
+ * The form-state assertions matter more than the markup ones for the reason
+ * `useFormField` gives: the query builder downstream distinguishes an absent key from an empty
  * one, and getting that wrong does not look wrong on screen.
  */
 

@@ -102,16 +102,22 @@ func TestTheDocsSectionListsPagesAndSettingsWritable(t *testing.T) {
 	}
 }
 
-func TestIsReadOnlyExemptsTheDocsFolderOnly(t *testing.T) {
+// And the workspace's root README, since 2026-11-14 (IsRootReadme): no other
+// README, and no other root `.md`.
+func TestIsReadOnlyExemptsTheDocsFolderAndTheRootReadmeOnly(t *testing.T) {
 	for path, want := range map[string]bool{
-		"README.md":                         true,
+		"README.md":                         false,
+		"./README.md":                       false,
+		"CHANGES.md":                        true,
+		"README.mdx":                        true,
+		"notes/../README.md":                false,
 		"pipes_config/README.md":            true,
 		"docs/index.md":                     false,
 		"docs/customisation/observe.md":     false,
 		"./docs/index.md":                   false,
 		"docs/workspace_docs.json":          false,
 		"docs/../pipes_config/README.md":    true,
-		"docs/../README.md":                 true,
+		"docs/../README.md":                 false,
 		"pipes_config/docs/README.md":       true,
 		"mydocs/README.md":                  true,
 		"jet_rules/a.jr":                    false,
@@ -121,7 +127,7 @@ func TestIsReadOnlyExemptsTheDocsFolderOnly(t *testing.T) {
 		"pipes_config/notes.mdx":            true,
 		"docs/../pipes_config/notes.mdx":    true,
 		// Without case, since 2026-11-14.
-		"README.MD":              true,
+		"README.MD":              false,
 		"pipes_config/README.Md": true,
 		"pipes_config/notes.MDX": true,
 		"docs/index.MD":          false,

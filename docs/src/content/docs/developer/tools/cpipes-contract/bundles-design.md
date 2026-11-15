@@ -44,7 +44,7 @@ still fits comfortably: worst `AnalyzePipe` at about 11,818 estimated and 13,501
 24,576. The layer's value is therefore semantic scoping and a two- to six-fold prompt saving, not
 fit. Nothing in the mechanism changes; the justification does.
 
-**A bundle is semantic, and the corpus cannot propose one.** With 45 live configs, `high_freq`,
+**A bundle is semantic, and the corpus cannot propose one.** With 45 live configs on 2026-08-19, `high_freq`,
 `ollama`, `anonymize`, `distinct` and `shuffling` appeared in one or two files each, and
 `clustering`, `avrg`, `max`, `min` and `multi_select` never appeared directly. At those counts the
 corpus cannot distinguish *semantically excluded* from *nobody has written one yet*: it gives cases,

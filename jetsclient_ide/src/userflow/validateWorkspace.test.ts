@@ -1,5 +1,5 @@
 /**
- * The workspace validator and its Node entry. `jetstore_maintenance_02` AG.2.
+ * The workspace validator and its Node entry.
  *
  * Three groups. The shipping assets pass with the production registry — the
  * claim that matters, since `install_workspace_assets` puts exactly these into
@@ -19,6 +19,8 @@ import { emptyRegistry } from "../actions/escapes";
 import { productionRegistry } from "../actions/registry";
 import { directoryReader, main } from "./validateWorkspaceCli";
 import {
+  MAX_FINDINGS_PER_FILE,
+  MAX_VALUES_LISTED,
   formatFindings,
   validateWorkspace,
   type WorkspaceFinding,
@@ -155,8 +157,8 @@ describe("each check fires at the file an author would edit", () => {
     expect(run(files)).toEqual([
       expect.objectContaining({
         file: "table_configs/client.tc.json",
-        // `/actions/1/` since 2026-10-01: `D06`'s *+ Add* is the client table's
-        // first action now (`jetstore_maintenance_02` `AF.2`).
+        // `/actions/1/` since 2026-10-01: the *+ Add* is the client table's
+        // first action now.
         pointer: "/actions/1/actionName",
         message: expect.stringContaining('(in flow "clientRegistryUF")'),
       }),
@@ -209,7 +211,7 @@ describe("each check fires at the file an author would edit", () => {
     expect(found[0]!.pointer).toMatch(/^\/forms\/.+\/validator$/);
   });
 
-  // `AM.4` (`R-15`). Each *+ Add* list with one key taken out. `key` decides
+  // Each *+ Add* list with one key taken out. `key` decides
   // insert or update in both wizards and is published by the table's selection;
   // `client` is also bound by the add step's form.
   const withoutKey = (flowKey: string, actionName: string, key: string) => {
@@ -245,7 +247,7 @@ describe("each check fires at the file an author would edit", () => {
     expect(found.map((f) => f.message)).toEqual([expect.stringContaining('leaves "rutTestCaseTable"')]);
   });
 
-  // `AM.1` (`I-11`). Both mutations name a predicate that is registered, so the
+  // Both mutations name a predicate that is registered, so the
   // escape check passes them and only the new rule can refuse them.
   it("an authored isEnabled the runtime would not use, on either side of the derivation", () => {
     const files = shippingTree("homeFiltersUF");
@@ -275,6 +277,68 @@ describe("each check fires at the file an author would edit", () => {
         message: expect.stringContaining('gates it on "hasDataRegistryFilters"'),
       }),
     );
+  });
+});
+
+/**
+ * A document with very many problems. A schema records one per failing
+ * element, so an oversized document could run the compile's Node heap out of
+ * memory: a `.tc.json` whose `columns` held a million numbers did, at 1 GB.
+ */
+describe("an oversized document", () => {
+  const all = (files: Record<string, string>) =>
+    validateWorkspace(memoryReader(files), { registry: productionRegistry });
+  const clientTable = "table_configs/client.tc.json";
+
+  it("lists the first findings of a file and counts the rest in one more", () => {
+    const files = shippingTree("clientRegistryUF");
+    edit(files, clientTable, (d) => {
+      d.columns = Array.from({ length: MAX_FINDINGS_PER_FILE + 50 }, (_, i) => i);
+    });
+    const ofTable = all(files).filter((f) => f.file === clientTable);
+    expect(ofTable).toHaveLength(MAX_FINDINGS_PER_FILE + 1);
+    expect(ofTable[0]).toMatchObject({ severity: "error", pointer: "/columns/0" });
+    expect(ofTable.at(-1)).toEqual({
+      severity: "error",
+      file: clientTable,
+      pointer: "",
+      message: `50 more finding(s) in this file are not listed: the validator lists the first ${MAX_FINDINGS_PER_FILE} of each file`,
+    });
+  });
+
+  it("lists every finding of a file at the cap, and adds nothing", () => {
+    const files = shippingTree("clientRegistryUF");
+    edit(files, clientTable, (d) => {
+      d.columns = Array.from({ length: MAX_FINDINGS_PER_FILE }, (_, i) => i);
+    });
+    const ofTable = all(files).filter((f) => f.file === clientTable);
+    expect(ofTable).toHaveLength(MAX_FINDINGS_PER_FILE);
+    expect(ofTable.every((f) => f.pointer.startsWith("/columns/"))).toBe(true);
+  });
+
+  it("says a document too large to list is invalid, in one finding, without collecting the rest", () => {
+    const files = shippingTree("clientRegistryUF");
+    edit(files, clientTable, (d) => {
+      d.columns = Array.from({ length: MAX_VALUES_LISTED + 10 }, (_, i) => i);
+    });
+    const ofTable = all(files).filter((f) => f.file === clientTable);
+    expect(ofTable).toEqual([
+      {
+        severity: "error",
+        file: clientTable,
+        pointer: "",
+        message: expect.stringContaining(`holds more than ${MAX_VALUES_LISTED} values`) as unknown as string,
+      },
+    ]);
+  });
+
+  it("accepts a valid document too large to list, as before", () => {
+    const files = shippingTree("clientRegistryUF");
+    edit(files, clientTable, (d) => {
+      const extra = Array.from({ length: MAX_VALUES_LISTED / 2 }, (_, i) => ({ name: `c${i}`, label: `C${i}` }));
+      d.columns = [...d.columns, ...extra];
+    });
+    expect(all(files).filter((f) => f.file === clientTable)).toEqual([]);
   });
 });
 

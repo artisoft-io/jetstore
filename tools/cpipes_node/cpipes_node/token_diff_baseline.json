@@ -1,6 +1,6 @@
 {
   "measured": "2026-09-21",
-  "note": "Declared, not computed. Moving a set here is an act somebody takes on purpose and explains in the commit message; see R10 and Q-3 in projects/jetstore_maintenance_01.",
+  "note": "Declared, not computed. Moving a set here is an act somebody takes on purpose and explains in the commit message.",
   "kinds": {
     "input_channel": {
       "go_only": [

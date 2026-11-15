@@ -5,6 +5,7 @@
     {
       "name": "key",
       "label": "Key",
+      "table": "source_config",
       "tooltip": "Row Primary Key",
       "isNumeric": true,
       "isHidden": true

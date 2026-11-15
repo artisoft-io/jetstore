@@ -25,7 +25,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const testInputKey = "input/client=CGT/vendor=ACME/object_type=eligibility/" +
+const testInputKey = "input/client=CI/vendor=ACME/object_type=eligibility/" +
 	"year=2026/month=09/day=16/eligibility_20260916.csv"
 
 // eventSeams records what processMessage asked of the claim, and answers the

@@ -19,7 +19,7 @@ import (
 
 // Environment is what a result must carry for two results to be compared: the
 // machine's state, the build of the library and of the command, and the
-// workspace (rules_benchmark §5.5, R-10).
+// workspace.
 type Environment struct {
 	Host       string    `json:"host"`
 	Kernel     string    `json:"kernel"`

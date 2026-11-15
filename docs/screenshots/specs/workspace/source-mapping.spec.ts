@@ -2,7 +2,7 @@
 // configurations, the mapping of hc:PharmacyClaim, and the dialog that pastes
 // a mapping, cancelled.
 import { expect, test } from "@playwright/test";
-import { openFlowMenu, screenshotsFor, settle, signIn, waitForTable } from "../../lib/shots";
+import { openFlowMenu, screenshotsFor, settle, signIn, tick, waitForTable } from "../../lib/shots";
 
 const { shot } = screenshotsFor("user/screens/flows/source-mapping");
 
@@ -12,7 +12,7 @@ test("Source Mapping flow", async ({ page }) => {
   const configs = await waitForTable(page);
   await shot(page, "select-source-config");
 
-  await configs.locator("tbody tr").filter({ hasText: "hc:PharmacyClaim" }).getByRole("checkbox").check();
+  await tick(configs.locator("tbody tr").filter({ hasText: "hc:PharmacyClaim" }).getByRole("checkbox"));
   await page.getByRole("button", { name: "Next", exact: true }).click();
   const mapping = await waitForTable(page);
   await expect(mapping.locator("tbody tr").filter({ hasText: "hc:Claim_ID" })).toBeVisible();

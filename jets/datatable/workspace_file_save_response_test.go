@@ -23,7 +23,7 @@ func TestSaveResponseCarriesTheWarnings(t *testing.T) {
 	writes := 0
 	write := func() error { writes++; return nil }
 
-	results, status, err := saveCheckedWorkspaceFile(escaped, name, misspelt, write)
+	results, status, err := saveCheckedWorkspaceFile(escaped, name, misspelt, nil, write)
 	if err != nil || status != http.StatusOK || writes != 1 {
 		t.Fatalf("a save with a warning only: status %d, err %v, %d writes; want 200, nil, 1", status, err, writes)
 	}
@@ -51,7 +51,7 @@ func TestSaveResponseCarriesTheWarnings(t *testing.T) {
 	}
 
 	// No finding: the field is there, and empty rather than null.
-	results, status, err = saveCheckedWorkspaceFile(escaped, name, goodPipelineConfig, write)
+	results, status, err = saveCheckedWorkspaceFile(escaped, name, goodPipelineConfig, nil, write)
 	if err != nil || status != http.StatusOK || writes != 2 {
 		t.Fatalf("a clean save: status %d, err %v, %d writes", status, err, writes)
 	}
@@ -61,7 +61,7 @@ func TestSaveResponseCarriesTheWarnings(t *testing.T) {
 
 	// An error refuses the save, and nothing is written.
 	refused := strings.Replace(goodPipelineConfig, `"rdf_type": "double"`, `"rdf_type": "money"`, 1)
-	results, status, err = saveCheckedWorkspaceFile(escaped, name, refused, write)
+	results, status, err = saveCheckedWorkspaceFile(escaped, name, refused, nil, write)
 	if err == nil || status != http.StatusBadRequest || results != nil || writes != 2 {
 		t.Errorf("a save with an error: status %d, err %v, results %v, %d writes; want 400, an error, nil, 2",
 			status, err, results, writes)
@@ -72,7 +72,7 @@ func TestSaveResponseCarriesTheWarnings(t *testing.T) {
 	// A failed write is the write's error, with a status the client reads as a
 	// failure: the HTTP layer sends the status it is given, and the IDE reads it.
 	failed := errors.New("disk full")
-	results, status, err = saveCheckedWorkspaceFile(escaped, name, goodPipelineConfig, func() error { return failed })
+	results, status, err = saveCheckedWorkspaceFile(escaped, name, goodPipelineConfig, nil, func() error { return failed })
 	if !errors.Is(err, failed) || status != http.StatusInternalServerError || results != nil {
 		t.Errorf("a failed write: status %d, err %v, results %v; want 500, the write's error, nil", status, err, results)
 	}

@@ -6,7 +6,7 @@ import "github.com/artisoft-io/jetstore/jets/wsvalidate"
 // row it takes in the save path's per-suffix validator table
 // (`workspaceFileValidators`, `jets/datatable/workspace_file_validators.go:29`).
 //
-// **`AK.1` left this open on purpose and `AK.2` closes it** (I-417): `ParseSchema`
+// **The checker left this open on purpose and this file closes it**: `ParseSchema`
 // already returned `wsvalidate.Finding`, which is the signature a row takes, so
 // what was missing was not a mechanism but a home. The suffix follows the family
 // already in that table - `.uf.json`, `.ua.json`, `.form.json`, `.tc.json` - and
@@ -24,7 +24,7 @@ import "github.com/artisoft-io/jetstore/jets/wsvalidate"
 // A provenance schema names the fields of one briefing and the properties of one
 // domain model; `cintel:` is `jets_ws`'s vocabulary and means nothing in the
 // other three workspaces. That puts it on the opposite side of the line from
-// P3 U.2's projected user flows, which are byte-identical everywhere and are
+// the projected user flows, which are byte-identical everywhere and are
 // installed rather than committed.
 const DocumentSuffix = ".pv.json"
 

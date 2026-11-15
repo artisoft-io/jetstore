@@ -46,13 +46,28 @@ def go_source(relative: str) -> str:
 
 
 def pipes_config_corpus() -> tuple[Path, ...]:
-    """Every authored `.pc.json` in the workspaces, sorted.
+    """Every `.pc.json` directly under a workspace's `pipes_config/`, sorted.
 
-    The same corpus `cpipes-contract corpus` walks, minus its
-    `jets_assets_manifest.json` filtering, which is about what JetStore owns
-    rather than about what validates.
+    This includes the JetStore-owned configs installed into a workspace (see
+    `installed_assets`), which must validate like any other; the authored ones are
+    this minus those.
     """
     return tuple(sorted((SUPERPROJECT / "workspaces").glob("*/pipes_config/*.pc.json")))
+
+
+def installed_assets(pipes_config: Path) -> frozenset[str]:
+    """The file names JetStore installed into this `pipes_config/`, from the
+    `jets_assets_manifest.json` the installer writes beside them.
+
+    They are git-ignored copies of JetStore's own configs, present or not according
+    to whether the workspace's assets were installed in this checkout, so a count of
+    the corpus that includes them is a count of the checkout rather than of what
+    the workspace authored.
+    """
+    manifest = pipes_config / "jets_assets_manifest.json"
+    if not manifest.is_file():
+        return frozenset()
+    return frozenset(json.loads(manifest.read_text()).get("assets", {}))
 
 
 MEMORY_CHANNEL = {"name": "out", "type": "memory", "channel_spec_name": "out"}
@@ -81,7 +96,7 @@ def document(apply: list[dict[str, Any]], channel_type: str = "generator") -> di
     builds its own `apply`, and a shared fixture carrying six operators would
     make a test that meant to examine one of them pass on another.
 
-    **Minimal and runnable, which it was not until P9-T04.** It grew the
+    **Minimal and runnable, which it was not at first.** It grew the
     generator channel's own spec and `common_runtime_args`, because a document
     that stops at the scope gate needs neither and one that runs needs both — and
     a fixture that cannot run is a fixture that can only ever test a refusal.
@@ -128,7 +143,7 @@ def authored_document(apply: list[dict[str, Any]]) -> dict:
     accepts has to hand it an authored document, or it gets a refusal about the
     wrong field and passes for the wrong reason. It carries a `cluster_config`
     for the same reason: the contract requires one of every authored document
-    (JM-052, 2026-11-10).
+    (2026-11-10).
     """
     doc = document(apply)
     doc.pop("common_runtime_args")
@@ -202,9 +217,9 @@ def declared_and_unbuilt():
     """Make `aggregate` a declaration with no `build`, for the length of one test.
 
     **Every test of the declared-and-not-implemented refusal named a real token,
-    and P9-T06 is when that stopped working**: `map_record`, `filter` and
+    and that stopped working once the transformations were built**: `map_record`, `filter` and
     `partition_writer` all carry a `build` now, and the one declaration still
-    without one is `merge_files`, which P9-T08 is landing. A test whose subject is
+    without one is `merge_files`, which was still being landed. A test whose subject is
     *which token happens to be unfinished* has a subject that empties as the
     phase progresses — so the subject is a declaration the test makes itself, and
     the refusal stays exercised when the scope is complete.

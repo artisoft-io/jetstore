@@ -2,7 +2,7 @@
 // client list, the dialog that adds a client, and CI's vendors. Both dialogs
 // are cancelled.
 import { expect, test } from "@playwright/test";
-import { openFlowMenu, screenshotsFor, settle, signIn, waitForTable } from "../../lib/shots";
+import { openFlowMenu, screenshotsFor, settle, signIn, tick, waitForTable } from "../../lib/shots";
 
 const { shot } = screenshotsFor("user/screens/flows/clients-and-vendors");
 
@@ -20,7 +20,7 @@ test("Clients & Vendors flow", async ({ page }) => {
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(dialog).toHaveCount(0);
 
-  await clients.locator("tbody tr").filter({ hasText: "Clinical Intel" }).getByRole("checkbox").check();
+  await tick(clients.locator("tbody tr").filter({ hasText: "Clinical Intel" }).getByRole("checkbox"));
   await page.getByRole("button", { name: "Next", exact: true }).click();
   const orgs = await waitForTable(page);
   await expect(orgs.locator("tbody tr").filter({ hasText: "D1" })).toBeVisible();

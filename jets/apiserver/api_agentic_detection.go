@@ -1,6 +1,6 @@
 package main
 
-// The Detection screen's two actions on the agentic endpoint (agentic_ai I-861):
+// The Detection screen's two actions on the agentic endpoint:
 // list the recorded runs of the detection commands, and start the deployed
 // detection task now rather than at its scheduled hour.
 //

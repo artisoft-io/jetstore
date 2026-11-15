@@ -1,6 +1,6 @@
 package datatable
 
-// Session Registry's Resubmit as Pending (JM-185, 2026-11-12): copies the runs
+// Session Registry's Resubmit as Pending (2026-11-12): copies the runs
 // of the selected sessions into new sessions with status pending, and starts
 // nothing. The use case is re-processing: put the runs in pending, delete the
 // sessions they replace, then start them with Check Pending on Pipeline Status.

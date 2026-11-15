@@ -1,5 +1,5 @@
 /*
- * Styles for the runbook screens (`runbooks` project, Phase 1, track AC).
+ * Styles for the runbook screens.
  *
  * A file of its own, as `proposals.css` is: every colour is one of the app's
  * custom properties, so light and dark follow the theme, and nothing is added to
@@ -189,7 +189,7 @@
 }
 
 /* A run is opened from a button labelled with its number, not from a bare
-   number: easier to see and to hit (Michel, 2026-11-07). */
+   number: easier to see and to hit (2026-11-07). */
 .runbook-run-btn {
   display: inline-block;
   min-width: 3ch;
@@ -198,4 +198,28 @@
   font-size: 12.5px;
   text-align: center;
   text-decoration: none;
+}
+
+/* A boolean field: Yes and No, neither chosen until the person chooses. */
+.runbook-yes-no {
+  display: flex;
+  gap: 16px;
+  padding: 2px 0;
+}
+.runbook-yes-no label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.runbook-yes-no input {
+  padding: 0;
+  margin: 0;
+}
+.runbook-yes-no[aria-invalid="true"] {
+  outline: 1px solid var(--danger);
+  outline-offset: 2px;
+  border-radius: 5px;
 }

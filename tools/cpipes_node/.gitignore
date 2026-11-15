@@ -13,6 +13,6 @@ dist/
 # environment and nothing reads it at build time: the image installs with `pip`
 # from the source tree, so a committed lock here would look like the
 # reproducibility fix the image needs and would not be it. That fix is a
-# constraints file beside the packaging, and it is P9-I53's rather than this
-# task's to take.
+# constraints file beside the packaging, and it is a separate change rather
+# than this one.
 uv.lock

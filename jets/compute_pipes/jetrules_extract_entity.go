@@ -22,17 +22,17 @@ func (ce *JrSpecialColumnEncoding) EncodeColumnData(rdfSession JetRdfSession, su
 	extractAsEntity(rdfSession, ce.Config.RemoveModelPrefixes, subject, entityObj, ce.ExcludeProperties)
 	// log.Printf("*** Extracting json/toon obj - end")
 	if ce.Config.EntityEncoding == "briefing_prose" {
-		// The deterministic briefing (agentic_ai Phase 7 AT.3): the same entity
+		// The deterministic briefing: the same entity
 		// map the toon and json arms encode, rendered as the briefing itself.
 		//
 		// **It hangs here rather than beside the operator on purpose.** Plan
-		// §1.10.8's recommendation is "render from extractAsEntity's map with an
+		// The recommendation is "render from extractAsEntity's map with an
 		// empty exclusion set - one function, two callers, and the exclusion list
 		// the only difference between what the template sees and what the model
 		// sees", which is what criterion 76 needs: the template arm and the model
 		// arm must differ in the renderer and in nothing else. A second
 		// extraction path would be a second thing to keep in step, and this
-		// repository has measured what a second encoder costs (P2 M.5).
+		// repository has measured what a second encoder costs.
 		//
 		// Two settings a column carrying this encoding needs, neither of which
 		// this function can impose: remove_model_prefixes must be true, which
@@ -114,7 +114,7 @@ func extractAsEntity(rdfSession JetRdfSession, removeModelPrefixes bool, subject
 			// unwrapped (`extractLiteralValue`,
 			// `jets/compute_pipes/jetrules_pool_worker.go:434`), so a date was a
 			// date in a column and a nested object in the prompt.
-			// Found 2026-09-05 by agentic_ai's AK.2, whose provenance rule over a
+			// Found 2026-09-05 by the briefing provenance schema, whose rule over a
 			// service date could not read one.
 			addToEntityObj(entityObj, removeModelPrefixes, prop.String(), GetRdfNodeValue(itor.GetObject()))
 		}
@@ -153,13 +153,12 @@ func extractAsEntity(rdfSession JetRdfSession, removeModelPrefixes bool, subject
 // go-engine-final tag) and therefore a function of the process's map hash seed
 // rather than of the data.
 //
-// That was measured rather than assumed, by agentic_ai's Phase 7 (plan §1.21.1,
-// F801): **200 encodings of one unchanged rule session inside one process gave
+// That was measured rather than assumed: **200 encodings of one unchanged rule session inside one process gave
 // exactly one ordering; the same binary run as twelve separate processes gave
 // five of the six possible orderings of three conditions, one per process.**
 // A cpipes worker is a process, so a run is internally consistent - nothing
 // looks wrong - and the next run over identical data produces a different
-// prompt. Downstream (F836, F837) the TOON prompt differed byte for byte in 22
+// prompt. Downstream the TOON prompt differed byte for byte in 22
 // of 22 members between two runs and as a multiset of lines in 16 of 22, while
 // the deterministic template arm was byte-identical in only 4 of 22 and
 // identical as a bag of words in 22 of 22 - its variation was list order and
@@ -202,7 +201,7 @@ func extractAsEntity(rdfSession JetRdfSession, removeModelPrefixes bool, subject
 //     template arm reads this same map (`Render`,
 //     `jets/agentic/briefing/prose/prose.go:125`). Ordering one alone would make
 //     the two arms differ in something other than the renderer, which is exactly
-//     what agentic_ai's criterion 76 forbids. One function, one place, both
+//     what the side-by-side comparison forbids. One function, one place, both
 //     consumers.
 //   - **Ordering the graph container itself.** It would fix every consumer at
 //     once, and it asserts an order the rdf data model does not have, changes a

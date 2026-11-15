@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -290,8 +291,17 @@ const RootNoteSuffix = ".md"
 // 2026-10-27) made a README read-only unless the validator table has a row for
 // it, and a test in package datatable fails if a read-only suffix gains one,
 // since the two would then contradict each other. A root README could not be
-// saved anyway: SaveContent takes the database content type from the first
-// path segment, and a root file has none.
+// saved anyway until 2026-11-14: SaveContent took the database content type
+// from the first path segment, and a root file has none. It records a root
+// file's override under RootContentType now, so that is no longer a reason.
+//
+// **Except the workspace's root README, since 2026-11-14**
+// (IsRootReadme), as that plan's answer said once a root file saved. It is
+// the workspace's own notes, which a Knowledge Engineer keeps up to date in
+// the IDE. A save makes it an override, which every start writes back
+// (SyncWorkspaceFiles, jets/workspace) and which makes no start-up compile
+// (overrideRequiresCompile there): nothing compiles or runs it. A README
+// anywhere else, and any other root `.md`, stay read-only.
 //
 // **Except under WritableMarkdownDir, since 2026-11-13.** A README beside a
 // workspace's pipelines is notes kept in its repository; a page under `docs/`
@@ -325,7 +335,7 @@ const WritableMarkdownDir = "docs"
 // The path is cleaned first, so that `docs/../pipes_config/README.md` is
 // judged as the README it names rather than as a page.
 func IsReadOnly(filePath string) bool {
-	if InDir(filePath, WritableMarkdownDir) {
+	if InDir(filePath, WritableMarkdownDir) || IsRootReadme(filePath) {
 		return false
 	}
 	cleaned := strings.ToLower(cleanWorkspacePath(filePath))
@@ -335,6 +345,18 @@ func IsReadOnly(filePath string) bool {
 		}
 	}
 	return false
+}
+
+// RootReadme is the name of the workspace's root README, matched without
+// case.
+const RootReadme = "README.md"
+
+// IsRootReadme reports whether the workspace-relative filePath is the
+// workspace's root README, `README.md` at the root, without case and after
+// cleaning the path as IsReadOnly does: `docs/../README.md` is the root
+// README, and `pipes_config/README.md` is not.
+func IsRootReadme(filePath string) bool {
+	return strings.EqualFold(cleanWorkspacePath(filePath), RootReadme)
 }
 
 // GeneratedDocsNames are the names, directly under WritableMarkdownDir, where
@@ -449,11 +471,18 @@ func BuildWorkspaceFileStructure(root, workspaceName string) ([]*WorkspaceNode, 
 	}
 
 	for _, f := range workspaceRootFiles {
+		// Sized as every other file node is (visitDir, visitRootNotes); a root
+		// file that is absent keeps its node, with no size.
+		var size int64
+		if info, err := os.Stat(filepath.Join(root, f.FileName)); err == nil {
+			size = info.Size()
+		}
 		resultData = append(resultData, &WorkspaceNode{
 			Key:          f.Key,
 			Type:         "file",
 			PageMatchKey: f.FileName,
 			Label:        f.Label,
+			Size:         size,
 			RoutePath:    "/workspace/:workspace_name/home",
 			RouteParams: map[string]string{
 				"workspace_name": workspaceName,

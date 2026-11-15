@@ -150,7 +150,7 @@ func (w *WorkspaceDB) SaveJetRules(ctx context.Context, db *sql.DB, jetRuleModel
 			jetRule.AuthoredLabel, jetRule.NormalizedLabel, jetRule.Label, w.mainFileKey, authoredFileKey})
 
 		// Rule Properties, in name order: map order made workspace.db differ
-		// from one compile of the same sources to the next (Q-49)
+		// from one compile of the same sources to the next
 		for _, propName := range slices.Sorted(maps.Keys(jetRule.Properties)) {
 			rulePropsData = append(rulePropsData, []any{maxKey, propName, jetRule.Properties[propName]})
 		}
@@ -546,7 +546,7 @@ func (w *WorkspaceDB) SaveJetstoreConfig(ctx context.Context, db *sql.DB, jetRul
 	// Insert new config entries
 	insertStmt := "INSERT INTO jetstore_config (source_file_key, config_key, config_value) VALUES (?, ?, ?)"
 	data := make([][]any, 0)
-	// In key order, for the reason rule_properties is (Q-49)
+	// In key order, for the reason rule_properties is
 	for _, key := range slices.Sorted(maps.Keys(jetRuleModel.JetstoreConfig)) {
 		data = append(data, []any{w.mainFileKey, key, jetRuleModel.JetstoreConfig[key]})
 	}

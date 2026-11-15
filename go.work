@@ -5,5 +5,5 @@ use (
 	./cdk/bootstrap_aws
 	./cdk/vpc_peering
 // ./cdk/sample_projects/private-api-stack/cdk
-// ../cedargate_ws
+// ../<a workspace with Go code>
 )

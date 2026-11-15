@@ -12,7 +12,7 @@ import (
 	"testing"
 )
 
-// The validation step's contract, jetstore_maintenance_02 AG.4 (criterion 21):
+// The validation step's contract:
 // a valid workspace passes, an invalid one fails the compile, a missing
 // interpreter or script fails it too, and only a named opt-out skips -- logging
 // why.

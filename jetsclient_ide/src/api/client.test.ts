@@ -67,7 +67,7 @@ describe("ApiClient", () => {
     });
   });
 
-  it("carries both build values from the login response (D05)", async () => {
+  it("carries both build values from the login response", async () => {
     // `jetstore_version` and `jetstore_git_sha` are the keys `Login` writes
     // (jets/apiserver/api_users.go); the footer formats the pair.
     const { impl } = stubFetch([
@@ -83,7 +83,7 @@ describe("ApiClient", () => {
   });
 
   it("reads a login response without a commit as an empty one", async () => {
-    // An apiserver older than D05 sends no `jetstore_git_sha`; the footer then
+    // An older apiserver sends no `jetstore_git_sha`; the footer then
     // shows the date alone rather than the word `undefined`.
     const { api } = await signedIn([]);
     expect(api.currentUser?.jetstoreGitSha).toBe("");
@@ -138,11 +138,11 @@ describe("ApiClient", () => {
     expect(api.currentUser).toBeNull();
   });
 
-  // C.17 / I-189: a capability refusal used to arrive as a 401 and sign the user
+  // A capability refusal used to arrive as a 401 and sign the user
   // out. These four pin the contract on this side of it.
   //
-  // **They were run against the pre-C.17 client first, and two of them passed** —
-  // which is C.4/C.14's sixth failure mode in `src/actions/README.md` (jetstore#2028,
+  // **They were run against the earlier client first, and two of them passed** —
+  // which is the sixth failure mode in `docs/src/content/docs/developer/testing/web-app/action-documents.md` (jetstore#2028,
   // unmerged at the time of writing) caught in the act,
   // and is worth recording rather than quietly fixing. Deleting the 403 branch from
   // `post` failed only *treats 403 as a refusal* and *falls back to a readable
@@ -152,7 +152,7 @@ describe("ApiClient", () => {
   // `PermissionDeniedError` rather than its effects, and both then failed.
   //
   // **And the assertion that reads as the heart of the defect is the weakest one
-  // here.** `api.isAuthenticated` staying true was true before C.17 too: the client
+  // here.** `api.isAuthenticated` staying true was true before the fix too: the client
   // never signed anyone out on a 403, because the server never sent one. The defect
   // was that a refusal arrived as a 401, so **nothing on this side can reproduce
   // it** — the guards that would have failed on the day are in `jets/datatable` and
@@ -182,7 +182,7 @@ describe("ApiClient", () => {
 
   // A refusal is an ApiError, so a caller that catches the base class is unaffected;
   // and it is *not* a SessionExpiredError, which is what every existing consumer
-  // discriminates on — `WorkspaceIde`'s guard, and agentic_ai's two proposal screens.
+  // discriminates on — `WorkspaceIde`'s guard, and the two proposal screens.
   // Neither needed an edit, and this test is why that claim is checkable.
   it("makes a refusal an ApiError and not a SessionExpiredError", async () => {
     const { api } = await signedIn([{ status: 403, body: { error: "no" } }]);

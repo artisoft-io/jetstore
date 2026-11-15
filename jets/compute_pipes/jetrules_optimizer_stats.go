@@ -12,8 +12,8 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// The rule optimizer's statistics, counted from sessions' graphs (jets/optstats,
-// rules_benchmark Phase 9). rules_bench -stats and a jetrules step's
+// The rule optimizer's statistics, counted from sessions' graphs (jets/optstats).
+// rules_bench -stats and a jetrules step's
 // optimizer_statistics option both count with OptimizerStats, after each rule set
 // of each session: from RuleSetsTimer's RuleSetDone in rules_bench, and from
 // RuleSetsConfig.AfterRuleSet in a pipeline.

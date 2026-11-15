@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// A lookup's bool column (rules_unit_test_harness I-45, row 2): the accepted
+// A lookup's bool column: the accepted
 // spellings package as 1 or 0, an empty cell as NULL, which both engines serve
 // as rdf null, and anything else stops the compile, naming where it is.
 func TestLookupBoolColumnPackaging(t *testing.T) {

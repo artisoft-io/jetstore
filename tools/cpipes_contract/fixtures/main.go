@@ -1,12 +1,12 @@
-// F.2b: harvest the compute_pipes test fixtures into library parts.
+// Harvest the compute_pipes test fixtures into library parts.
 //
-// A§6.1 source 2 proposes the test fixtures as a source for the fragment library:
+// The test fixtures are a proposed source for the fragment library:
 // author-written, correct by construction, and concentrated where the live corpus is
-// thin. I-35 measured the catch: of 171 `*Spec` composite literals with a plain type
+// thin. A measurement found the catch: of 171 `*Spec` composite literals with a plain type
 // name, 94 are self-contained and 77 reference test scope, and the scope-dependent ones
 // are the tail. Reading them as values means resolving that scope.
 //
-// **It is a resolver, not an evaluator.** I-35 left the choice open between a static
+// **It is a resolver, not an evaluator.** The choice was open between a static
 // resolver and a test-time capture. The resolver wins because the references that
 // matter are simple: `mergeColumn := []string{"key1"}` a few lines above the literal.
 // Nothing here runs a test, links the package, or depends on `go/types` - it reads

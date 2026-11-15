@@ -120,7 +120,7 @@ class ReteMetaStore {
    * Decides, once for every session built on this meta store, which node vertexes
    * record their inferred triples: one with a consequent that mints a resource or
    * reads the graph, so that retraction replays what its rows inferred rather than
-   * recomputing it (jets/rete/README.md, the retraction record).
+   * recomputing it (docs/src/content/docs/developer/engine/rule-engine/, the retraction record).
    */
   int
   initialize()
@@ -160,7 +160,7 @@ class ReteMetaStore {
     // Number each vertex's children by the index of its beta relation they query,
     // once, here, before any session: BetaRelation::initialize adds the indexes in
     // child order and only checks the key (AQVInitializeIndexesVisitor). Each
-    // session used to write it into this shared meta store (I-86).
+    // session used to write it into this shared meta store.
     for(auto const& nodeptr: this->node_vertexes_) {
       int count[4] = {0, 0, 0, 0};
       for(auto const* child: nodeptr->child_nodes) {

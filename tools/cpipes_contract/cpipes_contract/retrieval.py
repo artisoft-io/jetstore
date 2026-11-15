@@ -1,28 +1,28 @@
-"""T.3: the three candidate-selection methods the generate-and-compile run compares.
+"""The three candidate-selection methods the generate-and-compile run compares.
 
-Criterion 38 asks for compile-pass measured for **lexical against semantic** candidate
-selection, per operator with denominators. I-53 measured the same two on a *proxy* —
-key-path Jaccard against the part that was actually written — and found the largest gap
-either way at 0.034, with four of eleven evaluable types at zero headroom against a
-perfect ranker. I-96 took that as grounds to decline retrieval and close item 13, and
-recorded the reversal condition this module exists to test: **if semantic beats lexical
+The run measures compile-pass for **lexical against semantic** candidate
+selection, per operator with denominators. An earlier measurement compared the same two
+on a *proxy* — key-path Jaccard against the part that was actually written — and found
+the largest gap either way at 0.034, with four of eleven evaluable types at zero
+headroom against a perfect ranker. That was taken as grounds to decline retrieval, with
+a recorded reversal condition this module exists to test: **if semantic beats lexical
 on compile-pass, the decision was taken on the wrong metric.**
 
 **What is swapped is the ordering *within* a member type, and nothing else.** `examples_for`
 picks one part per member type before a second of any, because three `select` examples
 teach less than one each of select, value and eval. That property is orthogonal to
-ranking, and I-96 says so in terms — *"the swap is within type, so diversity survives;
-I-53 does not state that constraint and it is the one to keep"*. So the three methods here
+ranking: the swap is within type, so diversity survives, and that constraint is the
+one to keep. So the three methods here
 are three `rank` functions handed to one unchanged picker, rather than three pickers. A
 comparison that also changed the diversity rule would not be measuring the ranking.
 
-**The query is the hole's prompt and its `$item`, which is not what I-53 queried with.**
-I-53 queried a part's `name` — an identifier — against embedded JSON, and I-54 recorded
-that as a fair test of the only semantic retrieval the corpus then supported rather than
+**The query is the hole's prompt and its `$item`, which is not what the proxy queried with.**
+The proxy queried a part's `name` — an identifier — against embedded JSON, which was
+recorded as a fair test of the only semantic retrieval the corpus then supported rather than
 of semantic retrieval. Here the query is the English the authoring harness is actually
 given, so prose is on one side for the first time. That is a *different* experiment from
-I-53's and its result does not correct I-53's; what it does is answer the question I-96
-deferred, on the metric I-96 named.
+the proxy and its result does not correct it; what it does is answer the deferred
+question, on the metric the decision named.
 
 **The semantic arm needs an embedding model and refuses rather than degrading.** If no
 model on the inference server will embed, `Embedder.vectors` raises with the server's own
@@ -61,7 +61,7 @@ def tokenise(text: str) -> set[str]:
 def document_for(part: dict) -> str:
     """What a candidate is matched *as*.
 
-    The part's own name and its value, not its `description`: I-54 established that all
+    The part's own name and its value, not its `description`: it was established that all
     3,909 library parts carry the matrix's **type** description, so within a type the
     description is identical text and carries no discriminating signal at all. Matching
     on it would rank every candidate equally and call that a method.
@@ -84,7 +84,7 @@ def jaccard(a: set[str], b: set[str]) -> float:
 class Embedder:
     """`/api/embed` with a cache, for the semantic arm.
 
-    Not implemented over the `embed` operator L.4 shipped, deliberately: that operator
+    Not implemented over the shipped `embed` operator, deliberately: that operator
     runs inside a cpipes pipeline over a corpus in a database, and this needs a vector
     for one query string at authoring time. They share the `inferBackend` seam and
     nothing else.

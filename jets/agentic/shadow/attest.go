@@ -15,7 +15,7 @@ import (
 //
 // The obvious way to satisfy *the audit record shows it* is to write a row
 // saying so. That would be an assertion by the party being asked about, which is
-// the same objection plan §10.7 makes to a label the measured system wrote. What
+// the same objection the supervision design makes to a label the measured system wrote. What
 // this does instead is **derive** the answer from rows nothing here authored for
 // the purpose: the incident's own transition history, the remediation table's
 // contents, and the agreement between the two. A derivation can be re-run by
@@ -26,7 +26,7 @@ import (
 //   - How many incidents and transitions exist at all. A proof of a negative
 //     over an empty database proves nothing about the wiring, so the population
 //     is reported with the negatives rather than left to be asked for.
-//   - Are there any remediations. jetsapi.remediation was tabled by AB.2 with no
+//   - Are there any remediations. jetsapi.remediation was tabled with no
 //     executor; a row in it would mean something proposed an action.
 //   - **Has any incident ever been moved into an acting status.** This is asked
 //     of jetsapi.incident_event and not of jetsapi.incident.status, and the
@@ -47,16 +47,16 @@ import (
 // **jetsapi.incident_event has no append-only trigger.** The DDL says so in
 // terms: unlike jetsapi.agent_audit it is not trigger-protected, so a row can be
 // deleted. The hash chain covers a transition only where the incident names an
-// AgentRun (AB.4), and a deterministic classifier is not one — so every incident
-// this package writes is outside it (R-44, gap 27). What the attestation
+// AgentRun, and a deterministic classifier is not one — so every incident
+// this package writes is outside it. What the attestation
 // establishes is therefore a property of the record **as it stands**, not a
 // proof that nothing was removed from it.
 //
 // **And an absent table is not an empty one.** On a database that has never run
-// `update_db -migrateDb` since AB.2, jetsapi.remediation does not exist, and
+// `update_db -migrateDb` since the remediation table was added, jetsapi.remediation does not exist, and
 // "zero remediations" there would be reporting the migration rather than the
 // posture. Attestation.Holds is false in that state and Report says which table
-// was missing, which is AC.1's three-valued discipline arriving at the
+// was missing, which is triage's three-valued discipline arriving at the
 // attestation: *checked and none* and *could not check* are different answers.
 type Attestation struct {
 	Targets *Targets
@@ -83,7 +83,7 @@ type Attestation struct {
 	// AdjudicationsByAgent counts transitions into one of the three human
 	// verdicts that an agent made. Not an acting failure — nothing executes —
 	// but it would mean the system had labelled itself, which is the other thing
-	// this wiring is refused (plan §10.7).
+	// this wiring is refused.
 	AdjudicationsByAgent int64
 }
 
@@ -91,7 +91,7 @@ type Attestation struct {
 //
 // It requires the tables to be present: an attestation over a database where the
 // subject does not exist is not evaluable, and returning true for it would be
-// the boolean-predicate mistake §13.4 is written against.
+// the boolean-predicate mistake the three-valued verdict is written against.
 func (a *Attestation) Holds() bool {
 	return a.Targets != nil && a.Targets.Ready() && a.Targets.Remediation &&
 		a.Remediations == 0 &&

@@ -13,8 +13,8 @@ var (
 	_ compute_pipes.PredicateKeyer = (*TripleIteratorNative)(nil)
 )
 
-// NodeKey is the identity extraction groups a subject's triples by (rules_benchmark
-// G11): equal keys exactly when Equals is true, including for a predicate read back
+// NodeKey is the identity extraction groups a subject's triples by:
+// equal keys exactly when Equals is true, including for a predicate read back
 // from an iterator, which is a new wrapper on every read. Same environment as
 // rdf_node_test.go.
 func TestNativeNodeKeyIsEquals(t *testing.T) {

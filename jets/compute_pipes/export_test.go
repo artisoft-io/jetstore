@@ -27,8 +27,8 @@ func NewBuilderContextForTest(peKey int, sessionId string, cpConfig *ComputePipe
 
 // ExtractRowsBothWaysForTest builds the row of every subject of className in
 // rdfSession twice: by columnReader's one pass over the subject's triples, and by
-// one FindSP per column, which is how extraction read them before rules_benchmark
-// G11. keyed reports that the pass was used, i.e. the engine's nodes have identity
+// one FindSP per column, which is how extraction read them before the single-pass
+// reader. keyed reports that the pass was used, i.e. the engine's nodes have identity
 // keys. column2RdfType is what a pipeline takes from the class's domain properties.
 func ExtractRowsBothWaysForTest(rdfSession JetRdfSession, className string, columns []string,
 	multiValue map[string]bool, column2RdfType map[string]string,

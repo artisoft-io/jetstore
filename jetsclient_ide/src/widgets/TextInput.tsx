@@ -1,5 +1,5 @@
 /**
- * The text input widget. Task A.3.
+ * The text input widget.
  *
  * **Scoped by measurement, not by guesswork.**
  * `jetsclient/test/form_field_corpus_test.dart` serialises every field the nine
@@ -128,14 +128,14 @@ export function TextInput({
 
 /**
  * ~~**`isReadOnlyEval` is not implemented, and that is a decision.**~~
- * **Implemented at the document layer by C.2b, and this widget is unchanged.**
+ * **Implemented at the document layer, and this widget is unchanged.**
  *
  * The original note is kept because its reasoning held and its prediction was
  * half right. It read: *it is a Dart closure, so it cannot cross into a
  * configuration file any more than `cellFilter` or the action delegates could. No
  * field in the nine flows sets it, so nothing is lost today. When one needs to,
  * the answer is the same as everywhere else in this port: express the condition
- * in the flow schema S.1 defines, not as a function pointer.*
+ * in the flow schema, not as a function pointer.*
  *
  * Both halves of the diagnosis were right. What arrived is the third answer this
  * port gives to a closure rather than the one predicted: **a name, resolved

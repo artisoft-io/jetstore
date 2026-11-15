@@ -1,6 +1,6 @@
 /**
  * No source file calls the browser's own `confirm` or `prompt`.
- * jetstore_maintenance_02 `I-39`, 2026-10-02.
+ * Added 2026-10-02.
  *
  * **The embedded browser pane the app is tested in never shows either.**
  * Measured: `window.confirm(...)` returns `false` in about a millisecond with

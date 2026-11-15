@@ -1,5 +1,5 @@
 /**
- * The eleven Dart flows, in the new representation. Task S.1.
+ * The eleven Dart flows, in the new representation.
  *
  * **A schema nobody has run the real corpus through is a proposal.** The plan
  * takes that discipline from the cpipes side, where
@@ -11,9 +11,9 @@
  *
  * It is throwaway in one sense and not in another. Nothing in the shipped app
  * will call it once the flows are authored as `.uf.json`. But it is also how
- * those files get written in the first place: S.5 migrates two or three flows,
- * and hand-transcribing them is exactly the mistake the three corpora exist to
- * stop. `writeFlows` is the seam S.5 uses.
+ * those files get written in the first place: the first migration took two or three
+ * flows, and hand-transcribing them is exactly the mistake the three corpora exist
+ * to stop. `writeFlows` is the seam that migration uses.
  *
  * ## The two places the conversion is not mechanical
  *
@@ -83,7 +83,7 @@ export const formStateInitializerNames: Record<string, string> = {
 };
 
 /**
- * What each flow is called. Task D.7, from **I-263**.
+ * What each flow is called, as a defect report asked.
  *
  * **A table here for the same reason `formStateInitializerNames` is one: the
  * value exists and the corpus never traversed it.** `user_flow_corpus_test.dart`
@@ -91,7 +91,7 @@ export const formStateInitializerNames: Record<string, string> = {
  * `ScreenConfig` registered for the flow's *route*
  * (`jetsclient/lib/screens/user_flow_screen.dart:37` draws `screenConfig.title`
  * above the form). So the fixture cannot supply these and never could, which is
- * why S.1 concluded a flow had no title and the runner ended up rendering the
+ * why the first flow schema concluded a flow had no title and the runner ended up rendering the
  * key.
  *
  * **Ten titles for eleven flows, and the eleventh is not missing.**
@@ -103,8 +103,8 @@ export const formStateInitializerNames: Record<string, string> = {
  * `workspace_pull/` is not: it registers two configurations for its two flows.
  *
  * **Four are the reporter's rather than Flutter's, and that is the whole of the
- * divergence.** I-263 says *"the actual label to use are given in I-261"*, and
- * I-261 renames the four flows it puts in the launcher — so *Client Registry
+ * divergence.** The report took its labels from the launcher's report, which
+ * renames the four flows it puts in the launcher — so *Client Registry
  * User Flow* is *Clients & Vendors* here, and the heading agrees with the menu
  * entry that opened it. The other seven are recovered verbatim from the deleted
  * Dart, because nobody asked for them to change and inventing a rename is worse
@@ -120,24 +120,24 @@ export const formStateInitializerNames: Record<string, string> = {
  * documents still emitted from the frozen fixture (eleven at first, three since
  * 2026-10-11); a twelfth flow is authored as a document
  * and carries its own `title`, and never appears here. That is what keeps it off
- * I-25's list of hand-maintained mappings.
+ * the list of hand-maintained mappings.
  */
 export const flowTitles: Record<string, string> = {
-  // I-261's labels, for the four the launcher opens. **Spelled out at D.11**,
-  // from the second report on I-261: the menu abbreviated *Configuration* where
+  // The launcher report's labels, for the four the launcher opens. **Spelled out**
+  // after the second report on the launcher: the menu abbreviated *Configuration* where
   // every screen it sits beside writes it in full (`RuleConfig.tsx` has said
-  // *Rules Configuration* since C.13). The launcher reads these, so changing
+  // *Rules Configuration* from the start). The launcher reads these, so changing
   // them here changes both the menu entry and the heading of the flow it opens
   // — which is the point of the map and is why `App.tsx`'s `FLOW_MENU` was
   // changed in the same commit rather than left to drift.
   //
   // **`clientRegistryUF` (*Clients & Vendors*), `sourceConfigUF` (*Source
   // Configuration*) and `pipelineConfigUF` (*Pipeline Configuration*) were here
-  // until 2026-10-01**, when they left the fixture to be written by hand
-  // (`jetstore_maintenance_02` `AF.1`, `D06`). Their documents carry the same
+  // until 2026-10-01**, when they left the fixture to be written by hand.
+  // Their documents carry the same
   // titles, which is the rule the paragraph above states for a twelfth flow.
-  // `fileMappingUF` (*Source Mapping*) followed them the same day
-  // (`jetstore_maintenance_02` Phase 2), on the same terms.
+  // `fileMappingUF` (*Source Mapping*) followed them the same day,
+  // on the same terms.
   // Recovered from `jetsclient/lib/modules/user_flows/*/screen_config.dart`.
   homeFiltersUF: "Pipeline Execution Status Filters",
   loadFilesUF: "Load Files",
@@ -165,7 +165,7 @@ export const flowTitles: Record<string, string> = {
  * flows — `summaryUF` and `confirm` each appear in more than one.
  */
 export const actionTransitions: Record<string, string[]> = {
-  // **`clientRegistryUF.select_client` was here and is not any more — F.3,
+  // **`clientRegistryUF.select_client` was here and is not any more —
   // 2026-08-23.** The entry was `crShowVendorUF`'s, on the reasoning that "the
   // edge is real, and an entry that changes no outcome today is what stops the
   // table looking like it was written to fix one warning". The first half is
@@ -186,13 +186,13 @@ export const actionTransitions: Record<string, string[]> = {
   // `pcGotToAddMergeProcessInputUF` and `pcGotToAddInjectedProcessInputUF` are
   // inline buttons on `pcViewMergeProcessInputsUF` and
   // `pcViewInjectedProcessInputsUF` (`pipeline_config/form_config.dart:130`,
-  // `:158`) — see I-91.
+  // `:158`).
   //
   // The two buttons — "Add Data Source to Merge" and "Add Data Source for
-  // Historical Data" — that S.1 could not see, and reported as dead states.
+  // Historical Data" — that the first flow schema could not see, and reported as dead states.
   //
   // **Both entries left on 2026-10-01 with `pipelineConfigUF` itself**, which is
-  // written by hand from then on (`jetstore_maintenance_02` `AF.1`, `D06`); the two
+  // written by hand from then on; the two
   // `goToStates` they produced are in that document, unchanged, and this table is
   // empty because no flow left in the fixture has an action-driven jump.
 };

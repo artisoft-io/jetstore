@@ -13,7 +13,7 @@ import (
 //
 // The test for "the deployment's own bucket" (empty, or the "jetstore_bucket"
 // sentinel) is awsi.IsJetStoreBucket, used by every reader, writer and sink in
-// this package and in awsi. Until JM-057 it was spelled out by hand at each of
+// this package and in awsi. It was once spelled out by hand at each of
 // them, and none of them says anything about a bucket name that still carries
 // an unexpanded environment reference -- so a document naming
 // `${CORPUS_OUT_BUCKET}` was carried all the way to the write and created an S3
@@ -126,7 +126,7 @@ func ResolveBucket(bucket, jetStoreBucket string) (string, error) {
 // round: they tested the raw value for the sentinel and substituted
 // afterwards, so a bucket configured as ${X} with X = "jetstore_bucket" reached
 // the sinks as an external bucket of that name, and only the sinks' own
-// re-tests kept the write out of it (JM-057). The sinks still re-test, as
+// re-tests kept the write out of it. The sinks still re-test, as
 // defence in depth; this is where the decision is meant to be made.
 //
 // The unresolved case is refused at startup already (ValidateResolvedBuckets);

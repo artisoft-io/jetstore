@@ -6,7 +6,7 @@ package graphdump
 // and the C++ engine's were in native_test.go, built only with -tags jets_native so
 // that the package's tests could run without libjets.so. They now link the C++
 // engine: build against a libjets.so of this commit with the cgo override in
-// jets/cmds/rules_unit_test/README.md:
+// docs/src/content/docs/developer/testing/go-and-cpp.md:
 //
 //	CGO_CFLAGS="-I$PWD/jets" CGO_LDFLAGS="-L$LIB" LD_LIBRARY_PATH=$LIB \
 //	  go test -count=1 ./jets/rulesbench/graphdump/
@@ -191,7 +191,7 @@ func TestSessionDump(t *testing.T) {
 	}
 	defer engine.Release()
 	// 10,000 visits, set explicitly: the Go engine's default, and C++'s since
-	// rules_benchmark Q-83, which had none before, so that a rule that stopped
+	// 2026-10, which had none before, so that a rule that stopped
 	// terminating fails the test instead of hanging it.
 	jr := engine.JetResources()
 	if err := engine.Insert(jr.Jets__istate, jr.Jets__max_vertex_visits, engine.GetMetaResourceManager().NewIntLiteral(10000)); err != nil {

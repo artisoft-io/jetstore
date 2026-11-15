@@ -1,7 +1,7 @@
 /**
- * The form document's field kinds. Task I.2a.
+ * The form document's field kinds.
  *
- * The negative suite (S.6) covers what the schema must *reject*; this covers
+ * The negative suite covers what the schema must *reject*; this covers
  * what the `dropdown` variant must accept and what the rest of the form
  * machinery must then do with it. Both halves are needed: a variant that parses
  * but that `valueFieldsOf` does not return is a field no rule can reach, and
@@ -22,7 +22,7 @@ import {
 } from "./form";
 import { isFormValid, validateForm } from "./validateForm";
 
-/** The shape the agentic project's template projection emits (I-43). */
+/** The shape the agentic project's template projection emits. */
 const variantChoice = {
   field: "dropdown",
   key: "columnAggregationType",
@@ -58,7 +58,7 @@ describe("the dropdown field kind", () => {
     // 4 of the eleven `FormDropdownFieldConfig` instances set `isReadOnly` and 2
     // set `defaultItemPos` (`datatable/fixtures/form_fields.json`). They are
     // optional because their consumer will not send them, not absent because it
-    // will not (I-43).
+    // will not.
     expect(FieldSchema.parse(periodType)).toEqual(periodType);
     expect(FieldSchema.parse({ ...variantChoice, isReadOnly: true })).toMatchObject({
       isReadOnly: true,
@@ -98,8 +98,8 @@ describe("the dropdown field kind", () => {
     ).toBe(false);
   });
 
-  it("rejects I-11's query options, which are not this field's business", () => {
-    // The named query is form-level machinery and is I.2b. A document that
+  it("rejects the query options, which are not this field's business", () => {
+    // The named query is form-level machinery. A document that
     // spelled it here would be accepted and ignored, which is the failure the
     // closed objects exist to prevent.
     for (const extra of [
@@ -161,7 +161,7 @@ describe("a dropdown inside a form", () => {
 
 /**
  * **`extendsKey`, the third rule and the first that reads a second field.** Task
- * C.3b.
+ *
  *
  * The Dart it ports is `workspaceIDEFormValidator`'s `wsDbSourceFileName` arm
  * (`jetsclient/lib/modules/workspace_ide/screen_delegates.dart`,
@@ -283,7 +283,7 @@ describe("query-backed item sources", () => {
     const formState = new FormState();
     expect(validateForm(mapping, formState, 0)).toEqual([
       // The group travels with the error: a repeating form has one error list
-      // across n groups, and the renderer has to know which row to mark (F.1).
+      // across n groups, and the renderer has to know which row to mark.
       { key: "input_column", message: "Input Column must be selected.", group: 0 },
     ]);
     formState.setValue(0, "input_column", "member_id");
@@ -298,7 +298,7 @@ describe("query-backed item sources", () => {
   });
 
   it("reports nothing for a form whose dropdown carries only literals", () => {
-    // I.2a's variant is untouched by I.2b: `itemsFrom` is optional on a dropdown
+    // The static variant is untouched by queries: `itemsFrom` is optional on a dropdown
     // and absent is the static case.
     const literal: Form = FormSchema.parse({
       rows: [[variantChoice]],

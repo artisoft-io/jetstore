@@ -152,7 +152,7 @@ func TestTierGate_FailsClosed(t *testing.T) {
 				minTier:      "T0",
 			},
 			// The value the one non-test caller of this loop was carrying
-			// before AJ.1, and the reason a Go-side vocabulary earns its place.
+			// before the gate existed, and the reason a Go-side vocabulary earns its place.
 			gate: &FixedTierGate{Current: "assisted"},
 			want: "cannot be read",
 		},
@@ -191,7 +191,7 @@ func TestTierGate_FailsClosed(t *testing.T) {
 	}
 }
 
-// A nil gate is ungated, which is what every test written before AJ.1 is. This
+// A nil gate is ungated, which is what every test written before the gate is. This
 // asserts the property those tests rely on rather than leaving it to the fact
 // that they still pass.
 func TestTierGate_NilIsUngated(t *testing.T) {

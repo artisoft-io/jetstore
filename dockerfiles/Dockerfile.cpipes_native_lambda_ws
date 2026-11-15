@@ -11,7 +11,7 @@ FROM compile_ws:latest AS builder
 # across dockerfiles/ and the build scripts, 2026-09-13), and the image that is
 # pushed is per workspace: build_workspace.sh tags this one into
 # $CPIPES_LAMBDA_ECR_REPOSITORY, which the deploy scripts set to
-# 'cpipes_lambda_'${WORKSPACE}. That is the lambda-side mirror of what Q-150
+# 'cpipes_lambda_'${WORKSPACE}. That is the lambda-side mirror of what was
 # settled for cpipes:latest, and it is why there is nowhere for a second,
 # stock-entry lambda image to go.
 FROM cpipes_native_lambda:latest

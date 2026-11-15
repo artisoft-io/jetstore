@@ -605,7 +605,7 @@ func GetDomainProperties(className string, directPropertitesOnly bool) ([]string
 				// excludes object properties from the multi-value set, so a
 				// multi-valued one looked single-valued and its data was dropped.
 				// Both halves date from the commit that introduced object
-				// properties; see jets/compute_pipes/README.md.
+				// properties; see docs/src/content/docs/developer/compute-pipes/notes/.
 				//
 				// The *derived* list is filtered and `chSpec.Columns` is not — an
 				// explicitly listed column is still honoured, which is the escape

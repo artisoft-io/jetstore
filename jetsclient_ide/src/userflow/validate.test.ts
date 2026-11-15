@@ -1,5 +1,5 @@
 /**
- * Tests for the reference checks and the reachability policy (task S.1).
+ * Tests for the reference checks and the reachability policy.
  *
  * The reference checks themselves are exercised in `schema.test.ts`, against the
  * real flows. What is here is the **policy**, and the reason it has its own file
@@ -68,9 +68,9 @@ describe("the reachability policy", () => {
   });
 
   it("refuses nothing in the shipping corpus, which is what changed", () => {
-    // **S.1 asserted the opposite — that a strict deployment could not save
+    // **The first schema asserted the opposite — that a strict deployment could not save
     // `pipelineConfigUF`.** That was true of the check, not of the flow: two of
-    // its states are reached by a button and the document did not say so (I-18).
+    // its states are reached by a button and the document did not say so.
     // The switch is now free to turn on, which is the trade it should always
     // have been.
     const policy = policyFromEnv({ [VAR]: "true" });

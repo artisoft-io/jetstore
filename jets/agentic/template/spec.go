@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-// Spec is a template document (§10.2).
+// Spec is a template document.
 //
 // **The body is a structured document rather than one string**, and that is the
 // notation's one consequential choice. Order is a quarter of what this phase
@@ -18,7 +18,7 @@ import (
 // split is **structure above the paragraph, text inside it**: order, grouping
 // and the fallback are data, and the sentence is markup.
 //
-// `Key` is `PromptTemplateSpec`'s move repeated (F1129): a named document at
+// `Key` is `PromptTemplateSpec`'s move repeated: a named document at
 // the configuration root, referenced by a step, so that a template can be
 // shared and a name that is not there fails at build time.
 type Spec struct {
@@ -31,7 +31,7 @@ type Spec struct {
 	// (`PromptTemplateSpec`, `jets/compute_pipes/pipes_model.go:1207`) - so a
 	// `.pc.json` that comments every other object and cannot comment this one
 	// would be an inconsistency a reader reads as a mistake, and `wen` for
-	// `when` is caught either way. Added at `AY.3`, whose own document could
+	// `when` is caught either way. Added for the first real template, whose own document could
 	// not otherwise say why its predicates are shaped as they are.
 	Comment string `json:"comment,omitempty"`
 	// Key names the document within the configuration's `text_templates`.
@@ -50,7 +50,7 @@ type Spec struct {
 // Element is a paragraph or a group, and **nothing distinguishes them but which
 // field is present** - `text` for a paragraph, `elements` for a group. An
 // object carrying both or neither is a compile failure. Whether the cpipes
-// contract wants an explicit discriminator instead is Q-106, settled where the
+// contract wants an explicit discriminator instead is settled where the
 // matrix rows are written rather than here.
 type Element struct {
 	// Comment is free text for the reader; ignored by JetStore. See [Spec].

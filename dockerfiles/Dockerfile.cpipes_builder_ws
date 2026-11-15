@@ -15,11 +15,11 @@
 # today: Dockerfile.cpipes_builder is not edited, the six paths it copies do not
 # include dockerfiles/, and nothing here runs unless a build script asks for it.
 #
-# **That sentence read `bit for bit ... met by construction rather than by
-# comparison` when `BF.1` wrote it, and `BF.2` is why it no longer can.**
+# **That sentence once read `bit for bit ... met by construction rather than by
+# comparison`, and the site task entry is why it no longer can.**
 # Selecting this image needs one line in Dockerfile.cpipes -- an ARG whose
-# default is the literal that line used to carry -- so exit criterion 98 is now
-# met by a default rather than by an absence. It was also measured, 2026-09-12:
+# default is the literal that line used to carry -- so an unchanged stock build
+# is now held by a default rather than by an absence. It was also measured, 2026-09-12:
 # Dockerfile.cpipes rebuilt with no --build-arg is a total cache hit and writes
 # sha256:9a946a08870d, the id of the cpipes:latest built before the change.
 #
@@ -44,9 +44,9 @@ ENV WORKSPACES_REPO=/workspaces
 RUN test -n "${WORKSPACE}" || (echo "WORKSPACE build arg is required" >&2; exit 1)
 
 # The workspace tree, from the build context. Whole tree rather than the Go
-# source alone: the module root is the *workspace* root (cedargate_ws/go.mod,
-# module github.com/artisoft-io/cedargate_ws, with the source under go/), so
-# copying only go/ would leave the module without its go.mod.
+# source alone: the module root is the *workspace* root (<ws>/go.mod, with the
+# source under go/), so copying only go/ would leave the module without its
+# go.mod.
 #
 # No `chmod -R a+rX` here, and its absence is deliberate rather than an
 # oversight -- Dockerfile.compile_ws needs it because ensureLocalRepoSeeded
@@ -63,14 +63,15 @@ COPY . ${WORKSPACES_REPO}/${WORKSPACE}/
 # Measured 2026-09-12: with /go.work in place, `go env GOWORK` reports /go.work
 # from /app and from /workspaces/<ws> alike.
 #
-# **A workspace with no go.mod is refused here, and `BF.1` skipped instead.**
+# **A workspace with no go.mod is refused here; the first version of this image
+# skipped instead.**
 # The measurement behind the guard is unchanged and is the reason it exists: a
 # `use` directive naming a directory with no go.mod is not ignored, and every
 # subsequent go command in the image then fails with `cannot load module /<dir>
 # listed in go.work file`, including the ones that have nothing to do with the
-# workspace. Two of the four workspaces in this checkout have no go.mod
-# (jets_ws and walrus_ws, 2026-09-12). What changed is the right *response*: in
-# `BF.1` this image had no output, so falling back to plain module mode was
+# workspace. A workspace with no Go code has no go.mod (jets_ws has none,
+# 2026-09-12). What changed is the right *response*: in its first version
+# this image had no output, so falling back to plain module mode was
 # harmless; it now exists only to build the site task entry below, and that
 # entry cannot resolve JetStore without the composition. Failing here names the
 # cause; falling through would fail one layer later with `go build` complaining
@@ -93,16 +94,17 @@ RUN set -eu; \
 # **Two entries, and this image refuses to build one without the other.** The
 # task entry becomes cpipes_native_server, which Dockerfile.cpipes copies; the
 # native lambda entry becomes bootstrap, which Dockerfile.cpipes_native_lambda
-# copies. `BF.2` built the first alone and recorded the second as I-820 on the
-# grounds that a knob with no consumer is a row pointing at nothing. What the
-# state machine turned out to say is that these are not two knobs: both cpipes
-# state machines are built from the same ECS task definition and differ only in
-# their node Lambda (`buildCpipesSMInternal`, `build_cpipes_sm.go:21` and
-# `:25`), sharding always runs on the node Lambda (`runSharingNodeTask`, `:71`),
-# and each reducing iteration runs on the Lambda or on the ECS task as
-# `$.useECSReducingTask` decides at run time (`ecsOrLambdaChoice`, `:208`) from
+# copies. The first version built the task entry alone and left the second for
+# later, on the grounds that a knob with no consumer is a row pointing at
+# nothing. What the state machine turned out to say is that these are not two
+# knobs: both cpipes state machines are built from the same ECS task definition
+# and differ only in their node Lambda (`BuildCpipesSM` and `BuildCpipesNativeSM`
+# both call `buildCpipesSMInternal`, cdk/jetstore_one/stack/build_cpipes_sm.go),
+# sharding always runs on the node Lambda (`runSharingNodeTask`, same file), and
+# each reducing iteration runs on the Lambda or on the ECS task as
+# `$.useECSReducingTask` decides at run time (`ecsOrLambdaChoice`, same file) from
 # the pipeline's own `use_ecs_tasks` / `use_ecs_tasks_when` (`EvalUseEcsTask`,
-# `actions_start_common.go:1918`). **So a site operator in one binary and not
+# jets/compute_pipes/actions_start_common.go). **So a site operator in one binary and not
 # the other fails a step rather than a deployment**, inside a running worker,
 # as a function of a field in the .pc.json -- which is worse than a deployment
 # that extended neither. Refusing here costs a site the second main; that main
@@ -120,7 +122,7 @@ RUN set -eu; \
 # **JETS_CPIPES_NATIVE_LAMBDA_ENTRY is one word from JETS_CPIPES_NODE_LAMBDA_ENTRY
 # and they are different things.** That one is read by the CDK at synth time for
 # CpipesNodeLambda, the host-bundled Go function, and its path is resolved
-# against cdk/jetstore_one (`lambdaEntryOrDefault`, `stack_model.go:195`). This
+# against cdk/jetstore_one (`lambdaEntryOrDefault`, `stack_model.go`). This
 # one is a docker build arg resolved against the workspace root, for the
 # container-image function. A deployment with site operators wants both, plus
 # the task entry; nothing checks that it set all three, and build_cpipes.sh
@@ -128,20 +130,20 @@ RUN set -eu; \
 #
 # **Written over the stock binaries this image inherits from cpipes_builder, and
 # both names are forced rather than chosen.** The ECS task's entry point is
-# `cbooter cpipes_native_server` (`build_ecs_tasks.go:150`), cbooter refuses any
-# command outside its allowlist (`allowedCommands`,
-# `jets/cmds/cbooter/main.go:63`) and execs it by PATH lookup
+# `cbooter cpipes_native_server` (`buildCpipesTaskDefinition`,
+# `build_ecs_tasks.go`), cbooter refuses any command outside its allowlist
+# (`allowedCommands`, `jets/cmds/cbooter/main.go`) and execs it by PATH lookup
 # (`runCommandAsJsuser`). CpipesNativeNodeLambda is a container-image function
-# with `Cmd: bootstrap` (`build_cpipes_lambdas.go:144`) and
+# with `Cmd: bootstrap` (`CpipesNativeNodeLambda`, `build_cpipes_lambdas.go`) and
 # DockerImageFunctionProps has no Entry property, so nothing at synth can name a
 # different binary. Keeping both paths is what lets Dockerfile.cpipes and
 # Dockerfile.cpipes_native_lambda each select this image with one ARG and leave
 # their COPY --from=builder lines alone.
 #
-# The flags are the stock build's, `-ldflags="-w -s"`
-# (Dockerfile.cpipes_builder:66 for bootstrap, `:67` for cpipes_native_server);
-# CGO_ENABLED, GOOS and GOARCH are inherited ENV from the same image
-# (`:23`-`:25`).
+# The flags are the stock build's, `-ldflags="-w -s"` (Dockerfile.cpipes_builder,
+# its `go build ... -o bootstrap` and `-o cpipes_native_server` steps);
+# CGO_ENABLED, GOOS and GOARCH are inherited ENV from the same image (its
+# `ENV CGO_ENABLED`, `ENV GOOS` and `ENV GOARCH` lines).
 #
 # `go version -m` is printed rather than asserted, and it is the provenance
 # record this image otherwise has none of: it names the main package and the
@@ -169,7 +171,7 @@ RUN set -eu; \
 # prompt, so a site operator written against a JetStore API newer than that
 # image fails here with `no required module provides package ...`. Measured
 # 2026-09-12: a site operator importing jets/compute_pipes/pipesmodel, which
-# Phase 9's BC.2 added at 039a7b72, fails against a cpipes_builder built from
+# was added at 039a7b72, fails against a cpipes_builder built from
 # f84301fc -- eight commits and a few hours earlier. Answering the prompt with
 # `y` is the whole of the fix.
 ARG JETS_CPIPES_TASK_ENTRY

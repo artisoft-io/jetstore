@@ -1,5 +1,5 @@
 /**
- * The one escape `/workspaces` needs. Tasks C.2b and C.3.
+ * The one escape `/workspaces` needs.
  *
  * ## What the Dart's *Open* button does, and why the port is three lines
  *
@@ -14,8 +14,7 @@
  *
  * **So the Flutter screen cannot be entered by URL**: a user typing
  * `/#/workspaces/acme/home` gets it with an empty menu, because the fetch is on
- * the button rather than on the screen. C.2b declined to link to it for that
- * reason and named C.3.
+ * the button rather than on the screen.
  *
  * **The defect does not survive the port, and that is why this is now a
  * navigation and not a report.** `WorkspaceIde` fetches its own tree on mount —
@@ -30,10 +29,10 @@
  * the route at none"*, which is exact and true, and it was relayed onward as
  * *written by three button presses and read from nowhere*, which is not: it has
  * two readers in `base_screen.dart`. The difference matters, because *the screen
- * is unreachable* makes C.3 a design and *the screen is reachable by button and
+ * is unreachable* makes the entry point a design and *the screen is reachable by button and
  * not by URL* makes it a port with a known defect not to reproduce. **A true
  * sentence about one mechanism became a false sentence about the screen in one
- * hop.** Corrected 2026-08-25 by C.3, which read the Dart because it was about to
+ * hop.** Corrected 2026-08-25 by the task that read the Dart because it was about to
  * define the entry point.
  */
 
@@ -42,12 +41,12 @@ import type { EscapeContext, EscapeHost } from "./escapes";
 /**
  * The route this escape sends the user to.
  *
- * **C.2b named it before it existed and C.3 served exactly it**, which is the
+ * **It was named before it existed and then served exactly as named**, which is the
  * whole value of a constant here: the two ends agreed in advance rather than
  * discovering a disagreement at run time. It is the Flutter path verbatim, minus
  * nothing — `App.tsx` mounts it under the `/ide` basename, so handing a user over
  * from the other app is a prefix change rather than a translation, as it is for
- * C.7 and C.8.
+ *
  */
 export const WORKSPACE_HOME_ROUTE = "/workspaces/:workspace_name/home";
 

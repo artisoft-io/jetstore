@@ -198,7 +198,7 @@ func TestUnwrappingIsWhatKeepsTheImperativeFamilyHonest(t *testing.T) {
 }
 
 // TestTheOmissionRuleMatchesWords is the change that moves a number against
-// `AT.5`'s script: `arthritis` is a substring of `osteoarthritis` and is not a
+// the original script: `arthritis` is a substring of `osteoarthritis` and is not a
 // word of it.
 func TestTheOmissionRuleMatchesWords(t *testing.T) {
 	e := entity([]any{

@@ -1,6 +1,6 @@
 /**
  * `copySchemaEvent`: the selected run's schema event, onto the clipboard.
- * jetstore_maintenance_02, defect `D04`, task `AE.5` (2026-10-01).
+ * Added 2026-10-01.
  *
  * ## Keyed on `main_input_registry_key`, not on `input_session_id`
  *
@@ -11,7 +11,6 @@
  * session is not a registration. `pipeline_execution_status.main_input_registry_key`
  * names exactly one row, sits on the same table row, and is what the run was
  * started from; the Pipeline Status table's binding publishes it as of this task.
- * The assessment's `R8` and fact `F17`, and a correction to the report.
  *
  * ## Why it is an escape
  *
@@ -21,7 +20,7 @@
  * key is an integer primary key arriving on the selection, coerced through
  * `Number` before it is spliced, and the read is a `raw_query` gated by
  * `jetstore_read` — ending in `copyWithFallback`, so a refused clipboard write
- * shows the text instead (`R-2`).
+ * shows the text instead.
  */
 
 import type { EscapeContext, EscapeHost } from "./escapes";

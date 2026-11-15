@@ -1,7 +1,6 @@
 package datatable
 
-// A numeric column sorts as a number when its column names no table. Project
-// jetstore_maintenance_02, Phase 3, task AJ.3 (I-49; rules_unit_test_harness I-33).
+// A numeric column sorts as a number when its column names no table.
 //
 // makeSelectColumns casts every plain column to text and keeps its name
 // ("shard_id"::text), and PostgreSQL resolves a bare ORDER BY name to an output
@@ -12,7 +11,7 @@ package datatable
 // sort column with the only FROM entry (sortColumnIdentifier).
 //
 // The string tests always run. The PostgreSQL test is skipped unless
-// JETS_TEST_DSN names one, and shares track AC's database; see the header of
+// JETS_TEST_DSN names one, and shares the rules unit test database; see the header of
 // rules_unit_test_runs_test.go.
 
 import (
@@ -22,7 +21,7 @@ import (
 	"testing"
 )
 
-// The two tables I-49 names, as the client bundles them.
+// The two tables the defect named, as the client bundles them.
 const (
 	pipelineExecDetailsDoc = "../../jetsclient_ide/src/datatable/tables/pipelineExecDetailsTable.tc.json"
 	cpipesExecDetailsDoc   = "../../jetsclient_ide/src/datatable/tables/cpipesExecDetailsTable.tc.json"
@@ -115,7 +114,7 @@ func TestNumericColumnsSortAsNumbers(t *testing.T) {
 	if _, err := pool.Exec(bg, "CREATE SCHEMA IF NOT EXISTS jetsapi"); err != nil {
 		t.Fatal(err)
 	}
-	defs := rutTableDefs(t)
+	defs := jetsSchemaTables(t)
 	for _, name := range []string{"pipeline_execution_details", "cpipes_execution_status_details"} {
 		if _, err := pool.Exec(bg, "DROP TABLE IF EXISTS jetsapi."+name); err != nil {
 			t.Fatal(err)

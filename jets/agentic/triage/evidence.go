@@ -44,7 +44,7 @@ const triageTablesSQL = `SELECT
 // ReadExtent reports what observe.ReadExtent does plus the two tables above.
 // to_regclass returns NULL for an absent relation rather than raising, which is
 // what lets this answer on a database update_db has never touched — the case
-// N.4 found ReadExtent could not report on and fixed (F107).
+// ReadExtent once could not report on, since fixed.
 func ReadExtent(ctx context.Context, db observe.DB) (*Extent, error) {
 	base, err := observe.ReadExtent(ctx, db)
 	if err != nil {
@@ -59,8 +59,8 @@ func ReadExtent(ctx context.Context, db observe.DB) (*Extent, error) {
 
 // RunHeader is jetsapi.pipeline_execution_status for one run. Only four of its
 // seventeen columns are read: three keys and the status. failure_details is
-// read because it is the only evidence locus run_not_started has, and F197/F198
-// are why it is carried as prose rather than parsed — the state machine's six
+// read because it is the only evidence locus run_not_started has, and the
+// following is why it is carried as prose rather than parsed — the state machine's six
 // live catches all route to one error-status task, so the column says a failure
 // was caught and not where, and the one machine-readable class the platform
 // computes is discarded before the database.
@@ -101,7 +101,7 @@ const headerSQL = `SELECT key, session_id, client, process_name, main_object_typ
 
 // ReadHeader returns the run header, or nil when there is none. Nil is two
 // different things — a run that was never submitted and a run whose header the
-// six-month purge has taken (F54) — and the caller cannot tell them apart,
+// six-month purge has taken — and the caller cannot tell them apart,
 // which is why every predicate that needs the header reports NotEvaluable
 // rather than Absent when it is missing.
 func ReadHeader(ctx context.Context, db observe.DB, sessionId string) (*RunHeader, error) {
@@ -120,7 +120,7 @@ func ReadHeader(ctx context.Context, db observe.DB, sessionId string) (*RunHeade
 
 // ErrorSummary is what jetsapi.process_errors holds for one run. It is a
 // summary rather than the rows because the rows carry nothing to group by that
-// a diagnosis wants: F190 says the table has no cpipes_step_id and no
+// a diagnosis wants: the table has no cpipes_step_id and no
 // pipeline_execution_details_key, so an error row joins to one row per step of
 // the run and the join is worthless. What is countable is how many, over how
 // many shards, and how many carry each of the two columns a single operator
@@ -130,7 +130,7 @@ type ErrorSummary struct {
 	Rows      int64
 	Shards    int64
 	// WithInputColumn counts rows whose input_column is set. Only the inference
-	// operator family writes it (F185), so this is the fraction of the run's
+	// operator family writes it, so this is the fraction of the run's
 	// per-record errors that can say which column failed.
 	WithInputColumn int64
 	// WithReteSession counts rows carrying a saved rete session, which is the
@@ -233,8 +233,8 @@ func ReadEdges(ctx context.Context, db observe.DB, sessionId string) ([]Edge, er
 // other operator's row-level failure has nowhere to go by construction and is
 // not this locus.
 //
-// **Five, not the four F188 measured.** The vllm arm was added by AG.1 on the
-// same day AA.1 measured the corpus, so F188's "four operator types" is right
+// **Five, not the four first measured.** The vllm arm was added on the
+// same day the corpus was measured, so the "four operator types" figure is right
 // at its own pin (baee0c47) and is one short at this one. The corpus figures it
 // reports are unaffected: there is no vllm instance in any configuration yet.
 var errorChannelOperators = []string{"map_record", "jetrules", "ollama", "embed", "vllm"}
@@ -294,7 +294,7 @@ const configSQL = `SELECT cpipes_config_json FROM jetsapi.cpipes_execution_statu
 // operator instances that could report per-record errors.
 //
 // Three limits come with the source and every one of them bounds the locus
-// rather than the read (F194, F195, and config.go's own header):
+// rather than the read (see config.go's own header):
 //
 //   - cpipes_config_json holds at most ONE step's config — the sharding step's,
 //     overwritten by each reducing step — so a survey of it is a survey of the
@@ -437,9 +437,9 @@ func hasNamedErrorChannel(node any) bool {
 }
 
 // Evidence is one run's record, and what the read could not see. It is one
-// session by construction: Q-23 settled that an incident's grain is the
+// session by construction: it was settled that an incident's grain is the
 // session, because session_id is the only key all seven evidence-bearing
-// tables carry (F202), and a classifier keyed above that grain would produce
+// tables carry, and a classifier keyed above that grain would produce
 // findings whose evidence sets cannot be assembled by a join.
 type Evidence struct {
 	SessionId string
@@ -457,7 +457,7 @@ type Evidence struct {
 
 	Errors *ErrorSummary
 	// Edges is nil when jetsapi.pipeline_execution_channel_details is not
-	// deployed, which is the ordinary case (I-132).
+	// deployed, which is the ordinary case.
 	Edges []Edge
 
 	// Config is observe's confounder read, reused so that a finding's

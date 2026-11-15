@@ -1,14 +1,14 @@
 /*
- * Styles for the supervision screens (task K.3).
+ * Styles for the supervision screens.
  *
  * **A file of its own rather than a block in `styles.css`**, which belongs to
- * the ui_refresh project: it consumes their palette through the cascade — every
- * colour below is one of their custom properties, so light and dark follow the
+ * the app shell: it consumes its palette through the cascade — every
+ * colour below is one of its custom properties, so light and dark follow the
  * app's theme without a second switch — and adds nothing to a stylesheet this
- * project does not own. The same division `src/cpipes/` established for
+ * code does not own. The same division `src/cpipes/` established for
  * behaviour, applied to presentation.
  *
- * If these screens are ever restyled by the design pass track C brings, the
+ * If these screens are ever restyled by a later design pass, the
  * right move is to delete this file and use whatever table and definition-list
  * classes that pass establishes. Nothing here is load-bearing.
  */

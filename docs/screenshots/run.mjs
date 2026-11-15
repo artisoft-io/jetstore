@@ -61,14 +61,21 @@ function summary() {
   if (!existsSync(resultsFile)) return "no image taken";
   const counts = { new: 0, written: 0, unchanged: 0 };
   const changed = [];
+  // The unchanged image that came closest to being rewritten: the margin a
+  // run left below the rewrite rule (lib/shots.ts, compareAndWrite).
+  let closest = null;
+  const measure = ({ pixels, densest }) =>
+    densest == null ? "" : ` (${pixels} px differ, ${densest} in the densest 16 x 16 square)`;
   for (const line of readFileSync(resultsFile, "utf8").split("\n").filter(Boolean)) {
-    const { file, outcome } = JSON.parse(line);
-    counts[outcome] += 1;
-    if (outcome !== "unchanged") changed.push(`  ${outcome.padEnd(7)} ${file}`);
+    const result = JSON.parse(line);
+    counts[result.outcome] += 1;
+    if (result.outcome !== "unchanged") changed.push(`  ${result.outcome.padEnd(7)} ${result.file}${measure(result)}`);
+    else if (result.densest > (closest?.densest ?? 0)) closest = result;
   }
   return [
     `${counts.new} new, ${counts.written} rewritten, ${counts.unchanged} unchanged`,
     ...changed,
+    ...(closest ? [`  closest unchanged: ${closest.file}${measure(closest)}`] : []),
   ].join("\n");
 }
 

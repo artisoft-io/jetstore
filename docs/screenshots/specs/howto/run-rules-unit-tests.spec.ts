@@ -5,7 +5,7 @@
 // this spec starts are deleted after it, through the Query Tool, so the
 // rules unit test pages show only their own.
 import { expect, test } from "@playwright/test";
-import { openScreen, screenshotsFor, settle, signIn, waitForTable } from "../../lib/shots";
+import { openScreen, screenshotsFor, settle, signIn, tick, waitForTable } from "../../lib/shots";
 import { FIRST_RUN_KEY, deleteTestRunsSql, hideColumn, hideRunValues, selectRow, undo } from "./support";
 
 const { shot } = screenshotsFor("user/how-to/run-rules-unit-tests");
@@ -26,9 +26,8 @@ test("Run rules unit tests", async ({ page }) => {
   // Select the tests.
   await page.getByRole("button", { name: "+ Add" }).click();
   await expect(page.getByRole("heading", { name: "Select Rules Unit Tests" })).toBeVisible();
-  const cases = await waitForTable(page);
+  await waitForTable(page);
   for (const file of TESTS) await selectRow(page, file);
-  await hideColumn(cases, "Comment");
   await shot(page, "select-tests");
 
   // Start them, and wait for both to finish.
@@ -54,16 +53,19 @@ test("Run rules unit tests", async ({ page }) => {
     .locator("tbody tr")
     .filter({ hasText: "retraction defect 1" })
     .filter({ hasText: new RegExp(keys.join("|")) });
-  await retraction.getByRole("checkbox").check();
+  await tick(retraction.getByRole("checkbox"));
   await settle(page);
   await page.getByRole("button", { name: "View Result" }).click();
   await expect(page.getByRole("heading", { name: "Checks of the Selected Run" })).toBeVisible();
-  await waitForTable(page);
+  // The two runs write their checks as each finishes, so a check's key, the
+  // # column, depends on which finished first: it is hidden.
+  const checks = await waitForTable(page);
+  await hideColumn(checks, "#");
   await shot(page, "test-result");
   await page.getByRole("button", { name: "Back" }).click();
   await expect(page.getByRole("heading", { name: "Rules Unit Test Runs" })).toBeVisible();
   await waitForTable(page);
-  await retraction.getByRole("checkbox").check();
+  await tick(retraction.getByRole("checkbox"));
   await settle(page);
   await page.getByRole("button", { name: "View Log" }).click();
   const log = page.getByRole("dialog", { name: "Rules Unit Test Log" });

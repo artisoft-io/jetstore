@@ -2,10 +2,10 @@ package audit
 
 import "fmt"
 
-// The shape a recorded act of responsibility takes (task AJ.2, Q-52).
+// The shape a recorded act of responsibility takes.
 //
 // **Two things in this package are the same act and the claim was only ever in
-// prose.** Q-52 was resolved on the argument that a human verdict on an
+// prose.** A design question was resolved on the argument that a human verdict on an
 // incident and a transition of a run's autonomy tier are *a person taking
 // responsibility for a state change, recorded with an actor* — and that
 // argument was a sentence in a plan. This file is the sentence made
@@ -27,13 +27,13 @@ import "fmt"
 // would be the wrong trade:
 //
 //   - **The chain event is unconditional for a tier transition and conditional
-//     for an incident's.** `agent_audit.run_id` is an AgentRun's key (P4 F254),
-//     an Incident may name no run (R-44), and a *run* is the chain's own key by
+//     for an incident's.** `agent_audit.run_id` is an AgentRun's key,
+//     an Incident may name no run, and a *run* is the chain's own key by
 //     construction. So the one act that can never be outside the hash chain is
 //     the one about authority, which is the right way round and is a property of
 //     the subject rather than a choice either function made.
 //   - **The permitted edges come from different places.** An incident's are
-//     Appendix A.5's graph; a tier's are an ordered scale, so *which* edges exist
+//     the incident lifecycle's graph; a tier's are an ordered scale, so *which* edges exist
 //     is a question the tier vocabulary answers differently — see
 //     tier_transition.go's note on why no per-step graph is invented here.
 //   - **Who may act differs, and only one of them has a rule.** Either kind of
@@ -64,7 +64,7 @@ type StateChange interface {
 	To() string
 	// Attribution is who acted and of which kind. The kind is a column in both
 	// records rather than something inferred from the actor's spelling, on
-	// I-292's argument: a denominator decided by a regular expression over an
+	// the argument that a denominator decided by a regular expression over an
 	// email address is not a denominator.
 	Attribution() (actor, kind string)
 	// Reason is the actor's own account of the move, in their words. It is
@@ -104,7 +104,7 @@ func (t *IncidentTransition) From() string { return t.FromStatus }
 // To is the status it moves to.
 func (t *IncidentTransition) To() string { return t.ToStatus }
 
-// Attribution is the actor and the actor kind I-276 asked for.
+// Attribution is the actor and the actor kind a label needs.
 func (t *IncidentTransition) Attribution() (string, string) { return t.Actor, t.ActorKind }
 
 // Reason is the transition rationale — required for a reclassification by

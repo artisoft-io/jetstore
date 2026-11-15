@@ -1,11 +1,11 @@
 /**
- * A form's named queries: substitution, readiness, and one request. Task I.2b.
+ * A form's named queries: substitution, readiness, and one request.
  *
- * This is the half of I-11 that is not a widget. `Dropdown.tsx` was written in
- * A.3 to take `items` as a prop "so a static list and a query result reach it the
- * same way", and I.2a authored the static list; what was still missing was the
+ * This is the half of dropdown item queries that is not a widget. `Dropdown.tsx`
+ * was written to take `items` as a prop "so a static list and a query result reach
+ * it the same way", and the static list was authored first; what was still missing was the
  * thing that turns a declaration into a result. Both of `fmMappingFormUF`'s exotic
- * fields want it and so do five of the eleven dropdowns (F21, I-60).
+ * fields want it and so do five of the eleven dropdowns.
  *
  * ## One request, not one per field
  *
@@ -33,7 +33,7 @@
  * this rule where it was silently injectable under the Dart's. That is the better
  * of the two failures and it is still a failure, which is why the count is in this
  * comment: four of four today, and the fifth needs a second look rather than a
- * copy of the fourth. Recorded as I-72.
+ * copy of the fourth.
  *
  * ## A query with a missing parameter does not run
  *

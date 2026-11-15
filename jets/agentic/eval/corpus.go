@@ -12,12 +12,12 @@ import (
 	workspace_assets "github.com/artisoft-io/jetstore/jets/workspace_assets"
 )
 
-// The corpus, its split, and the cases drawn from it (decision 13).
+// The corpus, its split, and the cases drawn from it.
 //
 // **Live means workspaces/*/pipes_config/**.** The .pc.json under */data/ are
 // developer reference material JetStore never loads, and counting them
-// manufactures contradictions with the validator — that is I-13, and it moved
-// the corpus from 71 files to 45. This walk follows the same rule as the track-B
+// manufactures contradictions with the validator — excluding them moved
+// the corpus from 71 files to 45. This walk follows the same rule as the corpus
 // validator so the two cannot disagree about what the corpus is.
 
 // Instance is one transformation instance in one file.
@@ -123,7 +123,7 @@ func LoadCorpus(root string) (*Corpus, error) {
 
 // instancesIn enumerates the transformation instances of one authored config.
 //
-// Both authored shapes are walked. I-14 established that the root type carries
+// Both authored shapes are walked. It was established that the root type carries
 // an authored document and a runtime one, and that the corpus is unanimous: 29
 // files use conditional_pipes_config, 20 use reducing_pipes_config, none uses
 // both and none uses the runtime root. Reading only one would silently measure
@@ -204,7 +204,7 @@ func (c *Corpus) ByOperator() map[string]int {
 // instances within one .pc.json share channel names, column vocabularies and
 // house idiom, so holding out an instance whose siblings sit in the few-shot
 // pool hands over most of the answer. With 45 live files the split is coarse,
-// and coarse is the honest option (decision 13).
+// and coarse is the honest option.
 type Split struct {
 	HeldOut []string
 	Train   []string
@@ -252,7 +252,7 @@ func (c *Corpus) Coverage(s *Split) map[string]int {
 // Case is one evaluation case: a config with one instance removed, and the
 // instance that was removed.
 //
-// **Mutation is what gives a case ground truth.** Decision 13 chose it for that
+// **Mutation is what gives a case ground truth.** The reporting rules chose it for that
 // reason: take a held-out file, delete one transformation, ask for it back from
 // a description, and the original is a known-correct answer. That makes a diff
 // against the original available — and it is diagnostic colour only. **Only
@@ -271,7 +271,7 @@ type Case struct {
 	// Hole locates what was cut, so an answer can be put back where the
 	// removed instance was.
 	//
-	// **Added at P.1, 2026-08-27, because the first caller could not score a
+	// **Added 2026-08-27, because the first caller could not score a
 	// case without it.** A compile-pass gate runs the *whole config* through
 	// the startup validator, and a proposed transformation is not a config —
 	// so the caller has to splice the answer into the hole before it has
@@ -279,7 +279,7 @@ type Case struct {
 	// only to whoever still holds the Instance that made the case, which is an
 	// accident of iteration order rather than a property of the case. Four
 	// functions could cut a hole and none could fill one, for as long as
-	// nothing called them (F32).
+	// nothing called them.
 	Hole Instance
 }
 
@@ -289,8 +289,8 @@ type Case struct {
 // **It works from Context rather than from the original file**, so what is
 // verified is the document the model was given plus the model's answer, and
 // nothing else. Verifying against the pristine file would let a context that
-// was mangled on the way out still produce a passing case — the failure I-147
-// found one layer along, where a stub shaped like the caller agreed with the
+// was mangled on the way out still produce a passing case — the failure found
+// earlier one layer along, where a stub shaped like the caller agreed with the
 // caller by construction.
 func (c *Case) Fill(artifact json.RawMessage) ([]byte, error) {
 	var proposed any

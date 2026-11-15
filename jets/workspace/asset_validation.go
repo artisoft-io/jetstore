@@ -1,7 +1,6 @@
 package workspace
 
 // Validating a workspace's user-flow and table documents before it compiles.
-// jetstore_maintenance_02 tasks AG.4 and AG.5 (R12).
 //
 // The documents under user_flows/ and table_configs/ are going to be written by
 // a model, so whatever validates them is the whole of their quality control. The
@@ -17,7 +16,7 @@ package workspace
 // **It fails when it cannot run. It never skips itself.** A validator that
 // quietly does nothing when node or its script is absent passes every compile in
 // an image without them, which until this change was every runtime image, and
-// would look exactly like a validator that had passed (that project's R-9). The
+// would look exactly like a validator that had passed. The
 // only way past it is SkipAssetValidation, which a caller names with a reason.
 
 import (

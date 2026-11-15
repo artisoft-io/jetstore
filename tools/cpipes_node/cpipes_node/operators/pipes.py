@@ -21,7 +21,7 @@ class Pipe(Operator):
 
     #: Whether this pipe kind is a pipe *of the channel graph*.
     #:
-    #: **Go has two paths and this says which one a pipe kind takes** (D-224).
+    #: **Go has two paths and this says which one a pipe kind takes**.
     #: `ProcessFilesAndReportStatus` branches on `ComputePipesArgs.MergeFiles`
     #: before `StartComputePipes` is reached, so a merge step never registers a
     #: channel, never builds an evaluator and never sees a record
@@ -41,7 +41,7 @@ class Pipe(Operator):
     #: The input-channel type this pipe kind fixes, or empty when the type is a
     #: scope token to be judged.
     #:
-    #: The second limb of D-224. A `merge_files` pipe's input channel is typed
+    #: The second limb of the stage-channel decision. A `merge_files` pipe's input channel is typed
     #: `stage` by `ValidatePipeSpecConfig` rather than chosen by an author
     #: (`actions_start_common.go:973-980`), and `stage` is not a channel type
     #: this node declares — a `fan_out` reading one needs an S3 reader and a
@@ -58,7 +58,7 @@ class FanOut(Pipe):
 
     Declared although the charter's six do not name it: it is the only pipe
     kind the phase's pipeline uses and every transformation in the scope must
-    sit inside one. See `operators/__init__.py` and P9-I26.
+    sit inside one. See `operators/__init__.py`.
     """
 
     token = "fan_out"
@@ -73,15 +73,15 @@ class FanOut(Pipe):
         for a *pipe* type — the graph owns the registry, the termination signal
         and the pipe's index, and a pipe is not a per-record object the way a
         transformation is. Dispatching through here is what keeps
-        `graph.py` free of an `if spec.type == "fan_out"` (P3-I20): a pipe kind
+        `graph.py` free of an `if spec.type == "fan_out"`: a pipe kind
         this node grows is reached by its class being written.
 
-        **This method is the only thing P9-T04 added to this file**, and it is
+        **This method was the only thing added to this file at first**, and it is
         added rather than handed over because without it no document runs: the
         scope gate refuses `fan_out` as declared-and-not-implemented, so the
         whole graph would be reachable from tests alone — a component whose own
-        tests pass and which reaches no working path (P4-I43). `MergeFiles`
-        below is untouched and is P9-T08's.
+        tests pass and which reaches no working path. `MergeFiles`
+        below was added separately.
         """
         from .. import graph
 
@@ -91,9 +91,9 @@ class FanOut(Pipe):
 class MergeFiles(Pipe):
     """Concatenate a stage channel's partition files into one output file.
 
-    What lets a partitioned run be handed to Phase 8's harness, which reads a
+    What lets a partitioned run be handed to the comparison harness, which reads a
     single directory of twelve files. **Whether the harness should read the tree
-    instead is P9-I09 and is not answered by this existing**: an assembled
+    instead is an open question and is not answered by this existing**: an assembled
     directory is what today's harness accepts, and `merge_files` is the bridge
     to it.
 

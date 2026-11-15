@@ -1,7 +1,7 @@
 /**
  * The Session Registry tab's filters (`homeFilters.ts`) and its *Delete*'s
- * preview and gate (`sessionDeletion.ts`), without a screen. `session_registry`
- * Phase 2, JM-081, 2026-11-08. `screens/Home.test.tsx` drives both through the
+ * preview and gate (`sessionDeletion.ts`), without a screen. Added
+ * 2026-11-08. `screens/Home.test.tsx` drives both through the
  * screen; this file holds the cases a screen would make slow to enumerate.
  */
 
@@ -43,7 +43,7 @@ const clauses = () =>
     ...(defaultValue.length > 0 ? { values: defaultValue } : {}),
   }));
 
-describe("Set Session Id on Session Registry (Q-6)", () => {
+describe("Set Session Id on Session Registry", () => {
   it.each([
     ["100..200", [{ column: "session_num", ge: "100" }, { column: "session_num", le: "200" }]],
     ["100..", [{ column: "session_num", ge: "100" }]],
@@ -217,6 +217,20 @@ describe("previewSessionDeletion", () => {
     // Cleared, which form state reads back as absent.
     expect(formState.getValue(0, PREVIEW_KEY) ?? null).toBeNull();
     expect(formState.getValue(0, EXPECTED_KEY) ?? null).toBeNull();
+  });
+
+  it("passes the server's own text on when the host gives it", async () => {
+    const formState = selected(["1001"]);
+    const host = {
+      read: async (_request: EndpointRequest, onRefused?: (message: string) => void) => {
+        onRefused?.("session 1001: not registered in session_registry");
+        return null;
+      },
+      setBusy: () => {},
+    } as unknown as EscapeHost;
+    expect(await previewSessionDeletion(context(formState), host)).toBe(
+      "Could not list the sessions to delete: session 1001: not registered in session_registry",
+    );
   });
 
   it("stops before asking when nothing is selected", async () => {

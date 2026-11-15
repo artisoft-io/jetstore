@@ -1,5 +1,5 @@
 /**
- * The escape registry. Task S.2a, and built first on purpose.
+ * The escape registry, built first on purpose.
  *
  * **Three separate pieces of work arrived at the same need from three
  * directions**, which is the argument for designing it once rather than three
@@ -7,9 +7,9 @@
  *
  * | Wanted by | Needs a name for |
  * |---|---|
- * | S.1 | `formStateInitializer` — one flow sets one, `seedFromHomeFilters` |
- * | I-15 | form validators, if a form document is ever written |
- * | I-19 | four action bodies that will not become data |
+ * | the flow schema | `formStateInitializer` — one flow sets one, `seedFromHomeFilters` |
+ * | form documents | form validators, if a form document is ever written |
+ * | the action grammar | four action bodies that will not become data |
  *
  * The shape they share: **a named entry in a table the bundle compiles in,
  * referenced from an authored document, resolved when the document loads, with
@@ -29,7 +29,7 @@
  * cannot have it: the registry is compiled into the browser bundle and the server
  * has no way to enumerate it. **That asymmetry is worth stating rather than
  * papering over** — the server can validate the document's shape, and only the
- * client can know whether a name resolves. S.4 should therefore treat an
+ * client can know whether a name resolves. The loader should therefore treat an
  * unresolved escape as a client-side load failure and not expect the save to
  * have caught it.
  */
@@ -64,11 +64,11 @@ export interface EndpointResult {
 }
 
 /**
- * What an **action** escape may reach outside form state. Task F.8.
+ * What an **action** escape may reach outside form state.
  *
  * **Why this exists at all, stated plainly: two of the corpus's escapes talk to
  * the server and the mechanism had no way to let them.** `EscapeContext` is
- * `{formState, group, flowKey}` and `escapes.ts` has said since S.2a that the
+ * `{formState, group, flowKey}` and `escapes.ts` has said from the start that the
  * narrowness is the point — which was true while the only bodies registered were
  * `updateHomeFilters` (compiles `WhereClause` objects), `clearHomeFilters`,
  * `seedFromHomeFilters` and two validators. **None of the five needs a network.**
@@ -104,8 +104,13 @@ export interface EscapeHost {
    * issues a `read` and turns up to a thousand rows into a CSV, so the rows are
    * the whole point. It is not `query`: that resolves a *registered* statement
    * and returns one row by column name.
+   *
+   * `onRefused`, when the host offers it, is called with the server's error
+   * text before the read answers null, so an escape that can say more than
+   * "the server refused" does. A host that does not offer it ignores it, and the
+   * escape falls back to its own message.
    */
-  read(request: EndpointRequest): Promise<JetsRow[] | null>;
+  read(request: EndpointRequest, onRefused?: (message: string) => void): Promise<JetsRow[] | null>;
   /** Spinner, snackbar and alert, which the Dart keeps as three mechanisms. */
   notify(level: "info" | "error", message: string): void;
   /**
@@ -125,14 +130,14 @@ export interface EscapeHost {
   /** Closes the dialog or screen. `Navigator.of(context).pop()`. */
   close(): void;
   /**
-   * Sends the user to another route of *this* app. Task C.3.
+   * Sends the user to another route of *this* app.
    *
    * **Optional, and that is not hedging.** Only a host inside the router can
    * navigate, and two of the three hosts are not screens: a dialog host is opened
    * *by* a screen and a generator has no router at all. An escape that wants it
    * therefore has to say what it does without it, which `openWorkspace` does —
    * and an optional member breaks no implementor, including the one in
-   * `src/cpipes/` that this project does not own.
+   * `src/cpipes/` that the IDE does not own.
    *
    * **A React route, not a Flutter one.** The cross-app link is
    * `window.location.href = "/#" + path` and stays that way
@@ -154,7 +159,7 @@ export interface EscapeHost {
   download(fileName: string, content: string): void;
   /**
    * Reads one object out of the S3 stage, by the path under `JETS_s3_STAGE_PREFIX`.
-   * jetstore_maintenance_02 task AE.3, 2026-10-01.
+   * Added 2026-10-01.
    *
    * **A third read, because neither of the two above can carry the answer.**
    * `fetch_file_from_stage` answers `{file_content}` (`jets/apiserver/api_tables.go`,
@@ -178,7 +183,7 @@ export interface EscapeHost {
    * Puts text on the system clipboard. **Rejects when the browser refuses**,
    * which it may: the write follows an awaited fetch and can lose the user gesture
    * that permitted it, and `navigator.clipboard` does not exist at all outside a
-   * secure context (`R-2`). A caller falls back to `showText` rather than failing.
+   * secure context. A caller falls back to `showText` rather than failing.
    */
   writeClipboard?(text: string): Promise<void>;
   /**
@@ -190,7 +195,7 @@ export interface EscapeHost {
 }
 
 /**
- * What `EscapeHost.fetchStageFile` answers. jetstore_maintenance_02 AE.3.
+ * What `EscapeHost.fetchStageFile` answers.
  *
  * `missing` carries the path that was asked for, because the message a caller
  * shows is about *that* object; `error` carries the server's text, because the
@@ -204,22 +209,22 @@ export type StageFetchResult =
 /**
  * An action body that could not be expressed as steps. **Six of these exist**,
  * not the four the sizing found — `downloadMapping` and `loadRawRows` came out
- * of the coverage pass (I-23).
+ * of the coverage pass.
  *
- * **The sentence that stood here described both of them wrongly, and F.8 read
- * the Dart rather than this comment.** It said *"both build a query, act on its
+ * **The sentence that stood here described both of them wrongly, and a later
+ * task read the Dart rather than this comment.** It said *"both build a query, act on its
  * rows and then do something the grammar has no business describing"*. That is
  * `downloadMapping` and only `downloadMapping`: `loadRawRows`
  * (`file_mapping/form_action_helpers.dart`, `loadRawRows`) writes `user_email`
  * into form state and posts it, four lines, no query and no rows. **The grammar
  * can express it** — a `set` and a `post` with `transport: "insertRows"` — and it
- * is an escape anyway, because the *target* is what S.7's allowlist refuses:
+ * is an escape anyway, because the *target* is what the schema's allowlist refuses:
  * `insert_raw_rows` runs `DELETE FROM jetsapi.process_mapping` in a
  * pre-processing hook **before** `InsertRows` reaches `VerifyUserPermission`
  * (`jets/datatable/data_table_action.go`, `InsertRawRows`), so allowing it would
  * let an authored document delete a client's mappings on behalf of a user with
  * no `client_config`. Every other entry in `InsertTargetSchema` is gated before
- * it acts. See I-121.
+ * it acts.
  */
 export type ActionEscape = (
   context: EscapeContext,
@@ -232,8 +237,8 @@ export type InitializerEscape = (context: EscapeContext) => void;
 /**
  * A form validator, run over every value field of a form that names one.
  *
- * **The first of these exists as of F.1**, three tasks after this type was
- * written for a consumer I-15 predicted: `mappingFormValidator`, whose every
+ * **The first of these now exists**, some time after this type was
+ * written for a predicted consumer: `mappingFormValidator`, whose every
  * reachable branch is a relation between sibling values rather than a property of
  * one field. The `required` and `json` rules stay where they are and this runs
  * beside them.
@@ -247,7 +252,7 @@ export type ValidatorEscape = (
 ) => string | null;
 
 /**
- * Seeds one validation group from one row of a query. Task F.1.
+ * Seeds one validation group from one row of a query.
  *
  * **A repeating form's row builder, minus the layout.** The Dart's
  * `inputFieldRowBuilder` does two things at once — write the row's values into
@@ -267,7 +272,7 @@ export type RowInitializerEscape = (
 ) => void;
 
 /**
- * A column's display filter. **Two names, three sites, one body** — see I-54.
+ * A column's display filter. **Two names, three sites, one body**.
  *
  * `hasCellFilter` in the corpus is a boolean standing in for a Dart closure, so
  * `.tc.json` names the body instead (`datatable/tableTranslate.ts`,
@@ -284,7 +289,7 @@ export type CellFilterEscape = (value: string | null) => string | null;
 export type PredicateEscape = (formState: FormState, group: number) => boolean;
 
 /**
- * A statement a `query` step may run, registered by the build. Task F.6.
+ * A statement a `query` step may run, registered by the build.
  *
  * **The only entry here that is data rather than a body, and it belongs here for
  * the mechanism rather than the type.** The header names the shape these six
@@ -294,13 +299,13 @@ export type PredicateEscape = (formState: FormState, group: number) => boolean;
  * a registry of its own would be a second thing to thread through `FlowStore`,
  * `runAction` and the screen, to buy a type distinction no caller makes.
  *
- * **Why the document names a query instead of carrying one.** S.2a's `query`
- * step refused to let a `.ua.json` carry SQL. I-71 later settled the *opposite*
+ * **Why the document names a query instead of carrying one.** The `query`
+ * step refused to let a `.ua.json` carry SQL. A later decision settled the *opposite*
  * for a form's `queries`, on the ground that saving a workspace file already
  * requires `workspace_ide` and `workspace_ide` is `CapabilityQueryTool` — so the
  * author gains nothing. **Both are in the corpus and only one of them can be the
- * rule**; F.6 needed the step working and not the question settled, so this
- * follows the step as written and the disagreement is recorded as I-112.
+ * rule**; the step was needed working and not the question settled, so this
+ * follows the step as written and the disagreement is recorded.
  *
  * `columns` names the statement's output positionally, because `raw_query_map`
  * answers with rows as arrays and a `query` step's `into` maps *column names* on
@@ -318,19 +323,19 @@ export interface NamedQuery {
 /**
  * The seven namespaces.
  *
- * **`cellFilters` and `predicates` are task I.3b's**, and they are namespaces
+ * **`cellFilters` and `predicates` came later**, and they are namespaces
  * rather than a second registry for the reason the header gives: the three that
  * were here first were designed together precisely so a fourth arrival would add
- * a key and not a mechanism. I-54 named the two bodies; this is where they live.
+ * a key and not a mechanism. This is where the two bodies live.
  *
  * They differ from the first three in one way worth stating: an action escape is
  * referenced from a *flow's* documents, and these two are referenced from a
  * *table's*, which is shared between flows. Resolution is therefore per loaded
  * set rather than per flow — `FlowStore.load` resolves both together.
  *
- * **`queries` is F.6's and is the first namespace holding data**; see
- * `NamedQuery`. It was added the same way I.3b's two were — a key, not a
- * mechanism — which is the claim this interface has been making since S.2a and
+ * **`queries` is the first namespace holding data**; see
+ * `NamedQuery`. It was added the same way those two were — a key, not a
+ * mechanism — which is the claim this interface has been making from the start and
  * the third time it has held.
  */
 export interface EscapeRegistry {
@@ -388,7 +393,7 @@ export function resolveEscapes(
 /**
  * What each namespace is called in a message.
  *
- * Six read `<kind> escape`, which is what they were before F.6 and is left
+ * Six read `<kind> escape`, which is what they were before `queries` arrived and is left
  * unchanged so no existing message moves. `queries` holds data rather than a
  * body, so calling it an escape would be wrong in the one place a reader is
  * looking for a name to go and register.

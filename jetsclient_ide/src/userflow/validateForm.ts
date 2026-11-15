@@ -1,9 +1,9 @@
 /**
- * Form validation. Task S.5, extended by F.1.
+ * Form validation.
  *
  * A port of the two proof flows' `formValidatorDelegate`s, which between them
  * use exactly two rules — see `form.ts` for why that was the whole vocabulary —
- * plus, since F.1, a **named validator escape** for the form whose every check is
+ * plus a **named validator escape** for the form whose every check is
  * a relation between sibling values rather than a property of one field.
  *
  * **Validity is form-wide.** `JetsFormState.isFormValid` (`jets_form_state.dart`,
@@ -58,7 +58,7 @@ export function validateForm(
     for (const rule of field.rules ?? []) {
       if (rule.rule === "required") {
         // Empty means empty whichever shape it arrives in: a cleared text box
-        // stores nothing (A.3), and a table with no selection stores nothing.
+        // stores nothing, and a table with no selection stores nothing.
         const value = scalar(raw);
         if (value === null || value === "") {
           errors.push({ key: field.key, message: rule.message, group });
@@ -67,7 +67,7 @@ export function validateForm(
         }
       }
       if (rule.rule === "extendsKey") {
-        // Task C.3b. The prefix is another field's value, which is what makes
+        // The prefix is another field's value, which is what makes
         // this the first rule that reads outside its own field — see
         // `RuleSchema`.
         const value = scalar(raw) ?? "";
@@ -124,7 +124,7 @@ export function validateForm(
  *
  * **`isFormValid` keeps its per-group signature and this is the addition**, which
  * is a deliberate choice rather than a smaller diff. `isFormValid(form, state,
- * group)` is called from outside this repository — the agentic_ai project drives
+ * group)` is called from outside this module — the agentic layer drives
  * a projected flow through it (`cpipes/templateApply.test.ts`) — and its meaning
  * for a non-repeating form is unchanged. Widening it in place would have changed
  * the shape of a function another project reads as a contract, to serve one form

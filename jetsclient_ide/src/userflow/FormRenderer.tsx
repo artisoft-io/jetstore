@@ -1,19 +1,19 @@
 /**
- * A form document, rendered. Task F.0a.
+ * A form document, rendered.
  *
- * **The last piece of R2, and the smallest of the four.** The schema, the
- * validator, the interpreter and the engine were all built in Phase 2 and all
+ * **The last piece of authorable flows, and the smallest of the four.** The schema,
+ * the validator, the interpreter and the engine were all built first and all
  * driven from tests; what nothing did was put a `.form.json` on a screen. This
- * walks `form.rows`, maps each field kind to the widget track A built, and
+ * walks `form.rows`, maps each field kind to the widget already built, and
  * renders `form.actions` as buttons.
  *
  * ## Seven field kinds, four widgets, and the three that are not widgets
  *
- * `text`, `dropdown` and `dataTable` are A.3's and A.4's, and `typeahead` is
- * I.2b's. `label`, `spacer` and F.2's `button` are layout — they carry no key,
+ * `text`, `dropdown`, `dataTable` and `typeahead` are widgets. `label`, `spacer`
+ * and `button` are layout — they carry no key,
  * hold no value and cannot be validated, which is why `valueFieldsOf` exists to
  * exclude them (`form.ts`). The 55 `PaddingConfig` and 12 `TextFieldConfig`
- * instances the corpus counts (I-12) are the second largest thing in a form
+ * instances the corpus counts are the second largest thing in a form
  * after the inputs, so they are not an afterthought — and the three
  * `FormActionConfig` instances it counts are why a button is a field kind at
  * all.
@@ -64,7 +64,7 @@ export interface FormHost {
   group: number;
   /**
    * The rows one of the form's named queries returned, or undefined while it has
-   * not run. Task I.2b — `FlowRunner` reads them off `FormState.queryRows`.
+   * not run. `FlowRunner` reads them off `FormState.queryRows`.
    */
   queryRows(name: string): JetsRow[] | undefined;
   /** True while any of the form's queries is in flight; item sources wait. */
@@ -73,9 +73,9 @@ export interface FormHost {
   tableConfig(key: string): TableConfig;
   fetcher: DataTableFetcher;
   /**
-   * The query context every table on this form is built with. Task F.5.
+   * The query context every table on this form is built with.
    *
-   * **Nothing supplied one until now and one table needed it.** A.4a's
+   * **Nothing supplied one until now and one table needed it.** The table's
    * `QueryContext` has carried `homeFilters` and `dataRegistryFilters` since it
    * was written — `makeQuery` splices them in by table key
    * (`datatable/query.ts`, `makeQuery`) — and `FormDataTable` called
@@ -89,7 +89,7 @@ export interface FormHost {
    */
   tableContext?: UseTableBindingOptions["context"];
   /**
-   * Whether `ufPrevious` has anywhere to go. Task D.11.
+   * Whether `ufPrevious` has anywhere to go.
    *
    * **The engine owns this and no document should have to declare it.** `back`
    * (`engine.ts`) throws *"Already at the first step"* when `visited` holds one
@@ -115,14 +115,14 @@ export interface FormHost {
   /** Whether the form as a whole passes — `enableOnlyWhenFormValid` reads this. */
   formValid: boolean;
   /**
-   * How many validation groups to draw. Task F.1.
+   * How many validation groups to draw.
    *
    * One for every form in the corpus but `fmMappingFormUF`, which draws its rows
    * once per row of `repeat.from`'s result — so the count is the **query's**, not
    * the document's and not `FormState.groupCount`.
    *
    * **Not the store's, and the difference is visible.** `resizeFormState` grows
-   * and never shrinks (I.1, and the Dart does the same), so a store that has held
+   * and never shrinks (and the Dart does the same), so a store that has held
    * ten rows still reports ten after a re-query returns two. The Dart has the
    * same store behaviour and does not have the same bug, because what it draws is
    * the list its row builder returned rather than the group count. This is that
@@ -147,8 +147,11 @@ export function FormRenderer({ form, host, errors }: FormRendererProps): ReactNo
       ? [host.group]
       : Array.from({ length: Math.max(0, host.groupCount) }, (_, index) => index);
 
+  // A repeating form is a worksheet of database identifiers (the file mapping's
+  // input columns and arguments), and its text inputs are set in the monospace
+  // font, as the Flutter app set them (styles.css, `.uf-form--worksheet`).
   return (
-    <section className="uf-form">
+    <section className={form.repeat === undefined ? "uf-form" : "uf-form uf-form--worksheet"}>
       {form.title !== undefined && <h2 className="uf-form__title">{form.title}</h2>}
 
       {form.repeat !== undefined && groups.length === 0 && !host.queriesLoading && (
@@ -206,7 +209,7 @@ function FormGroup({
       {form.rows.map((row, rowIndex) => (
         // Rows are positional and a field carries no identity of its own beyond
         // its key, which `label` and `spacer` do not have — so the index is the
-        // key, and reordering a row re-renders it. That is Phase 0's unstable
+        // key, and reordering a row re-renders it. That is the earlier unstable
         // form-field key finding pointing the other way: there, a *generated*
         // key changed every render; here the position is the identity.
         <div className="uf-form__row" key={rowIndex}>
@@ -225,7 +228,7 @@ function FormGroup({
 }
 
 /**
- * Whether a field is read-only right now. Task C.2b.
+ * Whether a field is read-only right now.
  *
  * The literal `isReadOnly` **or** a resolved `isReadOnlyFrom` predicate. No field
  * in either corpus sets both, and `or` is the composition that makes adding the
@@ -242,7 +245,7 @@ function readOnly(
   host: FormHost,
 ): boolean {
   if (field.isReadOnly === true) return true;
-  // C.10's third reason, composed as an `or` with the two above: a field locked
+  // The third reason, composed as an `or` with the two above: a field locked
   // for any reason is locked. `getValue` answers `undefined` for a key that was
   // never set *and* for one explicitly cleared, which is the same state
   // (`datatable/formState.ts`) and the same state the Dart's null is.
@@ -354,7 +357,7 @@ function FieldView({
 
 /**
  * What the engine's own actions look like, overriding what a document declares.
- * Task **D.11**, from the report that *Next* did not match *Previous* and
+ * From the report that *Next* did not match *Previous* and
  * *Cancel*.
  *
  * **The corpus disagrees with itself on all four**, measured across the 14
@@ -369,8 +372,8 @@ function FieldView({
  *
  * So the same engine action is drawn two ways depending on which form the user
  * happens to be on — *Previous* and *Cancel* filled and *Next* plain on one
- * screen, the reverse on the next. **This was invisible until D.11 fixed
- * `btn--`** (I-308): while no declared style reached a rule, all 537 buttons
+ * screen, the reverse on the next. **This was invisible until the fix of
+ * `btn--`**: while no declared style reached a rule, all 537 buttons
  * drew identically and the disagreement cost nothing.
  *
  * **Keyed on the action rather than on the majority.** Three of the four
@@ -404,11 +407,11 @@ const FLOW_ACTION_STYLE: Readonly<Record<string, string>> = {
 };
 
 /**
- * One button, wherever it sits. Task F.2.
+ * One button, wherever it sits.
  *
  * Factored out of the action bar's map so the bar and an inline `button` field
  * cannot drift on the two enable gates — which is the pair `mapperOk` and
- * `mapperDraft` proved are independent branches rather than one flag (I-76).
+ * `mapperDraft` proved are independent branches rather than one flag.
  */
 function FormActionButton({ action, host }: { action: FormAction; host: FormHost }): ReactNode {
   // `isEnabledEval`, resolved through the registry the table actions already use
@@ -423,18 +426,18 @@ function FormActionButton({ action, host }: { action: FormAction; host: FormHost
     action.enabledWhen !== undefined && (gate === undefined || !gate(host.formState, host.group));
   return (
     <ActionButton
-      // **`btn-` and not `btn--`, which is D.4's fix arriving at the site that
-      // actually carries the buttons.** D.4 corrected the class the *table*
+      // **`btn-` and not `btn--`, which is the table fix arriving at the site that
+      // actually carries the buttons.** That fix corrected the class the *table*
       // action bar emits and its comment enumerated the call sites it had
       // checked — `Login.tsx`, `GitProfile.tsx`, `WorkspaceIde.tsx` — none of
       // which is this one. So every button a *form* renders kept emitting
       // `btn--primary`, matching no rule: **537 buttons across the 14 installed
       // flow documents**, 225 of them declared `primary` and 312 `secondary`.
-      // That is eleven times the 49 D.4 counted, and it is the whole of why a
+      // That is eleven times the 49 the table fix counted, and it is the whole of why a
       // flow's *Next* did not look like the *Start Pipeline* button the report
       // compared it to — the style was declared and inert.
       //
-      // I-281 recorded this exact shape at D.2: an argument that enumerates the
+      // The same shape was recorded before: an argument that enumerates the
       // call sites it can see and calls the list complete. It is recorded again
       // rather than merely repeated because the second instance is what makes it
       // a pattern — and because the enumeration was inside a comment explaining
@@ -443,7 +446,7 @@ function FormActionButton({ action, host }: { action: FormAction; host: FormHost
       disabled={
         host.busy ||
         gateClosed ||
-        // D.11. See `FormHost.canGoBack`: the first step of a flow has nowhere
+        // See `FormHost.canGoBack`: the first step of a flow has nowhere
         // to go back to, and the documents do not say so because it is not
         // theirs to say.
         (action.action === "ufPrevious" && host.canGoBack === false) ||
@@ -459,7 +462,7 @@ function FormActionButton({ action, host }: { action: FormAction; host: FormHost
 }
 
 /**
- * One `dataTable` field: A.4's widget bound to this form.
+ * One `dataTable` field: the data table widget bound to this form.
  *
  * **The field key and the table key are separate parameters even though every
  * shipping form sets them equal.** `lfSourceConfigTable` is both the field's key

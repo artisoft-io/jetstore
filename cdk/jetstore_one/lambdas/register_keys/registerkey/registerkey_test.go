@@ -48,15 +48,15 @@ func withHook(t *testing.T, h Hook) {
 	t.Cleanup(func() { siteHook = saved })
 }
 
-// The file key shape the cedargate deployment actually delivers: client, vendor,
+// A file key in the shape an ingest deployment delivers: client, vendor,
 // object_type and the three date components as path segments, then the file name.
-const testFileKey = "client=CGT/vendor=ACME/object_type=eligibility/" +
+const testFileKey = "client=CI/vendor=ACME/object_type=eligibility/" +
 	"year=2026/month=09/day=16/eligibility_20260916.csv"
 
 const testFileSize int64 = 4096
 
 // TestDoFileKeyNilHookRegistersTheStockAction is the check behind the claim that
-// extracting this package leaves register_keys_v2 unchanged (AC.4). It is the only
+// extracting this package leaves register_keys_v2 unchanged. It is the only
 // test in the change covering the path every object type in the deployment takes,
 // and it is spelled out by value rather than by re-calling
 // utils.SplitFileKeyIntoComponents, so that a change to what doFileKey puts in the
@@ -95,7 +95,7 @@ func TestDoFileKeyNilHookRegistersTheStockAction(t *testing.T) {
 	}
 
 	want := map[string]any{
-		"client":      "CGT",
+		"client":      "CI",
 		"vendor":      "ACME",
 		"org":         "ACME",
 		"object_type": "eligibility",
@@ -159,7 +159,7 @@ func (h *stubHook) BeforeRegister(ctx context.Context, dtCtx *datatable.DataTabl
 	return h.isSchemaEvent, h.done, h.err
 }
 
-// TestDoFileKeyHookDoneRegistersNothing is the first half of AC.5: done == true is
+// TestDoFileKeyHookDoneRegistersNothing is the first half of the hook contract: done == true is
 // the return, and there is no fall-through to a stock registration the hook has
 // already handled.
 func TestDoFileKeyHookDoneRegistersNothing(t *testing.T) {
@@ -197,7 +197,7 @@ func TestDoFileKeyHookErrorRegistersNothing(t *testing.T) {
 	}
 }
 
-// TestDoFileKeyHookSchemaEventCarriesAdditions is the second half of AC.5: the flag
+// TestDoFileKeyHookSchemaEventCarriesAdditions is the second half of the hook contract: the flag
 // reaches the action, and the entries a hook adds to components arrive in the Data
 // map unchanged and alongside -- not instead of -- the ones the stock path put
 // there.
@@ -257,7 +257,7 @@ func TestDoFileKeyHookSchemaEventCarriesAdditions(t *testing.T) {
 	}
 
 	want := map[string]any{
-		"client":               "CGT",
+		"client":               "CI",
 		"vendor":               "ACME",
 		"org":                  "ACME",
 		"object_type":          "eligibility",
@@ -310,7 +310,7 @@ func withCapturedSchemaEvents(t *testing.T) *[]*compute_pipes.SchemaProviderSpec
 	return &got
 }
 
-// TestDoFileSchemaRegistersTheBodyItDownloaded is I-37: the S3 event's size is
+// TestDoFileSchemaRegistersTheBodyItDownloaded: the S3 event's size is
 // what the object was when the event was raised, and an object overwritten since
 // is larger or smaller. Before the fix the body was a buffer of the event's size,
 // so a larger object was cut short and a smaller one was followed by zero bytes,

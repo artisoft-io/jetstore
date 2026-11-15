@@ -9,8 +9,8 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/briefing/prose"
 )
 
-// **R-111 made visible.** This package reads a rendered briefing and hard-codes
-// properties of it; `AY.3` turned that briefing into a JSON document, so both
+// **A risk made visible.** This package reads a rendered briefing and hard-codes
+// properties of it; the template document turned that briefing into a JSON document, so both
 // properties are now values in a configuration file that can be changed without
 // this directory being opened. The file this test watches is
 // `jets/agentic/briefing/briefingtmpl/patient_profile_briefing.json`: the
@@ -29,7 +29,7 @@ import (
 // returning numbers, and they would be wrong in the direction that matters: a
 // false finding against the arm whose whole job is to score zero.
 //
-// **The width is not, and `R-111` prices it too high.** `unwrap` collapses a
+// **The width is not, and the risk prices it too high.** `unwrap` collapses a
 // single newline to a space at any width and is a no-op on text that carries
 // none (`unwrap`, `:89`), so a document that wrapped at 60, or stopped wrapping,
 // would not move a single finding. What the width change would break is the
@@ -42,10 +42,10 @@ import (
 //
 // This test renders `patient_profile`'s document. **A second template is a
 // second artefact and this package has no contract with it at all** - which is
-// `R-111`'s residual and is not closeable from here: a scorer written for one
+// the risk's residual and is not closeable from here: a scorer written for one
 // briefing cannot assert a property of a briefing that does not exist yet. The
 // honest form of the remainder is that `score` is `patient_profile`'s scorer,
-// and the entry that says so is `I-733`.
+// and that is recorded as such.
 
 // contractEntity is three medications and one visit: three because `sep` and
 // `last` are different strings in the document and two drugs exercise only
@@ -88,7 +88,7 @@ const (
 
 // renderBothArms renders the contract entity through the configured document
 // and through `prose.Render`, so that the assertions below hold for whichever
-// of the two produced the artefact a caller handed this package. **Q-100 is
+// of the two produced the artefact a caller handed this package. **Which arm ships is
 // open**, so both are live and neither can be assumed away.
 func renderBothArms(t *testing.T) map[string]string {
 	t.Helper()
@@ -107,7 +107,7 @@ func renderBothArms(t *testing.T) map[string]string {
 }
 
 // TestTheMedicationSeparatorIsAClauseBoundary is the load-bearing half of
-// R-111. It asserts the property this package needs - one drug per clause -
+// that risk. It asserts the property this package needs - one drug per clause -
 // rather than the character that currently delivers it, and then asserts that
 // the character is what delivers it, so a reader who breaks the test can see
 // which of the two moved.
@@ -133,7 +133,7 @@ func TestTheMedicationSeparatorIsAClauseBoundary(t *testing.T) {
 			commas := clausesOfDrugs(t, strings.ReplaceAll(body, "; ", ", "))
 			if len(commas) != 3 || commas[drug1] != commas[drug2] || commas[drug2] != commas[drug3] {
 				t.Errorf("replacing the semicolons no longer merges the medication list into one clause "+
-					"(%v), so `;` is not what this package's attribution depends on and R-111 needs "+
+					"(%v), so `;` is not what this package's attribution depends on and the risk needs "+
 					"rewriting rather than this test relaxing", commas)
 			}
 		})
@@ -156,7 +156,7 @@ func clausesOfDrugs(t *testing.T, body string) map[string]int {
 	return out
 }
 
-// TestTheArtefactIsStillWrappedAtTheDocumentedWidth is the other half of R-111
+// TestTheArtefactIsStillWrappedAtTheDocumentedWidth is the other half of that risk
 // and it is documentation rather than a guard - see the head of this file. It
 // fails when `unwrap`'s doc block stops describing the artefact, which is worth
 // a failing test and is not worth a reader believing the scorer broke.
@@ -186,7 +186,7 @@ func TestTheArtefactIsStillWrappedAtTheDocumentedWidth(t *testing.T) {
 	}
 }
 
-// TestTheNoticeIsSeparableByTheRule is the coupling R-111 does not name, and it
+// TestTheNoticeIsSeparableByTheRule is the coupling that risk does not name, and it
 // is the one with the sharpest consequence.
 //
 // `stripNotice` removes the intended-use notice by splitting at the renderer's

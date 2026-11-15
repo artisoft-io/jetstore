@@ -25,7 +25,7 @@ using RDFTTYPE = rdf::RdfAstType;
 
 // EqVisitor
 // --------------------------------------------------------------------------------------
-// Comparing numbers (Q-68, 2026-10): integers with integers by value (std::cmp_*); any
+// Comparing numbers (2026-10): integers with integers by value (std::cmp_*); any
 // double operand compares as two doubles, by rdf::is_eq, is_lt, ... (15 significant
 // digits), so a NaN or an infinity is never equal or ordered. Until 2026-10 == cast the
 // double to the integer's type (5 == 5.5 was true, a double out of the type's range
@@ -538,7 +538,7 @@ struct NotVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeed
   RDFTTYPE operator()(rdf::LInt64  lhs)const{return rdf::LInt32{boost::numeric_cast<int32_t>(not lhs.data)};}
   RDFTTYPE operator()(rdf::LUInt64 lhs)const{return rdf::LInt32{boost::numeric_cast<int32_t>(not lhs.data)};}
   RDFTTYPE operator()(rdf::LDouble lhs)const{return rdf::LInt32{boost::numeric_cast<int32_t>(not lhs.data)};}
-  // Text is read as a bool (I-45). It raised "Invalid arguments for not" until
+  // Text is read as a bool. It raised "Invalid arguments for not" until
   // 2026-10-11, even for "false". Empty text is null; text outside the accepted
   // spellings raises a jets:exception; both give null.
   RDFTTYPE operator()(rdf::LString lhs)const

@@ -49,7 +49,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 			// A site operator's `site_config.output_channels`. StartFanOutPipe's arm
 			// verbatim, reading the same function for the same reason: a channel
 			// declared there is registered and resolved, and without this it is
-			// closed by nothing (P9-I13). Outside the switch because a site token is
+			// closed by nothing. Outside the switch because a site token is
 			// none of the cases below, and it answers nil for every document that
 			// declares no site output channels, so such a document takes exactly the
 			// path it took before.

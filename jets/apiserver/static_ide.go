@@ -15,7 +15,7 @@ import (
 // so the set of assets changes on every build and cannot be enumerated in Go at
 // all. The hashing is also what makes the cache policy below safe.
 //
-// **Tasks X.1 and X.2, 2026-08-26.** This served `/ide/` beside 64 hand-listed
+// **Changed 2026-08-26.** This served `/ide/` beside 64 hand-listed
 // Flutter asset routes; the Flutter app is gone and this serves the root. The
 // paragraph that used to sit here said consolidating the two "means moving the
 // static registration after the api routes so a catch-all cannot shadow /login —
@@ -27,13 +27,13 @@ import (
 // has not claimed. Everything under it is either a bundled asset or a
 // client-side route.
 //
-// **`/` since X.2, and the rename is three files rather than one.** The prefix is
+// **`/` since 2026-08-26, and the rename is three files rather than one.** The prefix is
 // written here, as `base` in `jetsclient_ide/vite.config.ts`, and as `BASENAME` in
 // `jetsclient_ide/src/base.ts`; vite bakes it into every asset url at build time,
 // so the bundle is not relocatable and changing this alone would serve a page
 // whose scripts 404. The old value named one screen of an application that now
-// has twenty — the ui refresh project's I-26, accepted as debt by its decision 4
-// and payable "when the Flutter app retires", which is this task.
+// has twenty — accepted as debt and payable "when the Flutter app
+// retires", which is this change.
 const appAssetPrefix = "/"
 
 // assetPathPrefix is the url space vite writes content-hashed files into. It is

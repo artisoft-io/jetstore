@@ -1,24 +1,24 @@
 /**
- * Loading and saving user flows from a workspace. Task S.3.
+ * Loading and saving user flows from a workspace.
  *
- * **No new plumbing, which is what §2 of the plan predicted.** The Workspace IDE
+ * **No new plumbing, as was predicted.** The Workspace IDE
  * already reads and writes workspace files through `/dataTable`
  * (`api/workspace.ts`), the server already persists them through
  * `workspace_changes`, and it already refuses to save a `.json` file that will
- * not parse. S.3 is a store on top of that, not a transport.
+ * not parse. This is a store on top of that, not a transport.
  *
  * ## Where the files live, and why there
  *
  * `user_flows/<key>.uf.json` and `user_flows/<key>.ua.json`, one directory per
  * file type — the convention the workspaces already use: `pipes_config/` holds
  * `*.pc.json`, `jet_rules/` holds the rules, `lookups/` the lookup tables. A
- * flow's actions sit beside it rather than inside it for the reason S.2a chose
- * (`sizing_action_grammar.md` R5): one action is reachable from a state and from
+ * flow's actions sit beside it rather than inside it for a reason settled when
+ * the action grammar was sized: one action is reachable from a state and from
  * a table's action bar, and a sibling document lets one entry serve both.
  *
- * **The key is the file name and nothing else.** S.1 settled that a flow carries
+ * **The key is the file name and nothing else.** The flow schema settled that a flow carries
  * no self-key, because `FormConfig.key` had drifted from its registry key twice
- * in fifty (I-14). The same reasoning applies to the file: two names for one
+ * in fifty. The same reasoning applies to the file: two names for one
  * thing is one name too many.
  *
  * ## Loading validates, and a flow that does not validate does not load
@@ -32,16 +32,16 @@
  * Findings carry a JSON Pointer, so an editor can put the cursor on the offence
  * rather than on the file.
  *
- * ## Four documents, not two — tasks F.0a and I.3b
+ * ## Four documents, not two
  *
- * S.3 loaded `.uf.json` and `.ua.json`. It did not load the `.form.json`, and
+ * The first store loaded `.uf.json` and `.ua.json`. It did not load the `.form.json`, and
  * `FormDocumentSchema` had no consumer outside three test files, so a form could
  * be authored, saved, validated in Go and rejected properly when malformed —
- * and nothing in the client would ever open it (**I-51**). The `.tc.json` a
- * `dataTable` field names was in the same position after I.3a.
+ * and nothing in the client would ever open it. The `.tc.json` a
+ * `dataTable` field names was in the same position once the table document existed.
  *
  * Both are loaded here now, and **the set is validated as a set**
- * (`documentSet.ts`, `validateDocumentSet`, **I-57**). That check could not run
+ * (`documentSet.ts`, `validateDocumentSet`). That check could not run
  * anywhere else: it needs three documents at once, and the Go save path sees one
  * file at a time — legitimately, since a `.uf.json` is saved before its
  * `.form.json` exists.
@@ -111,7 +111,7 @@ export function tableKeysOf(forms: FormDocument): string[] {
 /**
  * A loaded table document, as the runtime configuration the widget consumes.
  *
- * `fromDocument` was written for I.3a's round-trip proof — *the translation loses
+ * `fromDocument` was written for the table document's round-trip proof — *the translation loses
  * nothing* — and this is its first production caller, which is the outcome that
  * test was arguing for: the inverse being exercised rather than merely asserted.
  */
@@ -152,14 +152,55 @@ export class FlowLoadError extends Error {
  * and "this transition goes nowhere" the same way — and Zod's issue path is
  * already the segments a JSON Pointer needs.
  */
-function findingsFromParse(error: { issues: { path: PropertyKey[]; message: string }[] }): Finding[] {
+function findingsFromParse(error: { issues: ParseIssue[] }): Finding[] {
   return error.issues.map((issue) => ({
     severity: "error" as const,
     code: "unknownTarget" as const,
-    message: issue.message,
+    message: isUnknownEnumeratedValue(issue) ? `${issue.message}. ${RELOAD_HINT}` : issue.message,
     // RFC 6901: "~" then "/", in that order, or the escaping is wrong.
     path: `/${issue.path.map((p) => String(p).replace(/~/g, "~0").replace(/\//g, "~1")).join("/")}`,
   }));
+}
+
+/** The part of a Zod issue `findingsFromParse` reads. */
+interface ParseIssue {
+  path: PropertyKey[];
+  message: string;
+  code?: string;
+  note?: string;
+  /** On `invalid_union`, each alternative's own issues. */
+  errors?: { code?: string; path: PropertyKey[] }[][];
+}
+
+/**
+ * What a refusal adds when the document may simply be newer than this page.
+ *
+ * The schemas are compiled into the bundle, so a tab opened before a deployment
+ * keeps the old ones: a document that uses a value the deployment added to an
+ * enumerated field (a new button style, a new step kind) is refused until the
+ * page is reloaded. The refusal cannot tell that from a typo, so it says both.
+ */
+export const RELOAD_HINT =
+  "If JetStore was updated since this page was opened, reload the page: it may not know this value yet";
+
+/**
+ * Whether a Zod issue is an enumerated field holding a value the schema does not list.
+ *
+ * Three shapes: an enum or literal that does not match (`invalid_value`); a
+ * discriminated union whose discriminator matches no member; and a plain union
+ * every member of which refuses the same field's value, which is how a step's
+ * `do` or a field's `field` is checked. Any other refusal is about the document.
+ */
+export function isUnknownEnumeratedValue(issue: ParseIssue): boolean {
+  if (issue.code === "invalid_value") return true;
+  if (issue.code !== "invalid_union") return false;
+  if (issue.note === "No matching discriminator") return true;
+  const members = issue.errors ?? [];
+  if (members.length === 0) return false;
+  const refusedValueAt = (member: { code?: string; path: PropertyKey[] }[]): Set<string> =>
+    new Set(member.filter((i) => i.code === "invalid_value").map((i) => i.path.map(String).join("/")));
+  const [first, ...rest] = members.map(refusedValueAt);
+  return [...first!].some((path) => rest.every((paths) => paths.has(path)));
 }
 
 /** One file read, with the failure carried as a value so a batch can report all of them. */
@@ -185,8 +226,8 @@ export class FlowStore {
    * The flow keys this workspace defines.
    *
    * Read from the file tree rather than from a manifest: a manifest is a second
-   * place the set of flows is written down, and S.1 spent a finding on what
-   * happens when one name is recorded twice (I-14).
+   * place the set of flows is written down, and the flow schema spent a finding on what
+   * happens when one name is recorded twice.
    */
   async list(): Promise<string[]> {
     const tree = await this.api.fileTree(this.options.workspaceName);
@@ -207,7 +248,7 @@ export class FlowStore {
    *
    * **Six checks, in an order chosen so the first failure is the useful one**:
    * shape, then the flow's internal references, then the *set*, then the tables'
-   * shape, then the tables' cross-document references (F.3), then whether every
+   * shape, then the tables' cross-document references, then whether every
    * escape name exists in this build. Each rests on the one before — a set check
    * over a document that did not parse would report missing forms that are merely
    * unreadable.
@@ -215,12 +256,12 @@ export class FlowStore {
   async load(key: string): Promise<LoadedFlow> {
     const reads = await this.readAll([flowPath(key), actionPath(key), formPath(key)]);
     // The checks after parsing are `checkFlowSet`'s, which the workspace
-    // validator also calls (`jetstore_maintenance_02` `AM.3`). This method's
+    // validator also calls. This method's
     // part is the reading and the order in which a failing stage is thrown.
     const unreadable = reads.filter((r) => r.error !== undefined);
     if (unreadable.length > 0) {
       // **A missing document is a load error with the file's name in it**, not a
-      // transport exception escaping the store. Before F.0a a flow was two files
+      // transport exception escaping the store. Before the flow runner a flow was two files
       // and both were fetched with a bare `Promise.all`; a third that a workspace
       // may legitimately not have authored yet makes the difference visible.
       throw new FlowLoadError(
@@ -246,27 +287,28 @@ export class FlowStore {
     const actions = ActionDocumentSchema.parse(JSON.parse(actionText)) as ActionDocument;
     const forms = FormDocumentSchema.parse(JSON.parse(formText)) as FormDocument;
 
-    // The tables are read before any check runs, because `checkFlowSet` takes
-    // them, and a read failure is held until the two stages that do not need
-    // them have had their say. So the first failure thrown is the one it was
-    // before `AM.3`; what changed is that a flow refused by its set check now
-    // costs the table reads too.
-    const { tables, findings: tableReadFindings } = await this.loadTables(tableKeysOf(forms));
-    const checks = checkFlowSet({ flow, actions, forms }, tables, this.options, key);
-    const stage = (name: FlowCheckStage) => checks.filter((f) => f.stage === name);
+    // The two stages that do not read the tables run first, over no tables, so a
+    // flow they refuse costs no table reads. Their findings do not depend on the
+    // tables, so they are the ones the full run below would give.
+    const early = checkFlowSet({ flow, actions, forms }, {}, this.options, key);
+    const earlyStage = (name: FlowCheckStage) => early.filter((f) => f.stage === name);
 
     // Warnings, such as an unreachable state, do not refuse a flow.
-    const references = stage("references").filter((f) => f.severity === "error");
+    const references = earlyStage("references").filter((f) => f.severity === "error");
     if (references.length > 0) throw new FlowLoadError(key, references.map(asLoadFinding));
 
-    // I-57. The set findings carry their own code union — deliberately not
+    // The set findings carry their own code union — deliberately not
     // `validate.ts`'s, because Go can never raise these — so they are mapped
     // rather than concatenated, and the document they name goes into the pointer
     // so a message spanning files still says which file.
-    const set = stage("set");
+    const set = earlyStage("set");
     if (set.length > 0) throw new FlowLoadError(key, set.map(asLoadFinding));
 
+    const { tables, findings: tableReadFindings } = await this.loadTables(tableKeysOf(forms));
     if (tableReadFindings.length > 0) throw new FlowLoadError(key, tableReadFindings);
+
+    const checks = checkFlowSet({ flow, actions, forms }, tables, this.options, key);
+    const stage = (name: FlowCheckStage) => checks.filter((f) => f.stage === name);
 
     const tableActions = stage("tables");
     if (tableActions.length > 0) throw new FlowLoadError(key, tableActions.map(asLoadFinding));
@@ -294,8 +336,8 @@ export class FlowStore {
    * tables is normally missing all four or none — the directory has not been
    * authored yet — and reporting them one reload at a time is the friction
    * `resolveEscapes` avoids for the same reason. **Returned rather than thrown
-   * since `AM.3`**, so that `load` can hold them until the checks that do not
-   * need the tables have run.
+   * since the checks were shared with the workspace validator**, so that `load`
+   * decides when to throw them. `load` reads the tables only once the checks that do not need them have passed.
    */
   private async loadTables(
     keys: string[],
@@ -373,7 +415,7 @@ export class FlowStore {
    * Reads one workspace file by path.
    *
    * **This went through `readFile` and could not have worked against the real
-   * API** (I-65). `readFile` takes a tree node and asks `fileNameOf` for the
+   * API**. `readFile` takes a tree node and asks `fileNameOf` for the
    * path, which returns null unless `node.type === "file"`; the caller here
    * synthesised `{ label, key } as never`, which has no `type`, so the real
    * method would have thrown *"…is not a file"* on every load. The store's tests
@@ -408,7 +450,7 @@ export class FlowStore {
     }
     const result = schema.safeParse(parsed);
     if (result.success) return [];
-    return findingsFromParse(result.error as { issues: { path: PropertyKey[]; message: string }[] });
+    return findingsFromParse(result.error as { issues: ParseIssue[] });
   }
 }
 
@@ -439,7 +481,7 @@ export function describeFlowSaveWarnings(result: FlowSaveResult): string | null 
 export const serialise = (document: unknown): string => `${JSON.stringify(document, null, 2)}\n`;
 
 /**
- * Every escape name a *form* document references. Task F.1.
+ * Every escape name a *form* document references.
  *
  * The third document to name one, after the flow (`formStateInitializer`) and
  * the action document (`escape` steps). A form names a `validator` and, when it
@@ -464,7 +506,7 @@ export function formEscapeReferences(forms: FormDocument, key = ""): EscapeRefer
         at: `${formPath(key)}/forms/${formKey}/repeat/seed`,
       });
     }
-    // **A field's `isReadOnlyFrom`. Task C.2b.** Third kind a form can name, and
+    // **A field's `isReadOnlyFrom`.** Third kind a form can name, and
     // it is here for the reason the two above are: an unresolved name must refuse
     // the set at load, not leave a field that silently stops being protected. The
     // walk is over `fieldsOf` rather than `valueFieldsOf` because a `button` field
@@ -497,14 +539,14 @@ export function escapeReferences(flow: UserFlow, actions: ActionDocument): Escap
       if (step.do === "escape") {
         references.push({ kind: "actions", name: step.name, at: `/actions/${name}/steps/${index}` });
       }
-      // **A `query` step's name resolves out of the build too. Task F.6.**
+      // **A `query` step's name resolves out of the build too.**
       // `schema.ts` says so — *"`name` is a registered query, not SQL"* — and
       // nothing enforced it, so a document naming a query no build has would load
       // cleanly and fail at the press of a button. That is precisely the failure
       // `escapes.ts` refuses for the other six namespaces, and it was live: the
       // coverage document's `into` named two columns the statement does not
       // return, which a load-time check on the *name* would not have caught but
-      // which is the same class of gap one field over (I-113).
+      // which is the same class of gap one field over.
       if (step.do === "query") {
         references.push({ kind: "queries", name: step.name, at: `/actions/${name}/steps/${index}` });
       }
@@ -537,7 +579,6 @@ export interface FlowCheckFinding {
 
 /**
  * Every check a parsed flow, its siblings and its tables must pass to load.
- * `jetstore_maintenance_02` `AM.3` (`I-31`, retiring `R-16`).
  *
  * **One function for `FlowStore.load` and for the workspace validator**
  * (`validateWorkspace.ts`). The validator used to restate `load`'s sequence check
@@ -551,8 +592,8 @@ export interface FlowCheckFinding {
  *
  * 1. `references`: `validateFlow`, warnings included;
  * 2. `set`: `validateDocumentSet`;
- * 3. `tables`: `validateTableActions` over the tables given (I-88), and
- *    `validateAddClearsState` (`AM.4`);
+ * 3. `tables`: `validateTableActions` over the tables given, and
+ *    `validateAddClearsState`;
  * 4. `escapes`: every escape the flow, its actions, its forms and the given
  *    tables name is in the registry.
  *

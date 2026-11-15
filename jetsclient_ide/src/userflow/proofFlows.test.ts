@@ -1,5 +1,5 @@
 /**
- * The flows that run from documents, driven end to end. Tasks S.5 and F.2.
+ * The flows that run from documents, driven end to end.
  *
  * **This is the test the whole phase was built to make possible.** Everything
  * before it checked one piece against the Dart: the query builder's payload, the
@@ -9,9 +9,9 @@
  *
  * The flow, its actions and its forms are all read from the documents.
  *
- * **F.2 widened it from "the two proof flows" to "the flows that run".** The
+ * **It was widened from "the two proof flows" to "the flows that run".** The
  * harness below is the flow runner minus a DOM, so a migrated flow belongs here
- * whether or not it is one of Phase 2's two — and `loadConfigUF` and
+ * whether or not it is one of the original two — and `loadConfigUF` and
  * `workspacePullUF` are the pair that share a delegate file, which is the thing
  * the re-partition has to get right and which no single-flow test can see.
  * `mapFileUF` is the exception and stays in `FlowRunner.test.tsx`: its form
@@ -80,19 +80,19 @@ function harness(
   formsDoc: unknown,
   /**
    * The escapes this run resolves. Defaulted to `emptyRegistry`, which is what
-   * every flow before F.5 needed — `homeFiltersUF` is the first whose behaviour
+   * every flow before `homeFiltersUF` needed — it is the first whose behaviour
    * is partly in an escape body, so it is the first that has to supply one.
    */
   registry: EscapeRegistry = emptyRegistry,
   /**
    * What a `query` step reads. Defaulted to *no rows*, which is what every flow
-   * before F.6 needed — `pipelineConfigUF` is the only one with a `query` step at
-   * all (I-23), so it is the only caller that has to supply one.
+   * else needs — `pipelineConfigUF` is the only one with a `query` step at
+   * all, so it is the only caller that has to supply one.
    */
   query: ActionHost["query"] = async () => null,
   /**
    * What a `read` answers. Defaulted to *no rows*, which is what every flow
-   * before F.8 needed — `fileMappingUF`'s `downloadMapping` is the first escape
+   * before `fileMappingUF` needed — its `downloadMapping` is the first escape
    * of the corpus that reads rows rather than writing them.
    */
   read: ActionHost["read"] = async () => [],
@@ -108,7 +108,7 @@ function harness(
   /**
    * The jump an action asked for, applied after the press as `FlowRunner` applies
    * it (`press`, *An action's `goToState` is applied last*). Added 2026-10-01 for
-   * `D06` (`jetstore_maintenance_02` `AF.7`): until then no flow this harness
+   * Until then no flow this harness
    * drove *depended* on a jump landing — the two `pc*GotTo*` arms were pressed and
    * their event asserted — and the *+ Add* and *Cancel* arms are jumps that the
    * rest of a walk has to start from.
@@ -152,7 +152,7 @@ function harness(
       // A form button naming an entry in the action document. Its *message* is
       // what a caller here asserts on, the same thing `step` returns for a
       // standard button — `runAction` also reports whether it completed, and the
-      // engine is the only party that needs to know (I-29).
+      // engine is the only party that needs to know.
       return (
         await runAction({
           action: actions.actions[action]!,
@@ -200,16 +200,16 @@ function harness(
 }
 
 // **The corpus half of `validateDocumentSet` moved to `shippingFlows.test.ts`**
-// (`jetstore_maintenance_02` AG.1, 2026-10-01). It was an `it.each` here over
+// (2026-10-01). It was an `it.each` here over
 // ten flows named by hand, against fourteen on disk; it now walks the directory,
 // so a flow added there is set-checked without anybody listing it.
 // `documentSet.test.ts` still carries the cases that make each check fire.
 
 /**
  * **`register_file_key, end to end` stood here until 2026-10-01**, when
- * `jetstore_maintenance_02` retired `registerFileKeyUF` (`Q-6`, task `AD.4`): its
+ * `registerFileKeyUF` was retired: its
  * one state submitted `put_schema_event_to_s3` with a file key the user typed. The
- * Pipeline Status table's *Put Schema Event* dialog (`D01`) submits it now, with
+ * Pipeline Status table's *Put Schema Event* dialog submits it now, with
  * the file key decided by the server, and is tested with the Home screen.
  */
 describe("load_files, end to end", () => {
@@ -331,7 +331,7 @@ describe("conditions", () => {
 });
 
 /**
- * F.2's two flows, which are one delegate file and two state machines.
+ * The two workspace flows, which are one delegate file and two state machines.
  *
  * **The re-partition is what these test, and the payload is what it costs to get
  * wrong.** `updateDbClients` is the key the server branches on — a comma-joined
@@ -521,7 +521,7 @@ describe("pull_workspace, end to end", () => {
 });
 
 /**
- * F.3's flow, and the first whose *tables* run actions.
+ * The client registry flow, and the first whose *tables* run actions.
  *
  * **The step order is what these are for.** The Dart builds its request body
  * with `jsonEncode` and *then* mutates form state, so `clearSelectedRow` and
@@ -533,16 +533,16 @@ describe("pull_workspace, end to end", () => {
  * document transcribed the Dart's line order, which puts `clearSelection` before
  * the post — and `delete/client` takes `client` as its only bound parameter
  * (`jets/datatable/sql_stmts.go`, `"delete/client"`), so the delete would have
- * run with a NULL, matched nothing, and returned 200 (I-90).
+ * run with a NULL, matched nothing, and returned 200.
  */
 describe("client_registry, end to end", () => {
   const setup = () => harness(clientRegistryFlowDoc, clientRegistryActionsDoc, clientRegistryFormsDoc);
 
   /**
-   * **`D06`, 2026-10-01** (`jetstore_maintenance_02` `AF.2`): the flow opens on
+   * **Since 2026-10-01**: the flow opens on
    * the client table rather than on *Create a client* / *Add vendors*. A client is
    * added from an *Add Client* dialog on that table, as a vendor already was from
-   * the `org` table, and lands on the client list (that project's `Q-3`). The three
+   * the `org` table, and lands on the client list. The three
    * cases this replaces walked the option step and the `create_client` state, both
    * gone.
    */
@@ -557,7 +557,7 @@ describe("client_registry, end to end", () => {
 
   it("leaves from the table with Close, which does not validate, and offers no Previous", async () => {
     // `ufCompleted` would validate a table that requires a selection, so a user
-    // who opened the flow to look could not leave it (`AF.6`). `ufPrevious` is
+    // who opened the flow to look could not leave it. `ufPrevious` is
     // refused on a first page anyway, so it is not offered.
     const h = setup();
     expect(h.formFor("select_client").actions.map((a) => a.action)).toEqual(["ufCancel", "ufNext"]);
@@ -607,7 +607,7 @@ describe("client_registry, end to end", () => {
   });
 
   it("ends on show_org, which offers Previous only", async () => {
-    // **No *Done* since 2026-10-02** (`jetstore_maintenance_02` Phase 2, Michel's
+    // **No *Done* since 2026-10-02** (a product
     // decision, as for `fileMappingUF`'s `file_mapping`). It was `ufCompleted`,
     // which left the flow for `returnTo`; *Previous* goes back to the client
     // table, and *Close* there leaves the flow. The state stays `isEnd`.
@@ -704,12 +704,12 @@ describe("client_registry, end to end", () => {
 
   it("its dialog form is named by a table, not by a state", () => {
     // The four forms `user_flows.json` calls unreferenced are the four a table
-    // opens; `ufVendor` is this flow's (I-89). It is in the form document and no
+    // opens; `ufVendor` is this flow's. It is in the form document and no
     // state's `formConfig`.
     const stateForms = new Set(Object.values(setup().flow.states).map((s) => s.formConfig));
     expect(stateForms.has("ufVendor")).toBe(false);
     expect(Object.keys(setup().forms.forms)).toContain("ufVendor");
-    // `ufAddClient` is the second, since `D06` (2026-10-01): the `client` table's
+    // `ufAddClient` is the second, since 2026-10-01: the `client` table's
     // *+ Add* opens it.
     expect(stateForms.has("ufAddClient")).toBe(false);
     expect(Object.keys(setup().forms.forms)).toContain("ufAddClient");
@@ -717,12 +717,12 @@ describe("client_registry, end to end", () => {
 });
 
 /**
- * F.4's flow.
+ * The start-pipeline flow.
  *
  * **It converted a value twice until 2026-10-15, and the paragraph that said so
  * is retired with the arm.** `spPipelineSelected` unpacked the selected
  * pipeline's merged and injected process input lists — Postgres `text[]` literals
- * arriving as one-element selections, so `unpack` then `unpackToList` (I-97) —
+ * arriving as one-element selections, so `unpack` then `unpackToList` —
  * for the merged-sources step and the summary's historical-sources row. Release
  * 4.0.4 removed both: the pipeline configuration names those sources, with their
  * lookback periods, so the flow chooses only the main source and sends an empty
@@ -829,7 +829,7 @@ describe("start_pipeline, end to end", () => {
     // (`jets/datatable/data_table_action.go`, `DataTableAction`), and
     // `encoding/json` unmarshals a JSON null into a string as the zero value —
     // so the two spellings arrive identically. Stated because the divergence is
-    // real and the reason it does not matter is not obvious (I-98).
+    // real and the reason it does not matter is not obvious.
     expect(body["workspaceName"]).toBeNull();
 
     const row = (body["data"] as Record<string, unknown>[])[0]!;
@@ -920,7 +920,7 @@ describe("start_pipeline, end to end", () => {
 });
 
 /**
- * `homeFiltersUF`, end to end. Task F.5.
+ * `homeFiltersUF`, end to end.
  *
  * **The first flow whose behaviour is partly an escape**, so the harness runs with
  * a registry rather than with `emptyRegistry` — which is the point of driving it
@@ -975,7 +975,7 @@ describe("home_filters, end to end", () => {
 
     // **Order is asserted, not just membership.** The list is sent as an array and
     // becomes `WHERE` clauses in that order, so a reordering is a different query
-    // text against a live table (I-90's shape, on a different document).
+    // text against a live table (the step-order shape, on a different document).
     expect(currentHomeFilters()).toEqual([
       { table: "pipeline_execution_status", column: "process_name", defaultValue: ["loadFile", "runRules"], lookupColumnInFormState: false },
       { table: "pipeline_execution_status", column: "status", defaultValue: ["failed"], lookupColumnInFormState: false },
@@ -1076,12 +1076,12 @@ describe("home_filters, end to end", () => {
 });
 
 /**
- * `pipelineConfigUF`, end to end. Task F.6.
+ * `pipelineConfigUF`, end to end.
  *
  * **The largest flow in the corpus and the one the plan kept until now** — ten
  * states, twelve forms, fifteen arms, ten tables. What is asserted here is what
  * the coverage document got wrong rather than what it got right: a branch it did
- * not have (I-115), an initialisation it read off its own left-hand side (I-116),
+ * not have, an initialisation it read off its own left-hand side,
  * a query whose columns it renamed, and a concatenation that would have kept one
  * element of each list.
  *
@@ -1107,10 +1107,10 @@ describe("pipeline_config, end to end", () => {
   };
 
   /**
-   * **`D06`, 2026-10-01** (`jetstore_maintenance_02` `AF.4`): the flow opens on
+   * **Since 2026-10-01**: the flow opens on
    * the pipeline configuration table, *+ Add* jumps to the add page, and *Save*
    * on the summary returns to the table rather than leaving the flow — for an
-   * edit as well as an add (`Q-4`). The two branch cases this replaces walked the
+   * edit as well as an add. The two branch cases this replaces walked the
    * add-or-edit option step, which is gone.
    */
   it("adds from the table, walks the wizard, and saves back onto the table", async () => {
@@ -1176,7 +1176,7 @@ describe("pipeline_config, end to end", () => {
   });
 
   it("clears the table's selection on Cancel from an edit, so Edit needs a fresh tick", async () => {
-    // `jetstore_maintenance_02` Phase 2, 2026-10-01: a bare `goToState` left the
+    // 2026-10-01: a bare `goToState` left the
     // edited record selected in form state, and the table re-publishes it only
     // when it is on the page the table reads (`FlowRunner.addReturn.test.tsx`).
     const h = setup();
@@ -1213,8 +1213,8 @@ describe("pipeline_config, end to end", () => {
     }
   });
 
-  it("starts + Add empty after an edit, so the save inserts (R-1)", async () => {
-    // **`jetstore_maintenance_02` `R-1` and `AF.5`.** `pcSavePipelineConfigUF`
+  it("starts + Add empty after an edit, so the save inserts", async () => {
+    // **The insert-or-update key.** `pcSavePipelineConfigUF`
     // updates whenever `pcPipelineConfigTable` holds a key, and a flow run holds
     // one form state, so *edit → back to the table → + Add → Save* would update
     // the configuration just edited. Walked here through every page the edit path
@@ -1276,7 +1276,7 @@ describe("pipeline_config, end to end", () => {
   });
 
   it("initialises the two key lists to empty and reads the query by column name", async () => {
-    // I-116 and the `into` correction together, because they are the two halves
+    // The initialisation and the `into` correction together, because they are the two halves
     // of one arm. Both lists must be *present and empty*, because the arms that
     // grow them are the flow's whole middle.
     const h = setup();
@@ -1295,7 +1295,7 @@ describe("pipeline_config, end to end", () => {
 
   it("stops the add arm when the process name is missing, after the initialisation", async () => {
     // The Dart's null check is *below* the three assignments, so a flow that
-    // fails here still has its lists. Step order, which is I-90's subject.
+    // fails here still has its lists. Step order is the subject.
     const h = setup();
     expect(await h.press("pcAddPipelineConfigUF")).toBe(
       "Error: null process_name in formState",
@@ -1304,7 +1304,7 @@ describe("pipeline_config, end to end", () => {
   });
 
   it("unpacks the selection before decoding the array literal inside it", async () => {
-    // I-97, inherited from F.4 with nothing to build: `merged_process_input_keys`
+    // Inherited from the start-pipeline flow with nothing to build: `merged_process_input_keys`
     // is `int[] NOT NULL DEFAULT '{}'`, every column of a data-table read is
     // scanned into a `sql.NullString`, and the table publishes a secondary column
     // as a one-element list. So form state holds `["{5,6}"]`.
@@ -1319,7 +1319,7 @@ describe("pipeline_config, end to end", () => {
     expect(h.formState.getValue(0, "pcMainProcessInputKey")).toBe("pi-1");
   });
 
-  it("jumps to the add page and comes back, which is the edge that caused I-18", async () => {
+  it("jumps to the add page and comes back, which is the edge that once broke", async () => {
     const h = setup();
     await h.press("pcGoToAddPipelineConfig");
     fillAddForm(h);
@@ -1328,7 +1328,7 @@ describe("pipeline_config, end to end", () => {
     await h.press("ufNext");
     expect(h.at()).toBe("view_merge_process_inputs");
 
-    // The button is *inside the rows* rather than in the action bar (F.2's
+    // The button is *inside the rows* rather than in the action bar (the
     // `button` field), and pressing it runs an arm whose first step is
     // `goToState`. The harness runs the arm; the screen applies the jump, which
     // is why the event is what is asserted here.
@@ -1354,7 +1354,7 @@ describe("pipeline_config, end to end", () => {
 
   it("collects every process input key rather than the first of each list", async () => {
     // **The `appendUnique` widening, measured.** The Dart concatenates
-    // `[injected, merged, main].expand((x) => x)`; before F.6 an `appendUnique`
+    // `[injected, merged, main].expand((x) => x)`; before this flow an `appendUnique`
     // over a list took element zero, so this would have been
     // `["inj-1", "mrg-1", "pi-1"]` and the summary table would have shown three
     // rows where the configuration has five.
@@ -1373,7 +1373,7 @@ describe("pipeline_config, end to end", () => {
   });
 
   it("inserts when nothing is selected and updates when a row is", async () => {
-    // **I-115.** The coverage document had one unguarded insert, so the flow's
+    // The coverage document had one unguarded insert, so the flow's
     // *Edit an Existing Pipeline Configuration* branch would have added a second
     // row rather than changing the one the user picked.
     const fill = (h: ReturnType<typeof setup>) => {
@@ -1433,7 +1433,7 @@ describe("pipeline_config, end to end", () => {
   });
 
   it("saves a process input from the dialog, adding or updating on the same test the Dart uses", async () => {
-    // `addProcessInputOk` is not one of the 58 (I-114): it lives in
+    // `addProcessInputOk` is not one of the 58: it lives in
     // `modules/actions/config_delegates.dart` because the dialogs carry their own
     // delegate. Its add/update test is on `key` *unpacked or not* — the Dart reads
     // `formState.getValue(0, FSK.key) != null` rather than `unpack(...)`, which is
@@ -1489,11 +1489,11 @@ describe("pipeline_config, end to end", () => {
     expect(partial.formState.getValue(0, "pcProcessInputRegistry4MI")).toBeUndefined();
   });
 
-  it("saves on Next from the summary and returns to the table, and carries the two options I-62 left", () => {
+  it("saves on Next from the summary and returns to the table, and carries its default values and digit-only inputs", () => {
     // **Until 2026-10-01 the summary was the flow's end state**, with *Save &
-    // Done* as `ufCompleted`; `D06` makes it return to the table, and the schema
+    // Done* as `ufCompleted`; it now returns to the table, and the schema
     // forbids a transition on an end state, so it is an ordinary state whose
-    // default is the table (`AF.4`).
+    // default is the table.
     const summary = pipelineConfigFormsDoc.forms.pcSummaryUF;
     expect(summary.actions.map((a) => [a.action, a.label])).toEqual([
       ["ufPrevious", "Previous"],
@@ -1503,7 +1503,7 @@ describe("pipeline_config, end to end", () => {
     const state = setup().flow.states["summaryUF"]!;
     expect("isEnd" in state && state.isEnd).toBeFalsy();
     expect("defaultNextState" in state && state.defaultNextState).toBe("select_pipeline_config");
-    // I-62's second half, built here because this flow is its only consumer: four
+    // `defaultValue` and `digitsOnly`, built here because this flow is their only consumer: four
     // `defaultValue` sites in the 50-form corpus and two `digitsOnly`, all six on
     // these twelve forms.
     const ruleConfig = summary.rows.flat().find((f) => "key" in f && f.key === "rule_config_json");
@@ -1516,16 +1516,16 @@ describe("pipeline_config, end to end", () => {
 });
 
 /**
- * `fileMappingUF`, the flow above the worksheet. Task F.8.
+ * `fileMappingUF`, the flow above the worksheet.
  *
  * **Two states and four arms, and three of the four are reached from the table
- * rather than from a state** — which is the shape I-89 and I-101 predicted and
+ * rather than from a state** — which is the shape predicted earlier and
  * this is the seventh flow to meet. `fmFileMappingTableUF` carries all three
  * kinds the dispatcher reads: a `showScreen` into `mapFileUF`, a `showDialog`
  * that opens `loadRawRowsDialog`, and a `doAction` naming `downloadMapping`.
  *
  * **The two escapes are driven here rather than only resolved**, for the reason
- * F.5's block gives: what they produce — a CSV the browser saves, and a payload
+ * the `homeFiltersUF` block gives: what they produce — a CSV the browser saves, and a payload
  * the server parses — is not visible from the document, and the document is the
  * only thing the set checks look at.
  */
@@ -1585,7 +1585,7 @@ describe("file_mapping, end to end", () => {
   });
 
   it("ends on file_mapping, which offers Previous only", () => {
-    // **No *Done* since 2026-10-02** (`jetstore_maintenance_02` Phase 2, Michel's
+    // **No *Done* since 2026-10-02** (a product
     // decision). It was `ufCompleted`, which left the flow for `returnTo`; the way
     // back is *Previous* to the source table, and *Close* there leaves the flow.
     // The state stays `isEnd`: an end state need not offer `ufCompleted`
@@ -1704,7 +1704,7 @@ describe("file_mapping, end to end", () => {
 
   it("its dialog form is named by a table, not by a state", () => {
     const h = setup();
-    // I-89's rule, and the last of the four forms the flow corpus calls
+    // A form named by a table, and the last of the four forms the flow corpus calls
     // *unreferenced*. Two states, three forms; `loadRawRowsDialog` is
     // `fmFileMappingTableUF`'s `loadRawRows` `configForm`.
     const named = Object.values(h.flow.states).map((state) => state.formConfig);
@@ -1726,7 +1726,7 @@ describe("file_mapping, end to end", () => {
 
 
 /**
- * `sourceConfigUF`, the last of the nine. Task F.7.
+ * `sourceConfigUF`, the last of the nine.
  *
  * **Twelve states, twelve forms, four tables and six arms** — the largest state
  * graph in the corpus and the only flow that reaches every corner of the
@@ -1777,9 +1777,9 @@ describe("configure_files, end to end", () => {
   };
 
   /**
-   * **`D06`, 2026-10-01** (`jetstore_maintenance_02` `AF.3`): the flow opens on
+   * **Since 2026-10-01**: the flow opens on
    * the source configuration table, *+ Add* jumps to the add page, *Edit* is the
-   * table page's Next, and *Save* on the summary returns to the table (`Q-4`).
+   * table page's Next, and *Save* on the summary returns to the table.
    * Every case below that walked the add-or-edit option step starts from the
    * table instead.
    */
@@ -1845,7 +1845,7 @@ describe("configure_files, end to end", () => {
     expect(await h.press("scCancelToList")).toBeNull();
     expect(h.at()).toBe("select_source_config");
     expect(h.events).not.toContain("exit");
-    // The edited record is no longer selected (`jetstore_maintenance_02` Phase 2,
+    // The edited record is no longer selected (since
     // 2026-10-01; `FlowRunner.addReturn.test.tsx` has why), so *Edit* is refused
     // until a row is ticked again.
     expect(h.formState.getValue(0, "scSourceConfigKey") ?? null).toBeNull();
@@ -1859,8 +1859,8 @@ describe("configure_files, end to end", () => {
     }
   });
 
-  it("starts + Add empty after an edit, so the save inserts (R-1)", async () => {
-    // **`jetstore_maintenance_02` `R-1` and `AF.5`.** `saveSourceConfigForFileType`
+  it("starts + Add empty after an edit, so the save inserts", async () => {
+    // **The insert-or-update key.** `saveSourceConfigForFileType`
     // updates whenever `key` is set, and a flow run holds one form state, so
     // *edit → back to the table → + Add → Save* would update the record just
     // edited. Every page the edit path can write to is filled in below; *+ Add*
@@ -1944,7 +1944,7 @@ describe("configure_files, end to end", () => {
   });
 
   it("leaves the organization out of the table name when there is none", async () => {
-    // **I-130.** `makeTableNameFromState` forwards to `makeTableName`
+    // `makeTableNameFromState` forwards to `makeTableName`
     // (`modules/actions/delegate_helpers.dart`, `makeTableName`), which branches on
     // `org.isNotEmpty`; the coverage document had the three-part template alone,
     // so a *No Organization* data source would have been staged into
@@ -2039,9 +2039,9 @@ describe("configure_files, end to end", () => {
     selectExisting(h, { input_format: "xlsx", input_format_data_json: "{not json" });
     const before = h.at();
     const outcome = await h.press("ufNext");
-    // The Dart's message, mislabelled at source and reproduced (I-133).
+    // The Dart's message, mislabelled at source and reproduced.
     expect(String(outcome)).toContain("Input column names is not a valid json");
-    // **And the flow stays put — I-29, fixed 2026-08-26.**
+    // **And the flow stays put — fixed 2026-08-26.**
     //
     // ~~It moved on anyway, in both apps.~~ `ufNext` ran the state action,
     // `print`ed the error and advanced (`modules/actions/user_flow_actions.dart`,
@@ -2077,7 +2077,7 @@ describe("configure_files, end to end", () => {
 
   it("saves on Next from the summary, which is no longer an end state", () => {
     // **Until 2026-10-01 `confirm_state` was the flow's end**, with *Save & Done*
-    // as `ufCompleted`; `D06` returns it to the table (`AF.3`), and an end state
+    // as `ufCompleted`; it now returns to the table, and an end state
     // cannot transition, so it is an ordinary state whose default is the table.
     const h = setup();
     const state = h.flow.states["confirm_state"]!;
@@ -2172,7 +2172,7 @@ describe("configure_files, end to end", () => {
   });
 
   it("clears every key the delete removes, after the request has been built", async () => {
-    // **I-84's original mechanism, on the corpus's longest list.** The Dart
+    // **The original clear-after-build mechanism, on the corpus's longest list.** The Dart
     // encodes the body and *then* empties the map, so the payload is the whole
     // record and the state is empty afterwards — thirteen keys, not the six the
     // coverage document listed.
@@ -2249,8 +2249,8 @@ describe("configure_files, end to end", () => {
       "Client name must be selected.",
     ]);
     h.formState.setValue(0, "client", "ACME");
-    // The org dropdown accepts its own empty value, which is the divergence I-131
-    // records: the Dart tells a valueless prompt from an explicit *No
+    // The org dropdown accepts its own empty value, which is a recorded
+    // divergence: the Dart tells a valueless prompt from an explicit *No
     // Organization* and `DropdownItemSchema.value` cannot.
     expect(validateForm(form, h.formState, 0, escape)).toEqual([]);
   });

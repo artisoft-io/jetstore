@@ -1,28 +1,28 @@
-"""The domain-model JSON Schema emitter (item 2a) — a projection, not a dump.
+"""The domain-model JSON Schema emitter — a projection, not a dump.
 
-Two products from the one Pydantic source (§5.1):
+Two products from the one Pydantic source:
 
 - `emit()` — `jets_agentic.schema.json`, the committed bundle: every entity
-  and every vocabulary as a `$defs` entry, the `$ref` targets item 3's
+  and every vocabulary as a `$defs` entry, the `$ref` targets the
   glossary and tool signatures point into.
 - `schema_for(entity, allowed_fields)` — the per-agent projection. What an
   agent emits is never a whole entity, so a field the agent may not set is
   *absent* from the schema it is decoded against: under guided decoding the
-  field is unreachable rather than merely rejected (§5.1, A§5.6). The
+  field is unreachable rather than merely rejected. The
   projection selects fields; it never touches what values a selected field
   may take — restricting *which* fields is the point, loosening a
-  vocabulary's values is not (A2a.4).
+  vocabulary's values is not.
 
-The post-processing pass is §3.8's known, deliberate cost (A2a.2): Pydantic's
+The post-processing pass is a known, deliberate cost: Pydantic's
 `model_json_schema()` output is cleaned of `title` noise, `anyOf`-with-null
 optionals are collapsed to the bare type (optionality already lives in
 `required`), null defaults are dropped, and the sidecar-only extras that
 `prop()` plants (`key`, `data_classification`) are stripped — the schema's
 one job is constraining a decode; property metadata belongs to the sidecar.
 
-The vocabularies are where the schema earns the most (§5.1): each `StrEnum`
+The vocabularies are where the schema earns the most: each `StrEnum`
 survives as a `$defs` entry with an `enum` keyword that entity properties
-`$ref` — the shape §A.2.8 writes by hand — and under guided decoding an
+`$ref` — the shape the proposal writes by hand — and under guided decoding an
 out-of-taxonomy value is unreachable, which is the single constraint the
 compiler cannot enforce later.
 """
@@ -46,7 +46,7 @@ _SIDECAR_EXTRAS = ("key", "data_classification")
 
 
 def _clean(node: Any) -> Any:
-    """The A2a.2 post-processing pass, applied bottom-up."""
+    """The post-processing pass, applied bottom-up."""
     if isinstance(node, list):
         return [_clean(item) for item in node]
     if not isinstance(node, dict):
@@ -97,7 +97,7 @@ def emit() -> str:
 
 def projection_model(entity: type[BaseModel], allowed_fields: list[str]) -> type[BaseModel]:
     """The Pydantic model of a projection — also the validator for what comes
-    back from a decode constrained by `schema_for` (A2a.3's check uses it)."""
+    back from a decode constrained by `schema_for` (the decode check uses it)."""
     unknown = [f for f in allowed_fields if f not in entity.model_fields]
     if unknown:
         raise KeyError(
@@ -120,7 +120,7 @@ def projection_model(entity: type[BaseModel], allowed_fields: list[str]) -> type
 
 
 def schema_for(entity: type[BaseModel], allowed_fields: list[str]) -> dict:
-    """§5.1's interface. The returned dict is self-contained (its `$defs`
+    """The projection interface. The returned dict is self-contained (its `$defs`
     carry the reachable vocabularies and value objects) and is passed as-is
     to Ollama `format` or vLLM `guided_json`."""
     return _clean(projection_model(entity, allowed_fields).model_json_schema())

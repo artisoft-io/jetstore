@@ -2,7 +2,7 @@
 // floor over the execution record, writes what they concluded to
 // jetsapi.incident and jetsapi.hypothesis, and **acts on none of it**.
 //
-// It is the process half of task AC.3, on jets/cmds/anomaly_detect's model: the
+// It is the process half of shadow-mode triage, on jets/cmds/anomaly_detect's model: the
 // classifier and the ranker are libraries and this is the thing that runs them
 // against a deployment.
 //
@@ -18,7 +18,7 @@
 //
 // # What it will not do
 //
-// **It writes no status past `diagnosed`.** Appendix A.5's incident machine makes
+// **It writes no status past `diagnosed`.** The incident lifecycle makes
 // `remediation_proposed` the point at which a corrective action has a subject,
 // and every status beyond it is reachable only through it — so shadow mode's
 // ceiling is that articulation point and not a list somebody typed. The guard is
@@ -32,14 +32,14 @@
 // **It refuses to run against a database that has not been migrated**, naming
 // the command. jetsapi.incident, hypothesis, incident_event and remediation all
 // arrive on `update_db -migrateDb`, and no production environment measured on
-// 2026-08-25 had them (I-132, I-169). Untreated, the first symptom would be an
+// 2026-08-25 had them. Untreated, the first symptom would be an
 // insert failing on a missing relation, which reads as a defect in the
 // classifier.
 //
 // **It does not reclassify.** A second run over a session it has already raised
 // incidents for adds the loci that are newly present and touches nothing else: a
 // verdict is a dated claim about what the record supported when it was read, and
-// a later read that can see less is not evidence against it (Q-34). What corrects
+// a later read that can see less is not evidence against it. What corrects
 // an incident is a person, through the supervision screen's `reclassified`
 // transition.
 //

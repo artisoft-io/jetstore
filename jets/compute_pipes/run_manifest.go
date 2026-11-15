@@ -35,7 +35,7 @@ import (
 //
 // # The type is not called RunManifest, deliberately
 //
-// That name belongs to healthcare_corpus's generator, for a different document
+// That name belongs to an external generator, for a different document
 // carrying one file per table, and the two documents sit in the same bucket. A
 // reader who meets "RunManifest" in a JetStore stack trace and reaches for that
 // model finds fields that do not exist here.
@@ -233,7 +233,7 @@ type RunManifestMeta struct {
 // The entry list is exactly the declarations. An observed edge matching no
 // declaration is not a deliverable and is not in the manifest -- a
 // jets_partition row is a shard, an intermediate channel never left the
-// process, and D-255 makes the author's declaration the subject. That is also
+// process, and the manifest's design makes the author's declaration the subject. That is also
 // the whole of why OutputEntity is not read here: AggregateChannelResults
 // blanks it when an edge folds several sinks, so the field whose name most
 // sounds like "the deliverable" is empty on exactly the configurations that fan

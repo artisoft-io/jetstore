@@ -31,18 +31,21 @@
     },
     {
       "name": "year",
+      "table": "source_period",
       "label": "Year",
       "tooltip": "Year of the file's source period",
       "isNumeric": true
     },
     {
       "name": "month",
+      "table": "source_period",
       "label": "Month",
       "tooltip": "Month of the file's source period",
       "isNumeric": true
     },
     {
       "name": "day",
+      "table": "source_period",
       "label": "Day",
       "tooltip": "Day of the file's source period",
       "isNumeric": true
@@ -70,6 +73,7 @@
     },
     {
       "name": "source_period_key",
+      "table": "input_registry",
       "label": "Source Period Key",
       "isNumeric": true,
       "isHidden": true
