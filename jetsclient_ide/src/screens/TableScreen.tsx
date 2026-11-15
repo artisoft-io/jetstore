@@ -79,7 +79,17 @@ export interface TableScreenProps {
   title?: string;
 }
 
-export function TableScreen({ api, tableKey, document, title }: TableScreenProps) {
+/**
+ * One screen state per table. Every route that renders this component puts it at
+ * the same place in the tree, so going straight from one such route to another
+ * would otherwise reuse the first table's state (its columns and its sort) and
+ * query the second table with them. The key makes each table its own instance.
+ */
+export function TableScreen(props: TableScreenProps) {
+  return <TableScreenBody key={props.tableKey} {...props} />;
+}
+
+function TableScreenBody({ api, tableKey, document, title }: TableScreenProps) {
   const params = useParams();
 
   // `fromDocument` restores the constants the schema dropped — `apiPath`,

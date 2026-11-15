@@ -11,6 +11,7 @@
     },
     {
       "name": "pipeline_config_key",
+      "table": "pipeline_execution_status_archive",
       "label": "Pipeline Config",
       "isNumeric": true,
       "isHidden": true
@@ -33,18 +34,21 @@
     },
     {
       "name": "year",
+      "table": "source_period",
       "label": "Year",
       "tooltip": "Year of the source period of the run's main input",
       "isNumeric": true
     },
     {
       "name": "month",
+      "table": "source_period",
       "label": "Month",
       "tooltip": "Month of the source period of the run's main input",
       "isNumeric": true
     },
     {
       "name": "day",
+      "table": "source_period",
       "label": "Day",
       "tooltip": "Day of the source period of the run's main input",
       "isNumeric": true
@@ -82,6 +86,7 @@
     },
     {
       "name": "main_input_registry_key",
+      "table": "pipeline_execution_status_archive",
       "label": "Main Input Registry",
       "tooltip": "Main input from previously loaded file, this specify the input session id",
       "isNumeric": true,

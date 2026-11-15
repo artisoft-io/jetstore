@@ -219,6 +219,20 @@ describe("previewSessionDeletion", () => {
     expect(formState.getValue(0, EXPECTED_KEY) ?? null).toBeNull();
   });
 
+  it("passes the server's own text on when the host gives it", async () => {
+    const formState = selected(["1001"]);
+    const host = {
+      read: async (_request: EndpointRequest, onRefused?: (message: string) => void) => {
+        onRefused?.("session 1001: not registered in session_registry");
+        return null;
+      },
+      setBusy: () => {},
+    } as unknown as EscapeHost;
+    expect(await previewSessionDeletion(context(formState), host)).toBe(
+      "Could not list the sessions to delete: session 1001: not registered in session_registry",
+    );
+  });
+
   it("stops before asking when nothing is selected", async () => {
     const { host, reads } = readingHost([]);
     expect(await previewSessionDeletion(context(), host)).toMatch(/Select the sessions/);

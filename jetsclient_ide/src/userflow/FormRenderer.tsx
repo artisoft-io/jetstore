@@ -147,8 +147,11 @@ export function FormRenderer({ form, host, errors }: FormRendererProps): ReactNo
       ? [host.group]
       : Array.from({ length: Math.max(0, host.groupCount) }, (_, index) => index);
 
+  // A repeating form is a worksheet of database identifiers (the file mapping's
+  // input columns and arguments), and its text inputs are set in the monospace
+  // font, as the Flutter app set them (styles.css, `.uf-form--worksheet`).
   return (
-    <section className="uf-form">
+    <section className={form.repeat === undefined ? "uf-form" : "uf-form uf-form--worksheet"}>
       {form.title !== undefined && <h2 className="uf-form__title">{form.title}</h2>}
 
       {form.repeat !== undefined && groups.length === 0 && !host.queriesLoading && (

@@ -643,6 +643,13 @@ body {
 .uf-form__row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
 .uf-form__row > * { flex: 1 1 auto; min-width: 0; }
 .uf-form__title { font-size: 15px; margin: 0 0 4px; }
+/*
+  The repeating worksheet (`mapFileUF`'s, the one form with `repeat`) holds
+  database identifiers: input columns, function arguments, default values. Its
+  text inputs, the typeahead's included, are set in the monospace font, as the
+  Flutter app set every text input that did not ask for the default font.
+*/
+.uf-form--worksheet .field input { font-family: var(--mono); }
 .uf-form__label { margin: 6px 0 2px; font-size: 13px; color: var(--ink-2); }
 .uf-form__spacer { height: 10px; flex-basis: 100%; }
 /* A table takes the row to itself *unless the field names a `flex`* — which

@@ -16,6 +16,8 @@
  * as the apiserver's `/dataTable` switch does.
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -783,6 +785,22 @@ describe("mapFileUF — the file mapping worksheet", () => {
     // Two groups, so two of each field.
     expect(screen.getAllByLabelText("Input Column")).toHaveLength(2);
     expect(screen.getAllByLabelText("Cleansing Function")).toHaveLength(2);
+  });
+
+  it("marks the worksheet so its identifier inputs are set in the monospace font", async () => {
+    await mount("mapFileUF", { search: MAPPING_SEARCH });
+    await screen.findByText("claim:id*");
+    const input = screen.getAllByLabelText("Input Column")[0]!;
+    expect(input.closest(".uf-form--worksheet")).not.toBeNull();
+    // The rule the class carries: the stylesheet is not loaded under jsdom, so it is read.
+    const css = readFileSync(join(__dirname, "../styles.css"), "utf8");
+    expect(css).toMatch(/\.uf-form--worksheet \.field input \{ font-family: var\(--mono\); \}/);
+  });
+
+  it("does not mark a form that does not repeat", async () => {
+    await mount("loadConfigUF");
+    await waitFor(() => expect(document.querySelector(".uf-form")).not.toBeNull());
+    expect(document.querySelector(".uf-form--worksheet")).toBeNull();
   });
 
   it("substitutes both route parameters into the queries", async () => {

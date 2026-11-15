@@ -246,6 +246,31 @@ func TestTheTwoRootFilesAreFilesAndCarryNoView(t *testing.T) {
 	}
 }
 
+// The root files carry their size, as every other file node does; the tree
+// showed both as 0 B because these two nodes were built without a stat. A root
+// file that is absent still yields its node, with no size.
+func TestTheRootFilesCarryTheirSize(t *testing.T) {
+	root := t.TempDir()
+	script := "#!/bin/bash\necho compile\n"
+	if err := os.WriteFile(filepath.Join(root, "compile_workspace.sh"), []byte(script), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	nodes, err := BuildWorkspaceFileStructure(root, "ws")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sizes := map[string]int64{}
+	for _, n := range nodes[len(nodes)-2:] {
+		sizes[n.PageMatchKey] = n.Size
+	}
+	if got := sizes["compile_workspace.sh"]; got != int64(len(script)) {
+		t.Errorf("compile_workspace.sh: size %d, want %d", got, len(script))
+	}
+	if got, ok := sizes["workspace_control.json"]; !ok || got != 0 {
+		t.Errorf("an absent workspace_control.json: size %d (present %v), want a node of size 0", got, ok)
+	}
+}
+
 // Every asset the installer puts in a workspace is visible in the IDE.
 //
 // **The two lists are in different packages and nothing joined them until this

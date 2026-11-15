@@ -279,3 +279,31 @@ export class FormState {
     return Object.fromEntries(this.group(group).values);
   }
 }
+
+/**
+ * A new form state for one open of a dialog: a copy of `parent`'s values in
+ * `group`, with `params` (the dialog's resolved `navigationParams`) written over
+ * them.
+ *
+ * The dialog's fields, validation and actions read and write this copy, and it
+ * is dropped when the dialog closes, so what was typed into one open neither
+ * reaches the screen's own state nor greets the next open. The copy is what a
+ * dialog inherits from its screen: keys an action posts that no field shows and
+ * no `navigationParams` names, such as a selection's `previous.workspace_name`.
+ * Selected rows are not copied: the dialogs of the screens that use this read
+ * values, and none reads a selection.
+ */
+export function dialogFormState(
+  parent: FormState,
+  group: number,
+  params: Readonly<Record<string, string>>,
+): FormState {
+  const state = new FormState(Math.max(1, group + 1));
+  for (const [key, value] of Object.entries(parent.snapshot(group))) {
+    state.setValue(group, key, Array.isArray(value) ? [...value] : value);
+  }
+  for (const [key, value] of Object.entries(params)) {
+    state.setValue(group, key, value);
+  }
+  return state;
+}

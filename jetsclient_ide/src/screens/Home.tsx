@@ -565,11 +565,14 @@ export function Home({ api }: { api: ApiClient }) {
           return { statusCode: 500, error: error instanceof Error ? error.message : String(error) };
         }
       },
-      read: async (request) => {
+      read: async (request, onRefused) => {
         try {
           const body = await api.endpoint<{ rows?: unknown }>(request.endpoint, request.body);
           return Array.isArray(body.rows) ? (body.rows as JetsRow[]) : [];
-        } catch {
+        } catch (error) {
+          // The server's text, for an escape that can show it (the session
+          // deletion preview's 404 names the session no longer registered).
+          onRefused?.(error instanceof Error ? error.message : String(error));
           return null;
         }
       },

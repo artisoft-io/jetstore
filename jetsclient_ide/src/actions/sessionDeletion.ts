@@ -175,16 +175,21 @@ export async function previewSessionDeletion(
 
   host.setBusy(true);
   let raw: unknown[] | null;
+  const refused = { message: "" };
   try {
-    raw = await host.read(previewRequest(sessionIds));
+    raw = await host.read(previewRequest(sessionIds), (message) => {
+      refused.message = message;
+    });
   } finally {
     host.setBusy(false);
   }
-  // `read` answers null for any failed request and keeps no message, so the
-  // likely causes are named here: the capability (403), and a session gone
-  // since the table was read (404, "not registered in session_registry").
+  // The server's own text when the host passes it on (a 404 names the session
+  // that is "not registered in session_registry", a 403 the capability), and the
+  // two likely causes otherwise.
   if (raw === null) {
-    return "Could not list the sessions to delete: the server refused the preview. You need delete_session, and every selected session must still be registered; refresh and select again.";
+    return refused.message !== ""
+      ? `Could not list the sessions to delete: ${refused.message}`
+      : "Could not list the sessions to delete: the server refused the preview. You need delete_session, and every selected session must still be registered; refresh and select again.";
   }
   const rows = raw.map(previewRowOf).filter((r): r is PreviewRow => r !== null);
   if (rows.length === 0) return "The server listed no session to delete";

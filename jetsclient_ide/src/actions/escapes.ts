@@ -104,8 +104,13 @@ export interface EscapeHost {
    * issues a `read` and turns up to a thousand rows into a CSV, so the rows are
    * the whole point. It is not `query`: that resolves a *registered* statement
    * and returns one row by column name.
+   *
+   * `onRefused`, when the host offers it, is called with the server's error
+   * text before the read answers null, so an escape that can say more than
+   * "the server refused" does. A host that does not offer it ignores it, and the
+   * escape falls back to its own message.
    */
-  read(request: EndpointRequest): Promise<JetsRow[] | null>;
+  read(request: EndpointRequest, onRefused?: (message: string) => void): Promise<JetsRow[] | null>;
   /** Spinner, snackbar and alert, which the Dart keeps as three mechanisms. */
   notify(level: "info" | "error", message: string): void;
   /**

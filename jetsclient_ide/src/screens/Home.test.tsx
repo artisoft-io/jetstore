@@ -1375,10 +1375,12 @@ describe("Session Registry's Delete (G.3)", () => {
     expect((button("Delete") as HTMLButtonElement).disabled).toBe(true);
     await selectRow("1001");
     expect((button("Delete") as HTMLButtonElement).disabled).toBe(false);
-    // A second row whose deletion is queued: the first row passes `enableWhen`,
-    // and the predicate over every selected row refuses it.
+    // A second row whose deletion is queued. `enableWhen` tests every selected
+    // row, so the button says why in the row's terms; it said "Nothing to clear"
+    // when only the first row was tested and the predicate refused.
     await selectRow("2002");
     expect((button("Delete") as HTMLButtonElement).disabled).toBe(true);
+    expect(button("Delete").getAttribute("title")).toBe("Not for a row that is pending, failed or done");
   });
 
   it("is disabled on a deleted session's tombstone", async () => {
@@ -1492,7 +1494,11 @@ describe("Session Registry's Delete (G.3)", () => {
     const { posts } = await openRegistry();
     await selectRow("1001");
     fireEvent.click(button("Delete"));
-    expect((await screen.findByRole("alert")).textContent).toMatch(/refused the preview/);
+    // The server's own text, which names the session no longer registered; Home
+    // dropped it and the alert read as a generic refusal.
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Could not list the sessions to delete: session 1001: not registered in session_registry",
+    );
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(deletePosts(posts)).toHaveLength(0);
   });

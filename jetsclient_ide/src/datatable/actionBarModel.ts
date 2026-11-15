@@ -94,7 +94,13 @@
  * anything (`jetstore_maintenance_02`'s I-11).
  */
 
-import { isEnabledEscapeFor } from "./tableTranslate";
+import {
+  DATA_REGISTRY_FILTERS_ESCAPE,
+  HOME_FILTERS_ESCAPE,
+  NO_SESSION_DELETION_ESCAPE,
+  SESSION_REGISTRY_FILTERS_ESCAPE,
+  isEnabledEscapeFor,
+} from "./tableTranslate";
 import type { FormState } from "./formState";
 import type { ActionConfig, JetsRow } from "./types";
 
@@ -122,14 +128,25 @@ export interface ActionContext {
    * `getFirstSelectedRow()` in the Dart, and *first* rather than *every*: the
    * criteria are evaluated against one row even on a multi-select table
    * (`jetsclient/lib/models/data_table_config.dart`, `ActionConfig.isEnabled`).
-   * Every criteria-bearing action in the corpus is on a single-select table, so
-   * the distinction is unobservable today and is reproduced rather than tidied —
-   * the same call S.2b made about `ParamPrecedence`.
+   * ~~Every criteria-bearing action in the corpus is on a single-select table, so
+   * the distinction is unobservable today and is reproduced rather than tidied.~~
+   * **No longer: since 2026-11-14 `selectedRows` below, when given, is what
+   * `enableWhen` tests.** Session Registry's *Delete* is on a multi-select table,
+   * and a second selected row that its criteria refuse left the button disabled
+   * by its predicate alone, with that predicate's reason. This row is still
+   * what a caller with one row (the IDE toolbar) passes.
    *
    * Optional because five of the six gates do not need it and a required field
    * would make every existing caller name a value it has no use for.
    */
   selectedRow?: JetsRow;
+  /**
+   * Every selected row the bar can see, in order. When given, `enableWhen` must
+   * hold for each of them, not only the first: an action enabled by the first
+   * row would otherwise run on the others too. A single-select table has one,
+   * so its gate is the same as `selectedRow`'s.
+   */
+  selectedRows?: readonly JetsRow[];
   /** A.5's checkbox mode, which seven actions' visibility follows. */
   checkboxVisible: boolean;
   /**
@@ -145,6 +162,14 @@ export interface ActionContext {
    */
   predicates: Readonly<Record<string, (formState: FormState, group: number) => boolean>>;
 }
+
+/** Why a named `isEnabled` predicate refused, by predicate. */
+const PREDICATE_REASONS: Readonly<Record<string, string>> = {
+  [DATA_REGISTRY_FILTERS_ESCAPE]: "Nothing to clear",
+  [HOME_FILTERS_ESCAPE]: "Nothing to clear",
+  [SESSION_REGISTRY_FILTERS_ESCAPE]: "Nothing to clear",
+  [NO_SESSION_DELETION_ESCAPE]: "A selected session already has a deletion requested",
+};
 
 /** Why an action is not available, for a title attribute worth reading. */
 export interface ActionAvailability {
@@ -250,11 +275,20 @@ export function availability(
   // Dart. A missing row disables rather than passing: `getFirstSelectedRow()`
   // returning null is `return false` there, and it is the safe direction here.
   if (action.actionEnableCriterias?.length) {
-    const row = context.selectedRow;
+    const criterias = action.actionEnableCriterias;
+    const rows: readonly JetsRow[] =
+      context.selectedRows !== undefined && context.selectedRows.length > 0
+        ? context.selectedRows
+        : context.selectedRow !== undefined
+          ? [context.selectedRow]
+          : [];
+    const row = rows[0];
     const met =
-      row !== undefined &&
-      action.actionEnableCriterias.some((conjunction) =>
-        conjunction.every((criterion) => criterionMet(criterion, row)),
+      rows.length > 0 &&
+      rows.every((selected) =>
+        criterias.some((conjunction) =>
+          conjunction.every((criterion) => criterionMet(criterion, selected)),
+        ),
       );
     if (!met) {
       return {
@@ -263,7 +297,7 @@ export function availability(
         // Named rather than generic, because the whole point of this gate is
         // that the row is the wrong *kind* of row. "Select a row first" would be
         // a lie when one is selected.
-        reason: reasonFor(action.actionEnableCriterias, row),
+        reason: reasonFor(criterias, row),
       };
     }
   }
@@ -293,7 +327,11 @@ export function availability(
       return { visible: true, enabled: false, reason: `Missing predicate "${name}"` };
     }
     if (!predicate(context.formState, action.stateGroup)) {
-      return { visible: true, enabled: false, reason: "Nothing to clear" };
+      // The predicate's own reason. It was "Nothing to clear" for every one,
+      // which is true of the three filter predicates only: Session Registry's
+      // *Delete*, refused because a selected session already has a deletion,
+      // said "Nothing to clear" too.
+      return { visible: true, enabled: false, reason: PREDICATE_REASONS[name] ?? "Not available now" };
     }
   }
 
