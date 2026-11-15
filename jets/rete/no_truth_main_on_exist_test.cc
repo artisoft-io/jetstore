@@ -19,7 +19,7 @@
 // ExistNotVisitor::register_callback (jets/rete/expr_op_resources.h) return without
 // registering anything, so an exist or exist_not filter was evaluated once, when the row
 // was made, and never again. That workspace's deployed rules no longer set it, and it was
-// deleted with the LEGACY retraction mode (jets/rete/README.md).
+// deleted with the LEGACY retraction mode (docs/src/content/docs/developer/engine/rule-engine/).
 //
 // WHAT REMAINS is that a configuration that still turns it on is refused by
 // ReteSession::initialize, where every session starts, with a message naming the change:

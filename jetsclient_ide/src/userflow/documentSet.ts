@@ -327,7 +327,7 @@ export function validateTableActions(
  * one form state for the whole run, and decides insert or update from what is in
  * it. So *edit, back to the table, + Add, Save* updates the record just edited
  * unless the *+ Add* removes what the edit left (`D06`; the two lists and the
- * reason for each key are in `jets/workspace_assets/user_flows/actions.md`).
+ * reason for each key are in `docs/src/content/docs/developer/workspace/assets/flow-actions.md`).
  * Phase 1 pinned the two committed lists by test. This is the same check for
  * any flow, including one a model writes.
  *

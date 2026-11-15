@@ -644,7 +644,7 @@ type TransformationSpec struct {
 // UnmarshalComputePipesConfig, which is a plain json.Unmarshal with no
 // DisallowUnknownFields anywhere in this package. A configuration block that is
 // not a JSON-tagged field of TransformationSpec is dropped with no error and no
-// log line (`I-777`).
+// log line.
 //
 // The error channel is a *named field* rather than something the site buries
 // inside Config, and that is not a style preference: errorChannelConfig is the
@@ -1309,13 +1309,12 @@ type PromptTemplateSpec struct {
 // Key is the name used by RenderSpec.TemplateName. The rest is the document:
 // Width is the column each paragraph is wrapped to, Elements are emitted in
 // array order, and Empty is what the document says when no element said
-// anything. The notation is specified in agentic_ai's Phase 8 plan §10 and
-// implemented in jets/agentic/template; RenderSpec is its only consumer here.
+// anything. The notation is implemented in jets/agentic/template; RenderSpec is its only consumer here.
 //
 // **The array is `text_templates` rather than `templates`, and the word is doing
 // work.** `prompt_templates` is the only other template array in this
 // configuration and it is qualified; a bare `templates` would be the sole
-// unqualified one, and it is the one that collides with gap 20's *configuration*
+// unqualified one, and it is the one that collides with the *configuration*
 // templates (`tools/cpipes_contract/templates/`). The operator renders; what it
 // applies is a text template.
 //
@@ -1633,8 +1632,11 @@ type EmbedSpec struct {
 // (/v1/completions). SystemPrompt requires chat, the completions api having no message
 // roles; asking for both is a build time error rather than a silent fold into the prompt.
 // StructuredOutput chooses how the promoted ResponseFormat reaches the server:
-//   - guided_json (default) sends the schema in vLLM's own `guided_json` parameter;
-//   - json_schema sends it in the OpenAI-compatible `response_format`, named and strict.
+//   - json_schema (default) sends it in the OpenAI-compatible `response_format`, named and strict;
+//   - guided_json sends the schema in vLLM's own `guided_json` parameter.
+//
+// The default is json_schema because the pinned vLLM image accepts `guided_json` and
+// discards it (applyVllmDefaults says what was measured).
 //
 // Which one a server accepts is a property of its vLLM version, not of the pipeline,
 // which is why this is configurable at all. The promoted ResponseFormat keeps ollama's

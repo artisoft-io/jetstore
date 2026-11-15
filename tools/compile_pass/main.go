@@ -512,7 +512,7 @@ func caseSource(everyNth, planBudget, numCtx int, temperature float64, seed int,
 // derivation that looks available is a trap. Every bundle today carries a
 // `type` const equal to its operator's token, so a scan would work — and it
 // would work only because the tier is 1:1 with the leaves, which
-// BUNDLES_SCHEMA.md names as a deliberate current choice that forecloses a
+// docs/src/content/docs/developer/tools/cpipes-contract/bundles.md names as a deliberate current choice that forecloses a
 // hole offering a choice among related operators. The first bundle grouping
 // two operators breaks the scan and not the CSV, and the CSV is
 // authoritative by design because it expresses semantics the model cannot.

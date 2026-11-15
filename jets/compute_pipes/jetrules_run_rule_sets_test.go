@@ -12,7 +12,8 @@ package compute_pipes_test
 // fixes its workspace at init. Run it with -count=1.
 //
 // These ran on the Go engine until its retirement (October 2026). They run on the
-// C++ engine now, and need the cgo environment of jets/cmds/rules_unit_test/README.md
+// C++ engine now, and need the cgo environment of
+// docs/src/content/docs/developer/testing/go-and-cpp.md
 // (CGO_CFLAGS, CGO_LDFLAGS, LD_LIBRARY_PATH); a C++ engine that does not build
 // fails the test.
 

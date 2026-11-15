@@ -62,7 +62,7 @@ COPY . $WORKSPACES_REPO/$WORKSPACE/
 # image shipped on 2026-08-31 carried `build/`, `build/jet_rules` and
 # `build/jet_rules/clinical_intel` at 0770 — dated months before that build,
 # because they came in through the COPY above — against 222 files that were all
-# world-readable. See jets/workspace/README.md.
+# world-readable. See docs/src/content/docs/developer/workspace/index.md.
 #
 # **Here rather than only after the compile, because the archive is built in
 # between.** `compile_workspace` writes workspace.tgz from this tree, and a

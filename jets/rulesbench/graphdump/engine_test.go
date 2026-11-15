@@ -6,7 +6,7 @@ package graphdump
 // and the C++ engine's were in native_test.go, built only with -tags jets_native so
 // that the package's tests could run without libjets.so. They now link the C++
 // engine: build against a libjets.so of this commit with the cgo override in
-// jets/cmds/rules_unit_test/README.md:
+// docs/src/content/docs/developer/testing/go-and-cpp.md:
 //
 //	CGO_CFLAGS="-I$PWD/jets" CGO_LDFLAGS="-L$LIB" LD_LIBRARY_PATH=$LIB \
 //	  go test -count=1 ./jets/rulesbench/graphdump/

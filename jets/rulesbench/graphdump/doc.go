@@ -43,7 +43,7 @@
 //	minted node        _:<label>, and _:<label>^^text for its text form (below)
 //
 // Doubles are written as held, not rounded: the Go engine quantised a double
-// literal to 15 bits of mantissa until rules_benchmark Phase 4 (jets/rete/README.md,
+// literal to 15 bits of mantissa until October 2026 (docs/src/content/docs/developer/engine/rule-engine/,
 // "The Go and C++ engines are independently maintained and they disagree", item 3)
 // and the C++ engine does not, so the same amount read 12345.67 on C++ and 12345.5 on Go.
 // That difference is kept in the dump and classified by the diff, which knows

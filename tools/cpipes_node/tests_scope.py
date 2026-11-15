@@ -94,7 +94,7 @@ def test_a_token_nobody_has_is_refused_with_a_different_reason():
     assert typo.category is builtin.category is FindingKind.OUT_OF_SCOPE
     assert typo.reason != builtin.reason
     assert "site operator" in typo.reason
-    assert "P9-I04" in builtin.reason
+    assert "subset of the built-ins by design" in builtin.reason
 
 
 def test_a_twenty_ninth_operator_that_did_not_join_the_scope_fails_loudly():

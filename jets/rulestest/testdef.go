@@ -53,7 +53,7 @@ type TestDefinition struct {
 // LegacyConfig carries the two LEGACY switches, one per retraction defect kept
 // from 2026-10-09 until October 2026, when the LEGACY retraction mode was deleted
 // and the C++ engine kept one retraction behaviour, the one these switches turned
-// on by setting them false (jets/rete/README.md). The object is still decoded, so
+// on by setting them false (docs/src/content/docs/developer/engine/rule-engine/). The object is still decoded, so
 // that validation can refuse a switch set true, naming the change; one whose every
 // present switch is false names the behaviour that remains and selects nothing
 // (rules_benchmark Q-102). The names are the project definition's (§8.5.1).

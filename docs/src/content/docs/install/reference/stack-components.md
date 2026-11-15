@@ -260,7 +260,8 @@ Rotates all four secrets.
   `BlockPublicAccess_BLOCK_ALL`, versioned, server access logs under `AccessLogs/`,
   `DisallowPublicAccess()`, and `RemovalPolicy_DESTROY` with `AutoDeleteObjects`. An **imported**
   bucket is never destroyed. `EXTERNAL_BUCKETS` and `EXTERNAL_S3_KMS_KEY_ARN` extend read/write and
-  KMS grants to third-party buckets.
+  KMS grants to third-party buckets; a name in `EXTERNAL_BUCKETS` that is not a bucket stops the
+  synth (see [Required variables](/docs/install/reference/required-variables/)).
 - **Aurora Serverless v2 Postgres**: isolated subnets, `StorageEncrypted`, `DeletionProtection`,
   parameter `rds.force_ssl=1`, CloudWatch `postgresql` log export with 3-month retention, credentials
   in a rotated `DatabaseSecret`. Version from `JETS_DB_VERSION` (14.5 / 15.10 / 15.15 / 15.17;

@@ -13,9 +13,9 @@ this app is the `main` package `cdk/jetstore_one` and imports `.../cdk/jetstore_
 `cdk/bootstrap_aws` and `cdk/vpc_peering` are separate modules in the root `go.work` — so a change here
 compiles against the live `jets/` tree, and the Lambda bundles built by `awslambdago` do too.
 
-`jetstore_ai/CLAUDE.md` (one level up, at the repo root) covers the platform as a whole and the
-*Infer Server* deployment wiring; that section is the system-level companion to `build_infer_*.go` here.
-Do not duplicate it — cross-reference by `file:line`.
+The repository root's `CLAUDE.md` covers the platform as a whole and the *Infer Server* deployment
+wiring; that section is the system-level companion to `build_infer_*.go` here. Do not duplicate it —
+cross-reference by file and identifier, not by line number.
 
 ## Commands
 
@@ -23,9 +23,9 @@ Do not duplicate it — cross-reference by `file:line`.
 go build ./... && go vet ./...
 ```
 
-Run from **this directory**. Go stops at the first `go.work` walking up, which is `jetstore_ai/go.work`;
-run the same command from the parent `jetstore_agentic_ai` checkout and you get a different workspace
-with the CDK modules dropped out. See the *Go* note in the repo-root `CLAUDE.md`.
+Run from **this directory**. Go stops at the first `go.work` walking up, which is the repository
+root's `go.work`; run the same command from a checkout that contains this repository and has its own
+`go.work` and you get a different workspace, with the CDK modules dropped out.
 
 **There is one test file, and it is new.** `jetstore_one_test.go` is still the CDK scaffold's
 example, entirely commented out; `stack/build_cpipes_lambdas_test.go` (2026-09-12) is real and holds
@@ -51,7 +51,7 @@ Both require the full environment (below) to be exported first — `main` panics
 variables, listing every one it found wrong, before CDK is even reached.
 
 **`cdk` must be run from this directory.** Lambda `Entry` paths are relative
-(`Entry: "lambdas/status_update"`, `build_lambdas.go:34`), so `awslambdago` resolves them against the
+(`Entry: "lambdas/status_update"`, `StatusUpdateLambda` in `BuildLambdas`, `build_lambdas.go`), so `awslambdago` resolves them against the
 process working directory. From anywhere else, bundling fails at synth.
 
 ## Configuration is environment variables, read at synth
@@ -59,7 +59,7 @@ process working directory. From anywhere else, bundling fails at synth.
 There is no CDK context or config file driving composition — `os.Getenv` at synth time decides what
 gets built and what goes into every container and Lambda environment. Consequences:
 
-- **The authoritative list is the comment block at [jetstore_one.go:528](jetstore_one.go:528) onward**,
+- **The authoritative list is the comment block headed `Expected Env Variables` in `jetstore_one.go`**,
   and `main` logs every value at synth. **Adding a toggle means three edits**: read it where it is used,
   add a line to that comment block, add a `log.Println` in `main`. Skipping either of the last two is
   how a variable becomes undiscoverable.
@@ -71,23 +71,26 @@ gets built and what goes into every container and Lambda environment. Consequenc
   (`stack_model.go`) derive from `JETS_s3_INPUT_PREFIX` by string replacement of `/input`. Use the
   helpers rather than `os.Getenv` for those.
 - **Synth reaches the network.** With `JETS_GIT_ACCESS` naming `github`, `getGithubIps`
-  (`jetstore_github.go:19`) does a live `GET https://api.github.com/meta` and **panics** if it fails,
+  (`jetstore_github.go`) does a live `GET https://api.github.com/meta` and **panics** if it fails,
   so the git security group's rules differ run to run and an offline synth is impossible.
 - **`JETS_GIT_ACCESS` is synth-time only, and reads as though it were not.** Its one consumer is
-  `NewGitAccessSecurityGroup` (`jetstore_github.go:71`); it is in no task definition's environment
+  `NewGitAccessSecurityGroup` (`jetstore_github.go`); it is in no task definition's environment
   map, so no container can read it. It decides whether a git operation *could* reach a provider, not
   whether one is attempted, and a stack deployed without it still runs the git commands the Workspace
   Registry offers. The runtime switch is `JETS_NO_GIT_ACCESS`, added to `build_ui_service.go`'s
   `uiEnvironment` in 2026-09; the comment on that entry is the one to read before adding another
   boolean switch, because the map sets every environment-sourced entry from `os.Getenv` without
-  filtering and an unset variable therefore arrives present and empty. `doc/deploy_runbook.md`
-  section 8 covers the local-development case.
-- `cdk.context.json` caches an availability-zone lookup **pinned to one account and region**. It is
-  committed; delete the entry rather than editing it when targeting a different account.
+  filtering and an unset variable therefore arrives present and empty. The Installation Guide's
+  `docs/src/content/docs/install/how-to/run-against-a-local-checkout.md` covers the
+  local-development case.
+- `cdk.context.json`, when a synth writes one, caches context lookups (an availability-zone lookup,
+  for one) **pinned to one account and region**. It is **not committed**: the repository's
+  `.gitignore` lists it, so each checkout and each deploy job starts without one and looks up afresh.
+  A file left behind by a synth against another account is the one to delete.
 
 ## Stack composition
 
-`NewJetstoreOneStack` (`jetstore_one.go:47`) builds shared state into a single
+`NewJetstoreOneStack` (`jetstore_one.go`) builds shared state into a single
 `jetstorestack.JetStoreStackComponents` (`stack/stack_model.go`) and threads it through the
 `Build*` methods, each in its own `stack/build_*.go`. Every method reads earlier fields and assigns
 later ones, so **the call order in `NewJetstoreOneStack` is the dependency graph** and reordering
@@ -105,12 +108,12 @@ Three arrangements worth knowing before editing:
 `props.MkId(name)` at the top of the stack function, so tasks and Lambdas can carry them in their
 environment without a CloudFormation circular dependency. That makes the **construct-id string the
 contract**: `props.MkId("cpipesSM")` here must match `StateMachineName: props.MkId(stateMachineName)`
-in `build_cpipes_sm.go:272`. Rename one and the ARN points at nothing, at runtime only. The same
+in `buildCpipesSMInternal` (`build_cpipes_sm.go`). Rename one and the ARN points at nothing, at runtime only. The same
 pressure explains the `Resources: "*"` on `states:StartExecution` for the status-update and
 register-key Lambdas — the comments there say so.
 
 **`ReportsSmArn` is empty and `jsComp.ReportsSM` is nil when `JETS_SKIP_REPORTS_SM` is on**
-(`SkipReportsSMFromEnv`, `stack/stack_model.go:214`). Every container and Lambda then carries
+(`SkipReportsSMFromEnv`, `stack/stack_model.go`). Every container and Lambda then carries
 `JETS_REPORTS_SM_ARN=""`, and the task role's `states:StartExecution` names `cpipesSM` alone. A new
 reference to `ReportsSM`, `RunreportTaskDefinition` or `RunReportsLambda` needs the same nil guard:
 `RunReportsLambda` is left out too when `JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY` gives `cpipesSM`
@@ -136,20 +139,20 @@ default.** The distinction is the thing to read before adding a sixth, because t
 differently when an operator forgets the variable.
 
 **Three gate: the Lambda is *not built at all* when the variable is unset.**
-`JETS_API_GATEWAY_LAMBDA_ENTRY` (`build_api_lambdas.go:25`),
-`JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY` (`build_registerkey_lambdas.go:122`) and
-`JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY` (`build_lambdas.go:230`). The path points outside this
-directory — typically a client workspace repo's `go/lambdas/` — which is what the root `go.work`
-including `cedargate_ws` is for. So the API Gateway, the SQS trigger path and the cpipes run-reports
+`JETS_API_GATEWAY_LAMBDA_ENTRY` (`BuildApiLambdas`, `build_api_lambdas.go`),
+`JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY` (`BuildRegisterKeyLambdas`, `build_registerkey_lambdas.go`) and
+`JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY` (`BuildLambdas`, `build_lambdas.go`). The path points outside
+this directory — typically a workspace repository's `go/lambdas/` — which is what a `go.work`
+listing that workspace beside JetStore is for. So the API Gateway, the SQS trigger path and the cpipes run-reports
 step are all deployment-conditional, and a stack without them is normal rather than broken.
 
 **Two default: unset means the stock entry, not no Lambda.** Both resolve through
-`lambdaEntryOrDefault` (`stack/stack_model.go:264`), which treats empty as unset and does not trim.
+`lambdaEntryOrDefault` (`stack/stack_model.go`), which treats empty as unset and does not trim.
 
 | Variable | Default entry | Added |
 |---|---|---|
-| `JETS_CPIPES_NODE_LAMBDA_ENTRY` (`cpipesNodeLambdaDefaultEntry`, `stack/build_cpipes_lambdas.go:36`) | `lambdas/compute_pipes/cp_node` | 2026-09-12 |
-| `JETS_REGISTER_KEY_LAMBDA_ENTRY` (`registerKeyLambdaDefaultEntry`, `stack/build_registerkey_lambdas.go:34`) | `lambdas/register_keys/register_keys_v2` | 2026-09-16 |
+| `JETS_CPIPES_NODE_LAMBDA_ENTRY` (`cpipesNodeLambdaDefaultEntry`, `stack/build_cpipes_lambdas.go`) | `lambdas/compute_pipes/cp_node` | 2026-09-12 |
+| `JETS_REGISTER_KEY_LAMBDA_ENTRY` (`registerKeyLambdaDefaultEntry`, `stack/build_registerkey_lambdas.go`) | `lambdas/register_keys/register_keys_v2` | 2026-09-16 |
 
 **Which form a variable takes follows from what it names, not from taste.** The three gating ones name
 a component only some sites deploy. These two name an *alternative source* for a component every
@@ -172,11 +175,8 @@ moves exactly four lines — `registerKeyV2`'s `aws:asset:path` and `S3Key`, whi
 makes the null result mean something rather than mean disconnected plumbing).
 
 **`JETS_REGISTER_KEY_LAMBDA_ENTRY` arrived on `main` with its default written inline and was collapsed
-onto `lambdaEntryOrDefault` here.** It was built for the `cgt_test_harness_filters` project, whose
-changes land on `main` ahead of the release merge; a second definition of `lambdaEntryOrDefault` on
-that branch would not have compiled once the branches met, and `stack_model.go` diverges by 99 lines.
-The collapse is what makes this branch strictly newer on `build_registerkey_lambdas.go`, so the
-eventual release merge takes it one-sided.
+onto `lambdaEntryOrDefault` here**, ahead of the release merge: a second definition of
+`lambdaEntryOrDefault` would not have compiled once the branches met.
 
 **The other three cpipes Lambdas deliberately do not take one.** `CpipesNativeNodeLambda` is a
 `NewDockerImageFunction` reading an image out of ECR — `DockerImageFunctionProps` has no `Entry` to
@@ -203,5 +203,5 @@ graph: neither constructs a `BuilderContext`, so neither has anywhere to put a s
   reasoned.
 - PHI/PII/description tagging is opt-in per resource via `phiTagName`/`piiTagName`/`descriptionTagName`,
   set from `JETS_TAG_NAME_*` in **two** `init`/assignment sites — `jetstore_one.go` for the app and
-  `init`, `stack/jetstore_vpc.go:22`, for the `stack` package. A new taggable resource needs the same
+  `init` in `stack/jetstore_vpc.go` for the `stack` package. A new taggable resource needs the same
   `if … != nil` block the others have.

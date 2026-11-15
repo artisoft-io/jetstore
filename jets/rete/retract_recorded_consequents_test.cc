@@ -38,7 +38,7 @@
 // from its relation, so an equal row arriving later fires again. Both were kept as
 // LEGACY defects from 2026-10-09, selectable off for the rules unit test harness only,
 // and became the engine's only behaviour in 2026-10, when the mode was deleted (see
-// loop_through_negation_test.cc and jets/rete/README.md). Four cases were renamed then,
+// loop_through_negation_test.cc and docs/src/content/docs/developer/engine/rule-engine/). Four cases were renamed then,
 // from the defect they pinned to the behaviour they assert: AggregateConsequentRecords,
 // CreateEntityKeyedCyclesRefire, ConsequentAggregateRetractionReplays and
 // PureConsequentRefires.

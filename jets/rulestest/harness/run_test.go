@@ -6,8 +6,8 @@ package harness
 // test run through Run as the rules_unit_test command runs it.
 //
 // These ran on the Go engine, which kept them buildable without libjets.so, until
-// the Go engine's retirement (rules_benchmark Phase 6, October 2026); they now link
-// the C++ engine and need the cgo environment of jets/cmds/rules_unit_test/README.md
+// the Go engine's retirement (October 2026); they now link
+// the C++ engine and need the cgo environment of docs/src/content/docs/developer/testing/go-and-cpp.md
 // (CGO_CFLAGS, CGO_LDFLAGS and LD_LIBRARY_PATH set to a libjets.so of this commit).
 // A C++ engine that does not build fails the test, as a test that does not run does.
 //

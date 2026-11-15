@@ -227,8 +227,7 @@ def render_baseline(diff: Diff, measured: str) -> str:
         "measured": measured,
         "note": (
             "Declared, not computed. Moving a set here is an act somebody takes "
-            "on purpose and explains in the commit message; see R10 and Q-3 in "
-            "projects/jetstore_maintenance_01."
+            "on purpose and explains in the commit message."
         ),
         "kinds": {entry.kind: entry.as_baseline() for entry in diff.kinds},
     }
@@ -290,7 +289,7 @@ _CONSEQUENCE = {
     ("go_only", "entered"): (
         "JetStore declares it and this node does not. A step naming it must not "
         "be routed to the Python node: a `use_python_node_when` expression that "
-        "evaluates true over such a step aborts the run at startup (X6), naming "
+        "evaluates true over such a step aborts the run at startup, naming "
         "the token. Either take it on -- one Operator subclass under "
         "cpipes_node/operators/ -- or keep it out of the Python arm's `when` "
         "expression."
@@ -311,8 +310,9 @@ _CONSEQUENCE = {
     ("node_only", "left"): "it is no longer declared by this node alone.",
     ("both", "entered"): (
         "both engines now declare it, so a step naming it may be routed either "
-        "way -- and that is exactly where P9-I117 lives. Two implementations of "
-        "one token agreeing is not something this instrument checks."
+        "way -- and that is exactly where two implementations of one token can "
+        "disagree. Two implementations of one token agreeing is not something "
+        "this instrument checks."
     ),
     ("both", "left"): (
         "one of the two engines stopped declaring it, so a step naming it can no "
@@ -373,14 +373,14 @@ COVERAGE = """What this does NOT cover
   * It compares token NAMES. It says nothing about whether two
     implementations of one token agree. Both engines implement
     `partition_writer` and they wrote different bytes for one document
-    -- healthcare_corpus P9-I117, read 2026-09-20. Every token under
-    `both` above is a name matching a name and nothing more.
+    (observed 2026-09-20). Every token under `both` above is a name
+    matching a name and nothing more.
 
-  * So P9-I02 -- two engines drift and nothing measures it -- is
-    NARROWED by this instrument and not closed. The byte-for-byte
-    differential harness is healthcare_corpus's X7, and it is a project
-    rather than a check: two engines, one document, a deployed run and a
-    diff of what each wrote.
+  * So the risk that two engines drift and nothing measures it is
+    NARROWED by this instrument and not closed. Closing it takes a
+    byte-for-byte differential harness, which is a project rather than
+    a check: two engines, one document, a deployed run and a diff of
+    what each wrote.
 
   * The JetStore side is the CONTRACT's universe -- what an author may
     write -- which is one token wider than the engine's dispatch:
@@ -436,7 +436,7 @@ def render_check_failure(
             "  - take the token on, if the Python node should have it; or",
             "  - move the baseline deliberately, with `cpipes-node tokens",
             "    --write-baseline`, and say in the commit message why the gap",
-            "    changed. D-206 makes the gap legal; it does not make it invisible.",
+            "    changed. A deliberate gap is legal; it is not invisible.",
         ]
     )
     return "\n".join(lines)

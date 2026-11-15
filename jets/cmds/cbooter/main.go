@@ -34,7 +34,7 @@ import (
 // anomaly_detect and shadow_triage read and write the database only, so they need
 // neither WORKSPACES_REPO nor WORKSPACES_HOME and no workspace is copied for them
 // (needsWorkspace). They run from the scheduled agentic detection task
-// (cdk/jetstore_one/stack/build_agentic_detect.go), agentic_ai I-861.
+// (cdk/jetstore_one/stack/build_agentic_detect.go).
 //
 // The commands are mutually exclusive, only one can be specified at a time.
 //

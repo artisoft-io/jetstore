@@ -35,7 +35,7 @@
 // vertex visit limit (-10), with replay alone every merge is undone, and with erasure
 // alone it ends merged.
 //
-// The defects were deleted in 2026-10, with the mode (jets/rete/README.md, the
+// The defects were deleted in 2026-10, with the mode (docs/src/content/docs/developer/engine/rule-engine/, the
 // retraction record): the workspace's loop rules had been rewritten so as not to rely on
 // them, and computed the same under the fixed behaviour. So THIS IS NOW A SPECIFICATION:
 // the shape does not terminate, and the vertex visit limit is what stops it. A rule set

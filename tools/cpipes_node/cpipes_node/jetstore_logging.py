@@ -2,7 +2,7 @@
 
 `jets/utils/use_zap_logger.go` makes every Go main log one JSON object per record,
 through zap, so that a value carrying CR/LF cannot forge a second log record
-(CWE-117, log injection; `logger_replacement.md` at the repository root). The
+(CWE-117, log injection; `docs/src/content/docs/developer/engine/logging.md`). The
 Python cp_node Lambda logged through the runtime's plain-text handler, where a
 pipeline-config string, an S3 key or an event field containing a newline is
 written as is.

@@ -55,7 +55,7 @@ Two Lambdas hold this today. It is the broadest grant in the stack and the cheap
 `InstanceSG` allows TCP 11434 from `Peer_AnyIpv4()` (`build_infer_ec2.go:48`). The instances sit in
 private-with-egress subnets, so this is not internet-exposed — but it does mean anything in the VPC
 can reach the inference endpoint, which under the shared-VPC arrangements in
-[`deployment_alternative.md`](deployment_alternative.md) means **every other environment sharing that
+the Installation Guide's [environments page](../../../docs/src/content/docs/install/planning/environments.md) means **every other environment sharing that
 VPC**. The only client that needs the port is the load balancer.
 
 Replace the peer with the ALB's security group, or with the VPC CIDR at minimum. Note that the
@@ -152,11 +152,11 @@ entirely.
 
 No output carries one, so nothing can consume them with `Fn::ImportValue`. Under the shared-VPC
 arrangements a second stack is wired to the first by values copied by hand at synth
-([`stack_outputs.md`](stack_outputs.md)).
+(the Installation Guide's [stack outputs page](../../../docs/src/content/docs/install/reference/stack-outputs.md)).
 
 **Adding exports would give the plan-time dependency that is missing today.** CloudFormation refuses
 to delete or modify an exported output while another stack imports it — which is exactly the guard
-[`deployment_alternative.md`](deployment_alternative.md) says does not exist, where the current
+the Installation Guide's [environments page](../../../docs/src/content/docs/install/planning/environments.md) says does not exist, where the current
 failure mode is a half-deleted owning stack.
 
 **The caveat is real and should be weighed, not skipped.** That same rigidity means the exporting

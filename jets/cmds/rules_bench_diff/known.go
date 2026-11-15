@@ -90,8 +90,8 @@ type KnownList struct {
 // entry matches is unclassified.
 type Entry struct {
 	ID string `json:"id"`
-	// Refs are where the difference is recorded: a section of
-	// jets/rete/README.md, a register entry of projects/rules_benchmark.
+	// Refs are where the difference is recorded, such as a section of the
+	// rule engine's page, docs/src/content/docs/developer/engine/rule-engine/.
 	Refs        []string `json:"refs"`
 	Description string   `json:"description"`
 	// Scope is cross (the default), self or any.

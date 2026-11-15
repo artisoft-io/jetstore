@@ -310,8 +310,10 @@ func NewS3Client() (*s3.Client, error) {
 
 // GetObjectSize gets the size of the object in bytes
 // Does up to 4 attempts in case of failure
+// An empty bucket or the jetstore_bucket sentinel means the deployment's own
+// bucket, as for every other reader in this package.
 func GetObjectSize(s3Client *s3.Client, s3bucket string, key string) (int64, error) {
-	if len(s3bucket) == 0 {
+	if IsJetStoreBucket(s3bucket) {
 		s3bucket = jetstoreOwnBucket
 	}
 	params := &s3.GetObjectAttributesInput{
@@ -641,8 +643,7 @@ func UploadBufToS3(bucket, objKey string, buf []byte) error {
 
 // download buf from S3, returning the obj
 //
-// **A missing object is answered at once and recognisably** (jetstore_maintenance_02
-// I-23, 2026-10-01). This retried every failure six times, sleeping 0.5 s to 3 s,
+// **A missing object is answered at once and recognisably** (2026-10-01). This retried every failure six times, sleeping 0.5 s to 3 s,
 // so a key that does not exist took about 10.5 s to report, and it flattened the
 // SDK's typed error with %v, so nothing upstream could tell "no such object" from
 // "the read failed" except by matching text. A missing key is not transient --

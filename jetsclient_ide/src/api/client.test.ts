@@ -141,8 +141,8 @@ describe("ApiClient", () => {
   // C.17 / I-189: a capability refusal used to arrive as a 401 and sign the user
   // out. These four pin the contract on this side of it.
   //
-  // **They were run against the pre-C.17 client first, and two of them passed** —
-  // which is C.4/C.14's sixth failure mode in `src/actions/README.md` (jetstore#2028,
+  // **They were run against the earlier client first, and two of them passed** —
+  // which is the sixth failure mode in `docs/src/content/docs/developer/testing/web-app/action-documents.md` (jetstore#2028,
   // unmerged at the time of writing) caught in the act,
   // and is worth recording rather than quietly fixing. Deleting the 403 branch from
   // `post` failed only *treats 403 as a refusal* and *falls back to a readable

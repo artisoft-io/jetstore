@@ -25,6 +25,12 @@ These are checked together and reported as a list before CDK is reached; any one
 | `JETS_CERT_ARN` | when `JETS_ELB_MODE=public` |
 | `JETS_ELB_INTERNET_FACING` | when `JETS_ELB_MODE=public`; must be exactly `true` or `false` |
 | `JETS_DB_MIN_CAPACITY`, `JETS_DB_MAX_CAPACITY`, `JETS_CPU_UTILIZATION_ALARM_THRESHOLD` | only if set — must parse as a float |
+| `EXTERNAL_BUCKETS` | only if set — a comma-separated list of bucket names, each refused if it is empty (two commas together, or one at either end), if it is `jetstore_bucket`, or if it is not a bucket name S3 accepts: 3 to 255 letters, digits, dots, hyphens or underscores, with no spaces, no `s3://` and no path (`ExternalBucketNames`, `cdk/jetstore_one/stack/stack_model.go`) |
+
+**`jetstore_bucket` is refused in `EXTERNAL_BUCKETS` because it is not a bucket.** In a pipeline
+configuration it means the deployment's own bucket and is resolved when the pipeline runs; the
+deployment's own bucket needs no entry here. A space after a comma is refused rather than trimmed,
+because a name with a space in it is not a bucket either.
 
 **Warnings, not failures**: no `JETS_DOMAIN_KEY_HASH_ALGO`/`JETS_DOMAIN_KEY_HASH_SEED` means domain
 keys are not hashed; setting exactly one of `JETS_STACK_ID` / `JETS_STACK_SUFFIX` is reported as

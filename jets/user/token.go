@@ -84,6 +84,9 @@ func ExtractToken(r *http.Request) string {
 	return ""
 }
 
+// ExtractTokenID returns the email claim of a token string, checked as
+// TokenStringValid checks it. A token without a string email claim is an
+// error rather than a panic.
 func ExtractTokenID(token string) (string, error) {
 	jwtToken, err := jwt.Parse(token, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -96,7 +99,10 @@ func ExtractTokenID(token string) (string, error) {
 	}
 	claims, ok := jwtToken.Claims.(jwt.MapClaims)
 	if ok && jwtToken.Valid {
-		email := claims["email"].(string)
+		email, ok := claims["email"].(string)
+		if !ok {
+			return "", errors.New("invalid token: no email claim")
+		}
 		return email, nil
 	}
 	return "", nil
