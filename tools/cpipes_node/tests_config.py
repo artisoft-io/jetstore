@@ -29,6 +29,7 @@ from conftest import (
     go_source,
     map_record_step,
     out_of_scope_step,
+    installed_assets,
     pipes_config_corpus,
     runtime_document,
     site_step,
@@ -265,9 +266,21 @@ def test_the_authored_corpus_validates_through_both_models():
     rather than widening the pin, because the pin is what made both visible at
     all -- a `>=` would have made the corpus able to shrink in silence, which is
     the class this docstring opens by naming.
+
+    **51 -> 44 on 2026-11-14, and most of the move is a change of what is counted.**
+    The 51 included the JetStore-owned configs the asset installer copies into each
+    workspace's `pipes_config/` (`embed_input_parts.pc.json`, `jets_loader.pc.json`):
+    git-ignored, and present or not according to whether the assets were installed in
+    the checkout running the test, so the pin measured the checkout as much as the
+    corpus. Eight such copies made up the 51; five remained by 2026-11-14, which is the
+    stale count this replaces. They are now excluded from the count by the installer's
+    own manifest and still validated below. The authored corpus itself moved 43 -> 44:
+    two configs authored into `jets_ws` and one config removed from another
+    workspace.
     """
     corpus = pipes_config_corpus()
-    assert len(corpus) == 51, "the authored corpus moved; re-derive the count"
+    authored = [p for p in corpus if p.name not in installed_assets(p.parent)]
+    assert len(authored) == 44, "the authored corpus moved; re-derive the count"
     for path in corpus:
         doc = json.loads(path.read_text())
         contract.ComputePipesConfig.model_validate(doc)

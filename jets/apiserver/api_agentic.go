@@ -73,13 +73,13 @@ const AgentSupervisionCapability = "agent_supervision"
 // it is client data sitting inside a governance record — so it needs its own
 // authority rather than a wider reading of this one.
 //
-// **Granted to `knowledge_engineer` and to no other role** — the user's decision,
-// 2026-09-04 (**Q-42**), taken against a recommendation for a new role. In the
-// seeded deployment that role is also the only holder of `agent_supervision`, so
-// the two sets coincide today and the separation is what a *second* supervising
-// role would meet. ~~The safe default while it is unmade is redacted-for-everybody.~~
-// The default is still redaction; what changed is that one role now opts out of it.
-// **Since 2026-11-07 a second role holds it, `designated_admin`**, which holds every
+// **Granted to `knowledge_engineer` and `designated_admin`, and to no other role.**
+// `knowledge_engineer` was the user's decision on 2026-09-04, taken against a
+// recommendation for a new role. In the seeded deployment the two roles are also the
+// only holders of `agent_supervision`, so the two sets coincide and the separation is
+// what a *third* supervising role would meet. The default is still redaction; what
+// the grants change is that those two roles opt out of it.
+// **`designated_admin` holds it since 2026-11-07**, and holds every
 // `knowledge_engineer` capability plus `delete_session` and `user_admin`; it was taken
 // as a decision when the role was added, and it holds `agent_supervision` as well.
 // The reasoning below is kept because it is why the capability exists at all, and

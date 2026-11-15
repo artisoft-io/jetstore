@@ -65,7 +65,8 @@ is generated from it. Why it has three tables, and why every reachable struct ge
   `jets/compute_pipes/pipes_model.go:<line>`. A citation beginning with `workspaces/` resolves
   against the repository holding the corpus, the parent of the code root, because generator evidence
   (workspace Lambdas) lives in the workspaces beside the JetStore checkout, not inside it.
-  `check --code` follows both.
+  `check --code` follows both, and sets a `workspaces/` citation aside, counted, where that
+  workspace is not in the checkout.
 - **The corpus is every `.pc.json` under a `pipes_config` directory in `workspaces/`**, with nothing
   subtracted (`config_files`, `cpipes_contract/corpus.py`). The `.pc.json` files under
   `workspaces/*/data/` are developer notes and reference material that JetStore never loads; they

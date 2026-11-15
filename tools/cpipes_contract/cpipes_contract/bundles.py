@@ -243,7 +243,7 @@ def check_corpus(schema: dict, matrix: Path, root: Path) -> tuple[int, list[str]
     """Validate every live TransformationSpec fragment against its bundle.
 
     This is what keeps the authored bundles honest. The corpus cannot *propose*
-    a bundle - with 45 live configs, most operators appear once or twice, and at
+    a bundle - with 45 live configs on 2026-08-19, most operators appear once or twice, and at
     those counts "semantically excluded" and "nobody has written one yet" are
     indistinguishable. What it can do is **falsify** one: a fragment JetStore
     runs that its own bundle rejects means the authoring is wrong, and the

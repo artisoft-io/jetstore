@@ -35,6 +35,28 @@ or two off, pointing at the neighbouring field's declaration, which a reader wou
 Compute a citation by locating the field in the source rather than typing it. A citation that a
 program cannot follow is one nobody will follow either.
 
+A citation into `workspaces/` (generator evidence, which lives in a deployment's own code) resolves
+against the folder holding `workspaces/`: `--corpus` when it is given, otherwise the folder holding
+the `--code` root. Where that workspace is not in the checkout, the citation is not checked and
+`check` prints how many it set aside, so a JetStore-only checkout reports the same problems as a
+full one. The test suite runs the same rule over every citation into the JetStore repository, so a
+change that moves a cited line fails `pytest` as well.
+
+## Carry citations whose lines moved
+
+```bash
+.venv/bin/cpipes-contract relocate --code ../..             # what would move, and what cannot
+.venv/bin/cpipes-contract relocate --code ../.. --apply     # write the carried citations
+```
+
+A line added above a cited declaration moves every citation below it. `relocate` takes each
+citation `--code` rejects, finds the newest version of the cited file in git in which the line did
+name what it cites, and carries that line through the diff to the file as it is now. It keeps the
+result only when the carried line names it; a citation whose line itself changed is left for a
+reader and makes the command exit non-zero. It never touches `review` or `reviewed_hash`, so a
+reviewed row whose citation moved reads "changed since it was reviewed" until it is re-approved
+with `stamp --restamp`.
+
 ## Measure the corpus
 
 ```bash

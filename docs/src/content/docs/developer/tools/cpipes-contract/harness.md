@@ -123,7 +123,10 @@ invisible before:
   behaviour change. The tag in `jets/compute_pipes/pipes_model.go` now reads `max_nbr_partitions`.
 - **Seven live configs set `use_ecs_tasks` on `cluster_sharding_config` entries**, where the model
   has no such field: the key belongs to `ConditionalPipeSpec`. It was the field's *old* home, and the
-  seven leftovers, all `false`, were removed from the configs on 2026-08-16.
+  seven leftovers, all `false`, were removed from the configs on 2026-08-16. Two configs still
+  carried the key on `cluster_sharding_tiers` entries, which have no such field either, and failed
+  the emitted schema for it; it was removed from them on 2026-11-14, and every live config has
+  validated against the schema since.
 
 The corpus baseline that guarded the tightening showed the live corpus was *not* 49 of 49 through
 `ValidatePipeSpecConfig`. Three configs need workspace environment variables the harness cannot know

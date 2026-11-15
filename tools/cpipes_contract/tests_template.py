@@ -424,14 +424,14 @@ def test_the_three_that_do_not_reproduce_are_recorded_as_bounded():
     anything the hole model cannot express. The test pins the *size* of what is left so
     that it cannot quietly grow.
 
-    **Re-measured 2026-09-17 against `workspaces/cedargate_ws` at `cgt_ai` `7c26793`: 9,
+    **Re-measured 2026-09-17 against the workspace the `qc_*` configs live in: 9,
     33 and 10, unchanged.** The figures are dated because they are measured from a
     repository this one does not control, and that afternoon they moved and came back.
-    `cgt_test_harness_filters`' `AG.1` added four status filters to three of the eight
+    A change request added four status filters to three of the eight
     `qc_*` configs, taking `qc_pharmacyclaim` to 128, `qc_medicalclaim` to 105 and
     `qc_eligibility` out of the exact set at 95 - the filters being a skeleton that
     varies per config, which is the one thing this budget was written to say was absent.
-    `AH.6` made them one repeating hole over `(env_key, substring)` pairs and all four
+    A second change made them one repeating hole over `(env_key, substring)` pairs and all four
     figures returned to what they had been, so what this test asserts survived a change
     to its corpus rather than being refitted to it. **`qc_biometric`'s 9 is the arm to
     read as independent**: it carries no filter, so it is what says the repair moved

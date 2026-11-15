@@ -471,7 +471,7 @@ def recovered_parts(schema: dict, matrix: Path, corpus_root: Path, model: Path) 
     - its `clustering_config` is exactly what went stale.
 
     But a valid instance does exist, in a different file than either search started
-    from. Validating every `clustering_config` in `cedargate_ws`'s whole history found
+    from. Validating every `clustering_config` in one workspace's whole history found
     17 distinct, of which 3 validate against the current spec, all in
     `anonymize_file.pc.json` - a config that is still live today and simply lost its
     clustering step. That is production material, not authored, and it is the strongest
