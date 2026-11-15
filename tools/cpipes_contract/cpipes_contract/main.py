@@ -43,6 +43,21 @@ def main(argv: list[str] | None = None) -> int:
         help="root the evidence_ref citations resolve against, ie the JetStore repo",
     )
 
+    relocate_cmd = sub.add_parser(
+        "relocate",
+        help="carry each citation --code rejects to where its line went, read from "
+        "the cited file's git history; never touches a review stamp",
+    )
+    relocate_cmd.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
+    relocate_cmd.add_argument(
+        "--code", type=Path, required=True, help="the JetStore repo root (a git checkout)"
+    )
+    relocate_cmd.add_argument(
+        "--apply",
+        action="store_true",
+        help="write the carried citations back onto the rows",
+    )
+
     corpus_cmd = sub.add_parser(
         "corpus", help="measure the matrix against the live corpus"
     )
@@ -641,6 +656,8 @@ def main(argv: list[str] | None = None) -> int:
         return _harness(args, matrix)
     if args.command == "stamp":
         return _stamp(args, matrix)
+    if args.command == "relocate":
+        return _relocate(args, matrix)
     if args.command == "drift":
         from . import drift as drift_mod
 
@@ -657,8 +674,14 @@ def main(argv: list[str] | None = None) -> int:
     problems = check(matrix, strict=args.strict)
     if args.corpus is not None:
         problems += check_exemplars(matrix, args.corpus)
+    unchecked: list[str] = []
     if args.code is not None:
-        problems += check_citations(matrix, args.code)
+        problems += check_citations(matrix, args.code, args.corpus, unchecked)
+    if unchecked:
+        print(
+            f"note: {len(unchecked)} citation(s) into workspaces/ not checked: "
+            "the workspace is not in this checkout"
+        )
 
     for problem in problems:
         print(f"FAIL {problem}", file=sys.stderr)
@@ -739,6 +762,33 @@ def _stamp(args, matrix: Matrix) -> int:
         f"{mismatched} changed-since-review left for re-review"
     )
     return 1 if mismatched else 0
+
+
+def _relocate(args, matrix: Matrix) -> int:
+    """Report, and under --apply write, the citations whose lines moved. Exits
+    non-zero while any rejected citation is left that could not be carried."""
+    from . import relocate as relocate_mod
+
+    moves = relocate_mod.relocate(matrix, args.code)
+    carried = [m for m in moves if m.new is not None]
+    stuck = [m for m in moves if m.new is None]
+    for m in carried:
+        print(f"  {m.where}: {m.old} -> {m.new} (read at {m.reason})")
+    for m in stuck:
+        print(f"STUCK {m.where}: {m.old}: {m.reason}", file=sys.stderr)
+    lapsed = sum(1 for m in carried if m.reviewed)
+    print(
+        f"{len(carried)} citation(s) carried, {len(stuck)} left for a reader; "
+        f"{lapsed} of the carried are on reviewed rows"
+    )
+    if args.apply and carried:
+        relocate_mod.apply(moves)
+        matrix.save(args.matrix)
+        print(
+            f"applied to {args.matrix}; the {lapsed} reviewed row(s) now read "
+            "\"changed since it was reviewed\" until re-approved with `stamp --restamp`"
+        )
+    return 1 if stuck else 0
 
 
 def _harness(args, matrix: Matrix) -> int:

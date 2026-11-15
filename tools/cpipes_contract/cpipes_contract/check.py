@@ -248,8 +248,46 @@ def check(matrix: Matrix, strict: bool = False) -> list[str]:
     return problems
 
 
-def check_citations(matrix: Matrix, code_root: Path) -> list[str]:
-    """Resolve every `evidence_ref` and check the line is about the field it is cited on.
+# A citation into a workspace rather than into JetStore: generator evidence, which
+# lives in a deployment's own lambdas. It resolves against the folder holding
+# `workspaces/`, and is checked only where that workspace is present.
+WORKSPACES_PREFIX = "workspaces/"
+
+
+def cites(row: TypeRow | FieldRow | ConstraintRow, line: str) -> bool:
+    """Whether `line` names what `row` cites it for: `--code`'s rule, in one place.
+
+    A type row's line must name the struct, exactly. A field row's line must name the
+    field by its Go name or its json key, and a constraint's one of its members; for
+    those, `spec.Path` is a citation for `path` and `OllamaConfig` for
+    `ollama_config`: the Go name and the json key are the same word in two spellings.
+    """
+    if isinstance(row, TypeRow):
+        return row.go_struct in line
+    if isinstance(row, FieldRow):
+        wanted: tuple[str, ...] = (row.field_name, row.json_key)
+    else:
+        wanted = tuple(m.rsplit(".", 1)[-1] for m in split_list(row.members))
+    flat = line.lower().replace("_", "")
+    return any(w.lower().replace("_", "") in flat for w in wanted)
+
+
+def _cited_names(row: TypeRow | FieldRow | ConstraintRow) -> list[str]:
+    if isinstance(row, TypeRow):
+        return [row.go_struct]
+    if isinstance(row, FieldRow):
+        return [row.field_name, row.json_key]
+    return [m.rsplit(".", 1)[-1] for m in split_list(row.members)]
+
+
+def check_citations(
+    matrix: Matrix,
+    code_root: Path,
+    workspaces_root: Path | None = None,
+    unchecked: list[str] | None = None,
+) -> list[str]:
+    """Resolve every `doc_ref` and `evidence_ref`, and check the line is about what it
+    is cited for.
 
     A citation is a claim, and a claim nobody can follow is worth nothing. The cited line
     itself must name the field - by its Go name, its json key, or (for a constraint) one
@@ -257,9 +295,20 @@ def check_citations(matrix: Matrix, code_root: Path) -> list[str]:
     below it still passes, because the test is the line that mentions the field; citing a
     line number that was inferred rather than read does not, which is the failure this
     exists for.
+
+    A citation into `workspaces/` resolves against `workspaces_root` (default: the
+    folder holding `code_root`, where a checkout of the workspaces beside JetStore puts
+    them). When that workspace is not there at all, the citation cannot be checked from
+    this checkout: it is appended to `unchecked` rather than reported as a problem, so
+    the count a JetStore-only checkout reports is the count a full one reports.
     """
     problems: list[str] = []
     cache: dict[Path, list[str]] = {}
+    ws_root = (workspaces_root or code_root).resolve()
+    if workspaces_root is None:
+        # resolve() first: the root is normally given as a relative `../..`, whose
+        # textual .parent would be `..` rather than one level further up.
+        ws_root = ws_root.parent
 
     def lines_of(path: Path) -> list[str] | None:
         if path not in cache:
@@ -268,70 +317,41 @@ def check_citations(matrix: Matrix, code_root: Path) -> list[str]:
             cache[path] = path.read_text(encoding="utf-8").splitlines()
         return cache[path]
 
-    def cited_file(file_part: str) -> Path:
-        # Generator evidence (the org1 lambdas, B.5) lives in the client workspaces
-        # beside the JetStore checkout, not inside it: a ref that starts with
-        # `workspaces/` resolves against the repo holding them - the same root the
-        # corpus paths use.
-        if file_part.startswith("workspaces/"):
-            # resolve() first: the root is normally given as a relative `../..`,
-            # whose textual .parent would be `..` rather than one level further up.
-            return code_root.resolve().parent / file_part
-        return code_root / file_part
-
-    # A type row's doc_ref is a citation like any other: it must resolve, and the
-    # cited line must name the struct. This is what catches a filename remembered
-    # rather than read (action_common_model.go for actions_common_model.go) and a
-    # line number carried over from a neighbouring type.
-    for t in matrix.types:
-        ref = t.doc_ref
+    refs: list[tuple[str, TypeRow | FieldRow | ConstraintRow, str, str]] = [
+        *((f"types {_key(t)}", t, "doc_ref", t.doc_ref) for t in matrix.types),
+        *(
+            (_key(r), r, "evidence_ref", r.evidence_ref)
+            for r in [*matrix.fields_, *matrix.constraints]
+            if r.evidence_ref not in (NONE, None)
+        ),
+    ]
+    for where, row, column, ref in refs:
         file_part, _, line_part = ref.rpartition(":")
         if not file_part or not line_part.isdigit():
-            problems.append(f"types {_key(t)}: doc_ref is not file:line: {ref}")
+            problems.append(f"{where}: {column} is not file:line: {ref}")
             continue
-        lines = lines_of(cited_file(file_part))
-        if lines is None:
-            problems.append(f"types {_key(t)}: doc_ref file not found: {file_part}")
-            continue
-        n = int(line_part)
-        if not 1 <= n <= len(lines):
-            problems.append(f"types {_key(t)}: {ref} is past the end of the file")
-            continue
-        if t.go_struct not in lines[n - 1]:
-            problems.append(
-                f"types {_key(t)}: {ref} does not name {t.go_struct}: "
-                f"{lines[n - 1].strip()!r}"
-            )
-
-    for row in [*matrix.fields_, *matrix.constraints]:
-        if row.evidence_ref in (NONE, None):
-            continue
-        ref = row.evidence_ref
-        file_part, _, line_part = ref.rpartition(":")
-        if not file_part or not line_part.isdigit():
-            problems.append(f"{_key(row)}: evidence_ref is not file:line: {ref}")
-            continue
-        lines = lines_of(cited_file(file_part))
-        if lines is None:
-            problems.append(f"{_key(row)}: evidence_ref file not found: {file_part}")
-            continue
-        n = int(line_part)
-        if not 1 <= n <= len(lines):
-            problems.append(f"{_key(row)}: {ref} is past the end of the file")
-            continue
-        cited = lines[n - 1]
-        if isinstance(row, FieldRow):
-            wanted = (row.field_name, row.json_key)
+        if file_part.startswith(WORKSPACES_PREFIX):
+            workspace = ws_root / Path(file_part).parts[0] / Path(file_part).parts[1]
+            if not workspace.is_dir():
+                if unchecked is not None:
+                    unchecked.append(f"{where}: {ref}")
+                continue
+            path = ws_root / file_part
         else:
-            members = split_list(row.members)
-            wanted = tuple(m.rsplit(".", 1)[-1] for m in members)
-        # `spec.Path` is a citation for `path`, and `OllamaConfig` for `ollama_config`:
-        # the Go name and the json key are the same word in two spellings.
-        flat = cited.lower().replace("_", "")
-        if not any(w.lower().replace("_", "") in flat for w in wanted):
+            path = code_root / file_part
+        lines = lines_of(path)
+        if lines is None:
+            problems.append(f"{where}: {column} file not found: {file_part}")
+            continue
+        n = int(line_part)
+        if not 1 <= n <= len(lines):
+            problems.append(f"{where}: {ref} is past the end of the file")
+            continue
+        if not cites(row, lines[n - 1]):
+            names = _cited_names(row)
+            named = names[0] if isinstance(row, TypeRow) else f"any of {names}"
             problems.append(
-                f"{_key(row)}: {ref} does not name any of {list(wanted)}: "
-                f"{cited.strip()!r}"
+                f"{where}: {ref} does not name {named}: {lines[n - 1].strip()!r}"
             )
     return problems
 

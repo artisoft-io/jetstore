@@ -37,7 +37,7 @@ from .matrix_schema import (
     variant_matches,
 )
 
-# `workspaces/<ws>/pipes_config/...`, at any depth below it - usi_ws and jets_ws keep a
+# `workspaces/<ws>/pipes_config/...`, at any depth below it - some workspaces keep a
 # `test/` subdirectory, and those configs do run.
 LIVE_PARENT = "pipes_config"
 

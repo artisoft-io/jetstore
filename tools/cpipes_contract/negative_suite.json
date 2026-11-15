@@ -25,14 +25,14 @@
       "class": "sanity",
       "comment": "The whole of gap 2b's I-778: a token no built-in claims is the site-operator branch, and a client config authoring one validates.",
       "expect": "valid",
-      "config": {"cluster_config": {}, "conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "cgt_scrub", "output_channel": {"type": "sql", "output_table_key": "t"}}]}]}]}
+      "config": {"cluster_config": {}, "conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "site_scrub", "output_channel": {"type": "sql", "output_table_key": "t"}}]}]}]}
     },
     {
       "name": "site operator carrying site_config",
       "class": "sanity",
       "comment": "site_config is optional on purpose: siteOperatorArgs early-returns on a nil SiteConfig, so an operator needing no configuration is a shape the engine builds. Both arms are exercised, this one and the case above.",
       "expect": "valid",
-      "config": {"cluster_config": {}, "conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "cgt_scrub", "output_channel": {"type": "sql", "output_table_key": "t"}, "site_config": {"error_channel": {"type": "sql", "output_table_key": "e"}, "max_error_count": 10, "config": {"policy": "strict", "columns": ["member_id"]}}}]}]}]}
+      "config": {"cluster_config": {}, "conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "site_scrub", "output_channel": {"type": "sql", "output_table_key": "t"}, "site_config": {"error_channel": {"type": "sql", "output_table_key": "e"}, "max_error_count": 10, "config": {"policy": "strict", "columns": ["member_id"]}}}]}]}]}
     },
     {
       "name": "site_config on a built-in token",
@@ -46,7 +46,7 @@
       "class": "inapplicable-field",
       "comment": "siteOperatorArgs hands the factory Type, Comment, NewRecord, Columns, the resolved channels and SiteConfig, and reads none of the eighteen config pointers - so a site operator with a map_record_config is configuring nothing.",
       "expect": "invalid",
-      "config": {"cluster_config": {}, "conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "cgt_scrub", "output_channel": {"type": "sql", "output_table_key": "t"}, "map_record_config": {}}]}]}]}
+      "config": {"cluster_config": {}, "conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "site_scrub", "output_channel": {"type": "sql", "output_table_key": "t"}, "map_record_config": {}}]}]}]}
     },
     {
       "name": "site_config in a conditional override",

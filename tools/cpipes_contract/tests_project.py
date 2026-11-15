@@ -150,7 +150,7 @@ def test_the_bindings_walk_agrees_with_the_M1_census():
     which is worse than an obviously odd one.
 
     **`qc_report` moved from 21 to 22 on 2026-09-17**, when the status filters became a
-    repeating hole (`cgt_test_harness_filters` `AH.6`). `status_filters` is `[]` in these
+    repeating hole. `status_filters` is `[]` in these
     bindings — `qc_participation` carries no filter — and `_walk_bindings` counts a list
     whose members are all scalars as one scalar site, which an empty list vacuously is.
     So the three sites that were already empty lists here (`stage1_map_pipes`,

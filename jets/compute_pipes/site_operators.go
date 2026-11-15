@@ -221,8 +221,8 @@ func (e operatorEnv) SessionId() string {
 // padding: ClusterConfig is a *ClusterSpec, and `&ComputePipesConfig{}` -- which
 // is what a dozen tests in this package build -- leaves it nil. The rest of the
 // package reads `ctx.cpConfig.ClusterConfig.IsDebugMode` unguarded because
-// UnmarshalComputePipesConfig always fills it in; an accessor a site calls is
-// reached from places that never went through that decoder.
+// UnmarshalComputePipesConfig refuses a config with no cluster_config; an accessor
+// a site calls is reached from places that never went through that decoder.
 func (e operatorEnv) IsDebugMode() bool {
 	if e.ctx.cpConfig == nil || e.ctx.cpConfig.ClusterConfig == nil {
 		return false

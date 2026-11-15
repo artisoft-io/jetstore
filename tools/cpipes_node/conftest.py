@@ -46,13 +46,28 @@ def go_source(relative: str) -> str:
 
 
 def pipes_config_corpus() -> tuple[Path, ...]:
-    """Every authored `.pc.json` in the workspaces, sorted.
+    """Every `.pc.json` directly under a workspace's `pipes_config/`, sorted.
 
-    The same corpus `cpipes-contract corpus` walks, minus its
-    `jets_assets_manifest.json` filtering, which is about what JetStore owns
-    rather than about what validates.
+    This includes the JetStore-owned configs installed into a workspace (see
+    `installed_assets`), which must validate like any other; the authored ones are
+    this minus those.
     """
     return tuple(sorted((SUPERPROJECT / "workspaces").glob("*/pipes_config/*.pc.json")))
+
+
+def installed_assets(pipes_config: Path) -> frozenset[str]:
+    """The file names JetStore installed into this `pipes_config/`, from the
+    `jets_assets_manifest.json` the installer writes beside them.
+
+    They are git-ignored copies of JetStore's own configs, present or not according
+    to whether the workspace's assets were installed in this checkout, so a count of
+    the corpus that includes them is a count of the checkout rather than of what
+    the workspace authored.
+    """
+    manifest = pipes_config / "jets_assets_manifest.json"
+    if not manifest.is_file():
+        return frozenset()
+    return frozenset(json.loads(manifest.read_text()).get("assets", {}))
 
 
 MEMORY_CHANNEL = {"name": "out", "type": "memory", "channel_spec_name": "out"}

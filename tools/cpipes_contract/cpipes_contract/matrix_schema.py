@@ -187,7 +187,7 @@ class Evidence(StrEnum):
     BUILDER = "builder"  # the operator builders and their defaults - hard
     CORPUS = "corpus"  # the live .pc.json: strong for presence, weak for absence,
     # and worth nothing against the validator - see corpus.py
-    GENERATOR = "generator"  # the org1 lambda generators
+    GENERATOR = "generator"  # a deployment's generator lambdas, which write schema events
     COMMENT = "comment"  # the Go doc comments
 
 
