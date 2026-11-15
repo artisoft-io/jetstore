@@ -3,7 +3,7 @@
 // git access is off on the stack, and compiling would change the row the
 // images show.
 import { expect, test, type Page } from "@playwright/test";
-import { openScreen, screenshotsFor, settle, signIn, waitForTable } from "../../lib/shots";
+import { openScreen, screenshotsFor, settle, signIn, tick, waitForTable } from "../../lib/shots";
 
 const { shot } = screenshotsFor("user/screens/workspaces");
 
@@ -27,7 +27,7 @@ test("Workspaces registry", async ({ page }) => {
   const table = await waitForTable(page);
   await shot(page, "registry");
 
-  await table.locator("tbody tr").filter({ hasText: "jets_ws" }).getByRole("checkbox").check();
+  await tick(table.locator("tbody tr").filter({ hasText: "jets_ws" }).getByRole("checkbox"));
   await settle(page);
   await shot(page, "registry-selected");
 

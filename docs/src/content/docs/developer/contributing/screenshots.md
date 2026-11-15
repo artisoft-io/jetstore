@@ -58,17 +58,20 @@ to take them against another.
 A run does all of this, and takes everything down at the end, whether the specs passed or not and
 when you press Ctrl-C:
 
-1. builds the binaries if `JETS_BIN_DIR` is empty, and rebuilds `jetsclient_ide/dist` and `docs/dist`
-   when their sources are newer;
+1. builds the binaries if `JETS_BIN_DIR` is empty, and rebuilds `jetsclient_ide/dist` when its
+   sources are newer;
 2. exports `jets_ws` with `git archive` into a temporary directory, installs JetStore's own assets
-   into it and compiles it;
+   into it and compiles it, then builds the documentation site with the guide to that workspace, as
+   an installation's UI image does, into `docs/screenshots/.stack/docs-dist` (`docs/dist`, the public
+   build, is left as it is), so the Workspace IDE shows its *Workspace guide* button;
 3. starts `postgres:16-alpine` on a free port, in a container named for your checkout;
 4. migrates the database with `update_db`, and loads the workspace's configuration for the client
    `CI`, `process_config/ci_workspace_init_db.sql`, as an installation loads a client's configuration;
 5. sets every user email in the configuration to the stack's admin, `admin@localhost.test`, then
    applies the fixtures in `docs/screenshots/fixtures/`, in name order (an address at
    `localhost.test` is the stack's own, and is left as it is);
-6. starts the apiserver with git access off, serving your `jetsclient_ide/dist` and `docs/dist`;
+6. starts the apiserver with git access off, serving your `jetsclient_ide/dist` and that
+   documentation site;
 7. runs the specs, with a 1440 × 900 window, the light theme and a device scale of 1;
 8. stops the apiserver, removes the container and the temporary directory.
 
@@ -81,18 +84,17 @@ says which images it wrote:
 ```text
 [shots] 0 new, 1 rewritten, 144 unchanged
   written src/assets/screenshots/user/screens/workspaces/commit-dialog.png (40 px differ, 40 in the densest 16 x 16 square)
-  closest unchanged: src/assets/screenshots/user/screens/user-administration/update-user-dialog.png (6 px differ, 6 in the densest 16 x 16 square)
 ```
 
 **An image is rewritten only when it differs from the committed one where a reader could see it**:
-when some 16 × 16 square of it holds 12 differing pixels or more, anti-aliasing aside. A changed
-character, a button enabled or a box ticked is a cluster of pixels, however small; what differs
-between two runs of an unchanged screen is a few pixels at most. The rewritten image above is a
-two-letter typo corrected in a dialog's label, 40 pixels in all, which a rule counting the share of
-the whole image let through. So a second run with no
-change to the screens writes nothing, and `git status` shows exactly the images that changed. Look at
-each one before you commit it. The last line names the unchanged image that came closest to the rule,
-so you can see the margin. `SHOTS_MIN_WINDOW_PIXELS` sets another count, for a run that needs one.
+when some 16 × 16 square of it holds 4 differing pixels or more, anti-aliasing aside. A changed
+character, a button enabled or a box ticked is a cluster of pixels, however small: one digit in the
+file tree's sizes, the smallest type on the screens, is 6 or more. Two runs of an unchanged screen
+differ by none. The rewritten image above is a two-letter typo corrected in a dialog's label, 40
+pixels in all, which a rule counting the share of the whole image let through. So a second run with
+no change to the screens writes nothing, and `git status` shows exactly the images that changed. Look at
+each one before you commit it. When an unchanged image differs at all, a last line names the one that
+came closest to the rule, so you can see the margin. `SHOTS_MIN_WINDOW_PIXELS` sets another count, for a run that needs one.
 
 ### Several checkouts at once
 

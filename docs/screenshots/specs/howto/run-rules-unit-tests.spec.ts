@@ -5,7 +5,7 @@
 // this spec starts are deleted after it, through the Query Tool, so the
 // rules unit test pages show only their own.
 import { expect, test } from "@playwright/test";
-import { openScreen, screenshotsFor, settle, signIn, waitForTable } from "../../lib/shots";
+import { openScreen, screenshotsFor, settle, signIn, tick, waitForTable } from "../../lib/shots";
 import { FIRST_RUN_KEY, deleteTestRunsSql, hideColumn, hideRunValues, selectRow, undo } from "./support";
 
 const { shot } = screenshotsFor("user/how-to/run-rules-unit-tests");
@@ -53,7 +53,7 @@ test("Run rules unit tests", async ({ page }) => {
     .locator("tbody tr")
     .filter({ hasText: "retraction defect 1" })
     .filter({ hasText: new RegExp(keys.join("|")) });
-  await retraction.getByRole("checkbox").check();
+  await tick(retraction.getByRole("checkbox"));
   await settle(page);
   await page.getByRole("button", { name: "View Result" }).click();
   await expect(page.getByRole("heading", { name: "Checks of the Selected Run" })).toBeVisible();
@@ -65,7 +65,7 @@ test("Run rules unit tests", async ({ page }) => {
   await page.getByRole("button", { name: "Back" }).click();
   await expect(page.getByRole("heading", { name: "Rules Unit Test Runs" })).toBeVisible();
   await waitForTable(page);
-  await retraction.getByRole("checkbox").check();
+  await tick(retraction.getByRole("checkbox"));
   await settle(page);
   await page.getByRole("button", { name: "View Log" }).click();
   const log = page.getByRole("dialog", { name: "Rules Unit Test Log" });

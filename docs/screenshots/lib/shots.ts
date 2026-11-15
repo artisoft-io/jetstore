@@ -30,14 +30,20 @@ const WINDOW = 16;
 /**
  * An image is rewritten when some WINDOW x WINDOW square holds at least this
  * many differing pixels: a changed character, a button enabled, a check box
- * ticked. Measured in November 2026 over eight full runs of the 146 images: an
- * unchanged screen differed by at most 6 in its densest square (a dialog's
- * rounded corner), and the smallest real change was 20 (one digit), a
- * corrected two-letter typo 40 and an enabled Previous 49. A value that differs
- * from run to run is a real change to the image too, and is rewritten: hide it
- * in the spec (hideColumn, hideRunValues) or mask it.
+ * ticked.
+ *
+ * Measured in November 2026. The smallest change is one digit in the file
+ * tree's sizes, its smallest type: every pair of digits rendered there differs
+ * by 6 to 28 in its densest square (2 and 7 by 6; 1 and 7, 3 and 5, 5 and 6,
+ * 6 and 8, 0 and 8 by 7), and by 16 or more in a table cell. An unchanged
+ * screen differs by 0, in every image of three full runs. The 6 an earlier
+ * measurement took for noise, in a dialog's rounded corner, was not: it was the
+ * page behind the corner, changed since the image was taken, and the same at
+ * every run. So 4 sits between the two with a margin on each side. A value that
+ * differs from run to run is a real change to the image too, and is rewritten:
+ * hide it in the spec (hideColumn, hideRunValues) or mask it.
  */
-const MIN_WINDOW_PIXELS = Number(process.env.SHOTS_MIN_WINDOW_PIXELS ?? "12");
+const MIN_WINDOW_PIXELS = Number(process.env.SHOTS_MIN_WINDOW_PIXELS ?? "4");
 
 /** Signs in as the stack's admin and waits for the top bar. */
 export async function signIn(page: Page): Promise<void> {
@@ -98,6 +104,22 @@ export async function settle(page: Page, scope?: Locator): Promise<void> {
     previous = current;
     await page.waitForTimeout(250);
   }
+}
+
+/**
+ * Ticks a row's checkbox and waits until the tick has held.
+ *
+ * Not Playwright's `check`, which reads the box once, straight after the click.
+ * Ticking a row of some tables sends the table's query again (Workspaces does),
+ * and the reply replaces the rows and clears the tick until the table restores
+ * the selection from the form. A `check` whose read fell between the two failed
+ * with "Clicking the checkbox did not change its state": twice in about ten
+ * full runs, each time on a spec ticking the jets_ws row of Workspaces.
+ */
+export async function tick(checkbox: Locator): Promise<void> {
+  if (!(await checkbox.isChecked())) await checkbox.click();
+  await expect(checkbox).toBeChecked();
+  await settle(checkbox.page());
 }
 
 /** Waits for a data table to have its rows, or to say it has none. */

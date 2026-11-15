@@ -3,7 +3,7 @@
 // the confirmation page. The stack has git access off, so the flow is left
 // with Cancel rather than Confirm.
 import { expect, test } from "@playwright/test";
-import { openScreen, screenshotsFor, settle, signIn, waitForTable } from "../../lib/shots";
+import { openScreen, screenshotsFor, settle, signIn, tick, waitForTable } from "../../lib/shots";
 
 const { shot } = screenshotsFor("user/screens/flows/pull-workspace-changes");
 
@@ -11,17 +11,17 @@ test("Pull Workspace Changes flow", async ({ page }) => {
   await signIn(page);
   await openScreen(page, "Workspaces");
   const registry = await waitForTable(page);
-  await registry.locator("tbody tr").filter({ hasText: "jets_ws" }).getByRole("checkbox").check();
+  await tick(registry.locator("tbody tr").filter({ hasText: "jets_ws" }).getByRole("checkbox"));
   await page.getByRole("button", { name: "Pull Workspace", exact: true }).click();
   const options = await waitForTable(page);
   await shot(page, "pull-options");
 
-  await options.locator("tbody tr").filter({ hasText: "Compile workspace" }).getByRole("checkbox").check();
-  await options.locator("tbody tr").filter({ hasText: "Load SELECTED client configurations" }).getByRole("checkbox").check();
+  await tick(options.locator("tbody tr").filter({ hasText: "Compile workspace" }).getByRole("checkbox"));
+  await tick(options.locator("tbody tr").filter({ hasText: "Load SELECTED client configurations" }).getByRole("checkbox"));
   await settle(page);
   await page.getByRole("button", { name: "Next", exact: true }).click();
   const clients = await waitForTable(page);
-  await clients.locator("tbody tr").filter({ hasText: "Clinical Intel" }).getByRole("checkbox").check();
+  await tick(clients.locator("tbody tr").filter({ hasText: "Clinical Intel" }).getByRole("checkbox"));
   await settle(page);
   await shot(page, "select-clients");
 

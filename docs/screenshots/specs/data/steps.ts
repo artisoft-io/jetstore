@@ -2,14 +2,14 @@
 // button, and reach the screens that open from Home's Pipelines Status tab.
 // Not a spec (the specs match *.spec.ts), so Playwright does not run it.
 import { expect, type Locator, type Page } from "@playwright/test";
-import { openScreen, settle, waitForTable } from "../../lib/shots";
+import { openScreen, settle, tick, waitForTable } from "../../lib/shots";
 
 /** Ticks the first row of `table` whose text contains every one of `texts`. */
 export async function selectRow(table: Locator, ...texts: string[]): Promise<void> {
   let rows = table.locator("tbody tr");
   for (const text of texts) rows = rows.filter({ hasText: text });
   const row = rows.first();
-  await row.locator("input[type=checkbox]").first().check();
+  await tick(row.locator("input[type=checkbox]").first());
   await expect(row).toHaveAttribute("aria-selected", "true");
   await settle(table.page());
 }
