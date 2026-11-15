@@ -10,8 +10,8 @@
  *
  * **This is one of three places the prefix is written and the only one that is
  * TypeScript.** The others are `base` in `vite.config.ts`, which bakes it into
- * every asset url at build time, and `ideAssetPrefix` in
- * `appAssetPrefix` in `jets/apiserver/static_ide.go`, which serves them. They must
+ * every asset url at build time, and `appAssetPrefix` in
+ * `jets/apiserver/static_ide.go`, which serves them. They must
  * agree, and the bundle is not relocatable without a rebuild because of the
  * middle one.
  *

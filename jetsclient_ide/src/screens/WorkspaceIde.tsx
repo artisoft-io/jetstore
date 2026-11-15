@@ -112,7 +112,11 @@ type Tab =
       saved: string;
       current: string;
       size: number;
-      /** The node's `read_only`: shown, never saved (a README). */
+      /**
+       * The node's `read_only` (`wsfile.IsReadOnly`): shown, never saved. It is
+       * set on a `.md` or `.mdx` file outside `docs/`, other than the
+       * workspace's root README.
+       */
       readOnly: boolean;
     }
   | {

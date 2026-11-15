@@ -7,80 +7,31 @@ import (
 	"testing"
 )
 
-// tablesDir holds the 50 shipping table configurations, all but two translated out of the
-// Flutter corpus by `jetsclient_ide/src/datatable/table.test.ts` and committed
-// so this side can validate the *real* configuration rather than a sample. See
-// that file for why the translation is round-tripped rather than only emitted.
+// tableDirs are the two directories the shipping table configurations are
+// committed in: 64 documents, 32 in each and no key in both (measured
+// 2026-11-14), so that this side validates the *real* configurations rather
+// than a sample.
 //
-// **37 of them are the flows' and ten are not.** `pipelineExecStatusTable` is
-// registered on the non-flow side and rendered by `homeFiltersUF`, so
-// the flow could not be authored without it; `workspaceRegistryTable` is the
-// `/workspaces` screen's; later ports added `pipelineExecDetailsTable` and
-// `cpipesExecDetailsTable`, the tables of `/executionStatusDetails/:session_id`
-// and `/executionStatsDetails/:session_id`. All four are translated out of
-// `screens/fixtures/screen_configs.json` by the same code path, and the count
-// here grows once per screen ported rather than once per phase.
-// `/workspaces` screen's; `queryToolResultSetTable` is
-// `/queryTool`'s, and the only one in either corpus that asks the
-// server for a *statement* rather than for a structure. All three are translated
-// out of `screens/fixtures/screen_configs.json` by the same code path, and the
-// count here grows once per screen ported rather than once per phase.
-// the flow could not be authored without it; later ports added
-// `pipelineExecDetailsTable` and `cpipesExecDetailsTable`, the tables of
-// `/executionStatusDetails/:session_id` and `/executionStatsDetails/:session_id`;
-// others added `inputLoaderStatusTable` (the home screen's first tab),
-// `inputTable` (`/domainTableViewer/…`) and `inputFileViewerTable`
-// (`/filePreviewPath/:file_key`). All of them are translated out of
-// `screens/fixtures/screen_configs.json` by the same code path.
+// **Which directory a key sits in is a property of its consumer and not of the
+// schema.** A table a flow draws is a workspace asset: it is installed into a
+// workspace and read from there by FlowStore.loadTables. A table a screen draws
+// is imported into the React bundle and never leaves it. Both are documents
+// this validator enforces, so both are read here.
 //
-// **The home screen's other two tables are not here and that is not an
-// omission.** `pipelineExecStatusTable` arrived with `homeFiltersUF`, and `inputRegistryTable`
-// is one of the flows' 37 — it is registered in
-// `jetsclient/lib/modules/user_flows/start_pipeline/data_table_config.dart` and
-// rendered by the home screen, the reverse of the case above.
-//
-// **Two of the 49 are authored rather than translated, and they are the first.**
-// `wsLookupTableTable` and `wsLookupColumnTable` are the `lookups` compiled view,
-// which the Flutter app never built — so there is no Dart configuration
-// to measure and nothing for a round trip to compare against. That changes
-// nothing on this side: this test reads the directory and validates what it
-// finds, and an authored document that does not validate fails here exactly as a
+// **How a document came to be written is not this test's question.** Most are
+// translated out of the Flutter corpus by
+// `jetsclient_ide/src/datatable/table.test.ts`; the rest are maintained by hand,
+// written for a screen the Flutter app never had, or name a Dart closure that
+// no corpus can carry. That file counts each kind and says why. What this test
+// asserts is that every document in either directory passes the Go validator,
+// and a hand-written document that does not validate fails here exactly as a
 // translated one would.
 //
-// **The count here is deliberately a literal and deliberately duplicated.** It is
+// **The count in TestShippingTablesValidate is deliberately a literal.** It is
 // the one assertion that fails when a document is emitted and not committed, or
-// committed and not emitted — the TypeScript side compares the directory against
-// what it just produced, so it cannot notice a file that reached neither.
-// **37 of them are the flows' and three are not.** `pipelineExecStatusTable` is
-// registered on the non-flow side and rendered by `homeFiltersUF`, so
-// the flow could not be authored without it; `workspaceRegistryTable` is the
-// `/workspaces` screen's; `queryToolResultSetTable` is
-// `/queryTool`'s, and the only one in either corpus that asks the
-// server for a *statement* rather than for a structure; later ports added
-// `pipelineExecDetailsTable` and `cpipesExecDetailsTable`, the tables of
-// `/executionStatusDetails/:session_id` and `/executionStatsDetails/:session_id`.
-// Five were added for `/processErrors/:session_id` — its own table, the repeated
-// one inside `viewInputRecordsDialog`, and the three of the rule session
-// explorer, which are the first `source: "formState"` documents to exist. Two
-// were added for `/userAdmin` and one for `/ruleConfig`.
-//
-// **Two of those five are hand-authored rather than translated, and this test is
-// where a reader will first meet the fact.** `reteSessionEntityKeyTable` and
-// `reteSessionEntityDetailsTable` name a Dart closure that no corpus can carry —
-// see `jetsclient_ide/src/datatable/table.test.ts`, `HAND_AUTHORED_KEYS`, where
-// each is compared field by field against the corpus configuration anyway. The
-// count here does not distinguish them, deliberately: what this test asserts is
-// that every document in the directory passes the Go validator, and how a
-// document came to be written is not that question.
-//
-// The count grows once per screen ported rather than once per phase.
-// **Two directories since the eleven ported flows became workspace assets**
-// (2026-08-26; ten of them since 2026-10-01). A table a
-// JetStore flow draws is installed into a workspace and read from there by
-// FlowStore.loadTables; a table a screen draws is imported into the React bundle
-// and never leaves it. Both are documents this validator enforces, so both are
-// read here — which directory a key sits in is a property of its consumer and not
-// of the schema.
+// committed and not emitted — the TypeScript side compares the directories
+// against what it just produced, so it cannot notice a file that reached
+// neither. It grows once per table added rather than once per phase.
 var tableDirs = []string{
 	"../workspace_assets/table_configs",
 	"../../jetsclient_ide/src/datatable/tables",
@@ -112,9 +63,10 @@ func tableFiles(t *testing.T) []string {
 // mutation-testing note in `jets/datatable/workspace_file_validators.go`).
 func TestShippingTablesValidate(t *testing.T) {
 	files := tableFiles(t)
-	// 61 across the two directories, and no key in both — the Home screen reads
-	// the one table it shares with a flow from the workspace rather than keeping a
-	// second copy (`sharedTableDocuments.test.ts` asserts the invariant).
+	// No key is in both directories — the Home screen reads the one table it
+	// shares with a flow from the workspace rather than keeping a second copy
+	// (`sharedTableDocuments.test.ts` asserts the invariant). The count was 61
+	// when that was written, and moved as follows.
 	//
 	// **63 -> 64 on 2026-09-05**, when the workspace home screen's
 	// `workspaceChangesTable` was translated out of the screen corpus. This is the
