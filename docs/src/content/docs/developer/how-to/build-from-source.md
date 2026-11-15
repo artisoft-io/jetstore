@@ -20,7 +20,7 @@ each step says what it gave there.
 |---|---|
 | The engine | a C++20 compiler, CMake, and the development packages of abseil (as a CMake package), glog, gflags, Boost `date_time` and SQLite 3; googletest for its tests |
 | The Go modules | Go at the version `go.mod` declares (`go 1.27.4`), and a C compiler for cgo |
-| The web app and the site | Node 24 and npm |
+| The web app and the site | Node 24 (24.15 or later for the web app's test suite, which runs on jsdom 31) and npm |
 
 The images install the same set on Amazon Linux 2023 (`dockerfiles/Dockerfile.cpipes_base_builder`):
 Boost, SQLite and gflags from the distribution, and abseil `20260107.1` and glog `0.6.0` built from
