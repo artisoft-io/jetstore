@@ -69,6 +69,8 @@ compile: nothing compiles it, and the guide shows it once it is committed and th
 The section has no **Add File**: a new page is added in the workspace's repository. How to write a page is in
 [Document a workspace](/docs/developer/how-to/document-a-workspace/).
 
+![The Documentation section of jets_ws's file tree, with its customisation folder, index.md and workspace_docs.json, and index.md open in the editor, its front matter highlighted as YAML.](../../../../assets/screenshots/user/screens/workspace-ide/ide-documentation.png)
+
 ## Editing a file
 
 ![hc_model.jr open in a tab of the editor, highlighted as JetRules, with the status bar at the bottom.](../../../../assets/screenshots/user/screens/workspace-ide/ide-file.png)

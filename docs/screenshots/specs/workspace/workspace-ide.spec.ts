@@ -1,7 +1,8 @@
 // The Workspace IDE (user/screens/workspace-ide): reached from the top bar,
 // with jets_ws picked. Its changes table, a file open in the editor and edited,
-// and the compiled views of the data model and of the rules. The edit is never
-// saved: the tab is closed and the change discarded.
+// the compiled views of the data model and of the rules, and the Documentation
+// section with the guide's landing page open. The edit is never saved: the tab
+// is closed and the change discarded.
 import { expect, test } from "@playwright/test";
 import { openScreen, openTab, screenshotsFor, settle, signIn, waitForTable } from "../../lib/shots";
 
@@ -50,4 +51,14 @@ test("Workspace IDE", async ({ page }) => {
   await expect(rules.getByRole("columnheader", { name: "Main Rule File", exact: true })).toBeInViewport();
   await expect(rules.getByRole("columnheader", { name: "File", exact: true })).toBeInViewport();
   await shot(page, "ide-compiled-jet-rules");
+
+  // The Documentation section lists the workspace's docs/ folder; a page opens
+  // in a tab like any other file.
+  const expand = tree.getByRole("button", { name: "Expand Documentation", exact: true });
+  if (await expand.isVisible()) await expand.click();
+  await tree.getByTitle("index.md", { exact: true }).first().click();
+  await expect(page.getByRole("button", { name: "Close docs/index.md" })).toBeVisible();
+  await expect(page.locator(".cm-content")).toBeVisible();
+  await settle(page);
+  await shot(page, "ide-documentation");
 });
