@@ -109,7 +109,7 @@ import { usePrompts } from "../shell/prompts";
 import { selectedClient, subscribeToClient } from "../shell/selectedClient";
 import { FormDialog, isDialogCancel, useFormDialog } from "../userflow/FormDialog";
 import { FormDocumentSchema, type Form, type FormAction, type FormDocument } from "../userflow/form";
-import { formEscapeReferences } from "../userflow/store";
+import { RELOAD_HINT, formEscapeReferences, isUnknownEnumeratedValue } from "../userflow/store";
 import { cellFiltersOf } from "../actions/cellFilters";
 import { runCustomButton, withCustomButtons } from "../actions/pipelineStatusButtons";
 import { browserWriteClipboard, fetchStageFileThrough } from "../actions/stageClipboard";
@@ -404,10 +404,15 @@ export function Home({ api }: { api: ApiClient }) {
         const parsedTable = TableConfigDocumentSchema.safeParse(JSON.parse(file.content));
         if (cancelled) return;
         if (!parsedTable.success) {
+          // The one document here that is read at run time rather than bundled,
+          // so the only one that can be newer than this page's schemas: a
+          // refusal of a value it does not know says to reload, as a flow's does.
+          const { issues } = parsedTable.error;
+          const hint = issues.some(isUnknownEnumeratedValue) ? `. ${RELOAD_HINT}` : "";
           setWorkspaceFinding(
-            `${WORKSPACE_TABLE}.tc.json: ${parsedTable.error.issues
+            `${WORKSPACE_TABLE}.tc.json: ${issues
               .map((i) => `${i.path.join("/")} — ${i.message}`)
-              .join("; ")}`,
+              .join("; ")}${hint}`,
           );
           return;
         }

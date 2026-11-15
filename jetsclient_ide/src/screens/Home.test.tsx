@@ -39,6 +39,7 @@ import { resetHomeFilters, updateHomeFilters } from "../actions/homeFilters";
 import { FormState } from "../datatable/formState";
 import { resetSelectedClient, setSelectedClient } from "../shell/selectedClient";
 import pipelineExecStatusTable from "../../../jets/workspace_assets/table_configs/pipelineExecStatusTable.tc.json";
+import { RELOAD_HINT } from "../userflow/store";
 import { Home, documentFindings } from "./Home";
 
 afterEach(() => {
@@ -51,6 +52,7 @@ afterEach(() => {
   loginCustomButtons = undefined;
   stageFiles = {};
   schemaEvents = {};
+  workspaceTableDocument = pipelineExecStatusTable;
   previewResponse = { status: 200, body: { rows: previewRows } };
   deleteResponse = { status: 200, body: { queued: 2, waiting: ["2002"] } };
 });
@@ -159,6 +161,9 @@ let stageFiles: Record<string, string> = {};
 /** `input_registry.schema_provider_json` by registry key, for *Get Schema Event*. */
 let schemaEvents: Record<string, string | null> = {};
 
+/** The workspace's `pipelineExecStatusTable.tc.json`; one case serves a newer one. */
+let workspaceTableDocument: unknown = pipelineExecStatusTable;
+
 function stubServer() {
   const posts: Posted[] = [];
   const fetchImpl = vi.fn(async (url: string | URL, init?: RequestInit) => {
@@ -189,7 +194,7 @@ function stubServer() {
       // reason the bundled copy was removed.
       case "get_workspace_document":
         return new Response(
-          JSON.stringify({ file_content: JSON.stringify(pipelineExecStatusTable) }),
+          JSON.stringify({ file_content: JSON.stringify(workspaceTableDocument) }),
           { status: 200 },
         );
       case "read": {
@@ -365,6 +370,32 @@ describe("the table this screen shares with a flow", () => {
     expect((read.body["data"] as { file_name: string }[])[0]!.file_name).toBe(
       "table_configs%2FpipelineExecStatusTable.tc.json",
     );
+  });
+
+  /**
+   * **A tab opened before a deployment keeps its bundle's schemas**, and this
+   * document comes from the workspace, so it can use a value the deployment
+   * added. The refusal says to reload, as a flow's does; a refusal of a document
+   * that is wrong on its own terms does not.
+   */
+  it("asks for a reload when the workspace document holds a value this page does not know", async () => {
+    const doc = structuredClone(pipelineExecStatusTable) as { actions: { style: string }[] };
+    doc.actions[0]!.style = "newerStyle";
+    workspaceTableDocument = doc;
+    await mount("/home", "This screen's documents cannot be loaded.");
+    const finding = within(screen.getByRole("alert")).getByRole("listitem").textContent!;
+    expect(finding).toContain("pipelineExecStatusTable.tc.json: actions/0/style");
+    expect(finding.endsWith(RELOAD_HINT)).toBe(true);
+  });
+
+  it("does not ask for a reload when the workspace document is wrong on its own terms", async () => {
+    const doc = structuredClone(pipelineExecStatusTable) as { label: unknown };
+    doc.label = 7;
+    workspaceTableDocument = doc;
+    await mount("/home", "This screen's documents cannot be loaded.");
+    const finding = within(screen.getByRole("alert")).getByRole("listitem").textContent!;
+    expect(finding).toContain("pipelineExecStatusTable.tc.json: label");
+    expect(finding).not.toContain(RELOAD_HINT);
   });
 
   it("asks for the deployment's workspace rather than assuming one", async () => {
