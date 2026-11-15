@@ -98,6 +98,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -300,6 +301,21 @@ var RetiredAssets = []RetiredAsset{
 	{Dir: "table_configs", Name: "mergeProcessInputTable.tc.json", Why: "2026-10-15, 4.0.4: Start Pipeline no longer chooses merged sources"},
 	{Dir: "table_configs", Name: "merged_input_registry_keys.tc.json", Why: "2026-10-15, 4.0.4: Start Pipeline no longer chooses merged sources"},
 	{Dir: "table_configs", Name: "spInjectedProcessInput.tc.json", Why: "2026-10-15, 4.0.4: Start Pipeline no longer lists historical sources"},
+}
+
+// IsRetired reports whether the workspace-relative fileName is a path in
+// RetiredAssets, `user_flows/registerFileKeyUF.uf.json` say. The override sync
+// at a start (workspace.SyncWorkspaceFiles) asks it, so that an IDE edit of a
+// retired document, kept in jetsapi.workspace_changes, does not write the
+// document back after the install deleted it (2026-11-14).
+func IsRetired(fileName string) bool {
+	cleaned := path.Clean(strings.ReplaceAll(fileName, "\\", "/"))
+	for _, r := range RetiredAssets {
+		if cleaned == r.Dir+"/"+r.Name {
+			return true
+		}
+	}
+	return false
 }
 
 // Result reports the disposition of one asset.

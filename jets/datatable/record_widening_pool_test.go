@@ -16,49 +16,14 @@ package datatable
 
 import (
 	"context"
-	"encoding/json"
-	"os"
 	"testing"
 
-	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func widenedTestPool(t *testing.T, tableNames ...string) *pgxpool.Pool {
 	t.Helper()
-	dsn := os.Getenv("JETS_TEST_DSN")
-	if dsn == "" {
-		t.Skip("JETS_TEST_DSN not set; needs a throwaway Postgres")
-	}
-	pool, err := pgxpool.New(context.Background(), dsn)
-	if err != nil {
-		t.Fatalf("connecting to %s: %v", dsn, err)
-	}
-	t.Cleanup(pool.Close)
-
-	b, err := os.ReadFile("../jets_schema.json")
-	if err != nil {
-		t.Fatalf("reading jets_schema.json: %v", err)
-	}
-	var defs []schema.TableDefinition
-	if err := json.Unmarshal(b, &defs); err != nil {
-		t.Fatalf("decoding jets_schema.json: %v", err)
-	}
-	wanted := make(map[string]bool, len(tableNames))
-	for _, n := range tableNames {
-		wanted[n] = true
-	}
-	for i := range defs {
-		if !wanted[defs[i].TableName] {
-			continue
-		}
-		def := defs[i]
-		if err := def.UpdateTableSchema(pool, true); err != nil {
-			t.Fatalf("installing %s: %v", def.TableName, err)
-		}
-		t.Cleanup(func() { _ = def.DropTable(pool) })
-	}
-	return pool
+	return createTablesFromSchema(t, tableNames...)
 }
 
 // updateStatus writes the class and the arm beside the prose, and writes all three

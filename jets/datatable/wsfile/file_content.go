@@ -69,44 +69,64 @@ func GetContent(workspaceName, fileName string) (string, error) {
 	return string(content), nil
 }
 
-// SaveWorkspaceFileContent --------------------------------------------------------------------------
-// Function to save the workspace file content in local workspace file system and in database.
-// userEmail is who made the change, recorded as the workspace_changes row's
-// user_email; empty, the change is recorded as made by "system".
+// RootContentType is the content type of an override of a file at the
+// workspace's root, workspace_control.json or compile_workspace.sh, which has
+// no first path segment to take one from (overrideContentType).
+const RootContentType = "root"
+
+// overrideContentType is the content_type a workspace_changes row records for
+// fileName: its first path segment, the workspace directory it is in, or
+// RootContentType for a file at the root. Only the compiled files' content
+// types select anything (SyncWorkspaceFiles, jets/workspace); every other
+// override is applied at a start whatever its content type.
+func overrideContentType(fileName string) string {
+	if p := strings.Index(fileName, "/"); p > 0 {
+		return fileName[0:p]
+	}
+	return RootContentType
+}
+
+// SaveContent saves a workspace file from the IDE: to the database, as the
+// override jetsapi.workspace_changes keeps and every start applies, then to
+// the workspace's local copy. userEmail is who made the change, recorded as the
+// workspace_changes row's user_email; empty, the change is recorded as made by
+// "system".
+//
+// **The database first, since 2026-11-14.** The disk was written first, and a
+// save the database then refused stood on disk until the next start and was
+// gone after it, with an error the IDE showed as a failed save of a file that
+// had in fact changed. A root file was refused that way every time: the
+// content type was the path's first segment and a root file has none, so
+// workspace_control.json and compile_workspace.sh could not be saved
+// (overrideContentType). Now a refused database write leaves the disk alone,
+// and a failed disk write after it leaves an override the next start, or the
+// sync a compile runs first, applies.
 func SaveContent(dbpool *pgxpool.Pool, workspaceName, fileName, fileContent, userEmail string) error {
 
-	// Write file to local workspace, confining the path to the workspace dir (CWE-73)
+	// Confine the path to the workspace dir before writing anything (CWE-73)
 	workspaceName, path, err := resolveWorkspacePath(workspaceName, fileName)
 	if err != nil {
 		return err
 	}
 	data := []byte(fileContent)
-	err = os.WriteFile(path, data, 0644)
-	if err != nil {
-		return fmt.Errorf("failed to write local workspace file %s: %v", fileName, err)
-	}
 
 	// Write file and metadata to database
-	p := strings.Index(fileName, "/")
-	var contentType string
-	if p > 0 {
-		contentType = fileName[0:p]
-	}
-	if contentType == "" {
-		return fmt.Errorf("failed to find contentType in %s", fileName)
-	}
 	fo := dbutils.FileDbObject{
 		WorkspaceName: workspaceName,
 		FileName:      fileName,
-		ContentType:   contentType,
+		ContentType:   overrideContentType(fileName),
 		UserEmail:     changeAuthor(userEmail),
 	}
-
 	n, err := fo.WriteObject(dbpool, data)
 	if err != nil {
 		return fmt.Errorf("failed to save local workspace file %s in database: %v", fileName, err)
 	}
 	log.Println("uploaded", fo.FileName, "size", n, "bytes to database")
+
+	// Write file to local workspace
+	if err = os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("failed to write local workspace file %s: %v", fileName, err)
+	}
 	return nil
 }
 

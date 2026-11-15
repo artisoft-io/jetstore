@@ -706,7 +706,7 @@ func (ca *CommandArguments) reportFileName(name string) (string, error) {
 	if found {
 		pattern, remainder, found := strings.Cut(tail, "}")
 		if !found {
-			return "", fmt.Errorf("error: report file name contains incomplete date pattern: %s", name)
+			return "", directives.ErrIncompleteDatePattern(name)
 		}
 		y, m, d := time.Now().Date()
 		pattern = strings.Replace(pattern, "YYYY", strconv.Itoa(y), 1)
@@ -717,33 +717,14 @@ func (ca *CommandArguments) reportFileName(name string) (string, error) {
 	return name, nil
 }
 
-// reportOutputFormat is the format a report is written in, parquet, csv or json,
-// taken from its statementProperties entry or its file name's suffix, in that
-// order of formats. It is "" when neither names one, and such a report is
-// refused.
-//
-// That case used to be logged and skipped, so a statement written into a
-// reports file to be executed — DDL, DML, a lookup update — did nothing and
-// nobody was told. It was never an "execute" path: it was the hook for
-// `reportsAsTable`, which saved the result as a table and was removed in 2024,
-// leaving a branch that only logged. A statement to execute belongs in a file
-// declared `reportOrScript: "script"`, which runs whole.
+// reportOutputFormat is directives.OutputFormat, which the save check of
+// reports/config.json shares.
 func reportOutputFormat(name, declared string) string {
-	switch {
-	case declared == "parquet" || strings.HasSuffix(name, ".parquet"):
-		return "parquet"
-	case declared == "csv" || strings.HasSuffix(name, ".csv"):
-		return "csv"
-	case declared == "json" || strings.HasSuffix(name, ".json"):
-		return "json"
-	}
-	return ""
+	return directives.OutputFormat(name, declared)
 }
 
 func errNoOutputFormat(name string) error {
-	return fmt.Errorf("report %q has no output format: its name ends in neither .csv, .json nor .parquet "+
-		"and statementProperties declares no outputFormat for it; a statement to execute rather than "+
-		"export belongs in a file declared reportOrScript: \"script\" in reports/config.json", name)
+	return directives.ErrNoOutputFormat(name)
 }
 
 // checkReportFormats refuses a reports file holding a report with no output

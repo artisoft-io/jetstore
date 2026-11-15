@@ -2,6 +2,7 @@ package datatable
 
 import (
 	"fmt"
+	"io/fs"
 	"path"
 	"reflect"
 	"sort"
@@ -110,4 +111,38 @@ func escapeJSONPointer(segment string) string {
 func lastJSONPointerSegment(p string) string {
 	segment := p[strings.LastIndex(p, "/")+1:]
 	return strings.ReplaceAll(strings.ReplaceAll(segment, "~1", "/"), "~0", "~")
+}
+
+// reportsFilesFindings is the `reports/config.json` row's check against the
+// workspace (2026-11-14): what run_reports refuses in the reports files the
+// directives run, when it reads them, before any report of the file runs.
+// Each report's are checked, since each is the one some run follows
+// (directives.ReportDirectives.ReportsFileErrors): a file run_reports cannot
+// read as reports, a report name whose date pattern is not closed, and a
+// report with no output format, where its name decides that and not a run's
+// values.
+//
+// The refusals need the reports files and validateReportsConfig is given the
+// directives alone, which is why until this check they were found only when a
+// report ran. A file saved after the directives is checked by its own save
+// lexically only (the `.sql` row), so a reports file can still go wrong after
+// the directives that run it were saved; the run refuses it then, as before.
+func reportsFilesFindings(content string, workspace fs.FS) []wsvalidate.Finding {
+	config, err := directives.Decode([]byte(content))
+	if err != nil {
+		return nil // validateReportsConfig refused it
+	}
+	var findings []wsvalidate.Finding
+	for _, name := range sortedNames(config) {
+		rd := config[name]
+		for _, e := range rd.ReportsFileErrors(name, workspace) {
+			findings = append(findings, wsvalidate.Finding{
+				Severity: wsvalidate.Error,
+				Code:     "reports_config_reports_file",
+				Message:  fmt.Sprintf("report %q cannot run: %v", name, e),
+				Path:     "/" + escapeJSONPointer(name),
+			})
+		}
+	}
+	return findings
 }

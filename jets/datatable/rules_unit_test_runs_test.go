@@ -18,8 +18,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,7 +27,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -69,61 +68,13 @@ type rutFixture struct {
 
 func rutDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	dsn := os.Getenv("JETS_TEST_DSN")
-	if dsn == "" {
-		t.Skip("JETS_TEST_DSN is not set; see the header of this file")
-	}
+	pool := scratchDatabase(t, "rut_ac_datatable")
 	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Fatalf("connecting: %v", err)
-	}
-	var n int
-	if err = admin.QueryRow(ctx, "SELECT count(*) FROM pg_database WHERE datname = 'rut_ac_datatable'").Scan(&n); err != nil {
-		admin.Close()
-		t.Fatalf("looking for the test database: %v", err)
-	}
-	if n == 0 {
-		if _, err = admin.Exec(ctx, "CREATE DATABASE rut_ac_datatable"); err != nil {
-			admin.Close()
-			t.Fatalf("creating the test database: %v", err)
-		}
-	}
-	admin.Close()
-	u, err := url.Parse(dsn)
-	if err != nil {
-		t.Fatalf("parsing JETS_TEST_DSN: %v", err)
-	}
-	u.Path = "/rut_ac_datatable"
-	pool, err := pgxpool.New(ctx, u.String())
-	if err != nil {
-		t.Fatalf("connecting to the test database: %v", err)
-	}
-	t.Cleanup(pool.Close)
 	// Reads run on the reader login (readOnlyTx), as they do after an apiserver start.
-	if err = EnsureRestrictedLogins(ctx, pool); err != nil {
+	if err := EnsureRestrictedLogins(ctx, pool); err != nil {
 		t.Fatalf("setting up the restricted logins: %v", err)
 	}
 	return pool
-}
-
-// rutTableDefs reads the shipped jets_schema.json, so the tables are the ones a
-// deployment migrates and not hand-written DDL.
-func rutTableDefs(t *testing.T) map[string]*schema.TableDefinition {
-	t.Helper()
-	buf, err := os.ReadFile("../jets_schema.json")
-	if err != nil {
-		t.Fatalf("reading ../jets_schema.json: %v", err)
-	}
-	var defs []schema.TableDefinition
-	if err = json.Unmarshal(buf, &defs); err != nil {
-		t.Fatalf("decoding ../jets_schema.json: %v", err)
-	}
-	out := make(map[string]*schema.TableDefinition)
-	for i := range defs {
-		out[defs[i].TableName] = &defs[i]
-	}
-	return out
 }
 
 // writeWorkspaceDb writes the compiled workspace's unit_tests table as track AD
@@ -161,7 +112,7 @@ func newRutFixture(t *testing.T) *rutFixture {
 	if _, err := pool.Exec(bg, "CREATE SCHEMA IF NOT EXISTS jetsapi"); err != nil {
 		t.Fatal(err)
 	}
-	defs := rutTableDefs(t)
+	defs := jetsSchemaTables(t)
 	for _, name := range rutTables {
 		// UpdateTableSchema never drops jetsapi.users, whatever it is asked, so
 		// every table is dropped here first.
@@ -271,7 +222,7 @@ func (f *rutFixture) registryStatus(t *testing.T, key int) string {
 // them is a no-op, which is what MigrateSystemTables does at every start.
 func TestRulesUnitTestTablesMigrate(t *testing.T) {
 	f := newRutFixture(t)
-	defs := rutTableDefs(t)
+	defs := jetsSchemaTables(t)
 	want := map[string][]string{
 		"rules_unit_test_execution": {"key", "workspace_name", "test_path", "test_name", "engine", "legacy_mode",
 			"status", "reason", "load_ms", "run_ms", "duration_ms", "sessions", "loops", "log", "user_email", "last_update"},
@@ -450,7 +401,7 @@ func TestCompileExcludesRunningTests(t *testing.T) {
 			if status != http.StatusConflict || !errors.Is(err, errCompileWhileTestsRun) {
 				t.Fatalf("compile while a test is %s: %d %v, want 409", running, status, err)
 			}
-			if status, err = refuseCompileWhileTestsRun(f.pool); status != http.StatusConflict {
+			if status, err = claimPullCompile(f.pool, rutActiveWorkspace, f.activeKey); status != http.StatusConflict {
 				t.Errorf("pull with compile while a test is %s: %d %v, want 409", running, status, err)
 			}
 			if s := f.registryStatus(t, f.activeKey); s != "" {
@@ -466,7 +417,7 @@ func TestCompileExcludesRunningTests(t *testing.T) {
 			if s := f.registryStatus(t, f.activeKey); s != statusCompileInProgress {
 				t.Errorf("claimed compile left status %q, want %q", s, statusCompileInProgress)
 			}
-			if status, err = refuseCompileWhileTestsRun(f.pool); err != nil {
+			if status, err = claimPullCompile(f.pool, rutActiveWorkspace, f.activeKey); err != nil {
 				t.Errorf("pull with compile after the run ended: %d %v", status, err)
 			}
 		})
@@ -794,4 +745,56 @@ func TestPullWithCompileOfTheActiveWorkspaceProceeds(t *testing.T) {
 			t.Errorf("last_git_log %q, want the pull's log", l)
 		}
 	})
+}
+
+// Pull with the compile option claims the compile before it pulls, so a test
+// requested while the pull runs is refused as during any compile, rather than
+// queued to run against build/ while the compile that follows rewrites it.
+// Before 2026-11-14 the pull checked for running tests and claimed nothing
+// until it had pulled, and the test below queued its run.
+func TestPullWithCompileRefusesATestQueuedDuringThePull(t *testing.T) {
+	f := newRutFixture(t)
+	r := f.stubPullAndCompile(t)
+	var during error
+	var duringStatus int
+	pullWorkspace = func(_ *pgxpool.Pool, _ int, _ *user.GitProfile, a *DataTableAction) (string, error) {
+		_, duringStatus, during = f.startTests(t, f.adminToken, rutActiveWorkspace, rutTestA)
+		return "pulled " + a.WorkspaceName, nil
+	}
+	if status, err := f.pull(t, rutActiveWorkspace, f.activeKey, true); err != nil {
+		t.Fatalf("pull with compile: %d %v", status, err)
+	}
+	if duringStatus != http.StatusConflict || !errors.Is(during, errTestsWhileCompileRuns) {
+		t.Errorf("a test requested during the pull: %d %v, want 409 %v", duringStatus, during, errTestsWhileCompileRuns)
+	}
+	if n := f.countRuns(t, RulesUnitTestQueued); n != 0 {
+		t.Errorf("%d runs queued during the pull, want none", n)
+	}
+	select {
+	case <-r.compiled:
+	case <-time.After(5 * time.Second):
+		t.Error("no compile was started")
+	}
+}
+
+// A pull with the compile option that fails releases its claim: the row's
+// status is "error", not a compile in progress, and tests may start again.
+func TestAFailedPullReleasesTheCompileClaim(t *testing.T) {
+	f := newRutFixture(t)
+	r := f.stubPullAndCompile(t)
+	pullWorkspace = func(_ *pgxpool.Pool, _ int, _ *user.GitProfile, a *DataTableAction) (string, error) {
+		return "merge conflict", fmt.Errorf("the pull failed")
+	}
+	if status, err := f.pull(t, rutActiveWorkspace, f.activeKey, true); err == nil {
+		t.Fatalf("a failed pull answered %d with no error", status)
+	}
+	if s := f.registryStatus(t, f.activeKey); s != "error" {
+		t.Errorf("status %q after a failed pull, want error", s)
+	}
+	if len(r.compiled) != 0 {
+		t.Error("a failed pull started a compile")
+	}
+	if _, status, err := f.startTests(t, f.adminToken, rutActiveWorkspace, rutTestA); err != nil {
+		t.Errorf("a test after a failed pull: %d %v", status, err)
+	}
 }

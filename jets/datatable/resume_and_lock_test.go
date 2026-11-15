@@ -2,62 +2,14 @@ package datatable
 
 // A registration the register-key lambda resumes, and the state machine lock's
 // takeover. Each test needs JETS_TEST_DSN and is skipped otherwise; see the
-// header of register_file_key_action_test.go. They create the tables they use
-// from jets/jets_schema.json, so point JETS_TEST_DSN at a scratch database.
+// header of scratch_postgres_test.go, whose createTablesFromSchema creates the
+// tables they use.
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
-	"os"
 	"testing"
-
-	"github.com/artisoft-io/jetstore/jets/schema"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
-
-// createTablesFromSchema creates the named jetsapi tables from jets_schema.json,
-// dropping any left by an earlier run, and drops them again at the end.
-func createTablesFromSchema(t *testing.T, names ...string) *pgxpool.Pool {
-	t.Helper()
-	dsn := os.Getenv("JETS_TEST_DSN")
-	if dsn == "" {
-		t.Skip("JETS_TEST_DSN is not set; see the header of register_file_key_action_test.go")
-	}
-	pool, err := pgxpool.New(context.Background(), dsn)
-	if err != nil {
-		t.Fatalf("connecting: %v", err)
-	}
-	t.Cleanup(pool.Close)
-	buf, err := os.ReadFile("../jets_schema.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var defs []schema.TableDefinition
-	if err = json.Unmarshal(buf, &defs); err != nil {
-		t.Fatal(err)
-	}
-	for _, name := range names {
-		found := false
-		for i := range defs {
-			if defs[i].TableName == name {
-				if err := defs[i].UpdateTableSchema(pool, true); err != nil {
-					t.Fatalf("creating jetsapi.%s: %v", name, err)
-				}
-				found = true
-			}
-		}
-		if !found {
-			t.Fatalf("jets_schema.json carries no definition for jetsapi.%s", name)
-		}
-	}
-	t.Cleanup(func() {
-		for _, name := range names {
-			_, _ = pool.Exec(context.Background(), "DROP TABLE IF EXISTS jetsapi."+name+" CASCADE")
-		}
-	})
-	return pool
-}
 
 // The lock is taken when free, refused while held, taken over once older than
 // the stale age, and released only by the holder of its current token.

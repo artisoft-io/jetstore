@@ -3,6 +3,7 @@ package datatable
 import (
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"path"
@@ -104,6 +105,15 @@ import (
 // runs (workspace_reports_config.go). Its suffix is `config.json`, which
 // names no file type, so the row applies to that one file and no other
 // `config.json` (isReportsConfig).
+//
+// **A row may read the rest of the workspace since 2026-11-14**, through its
+// `inWorkspace` check, which is given the file and the workspace's tree as the
+// save finds it. A validator is given one file, and two references were
+// checked only when the workspace compiled or a report ran: the table a form
+// draws (`.form.json`, checkFormTables) and the reports files the report
+// directives run (`reports/config.json`, reportsFilesFindings). The check runs
+// once the file's own validator has refused nothing, and only where the save
+// has a workspace to read (checkWorkspaceFileIn).
 var workspaceFileValidators = []struct {
 	suffix string
 	// applies, when set, narrows the row to the files it returns true for,
@@ -111,20 +121,23 @@ var workspaceFileValidators = []struct {
 	// with its suffix.
 	applies  func(fileName string) bool
 	validate wsvalidate.Validator
+	// inWorkspace, when set, checks the file against the rest of the
+	// workspace, whose root is workspace.
+	inWorkspace func(content string, workspace fs.FS) []wsvalidate.Finding
 }{
-	{".uf.json", nil, userflow.ValidateFlowDocument},
-	{".ua.json", nil, userflow.ValidateActionDocument},
-	{".form.json", nil, userflow.ValidateFormDocument},
-	{".tc.json", nil, userflow.ValidateTableDocument},
-	{briefing.DocumentSuffix, nil, briefing.ValidateProvenanceDocument},
-	{".sql", nil, sqlscript.ValidateScript},
-	{path.Base(optstats.FileName), nil, validateOptimizerStatistics},
-	{runbook.FileSuffix, nil, runbook.ValidateFile},
-	{workspaceDocsSettingsFile, nil, validateWorkspaceDocsSettings},
-	{".md", isDocsPage, validateDocsPage},
-	{".mdx", isDocsPage, validateDocsPage},
-	{".pc.json", nil, compute_pipes.ValidateConfigDocument},
-	{path.Base(directives.ConfigFile), isReportsConfig, validateReportsConfig},
+	{".uf.json", nil, userflow.ValidateFlowDocument, nil},
+	{".ua.json", nil, userflow.ValidateActionDocument, nil},
+	{".form.json", nil, userflow.ValidateFormDocument, checkFormTables},
+	{".tc.json", nil, userflow.ValidateTableDocument, nil},
+	{briefing.DocumentSuffix, nil, briefing.ValidateProvenanceDocument, nil},
+	{".sql", nil, sqlscript.ValidateScript, nil},
+	{path.Base(optstats.FileName), nil, validateOptimizerStatistics, nil},
+	{runbook.FileSuffix, nil, runbook.ValidateFile, nil},
+	{workspaceDocsSettingsFile, nil, validateWorkspaceDocsSettings, nil},
+	{".md", isDocsPage, validateDocsPage, nil},
+	{".mdx", isDocsPage, validateDocsPage, nil},
+	{".pc.json", nil, compute_pipes.ValidateConfigDocument, nil},
+	{path.Base(directives.ConfigFile), isReportsConfig, validateReportsConfig, reportsFilesFindings},
 }
 
 // workspaceDocsSettingsFile is the workspace guide's settings file,
@@ -194,18 +207,26 @@ func validateOptimizerStatistics(content string) []wsvalidate.Finding {
 // named `Foo.UF.JSON` is the same file type as `foo.uf.json`, and the file
 // system it lives on may or may not agree.
 func validatorFor(fileName string) wsvalidate.Validator {
+	validate, _ := validatorsFor(fileName)
+	return validate
+}
+
+// validatorsFor is validatorFor's row: its validator and its inWorkspace
+// check, either of which may be nil.
+func validatorsFor(fileName string) (wsvalidate.Validator, func(string, fs.FS) []wsvalidate.Finding) {
 	upper := strings.ToUpper(fileName)
 	var best wsvalidate.Validator
+	var bestInWorkspace func(string, fs.FS) []wsvalidate.Finding
 	bestLen := 0
 	for _, entry := range workspaceFileValidators {
 		if entry.applies != nil && !entry.applies(fileName) {
 			continue
 		}
 		if strings.HasSuffix(upper, strings.ToUpper(entry.suffix)) && len(entry.suffix) > bestLen {
-			best, bestLen = entry.validate, len(entry.suffix)
+			best, bestInWorkspace, bestLen = entry.validate, entry.inWorkspace, len(entry.suffix)
 		}
 	}
-	return best
+	return best, bestInWorkspace
 }
 
 // ValidateFlowDocumentForTest exposes the dispatched validator to this package's
@@ -227,7 +248,16 @@ func ValidateFlowDocumentForTest(content string) []wsvalidate.Finding {
 // editor (saveCheckedWorkspaceFile). **Until 2026-11-14 the warnings were
 // dropped here**, so a validator's warning tier reached nobody: the IDE showed
 // a refusal and nothing else.
+//
+// It checks the file alone: checkWorkspaceFileIn with no workspace.
 func checkWorkspaceFile(fileName, content string) (warnings []wsvalidate.Finding, err error) {
+	return checkWorkspaceFileIn(fileName, content, nil)
+}
+
+// checkWorkspaceFileIn is checkWorkspaceFile with the workspace the file is
+// saved into, whose root is workspace, for the rows that check a file against
+// the rest of it (a row's inWorkspace). A nil workspace skips those checks.
+func checkWorkspaceFileIn(fileName, content string, workspace fs.FS) (warnings []wsvalidate.Finding, err error) {
 	// A file the IDE shows read-only is refused here too, so that the editor's
 	// read-only state is not the only thing between a direct request and the
 	// write (wsfile.ReadOnlySuffixes, 2026-10-27).
@@ -256,13 +286,19 @@ func checkWorkspaceFile(fileName, content string) (warnings []wsvalidate.Finding
 			return nil, fmt.Errorf("the file is not a valid json file: %v", err)
 		}
 	}
-	validate := validatorFor(fileName)
+	validate, inWorkspace := validatorsFor(fileName)
 	if validate == nil {
 		return nil, nil
 	}
 	findings := validate(content)
 	if errs := wsvalidate.ErrorsOnly(findings); len(errs) > 0 {
 		return nil, describeFindings(fileName, errs)
+	}
+	if inWorkspace != nil && workspace != nil {
+		findings = append(findings, inWorkspace(content, workspace)...)
+		if errs := wsvalidate.ErrorsOnly(findings); len(errs) > 0 {
+			return nil, describeFindings(fileName, errs)
+		}
 	}
 	return wsvalidate.WarningsOnly(findings), nil
 }
@@ -276,9 +312,12 @@ func checkWorkspaceFile(fileName, content string) (warnings []wsvalidate.Finding
 // empty rather than absent when there are none. **An added field, so a client
 // that reads only `file_name` is unaffected**; a refused save is the 400 with
 // the message describeFindings writes, as before.
-func saveCheckedWorkspaceFile(wsFileName any, fileName, content string,
+//
+// workspace is the root of the workspace the file is saved into, for the rows
+// that check a file against the rest of it, or nil (checkWorkspaceFileIn).
+func saveCheckedWorkspaceFile(wsFileName any, fileName, content string, workspace fs.FS,
 	write func() error) (results *map[string]any, httpStatus int, err error) {
-	warnings, err := checkWorkspaceFile(fileName, content)
+	warnings, err := checkWorkspaceFileIn(fileName, content, workspace)
 	if err != nil {
 		log.Println(err)
 		return nil, http.StatusBadRequest, err
