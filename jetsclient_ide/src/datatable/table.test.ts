@@ -208,7 +208,6 @@ const NON_FLOW_KEYS = [
   "wsDataPropertyTable",
   "wsDomainTableTable",
   "wsRuleTermsTable",
-  "wsMainSupportFilesTable",
   "wsDataModelFilesTable",
   "wsJetRulesFilesTable",
 ] as const;
@@ -346,6 +345,9 @@ const HAND_MAINTAINED_KEYS = [
   // A File column, the file each rule is written in (`jet_rules.authored_file_key`,
   // 2026-11-13); its main-file column is labelled for what it holds.
   "wsJetRulesTable",
+  // Its label was the Rule Terms tab's, carried over from the Dart; it is the
+  // Files Relationship tab's own, as the view's other tables are (2026-11-14).
+  "wsMainSupportFilesTable",
 ] as const;
 
 /**
@@ -510,7 +512,8 @@ describe("the 28 configurations still translated from the flow fixture", () => {
     // `spInjectedProcessInput` were retired with their fixture entries.
     expect(Object.keys(flowDocuments).length).toBe(28);
     // **47 on 2026-11-13**, when `wsJetRulesTable` left to gain a File column.
-    expect(Object.keys(translated).length).toBe(47);
+    // **46 on 2026-11-14**, when `wsMainSupportFilesTable` left to be relabelled.
+    expect(Object.keys(translated).length).toBe(46);
     expect(Object.keys(handAuthored).length).toBe(2);
     // **8 since 2026-10-02**: `org` and the two `pcView*` tables, which keep
     // their fixture entry as the Flutter record other tests use as material —
@@ -525,7 +528,8 @@ describe("the 28 configurations still translated from the flow fixture", () => {
     // `lfFileKeyStagingTable` from the flows' fixes, and **19** with
     // `fmInputSourceMappingUF`; the total is unchanged.
     // **20 on 2026-11-13**, with `wsJetRulesTable`; the total is unchanged.
-    expect(Object.keys(handMaintained).length).toBe(20);
+    // **21 on 2026-11-14**, with `wsMainSupportFilesTable`; the total is unchanged.
+    expect(Object.keys(handMaintained).length).toBe(21);
     // **64 since 2026-10-11**: the three rules unit test tables
     // (`rules_unit_test_harness` `AD.4`), written rather than translated.
     // **5 and 63 since 2026-11-08**: *Session Registry* and *Archived
