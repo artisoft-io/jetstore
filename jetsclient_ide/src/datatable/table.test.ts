@@ -16,7 +16,7 @@
  *    cases both languages run.
  */
 
-import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -54,8 +54,8 @@ const tablesDir = fileURLToPath(new URL("./tables/", import.meta.url));
  * A table document a JetStore flow draws is installed into a workspace by
  * `install_workspace_assets` and read from there by `FlowStore.loadTables`; a
  * table a *screen* draws is imported into this bundle and never leaves it. So the
- * 61 documents this emitter owns are committed in two directories, and which one
- * a key belongs to is a property of who reads it rather than of this test.
+ * documents this test checks are committed in two directories, and which one a
+ * key belongs to is a property of who reads it rather than of this test.
  */
 const assetTablesDir = fileURLToPath(
   new URL("../../../jets/workspace_assets/table_configs/", import.meta.url),
@@ -74,9 +74,9 @@ const committedIn = (dir: string): Set<string> =>
  * **Read off disk rather than derived from the key**, because the rule is about
  * the consumer and this file cannot see one: `pipelineExecStatusTable` is drawn by
  * `homeFiltersUF` *and* by the Home screen, so it is committed in both places and
- * a rule that returned one directory would delete the other copy on the next
- * regeneration. A key in neither directory is new, and goes where the screens'
- * documents go — the emitter cannot know it is a flow's until a flow names it.
+ * a rule that returned one directory would have deleted the other copy on the
+ * next regeneration, while this test still wrote the documents. A key in neither
+ * directory is new, and was written where the screens' documents go.
  *
  * **Corrected 2026-10-01 (`jetstore_maintenance_02` `AD.2`): no key is committed
  * in both places any more.** Home stopped keeping its copy at 3dc322d5
@@ -428,35 +428,30 @@ describe("the emitted JSON Schema", () => {
   // merged and historical sources, and its three tables were retired.
   // **63 since 2026-11-08**: Home's two new tabs (`FEATURE_KEYS`). **64 since
   // 2026-11-12**: the Session Registry filters' process list (`FEATURE_KEYS`).
+  //
+  // **Nothing writes these documents from the corpus any more** (2026-11-14).
+  // This case emitted the translated ones under `UPDATE_SCHEMA=1`, and deleted
+  // any document it did not know, from fixtures the deleted Flutter app generated
+  // and nothing can regenerate. So a run could only rewrite what is committed,
+  // overwrite an edit, or delete a new document not yet listed here — and it ran
+  // with every `npm run emit-schema`, which the JSON Schemas above still need.
+  // The committed document is the source; the comparison below says which ones
+  // are still the Dart's, and a table edited by hand goes on
+  // `HAND_MAINTAINED_KEYS`.
   it("has the 64 configurations committed beside it, for the Go check", () => {
     // `jets/userflow/table_schema_test.go` reads this directory and the emitted
     // schema and asserts the same documents pass the Go validator that enforces
     // them at save time — two languages against one artifact rather than two
     // readings of it.
-    if (process.env.UPDATE_SCHEMA === "1") {
-      for (const dir of [tablesDir, assetTablesDir]) {
-        mkdirSync(dir, { recursive: true });
-        // **Removing what this emitter no longer owns rather than wiping the
-        // directory, as of C.9.** The wipe was right while every document was
-        // emitted here; two are now hand-authored and committed beside the rest, and
-        // a wipe would delete them on the next regeneration — silently, since the
-        // very next line would rewrite everything else and the suite would go green
-        // with two files gone.
-        for (const file of readdirSync(dir).filter((f) => f.endsWith(".tc.json"))) {
-          if (!(file.slice(0, -".tc.json".length) in documents)) rmSync(`${dir}${file}`);
-        }
-      }
-      // Written to every directory the key is committed in, which is two for the
-      // one table a flow and a screen both draw.
-      for (const key of Object.keys(translated)) {
-        for (const dir of dirsFor(key)) writeFileSync(`${dir}${key}.tc.json`, documentOf(key));
-      }
-    }
     const onDisk = [...committedIn(tablesDir), ...committedIn(assetTablesDir)];
     expect([...new Set(onDisk)].sort()).toEqual(Object.keys(documents).sort());
     for (const key of Object.keys(translated)) {
       for (const dir of dirsFor(key)) {
-        expect(readFileSync(`${dir}${key}.tc.json`, "utf8")).toBe(documentOf(key));
+        expect(
+          readFileSync(`${dir}${key}.tc.json`, "utf8"),
+          `${key}.tc.json differs from its translation from the Flutter corpus: a table edited by ` +
+            "hand is listed in HAND_MAINTAINED_KEYS",
+        ).toBe(documentOf(key));
       }
     }
   });

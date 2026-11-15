@@ -54,11 +54,13 @@ import {
   FLOW_DIR,
   FlowLoadError,
   FlowStore,
+  RELOAD_HINT,
   actionPath,
   describeFlowSaveWarnings,
   escapeReferences,
   flowPath,
   formPath,
+  isUnknownEnumeratedValue,
   serialise,
   tableConfigOf,
   tableKeysOf,
@@ -830,6 +832,125 @@ describe("sourceConfigUF against the shipping registry", () => {
     expect(error.findings).toHaveLength(1);
     expect(error.findings[0]!.path).toBe("actions/actions/scGoToAddSourceConfig/steps/3");
     expect(error.findings[0]!.message).toContain('leaves "key"');
+  });
+});
+
+/**
+ * Which documents `load` reads, in which order. A flow its own documents refuse
+ * is refused before its tables are read, so a refusal costs three reads rather
+ * than three plus one per table.
+ */
+describe("the reads a refused flow costs", () => {
+  const tableReads = (api: WorkspaceApi): string[] =>
+    (api.readWorkspaceDocument as unknown as { mock: { calls: [string, string][] } }).mock.calls
+      .map(([, path]) => path)
+      .filter((path) => path.startsWith("table_configs/"));
+
+  it("reads no table when the set check refuses the flow", async () => {
+    // An end state offering a button that advances: a set finding, which needs
+    // the flow and its forms and none of the tables.
+    const forms = structuredClone(loadFilesForms) as {
+      forms: Record<string, { actions: { action: string; label: string }[] }>;
+    };
+    forms.forms["lfSelectFileKeysUF"]!.actions.push({ action: "ufNext", label: "Next" });
+    const { store, api } = storeFor(
+      { ...loadFilesWorkspace(), [formPath("loadFilesUF")]: serialise(forms) },
+      productionRegistry,
+    );
+
+    const error = (await store.load("loadFilesUF").catch((e: FlowLoadError) => e)) as FlowLoadError;
+    expect(error.message).toContain("is an end state");
+    expect(tableReads(api)).toEqual([]);
+  });
+
+  it("reads no table when a transition goes nowhere", async () => {
+    const broken = structuredClone(loadFilesFlow) as {
+      states: Record<string, { defaultNextState?: string }>;
+    };
+    broken.states["select_source_config"]!.defaultNextState = "typo";
+    const { store, api } = storeFor({
+      ...loadFilesWorkspace(),
+      [flowPath("loadFilesUF")]: serialise(broken),
+    }, productionRegistry);
+
+    await expect(store.load("loadFilesUF")).rejects.toThrow(FlowLoadError);
+    expect(tableReads(api)).toEqual([]);
+  });
+
+  it("reads every table once the flow's own documents pass", async () => {
+    const { store, api } = storeFor(loadFilesWorkspace(), productionRegistry);
+    await store.load("loadFilesUF");
+    expect(tableReads(api).sort()).toEqual([
+      tablePath("lfFileKeyStagingTable"),
+      tablePath("lfSourceConfigTable"),
+    ]);
+  });
+});
+
+/**
+ * A tab opened before a deployment keeps the schemas its bundle was built with,
+ * so a document using a value the deployment added to an enumerated field is
+ * refused until the page is reloaded. The refusal says so.
+ */
+describe("a value this page's schemas do not list", () => {
+  const loadWith = async (path: string, document: unknown) => {
+    const { store } = storeFor({ ...loadFilesWorkspace(), [path]: serialise(document) }, productionRegistry);
+    return (await store.load("loadFilesUF").catch((e: FlowLoadError) => e)) as FlowLoadError;
+  };
+
+  it("asks for a reload when a table action's style is not one this page knows", async () => {
+    const table = structuredClone(lfSourceConfigTable) as { actions: { style: string }[] };
+    table.actions[0]!.style = "outline";
+    const error = await loadWith(tablePath("lfSourceConfigTable"), table);
+    expect(error).toBeInstanceOf(FlowLoadError);
+    expect(error.findings.map((f) => [f.path, f.message.endsWith(RELOAD_HINT)])).toEqual([
+      ["/actions/0/style", true],
+    ]);
+  });
+
+  it("asks for a reload when a step's kind is not one this page knows", async () => {
+    const actions = structuredClone(loadFilesActions) as {
+      actions: Record<string, { steps: { do: string }[] }>;
+    };
+    actions.actions["lfSyncFileKey"]!.steps[0]!.do = "retry";
+    const error = await loadWith(actionPath("loadFilesUF"), actions);
+    expect(error).toBeInstanceOf(FlowLoadError);
+    expect(error.findings.map((f) => [f.path, f.message.endsWith(RELOAD_HINT)])).toEqual([
+      ["/actions/lfSyncFileKey/steps/0", true],
+    ]);
+  });
+
+  it("asks for a reload when a table's source is not one this page knows", async () => {
+    const table = { ...structuredClone(lfSourceConfigTable), source: "view" };
+    const error = await loadWith(tablePath("lfSourceConfigTable"), table);
+    expect(error.findings.map((f) => [f.path, f.message.endsWith(RELOAD_HINT)])).toEqual([
+      ["/source", true],
+    ]);
+  });
+
+  it("does not ask for one when the document is wrong in another way", async () => {
+    const table = structuredClone(lfSourceConfigTable) as { actions: Record<string, unknown>[] };
+    table.actions[0]!["colour"] = "red";
+    const error = await loadWith(tablePath("lfSourceConfigTable"), table);
+    expect(error).toBeInstanceOf(FlowLoadError);
+    expect(error.findings).toHaveLength(1);
+    expect(error.findings[0]!.message).not.toContain(RELOAD_HINT);
+  });
+
+  it("does not take a union refused on different fields for an unknown value", () => {
+    // Each member refuses a different field, so no one field holds a value
+    // that matches no member: the document is wrong, not newer.
+    expect(
+      isUnknownEnumeratedValue({
+        code: "invalid_union",
+        path: [],
+        message: "Invalid input",
+        errors: [
+          [{ code: "invalid_value", path: ["do"] }],
+          [{ code: "invalid_type", path: ["keys"] }],
+        ],
+      }),
+    ).toBe(false);
   });
 });
 

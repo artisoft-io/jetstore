@@ -19,6 +19,8 @@ import { emptyRegistry } from "../actions/escapes";
 import { productionRegistry } from "../actions/registry";
 import { directoryReader, main } from "./validateWorkspaceCli";
 import {
+  MAX_FINDINGS_PER_FILE,
+  MAX_VALUES_LISTED,
   formatFindings,
   validateWorkspace,
   type WorkspaceFinding,
@@ -275,6 +277,68 @@ describe("each check fires at the file an author would edit", () => {
         message: expect.stringContaining('gates it on "hasDataRegistryFilters"'),
       }),
     );
+  });
+});
+
+/**
+ * A document with very many problems. A schema records one per failing
+ * element, so an oversized document could run the compile's Node heap out of
+ * memory: a `.tc.json` whose `columns` held a million numbers did, at 1 GB.
+ */
+describe("an oversized document", () => {
+  const all = (files: Record<string, string>) =>
+    validateWorkspace(memoryReader(files), { registry: productionRegistry });
+  const clientTable = "table_configs/client.tc.json";
+
+  it("lists the first findings of a file and counts the rest in one more", () => {
+    const files = shippingTree("clientRegistryUF");
+    edit(files, clientTable, (d) => {
+      d.columns = Array.from({ length: MAX_FINDINGS_PER_FILE + 50 }, (_, i) => i);
+    });
+    const ofTable = all(files).filter((f) => f.file === clientTable);
+    expect(ofTable).toHaveLength(MAX_FINDINGS_PER_FILE + 1);
+    expect(ofTable[0]).toMatchObject({ severity: "error", pointer: "/columns/0" });
+    expect(ofTable.at(-1)).toEqual({
+      severity: "error",
+      file: clientTable,
+      pointer: "",
+      message: `50 more finding(s) in this file are not listed: the validator lists the first ${MAX_FINDINGS_PER_FILE} of each file`,
+    });
+  });
+
+  it("lists every finding of a file at the cap, and adds nothing", () => {
+    const files = shippingTree("clientRegistryUF");
+    edit(files, clientTable, (d) => {
+      d.columns = Array.from({ length: MAX_FINDINGS_PER_FILE }, (_, i) => i);
+    });
+    const ofTable = all(files).filter((f) => f.file === clientTable);
+    expect(ofTable).toHaveLength(MAX_FINDINGS_PER_FILE);
+    expect(ofTable.every((f) => f.pointer.startsWith("/columns/"))).toBe(true);
+  });
+
+  it("says a document too large to list is invalid, in one finding, without collecting the rest", () => {
+    const files = shippingTree("clientRegistryUF");
+    edit(files, clientTable, (d) => {
+      d.columns = Array.from({ length: MAX_VALUES_LISTED + 10 }, (_, i) => i);
+    });
+    const ofTable = all(files).filter((f) => f.file === clientTable);
+    expect(ofTable).toEqual([
+      {
+        severity: "error",
+        file: clientTable,
+        pointer: "",
+        message: expect.stringContaining(`holds more than ${MAX_VALUES_LISTED} values`) as unknown as string,
+      },
+    ]);
+  });
+
+  it("accepts a valid document too large to list, as before", () => {
+    const files = shippingTree("clientRegistryUF");
+    edit(files, clientTable, (d) => {
+      const extra = Array.from({ length: MAX_VALUES_LISTED / 2 }, (_, i) => ({ name: `c${i}`, label: `C${i}` }));
+      d.columns = [...d.columns, ...extra];
+    });
+    expect(all(files).filter((f) => f.file === clientTable)).toEqual([]);
   });
 });
 

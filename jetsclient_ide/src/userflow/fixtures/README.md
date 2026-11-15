@@ -2,6 +2,15 @@
 
 Generated from the running Flutter app. **Do not edit it by hand.**
 
+**Nothing is emitted from it since 2026-11-14.** `../schema.test.ts` wrote the
+`.uf.json` of the flows it still holds under `UPDATE_SCHEMA=1`
+(`npm run emit-schema`); with the app gone that could only rewrite what was
+committed or overwrite an edit. The committed document in
+`jets/workspace_assets/user_flows/` is the source. The test still compares each
+flow this file holds with the committed document, so a flow edited by hand is
+listed in `HAND_AUTHORED` and its entry deleted here, in the same change, as the
+sections below record for the others.
+
 **It holds two flows as of 2026-11-11** — `homeFiltersUF` and `loadFilesUF` — of
 the eleven it was generated with (three, with `mapFileUF`, from 2026-10-27). The sections below say when
 each of the others left. The title said *the eleven user flows* until 2026-10-27.
