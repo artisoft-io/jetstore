@@ -15,7 +15,7 @@
  *    because a rule that cannot be shown to fire is not a rule.
  */
 
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -29,12 +29,19 @@ const artifactPath = fileURLToPath(new URL("./userflow.schema.json", import.meta
  * Where the converted flows are committed, since they became JetStore-owned
  * workspace assets.
  *
- * The directory holds three kinds of document: the flows emitted here from the
- * Flutter corpus (eleven at first, three since 2026-10-11), the flows written by
- * hand (`HAND_AUTHORED`), and the projections `cpipes-contract templates` writes.
- * This emitter owns the first and must not touch the others, which is why the set
- * assertion below is *containment* plus a named exclusion rather than equality —
- * an equality check would have deleted three flows it knows nothing about.
+ * The directory holds three kinds of document: the flows translated from the
+ * Flutter corpus and never edited since (eleven at first, two since 2026-11-11),
+ * the flows edited or written by hand (`HAND_AUTHORED`), and the projections
+ * `cpipes-contract templates` writes. The set assertion below is *containment*
+ * plus a named exclusion rather than equality, so that the first kind is
+ * compared with its translation and the other two are left to their own checks.
+ *
+ * **Nothing writes these documents from the corpus any more** (2026-11-14). This
+ * test emitted them under `UPDATE_SCHEMA=1`, from a corpus the deleted Flutter
+ * app generated and nothing can regenerate, so a run could only rewrite what is
+ * committed, or overwrite an edit. The committed document is the source; the
+ * comparison below says which ones are still the Dart's, and a flow edited by
+ * hand goes on `HAND_AUTHORED`.
  */
 const flowsDir = fileURLToPath(
   new URL("../../../jets/workspace_assets/user_flows/", import.meta.url),
@@ -99,18 +106,12 @@ describe("the emitted JSON Schema", () => {
     expect(readFileSync(artifactPath, "utf8")).toBe(emitted);
   });
 
-  // Titled "the eleven converted flows" until 2026-10-27; it checks the flows still emitted.
+  // Titled "the eleven converted flows" until 2026-10-27; it checks the flows still translated.
   it("has the converted flows committed beside it, for the Go check", () => {
     // `jets/userflow/schema_test.go` reads both this directory and the emitted
     // schema, and asserts the same documents pass the Go validator that will
     // enforce them at save time. Committing the documents is what lets the two
     // languages be checked against one artifact rather than two readings of it.
-    if (process.env.UPDATE_SCHEMA === "1") {
-      mkdirSync(flowsDir, { recursive: true });
-      for (const key of Object.keys(flows)) {
-        writeFileSync(`${flowsDir}${key}.uf.json`, documentOf(key));
-      }
-    }
     const onDisk = readdirSync(flowsDir).filter((f) => f.endsWith(".uf.json")).sort();
     const notOurs = [...PROJECTED, ...HAND_AUTHORED];
     const ours = onDisk.filter((f) => !notOurs.includes(f.slice(0, -".uf.json".length)));
@@ -121,7 +122,11 @@ describe("the emitted JSON Schema", () => {
     expect(onDisk.length - ours.length).toBe(notOurs.length);
     expect(HAND_AUTHORED.filter((key) => key in flows)).toEqual([]);
     for (const key of Object.keys(flows)) {
-      expect(readFileSync(`${flowsDir}${key}.uf.json`, "utf8")).toBe(documentOf(key));
+      expect(
+        readFileSync(`${flowsDir}${key}.uf.json`, "utf8"),
+        `${key}.uf.json differs from its translation from the Flutter corpus: a flow edited by hand ` +
+          "is listed in HAND_AUTHORED, and its entry is deleted from fixtures/user_flows.json",
+      ).toBe(documentOf(key));
     }
   });
 

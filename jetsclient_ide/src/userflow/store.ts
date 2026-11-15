@@ -152,14 +152,55 @@ export class FlowLoadError extends Error {
  * and "this transition goes nowhere" the same way — and Zod's issue path is
  * already the segments a JSON Pointer needs.
  */
-function findingsFromParse(error: { issues: { path: PropertyKey[]; message: string }[] }): Finding[] {
+function findingsFromParse(error: { issues: ParseIssue[] }): Finding[] {
   return error.issues.map((issue) => ({
     severity: "error" as const,
     code: "unknownTarget" as const,
-    message: issue.message,
+    message: isUnknownEnumeratedValue(issue) ? `${issue.message}. ${RELOAD_HINT}` : issue.message,
     // RFC 6901: "~" then "/", in that order, or the escaping is wrong.
     path: `/${issue.path.map((p) => String(p).replace(/~/g, "~0").replace(/\//g, "~1")).join("/")}`,
   }));
+}
+
+/** The part of a Zod issue `findingsFromParse` reads. */
+interface ParseIssue {
+  path: PropertyKey[];
+  message: string;
+  code?: string;
+  note?: string;
+  /** On `invalid_union`, each alternative's own issues. */
+  errors?: { code?: string; path: PropertyKey[] }[][];
+}
+
+/**
+ * What a refusal adds when the document may simply be newer than this page.
+ *
+ * The schemas are compiled into the bundle, so a tab opened before a deployment
+ * keeps the old ones: a document that uses a value the deployment added to an
+ * enumerated field (a new button style, a new step kind) is refused until the
+ * page is reloaded. The refusal cannot tell that from a typo, so it says both.
+ */
+export const RELOAD_HINT =
+  "If JetStore was updated since this page was opened, reload the page: it may not know this value yet";
+
+/**
+ * Whether a Zod issue is an enumerated field holding a value the schema does not list.
+ *
+ * Three shapes: an enum or literal that does not match (`invalid_value`); a
+ * discriminated union whose discriminator matches no member; and a plain union
+ * every member of which refuses the same field's value, which is how a step's
+ * `do` or a field's `field` is checked. Any other refusal is about the document.
+ */
+export function isUnknownEnumeratedValue(issue: ParseIssue): boolean {
+  if (issue.code === "invalid_value") return true;
+  if (issue.code !== "invalid_union") return false;
+  if (issue.note === "No matching discriminator") return true;
+  const members = issue.errors ?? [];
+  if (members.length === 0) return false;
+  const refusedValueAt = (member: { code?: string; path: PropertyKey[] }[]): Set<string> =>
+    new Set(member.filter((i) => i.code === "invalid_value").map((i) => i.path.map(String).join("/")));
+  const [first, ...rest] = members.map(refusedValueAt);
+  return [...first!].some((path) => rest.every((paths) => paths.has(path)));
 }
 
 /** One file read, with the failure carried as a value so a batch can report all of them. */
@@ -246,27 +287,28 @@ export class FlowStore {
     const actions = ActionDocumentSchema.parse(JSON.parse(actionText)) as ActionDocument;
     const forms = FormDocumentSchema.parse(JSON.parse(formText)) as FormDocument;
 
-    // The tables are read before any check runs, because `checkFlowSet` takes
-    // them, and a read failure is held until the two stages that do not need
-    // them have had their say. So the first failure thrown is the one it was
-    // before `AM.3`; what changed is that a flow refused by its set check now
-    // costs the table reads too.
-    const { tables, findings: tableReadFindings } = await this.loadTables(tableKeysOf(forms));
-    const checks = checkFlowSet({ flow, actions, forms }, tables, this.options, key);
-    const stage = (name: FlowCheckStage) => checks.filter((f) => f.stage === name);
+    // The two stages that do not read the tables run first, over no tables, so a
+    // flow they refuse costs no table reads. Their findings do not depend on the
+    // tables, so they are the ones the full run below would give.
+    const early = checkFlowSet({ flow, actions, forms }, {}, this.options, key);
+    const earlyStage = (name: FlowCheckStage) => early.filter((f) => f.stage === name);
 
     // Warnings, such as an unreachable state, do not refuse a flow.
-    const references = stage("references").filter((f) => f.severity === "error");
+    const references = earlyStage("references").filter((f) => f.severity === "error");
     if (references.length > 0) throw new FlowLoadError(key, references.map(asLoadFinding));
 
     // I-57. The set findings carry their own code union — deliberately not
     // `validate.ts`'s, because Go can never raise these — so they are mapped
     // rather than concatenated, and the document they name goes into the pointer
     // so a message spanning files still says which file.
-    const set = stage("set");
+    const set = earlyStage("set");
     if (set.length > 0) throw new FlowLoadError(key, set.map(asLoadFinding));
 
+    const { tables, findings: tableReadFindings } = await this.loadTables(tableKeysOf(forms));
     if (tableReadFindings.length > 0) throw new FlowLoadError(key, tableReadFindings);
+
+    const checks = checkFlowSet({ flow, actions, forms }, tables, this.options, key);
+    const stage = (name: FlowCheckStage) => checks.filter((f) => f.stage === name);
 
     const tableActions = stage("tables");
     if (tableActions.length > 0) throw new FlowLoadError(key, tableActions.map(asLoadFinding));
@@ -294,8 +336,8 @@ export class FlowStore {
    * tables is normally missing all four or none — the directory has not been
    * authored yet — and reporting them one reload at a time is the friction
    * `resolveEscapes` avoids for the same reason. **Returned rather than thrown
-   * since `AM.3`**, so that `load` can hold them until the checks that do not
-   * need the tables have run.
+   * since `AM.3`**, so that `load` decides when to throw them. `load` reads the
+   * tables only once the checks that do not need them have passed.
    */
   private async loadTables(
     keys: string[],
@@ -408,7 +450,7 @@ export class FlowStore {
     }
     const result = schema.safeParse(parsed);
     if (result.success) return [];
-    return findingsFromParse(result.error as { issues: { path: PropertyKey[]; message: string }[] });
+    return findingsFromParse(result.error as { issues: ParseIssue[] });
   }
 }
 
