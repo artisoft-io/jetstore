@@ -209,6 +209,50 @@ else()
   gtest_discover_tests(jets_test)
 endif()
 
+# Go tests that need this build's libjets.so, and so run in no plain `go test`:
+# they are behind a build tag to keep their packages free of cgo. ctest runs
+# them from the source tree against the libjets.so built here, so build `jets`
+# before running ctest. Their label is `go`: `ctest -L go` runs them alone and
+# `ctest -LE go` leaves them out. They are registered when `go` is on the PATH
+# (or JETS_GO_EXECUTABLE names it) and JETS_GO_ENGINE_TESTS is on, and not in
+# the sanitizer build, whose libjets.so needs the sanitizer runtime preloaded.
+#   go_statistics_key_engine    jets/compilerv2/compiler/statistics_key_engine_test.go
+#                               (tag engine_keys): the compiler's statistics key of
+#                               each rule constant is the engine's key for it
+#   go_beta_row_pruning_engine  jets/compilerv2/compiler/beta_row_pruning_engine_test.go
+#                               (tag engine_rules): what a variable the compiler
+#                               prunes from a beta row costs truth maintenance;
+#                               its known over-retraction is a skipped subtest
+option(JETS_GO_ENGINE_TESTS "Register with ctest the Go tests that link libjets.so" ON)
+find_program(JETS_GO_EXECUTABLE go)
+if(JETS_GO_ENGINE_TESTS AND JETS_GO_EXECUTABLE AND NOT JETS_SANITIZE)
+  set(JETS_GO_TEST_ENV
+    "CGO_CFLAGS=-I${CMAKE_SOURCE_DIR}/jets"
+    "CGO_LDFLAGS=-L${CMAKE_CURRENT_BINARY_DIR}"
+    "LD_LIBRARY_PATH=${CMAKE_CURRENT_BINARY_DIR}")
+  # name, build tag, test name pattern, package
+  foreach(go_test IN ITEMS
+      "go_statistics_key_engine|engine_keys|TestStatisticsKeyAgreesWithTheEngine|./jets/compilerv2/compiler/"
+      "go_beta_row_pruning_engine|engine_rules|TestPrunedVariableTruthMaintenance|./jets/compilerv2/compiler/")
+    string(REPLACE "|" ";" go_test "${go_test}")
+    list(GET go_test 0 go_test_name)
+    list(GET go_test 1 go_test_tag)
+    list(GET go_test 2 go_test_run)
+    list(GET go_test 3 go_test_package)
+    add_test(NAME ${go_test_name}
+      COMMAND ${JETS_GO_EXECUTABLE} test -count=1 -tags ${go_test_tag} -run ${go_test_run} ${go_test_package}
+      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+    set_tests_properties(${go_test_name} PROPERTIES
+      ENVIRONMENT "${JETS_GO_TEST_ENV}"
+      # a renamed test would otherwise pass as `ok ... [no tests to run]`
+      FAIL_REGULAR_EXPRESSION "no tests to run"
+      LABELS go
+      TIMEOUT 900)
+  endforeach()
+elseif(JETS_GO_ENGINE_TESTS AND NOT JETS_SANITIZE)
+  message(STATUS "jets: go not found, the Go tests that link libjets.so are not registered with ctest")
+endif()
+
 
 
 install(TARGETS ${C_LIBRARY_NAME}
