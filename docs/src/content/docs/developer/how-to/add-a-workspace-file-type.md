@@ -79,14 +79,20 @@ one file, or for one folder, sets it to a function of the workspace-relative pat
 `config.json` is taken for report directives.
 
 The last field, `inWorkspace`, is `nil` for a row whose file can be checked alone. A row whose file
-names other files of the workspace sets it to a function given the file's content and the
-workspace's tree as an `fs.FS`, which runs once the validator has refused nothing: the `.form.json`
-row warns of a table a form draws that the workspace does not hold (`checkFormTables`), and the
-`config.json` row refuses what `run_reports` would refuse in the reports files the directives run
-(`reportsFilesFindings`). Its findings are refusals or warnings like the validator's.
+names other files of the workspace, or is named by them, sets it to a function given the file's
+workspace-relative name, its content and the workspace's tree as an `fs.FS`, which runs once the
+validator has refused nothing: the `.form.json` row warns of a table a form draws that the workspace
+does not hold (`checkFormTables`), the `config.json` row refuses what `run_reports` would refuse in
+the reports files the directives run (`reportsFilesFindings`), and the reports `.sql` row checks a
+reports file against the directives that run it (`reportsSQLFindings`). Its findings are refusals or
+warnings like the validator's.
 
 **Choose a suffix no other row ends with**, and no other row ends with it. `TestSuffixesAreDistinct`
 fails when one suffix ends another, because longest match would then decide between them silently.
+The one exception is a suffix repeated by a row scoped with `applies`: the `.sql` rows for
+`runbooks/` (`isRunbookSQL`) and `reports/` (`isReportsSQL`) share `.sql` with the row for every SQL
+file, and the dispatch prefers a scoped row to an unscoped one of the same suffix. Two scoped rows of
+one suffix must not both apply to a file, which the test probes in every section's folder.
 Prefer a constant from the owning package (`runbook.FileSuffix`, `briefing.DocumentSuffix`) to a
 literal.
 

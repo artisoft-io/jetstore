@@ -136,9 +136,31 @@ func ErrIncompleteDatePattern(name string) error {
 	return fmt.Errorf("error: report file name contains incomplete date pattern: %s", name)
 }
 
-// HasIncompleteDatePattern reports whether name opens a date pattern, `{D:`,
-// and does not close it.
+// NameTokens are the {TOKEN} patterns run_reports substitutes in a report's
+// name before it reads the name's date pattern (reportFileName,
+// jets/run_reports/delegate, whose test checks that it substitutes each of
+// them). A pattern not in the list is left in the name as written.
+var NameTokens = []string{
+	"{CLIENT}", "{SESSIONID}", "{ORG}", "{OBJECT_TYPE}", "{ENVIRONMENT}", "{ORIGINALFILENAME}", "{PROCESSNAME}",
+}
+
+// HasIncompleteDatePattern reports whether name, once its NameTokens are
+// substituted, opens a date pattern, `{D:`, and does not close it.
+//
+// **The tokens are substituted first, as the run does (2026-11-14).** It read
+// the name as written, so `{D:YYYY{CLIENT}` passed: the `}` closing `{CLIENT}`
+// looked like the one closing the date pattern, and the run, which substitutes
+// `{CLIENT}` before it looks, refused the name. A token is substituted here by
+// nothing, which stands for every value that holds no brace. A value is known
+// only to a run, so what one holding a `}` or a `{D:` does to the name is left
+// to the run, which refuses the name then as before: in practice a client
+// name, a session id, an org, an object type, an environment or a process
+// name holds no brace, and an original file name has its `:` and `.` replaced
+// but may hold one.
 func HasIncompleteDatePattern(name string) bool {
+	for _, token := range NameTokens {
+		name = strings.ReplaceAll(name, token, "")
+	}
 	_, tail, found := strings.Cut(name, datePatternOpen)
 	return found && !strings.Contains(tail, "}")
 }
@@ -159,68 +181,120 @@ func outputFormatDecidable(name string) bool {
 // ReportsFileError is a refusal run_reports makes of one reports file. Line is
 // the line of the report it is about, or 0 for the file as a whole.
 type ReportsFileError struct {
-	Script string // the reportScripts entry, a path relative to reports/
+	Script string // the reportScripts entry, a path relative to reports/, or the report's name
+	File   string // the file, relative to the workspace's root; reports/<Script> when empty
 	Line   int
 	Err    error
 }
 
 func (e *ReportsFileError) Error() string {
-	if e.Line > 0 {
-		return fmt.Sprintf("reports/%s, line %d: %v", e.Script, e.Line, e.Err)
+	file := e.File
+	if file == "" {
+		file = "reports/" + e.Script
 	}
-	return fmt.Sprintf("reports/%s: %v", e.Script, e.Err)
+	if e.Line > 0 {
+		return fmt.Sprintf("%s, line %d: %v", file, e.Line, e.Err)
+	}
+	return fmt.Sprintf("%s: %v", file, e.Err)
 }
 
 func (e *ReportsFileError) Unwrap() error { return e.Err }
 
-// ReportsFileErrors is what run_reports would refuse in the reports files
-// these directives run, read from workspace, the workspace's root: a file it
-// cannot read as reports (ParseReportDefinitions), a report name whose date
-// pattern is not closed, and a report with no output format where its name
-// decides that (outputFormatDecidable). reportName is the directives' key,
-// whose `<reportName>.sql` runs when they list no reportScripts.
+// ReportsFile is one file a report's directives run as a reports file
+// (ReportDirectives.ReportsFiles).
+type ReportsFile struct {
+	// Script is the reportScripts entry that runs the file, the key of its
+	// reportProperties: the file's path relative to reports/, or the report's
+	// name when the directives list no reportScripts.
+	Script string
+	// File is the file's path relative to the workspace's root.
+	File string
+}
+
+// ReportsFiles is the files run_reports reads as reports files when it runs
+// these directives, those of the report reportName (CoordinateWorkAndUpdateStatus,
+// jets/run_reports/delegate): each reportScripts entry, under reports/, or
+// `reports/<reportName>.sql` when there is none.
 //
 // It leaves out what run_reports does not read as a reports file: an entry
-// declared `reportOrScript: "script"`, which runs whole, and an entry that is
-// not a file of the workspace, which run_reports skips (or calls, when it
-// names a report function). An entry that is not a local path is left to the
-// run, which refuses it.
+// declared `reportOrScript: "script"`, which runs whole, and an entry whose
+// path leaves reports/. An entry that names a report function is listed, and
+// a caller that finds no such file skips it, as run_reports does.
+//
+// **With no reportScripts, the entry is the report's name and not its file**,
+// as the run has it: run_reports runs `reports/<reportName>.sql` and reads its
+// reportProperties under `<reportName>`. The save check read them under
+// `<reportName>.sql` until 2026-11-14, so a report declared a script that way
+// was read as reports at the save.
+func (rd *ReportDirectives) ReportsFiles(reportName string) []ReportsFile {
+	if rd == nil {
+		return nil
+	}
+	var files []ReportsFile
+	add := func(script, file string) {
+		if rd.ReportProperties[script].Type == "script" {
+			return
+		}
+		file = path.Join("reports", file)
+		if !fs.ValidPath(file) || !strings.HasPrefix(file, "reports/") {
+			return
+		}
+		files = append(files, ReportsFile{Script: script, File: file})
+	}
+	if len(rd.ReportScripts) == 0 {
+		add(reportName, reportName+".sql")
+		return files
+	}
+	for _, script := range rd.ReportScripts {
+		add(script, script)
+	}
+	return files
+}
+
+// ReportsFileErrors is what run_reports would refuse in the reports files
+// these directives run (ReportsFiles), read from workspace, the workspace's
+// root: what CheckReportsFile refuses in each. reportName is the directives'
+// key. A file the workspace does not hold is skipped, as run_reports skips it
+// (or calls the report function the entry names).
 func (rd *ReportDirectives) ReportsFileErrors(reportName string, workspace fs.FS) []*ReportsFileError {
 	if rd == nil || workspace == nil {
 		return nil
 	}
-	scripts := rd.ReportScripts
-	if len(scripts) == 0 {
-		scripts = []string{reportName + ".sql"}
+	var errs []*ReportsFileError
+	for _, f := range rd.ReportsFiles(reportName) {
+		content, err := fs.ReadFile(workspace, f.File)
+		if err != nil {
+			continue
+		}
+		errs = append(errs, rd.CheckReportsFile(f, string(content))...)
+	}
+	return errs
+}
+
+// CheckReportsFile is what run_reports would refuse in content, the text of
+// file, a reports file these directives run (ReportsFiles), before it runs
+// any of the file: a file it cannot read as reports (ParseReportDefinitions),
+// a report name whose date pattern is not closed (HasIncompleteDatePattern),
+// and a report with no output format where its name decides that
+// (outputFormatDecidable). Shared by the save of reports/config.json, which
+// reads the files it runs, and the save of a reports file, which is checked
+// against the directives that run it.
+func (rd *ReportDirectives) CheckReportsFile(file ReportsFile, content string) []*ReportsFileError {
+	script := file.Script
+	reports, err := ParseReportDefinitions(content)
+	if err != nil {
+		return []*ReportsFileError{{Script: script, File: file.File, Err: err}}
 	}
 	var errs []*ReportsFileError
-	for _, script := range scripts {
-		if rd.ReportProperties[script].Type == "script" {
-			continue
-		}
-		file := path.Join("reports", script)
-		if !fs.ValidPath(file) || !strings.HasPrefix(file, "reports/") {
-			continue
-		}
-		content, err := fs.ReadFile(workspace, file)
-		if err != nil {
-			continue
-		}
-		reports, err := ParseReportDefinitions(string(content))
-		if err != nil {
-			errs = append(errs, &ReportsFileError{Script: script, Err: err})
-			continue
-		}
-		for _, r := range reports {
-			switch {
-			case HasIncompleteDatePattern(r.Name):
-				errs = append(errs, &ReportsFileError{Script: script, Line: r.Line,
-					Err: ErrIncompleteDatePattern(r.Name)})
-			case outputFormatDecidable(r.Name) &&
-				OutputFormat(r.Name, rd.StatementProperties[r.Name].OutputFormat) == "":
-				errs = append(errs, &ReportsFileError{Script: script, Line: r.Line,
-					Err: ErrNoOutputFormat(r.Name)})
-			}
+	for _, r := range reports {
+		switch {
+		case HasIncompleteDatePattern(r.Name):
+			errs = append(errs, &ReportsFileError{Script: script, File: file.File, Line: r.Line,
+				Err: ErrIncompleteDatePattern(r.Name)})
+		case outputFormatDecidable(r.Name) &&
+			OutputFormat(r.Name, rd.StatementProperties[r.Name].OutputFormat) == "":
+			errs = append(errs, &ReportsFileError{Script: script, File: file.File, Line: r.Line,
+				Err: ErrNoOutputFormat(r.Name)})
 		}
 	}
 	return errs

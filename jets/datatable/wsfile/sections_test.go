@@ -371,8 +371,9 @@ func matchesAFilter(name string, filters map[string]bool) bool {
 	return false
 }
 
-// A workspace's READMEs are in the tree, read-only, and nothing else is marked
-// so. jetstore_maintenance_02 `AL.1`, 2026-10-27.
+// A workspace's READMEs and root notes are in the tree, read-only, and nothing
+// else is marked so (2026-10-27). **Except the root README, which is saved
+// since 2026-11-14** (IsRootReadme).
 //
 // The root README is listed after the two root files, and the one under
 // `pipes_config/` inside its section, which is where the four workspaces keep
@@ -421,7 +422,7 @@ func TestReadmesAreListedReadOnly(t *testing.T) {
 	}
 
 	want := map[string]bool{
-		"README.md":                true,
+		"README.md":                false,
 		"CHANGES.md":               true,
 		"pipes_config%2FREADME.md": true,
 		"pipes_config%2Fa.pc.json": false,
@@ -448,12 +449,12 @@ func TestReadmesAreListedReadOnly(t *testing.T) {
 	}
 
 	// On the wire the flag is `read_only`, and absent when false.
-	encoded, err := json.Marshal(tail[1])
+	encoded, err := json.Marshal(tail[0])
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(encoded), `"read_only":true`) {
-		t.Errorf("a README node encodes as %s, want read_only true", encoded)
+		t.Errorf("a root note node encodes as %s, want read_only true", encoded)
 	}
 	encoded, err = json.Marshal(nodes[len(nodes)-3])
 	if err != nil {
@@ -516,7 +517,7 @@ func TestRunbooksAreListedWithTheirSql(t *testing.T) {
 
 // A root note's suffix is matched without case, as IsReadOnly matches it
 // (2026-11-14): `NOTES.MD` is listed, read-only, and a file with another
-// suffix is not.
+// suffix is not. `readme.md` is listed too, and saved, as the root README.
 func TestARootNoteIsFoundWithoutCase(t *testing.T) {
 	root := t.TempDir()
 	for _, name := range []string{"NOTES.MD", "readme.md", "notes.txt"} {
@@ -528,9 +529,7 @@ func TestARootNoteIsFoundWithoutCase(t *testing.T) {
 	if len(notes) != 2 || notes[0].Label != "NOTES.MD" || notes[1].Label != "readme.md" {
 		t.Fatalf("root notes: got %d, want NOTES.MD and readme.md", len(notes))
 	}
-	for _, n := range notes {
-		if !n.ReadOnly {
-			t.Errorf("%s: not read-only", n.Label)
-		}
+	if !notes[0].ReadOnly || notes[1].ReadOnly {
+		t.Errorf("read_only: NOTES.MD %v, readme.md %v, want true and false", notes[0].ReadOnly, notes[1].ReadOnly)
 	}
 }

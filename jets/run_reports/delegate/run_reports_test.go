@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/artisoft-io/jetstore/jets/run_reports/directives"
 	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -373,5 +374,32 @@ func TestReportRegistrationDefaults(t *testing.T) {
 	// A file key with no org leaves it empty: there is nothing to fall back to.
 	if org, _, _ := (&CommandArguments{}).reportRegistration(&RegisterReportSpec{TableName: "t"}); org != "" {
 		t.Errorf("no org anywhere: got %q", org)
+	}
+}
+
+// The save check of a report's name substitutes directives.NameTokens before
+// it reads the date pattern, standing for the run (2026-11-14). So the run
+// must substitute each of them: a token it left as written would close a date
+// pattern at the run that the save reads as open.
+func TestReportFileNameSubstitutesEveryNameToken(t *testing.T) {
+	ca := &CommandArguments{Client: "c", SessionId: "s", Org: "o", ObjectType: "t",
+		Environment: "e", OriginalFileName: "f", ProcessName: "p"}
+	for _, token := range directives.NameTokens {
+		got, err := ca.reportFileName("out_" + token + ".csv")
+		if err != nil {
+			t.Fatalf("%s: %v", token, err)
+		}
+		if strings.Contains(got, token) || strings.ContainsAny(got, "{}") {
+			t.Errorf("%s is not substituted by the run: %q", token, got)
+		}
+	}
+	// The case the save check reads differently since that day: the date
+	// pattern of {D:YYYY{CLIENT} is not closed once {CLIENT} is substituted.
+	const name = "out_{D:YYYY{CLIENT}.csv"
+	if _, err := ca.reportFileName(name); err == nil {
+		t.Errorf("%s: the run named the file", name)
+	}
+	if !directives.HasIncompleteDatePattern(name) {
+		t.Errorf("%s: the save check reads the date pattern as closed", name)
 	}
 }

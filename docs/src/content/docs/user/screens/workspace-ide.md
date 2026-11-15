@@ -83,7 +83,9 @@ The status bar shows the file's path, its language, *Read only* when it cannot b
 whether it is saved. Files JetStore installs into every workspace are read-only: a workspace changes
 what one of them does by extending it, as
 [Workspace assets JetStore installs](/docs/developer/workspace/assets/) explains. A Markdown file,
-such as the workspace's `README.md`, is read-only too, except a page under `docs/`.
+such as a `README.md` beside the pipelines, is read-only too, except a page under `docs/` and the
+workspace's own `README.md`, at the top of the tree. Saving that README makes no start of JetStore
+compile the workspace.
 
 **Saving checks the file first.** A JSON file that does not parse is refused before it is sent. The
 server then checks the file types it knows, such as user flows, table documents, SQL scripts,
@@ -103,8 +105,10 @@ YAML. A file in the place of the workspace guide's generated pages, under `docs/
 `docs/reference.md` or `docs/reference.mdx`, in any case, is refused whatever it holds, with a message
 saying that place is generated. A page's links are checked when the images are built. A
 `reports/config.json` is refused when a reports file it runs could not run: a statement with no name
-comment above it, or a report whose name gives no output format and whose `statementProperties` declare
-none.
+comment above it, a date pattern `{D:` that is not closed, or a report whose name gives no output
+format and whose `statementProperties` declare none. A reports file under `reports/` is refused for the
+same reasons when `reports/config.json` runs it. A SQL file under `runbooks/` is refused when it holds
+a statement no runbook step may run, such as `BEGIN`, `COMMIT`, `SET ROLE` or `COPY`.
 
 **A save can succeed with warnings.** A check may find something that does not stop the file working
 but that you should know about: in a pipeline definition, every key the pipeline does not know and so

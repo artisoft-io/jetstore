@@ -79,9 +79,10 @@ import (
 // runbook, `runbooks/<name>.rb.json`. The save check has the file alone, so it
 // checks everything but what needs the file's name or its SQL files, which
 // the executor checks with both when a run starts (runbook.Load). A runbook's
-// `.sql` files are saved through the `.sql` row above, lexically; their
-// `:name` bindings are checked against the runbook at run start, because a
-// SQL file does not know which runbook reads it.
+// `.sql` files were saved through the `.sql` row above, lexically, and have
+// their own row since 2026-11-14 (below), which also refuses a statement no
+// step may run; their `:name` bindings are checked against the runbook at run
+// start, because a SQL file does not know which runbook reads it.
 //
 // `workspace_docs.json` is the ninth (2026-11-13): the workspace guide's
 // settings, listed with the guide's pages by the IDE's `docs` section. This
@@ -113,7 +114,21 @@ import (
 // draws (`.form.json`, checkFormTables) and the reports files the report
 // directives run (`reports/config.json`, reportsFilesFindings). The check runs
 // once the file's own validator has refused nothing, and only where the save
-// has a workspace to read (checkWorkspaceFileIn).
+// has a workspace to read (checkWorkspaceFileIn). It is given the file's
+// workspace-relative name too since later the same day, when a reports file
+// needed it to find the directives that run it.
+//
+// **Two `.sql` rows scoped to a directory, the fourteenth and fifteenth
+// (2026-11-14), beside the `.sql` row that checks every SQL file lexically.**
+// A runbook's SQL, under `runbooks/`, is refused when it holds a statement no
+// runbook step may run (validateRunbookSQL), which a run refused when it
+// started. A reports file, under `reports/`, is checked against the directives
+// in `reports/config.json` that run it (reportsSQLFindings), which the
+// directives' own save did and the file's save did not, so a reports file
+// saved after its directives was found wrong when a report ran. Both validate
+// lexically first, as the `.sql` row does. The three rows share a suffix, so
+// the dispatch prefers a scoped row to an unscoped one on a suffix of the same
+// length (validatorsFor).
 var workspaceFileValidators = []struct {
 	suffix string
 	// applies, when set, narrows the row to the files it returns true for,
@@ -123,7 +138,7 @@ var workspaceFileValidators = []struct {
 	validate wsvalidate.Validator
 	// inWorkspace, when set, checks the file against the rest of the
 	// workspace, whose root is workspace.
-	inWorkspace func(content string, workspace fs.FS) []wsvalidate.Finding
+	inWorkspace inWorkspaceCheck
 }{
 	{".uf.json", nil, userflow.ValidateFlowDocument, nil},
 	{".ua.json", nil, userflow.ValidateActionDocument, nil},
@@ -138,7 +153,15 @@ var workspaceFileValidators = []struct {
 	{".mdx", isDocsPage, validateDocsPage, nil},
 	{".pc.json", nil, compute_pipes.ValidateConfigDocument, nil},
 	{path.Base(directives.ConfigFile), isReportsConfig, validateReportsConfig, reportsFilesFindings},
+	{".sql", isRunbookSQL, validateRunbookSQL, nil},
+	{".sql", isReportsSQL, sqlscript.ValidateScript, reportsSQLFindings},
 }
+
+// inWorkspaceCheck is a row's check of a file against the rest of the
+// workspace: fileName is the file's workspace-relative name, content what the
+// save would write, and workspace the workspace's tree as the save finds it,
+// the file's previous content included.
+type inWorkspaceCheck func(fileName, content string, workspace fs.FS) []wsvalidate.Finding
 
 // workspaceDocsSettingsFile is the workspace guide's settings file,
 // `docs/workspace_docs.json`, as the documentation build names it
@@ -213,17 +236,25 @@ func validatorFor(fileName string) wsvalidate.Validator {
 
 // validatorsFor is validatorFor's row: its validator and its inWorkspace
 // check, either of which may be nil.
-func validatorsFor(fileName string) (wsvalidate.Validator, func(string, fs.FS) []wsvalidate.Finding) {
+//
+// On two suffixes of the same length, a row scoped by `applies` is more
+// specific than one that is not: `runbooks/a/check.sql` is a runbook's SQL
+// before it is SQL. Two scoped rows of one suffix apply to disjoint files.
+func validatorsFor(fileName string) (wsvalidate.Validator, inWorkspaceCheck) {
 	upper := strings.ToUpper(fileName)
 	var best wsvalidate.Validator
-	var bestInWorkspace func(string, fs.FS) []wsvalidate.Finding
-	bestLen := 0
+	var bestInWorkspace inWorkspaceCheck
+	bestLen, bestScoped := 0, false
 	for _, entry := range workspaceFileValidators {
-		if entry.applies != nil && !entry.applies(fileName) {
+		scoped := entry.applies != nil
+		if scoped && !entry.applies(fileName) {
 			continue
 		}
-		if strings.HasSuffix(upper, strings.ToUpper(entry.suffix)) && len(entry.suffix) > bestLen {
-			best, bestInWorkspace, bestLen = entry.validate, entry.inWorkspace, len(entry.suffix)
+		if !strings.HasSuffix(upper, strings.ToUpper(entry.suffix)) {
+			continue
+		}
+		if n := len(entry.suffix); n > bestLen || (n == bestLen && scoped && !bestScoped) {
+			best, bestInWorkspace, bestLen, bestScoped = entry.validate, entry.inWorkspace, n, scoped
 		}
 	}
 	return best, bestInWorkspace
@@ -295,7 +326,7 @@ func checkWorkspaceFileIn(fileName, content string, workspace fs.FS) (warnings [
 		return nil, describeFindings(fileName, errs)
 	}
 	if inWorkspace != nil && workspace != nil {
-		findings = append(findings, inWorkspace(content, workspace)...)
+		findings = append(findings, inWorkspace(fileName, content, workspace)...)
 		if errs := wsvalidate.ErrorsOnly(findings); len(errs) > 0 {
 			return nil, describeFindings(fileName, errs)
 		}

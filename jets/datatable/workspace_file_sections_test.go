@@ -135,8 +135,8 @@ func TestNoReadOnlyFileTypeHasAValidator(t *testing.T) {
 }
 
 func TestTheSavePathRefusesAReadOnlyFile(t *testing.T) {
-	for _, name := range []string{"README.md", "pipes_config/README.md", "pipes_config/README.MD",
-		"README.Md", "pipes_config/notes.MDX"} {
+	for _, name := range []string{"CHANGES.md", "pipes_config/README.md", "pipes_config/README.MD",
+		"CHANGES.Md", "pipes_config/notes.MDX", "README.mdx"} {
 		if _, err := checkWorkspaceFile(name, "# notes\n"); err == nil {
 			t.Errorf("%s: saved, want refused as read-only", name)
 		}
@@ -144,6 +144,16 @@ func TestTheSavePathRefusesAReadOnlyFile(t *testing.T) {
 	// And only those: a file type with no row is still saved unchecked.
 	if _, err := checkWorkspaceFile("jet_rules/a.jr", "# rules\n"); err != nil {
 		t.Errorf("jet_rules/a.jr: %v, want saved", err)
+	}
+}
+
+// The workspace's root README is saved since 2026-11-14 (wsfile.IsRootReadme),
+// unchecked, as its plan said once a root file could be saved.
+func TestTheSavePathSavesTheRootReadme(t *testing.T) {
+	for _, name := range []string{"README.md", "README.Md", "./README.md", "docs/../README.md"} {
+		if _, err := checkWorkspaceFile(name, "# notes, not a docs page\n"); err != nil {
+			t.Errorf("%s: %v, want saved", name, err)
+		}
 	}
 }
 

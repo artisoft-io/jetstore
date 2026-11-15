@@ -76,13 +76,18 @@ func WorkspaceControlFilePath() string {
 // the workspace's repository (docs/scripts/workspace_docs.mjs). The path is
 // cleaned first, so `docs/../jet_rules/a.jr` still requires one.
 //
+// **Nor does the workspace's root README, since 2026-11-14**, when the IDE
+// began saving it (wsfile.IsRootReadme): nothing compiles or reads it, and
+// without this one edited README would make every start on a new image
+// compile the workspace instead of taking the image's.
+//
 // Its one consumer is the apiserver's start-up on a new image (server.go,
 // checkWorkspaceVersion): an override that requires a compile makes it compile
 // the workspace under a version of its own instead of taking the image's
 // compiled workspace (startupCompileVersion). The compressed and compiled files
 // (.tgz, .db) are decided before this is asked.
 func overrideRequiresCompile(fileName string) bool {
-	return !wsfile.InDir(fileName, wsfile.WritableMarkdownDir)
+	return !wsfile.InDir(fileName, wsfile.WritableMarkdownDir) && !wsfile.IsRootReadme(fileName)
 }
 
 // Function to pull override workspace files from databse to the

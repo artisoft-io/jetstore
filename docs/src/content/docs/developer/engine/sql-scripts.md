@@ -10,6 +10,42 @@ The `jets/sqlscript` package decides where a statement in a workspace SQL file e
 SQL file when it is saved, and `run_reports` runs the SQL of a workspace's `reports/` directory as
 its `reports/config.json` directs. Its sections are dated, newest first.
 
+## 2026-11-14 — a reports file is checked against its directives, and a runbook's SQL for what a step may run
+
+**A `.sql` file under `reports/` is now checked when it is saved against the `reports/config.json`
+that runs it**, with the checks the save of the directives makes of it (the section below), made of
+the content being saved. Until now a reports file saved after its directives was checked lexically
+only, and `run_reports` found it wrong when a report ran. A file is checked under each report whose
+directives run it as reports: one of its `reportScripts`, or `<report>.sql` when it lists none, and
+not declared `reportOrScript: "script"`. A file no directives run as reports, a script, and a file in
+a workspace with no directives, or with directives that do not decode, are checked lexically only, as
+before: a file no entry names is run either by a report of its name with no directives or by nothing,
+and a save cannot tell which.
+
+**With no `reportScripts`, the report's `reportProperties` are read under its name**, as
+`run_reports` reads them, and not under `<report>.sql`, which the save of the directives used: a
+report whose `<report>.sql` was declared a script that way was read as reports, and its directives
+could be refused.
+
+**A report name's date pattern is read once its tokens are substituted**, as the run reads it. The
+run replaces `{CLIENT}`, `{SESSIONID}`, `{ORG}`, `{OBJECT_TYPE}`, `{ENVIRONMENT}`,
+`{ORIGINALFILENAME}` and `{PROCESSNAME}` before it looks for the `}` closing `{D:`, so
+`{D:YYYY{CLIENT}` is not closed, and the save, which read the `}` of `{CLIENT}` as closing the date,
+let it pass (`directives.HasIncompleteDatePattern`). The save now removes the tokens first, which
+stands for every value that holds no brace. A value is known only to a run, so a value that holds a
+`}` or a `{D:`, which an original file name may, is still decided by the run.
+
+**A `.sql` file under `runbooks/` is refused when it holds a statement no runbook step may run**
+(`runbook.ForbiddenStatement`: transaction control, a change of role or of the step's transaction,
+`COPY`, `LOAD` and the rest), with its line. A run refused such a file when it started; the file
+saved. The rest of what a runbook asks of its SQL (a statement count, the `:name` bindings) needs the
+runbook, and is still checked when a run starts. See
+[the runbook format](/docs/developer/engine/runbook-format/).
+
+Both are rows of the save path's validator table scoped to their directory, beside the `.sql` row,
+and both lex the file first as that row does. On two rows with the same suffix, the dispatch prefers
+the scoped one.
+
 ## 2026-11-14 — a save of `reports/config.json` reads the reports files it runs
 
 **The save of `reports/config.json` now also refuses what `run_reports` would refuse in the reports
@@ -30,8 +66,8 @@ missing file, and calls a report function such as `merge_optimizer_statistics`. 
 report, the file and the line. The reader of a reports file (`ParseReportDefinitions`) and the
 output-format rule (`OutputFormat`) moved from `jets/run_reports/delegate` into
 `jets/run_reports/directives` for this, so the run and the save share them. A reports file saved
-after the directives is still checked by its own save lexically only (the `.sql` row), and the run
-refuses it as before.
+after the directives was still checked by its own save lexically only (the `.sql` row); it is checked
+against them since later the same day (the section above).
 
 ## 2026-11-14 — `reports/config.json` is checked when it is saved, and `runWhen` reads the date a key carries
 
