@@ -106,7 +106,7 @@ def main(argv: list[str] | None = None) -> int:
     drift_cmd = sub.add_parser(
         "drift",
         help="field-inventory drift check between pipes_model.go and the "
-        "matrix (B.18); exit code carries the verdict",
+        "matrix; exit code carries the verdict",
     )
     drift_cmd.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
     drift_cmd.add_argument(
@@ -115,7 +115,7 @@ def main(argv: list[str] | None = None) -> int:
 
     gofile_cmd = sub.add_parser(
         "gofile",
-        help="emit the matrix as one generated Go data file (B.17)",
+        help="emit the matrix as one generated Go data file",
     )
     gofile_cmd.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
     gofile_cmd.add_argument(
@@ -155,7 +155,7 @@ def main(argv: list[str] | None = None) -> int:
 
     reflect_cmd = sub.add_parser(
         "reflect",
-        help="regenerate the matrix's claim columns from cpipes_model.py (B.10)",
+        help="regenerate the matrix's claim columns from cpipes_model.py",
     )
     reflect_cmd.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
     reflect_cmd.add_argument(
@@ -172,7 +172,7 @@ def main(argv: list[str] | None = None) -> int:
 
     schema_cmd = sub.add_parser(
         "schema",
-        help="emit the JSON Schema with every type addressable in $defs (B.11)",
+        help="emit the JSON Schema with every type addressable in $defs",
     )
     schema_cmd.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
     schema_cmd.add_argument(
@@ -184,7 +184,7 @@ def main(argv: list[str] | None = None) -> int:
 
     fragments_cmd = sub.add_parser(
         "fragments",
-        help="extract the fragment library from the live corpus, keyed by defs_name (F.1)",
+        help="extract the fragment library from the live corpus, keyed by defs_name",
     )
     fragments_cmd.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
     fragments_cmd.add_argument(
@@ -203,12 +203,14 @@ def main(argv: list[str] | None = None) -> int:
         "--curated-out",
         type=Path,
         default=DEFAULT_MATRIX.parent / "fragments" / "library.curated.jsonl",
-        help="the F.2 curation: decision 14's rules applied to the extraction",
+        help="the curated library: the extraction with the curation rules applied "
+        "(deprecated and runtime-only parts excluded, thin types kept whole, the "
+        "rest capped by shape)",
     )
 
     templates_cmd = sub.add_parser(
         "templates",
-        help="check authored templates: holes declared, placed, typed and covered (F.3)",
+        help="check authored templates: holes declared, placed, typed and covered",
     )
     templates_cmd.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
     templates_cmd.add_argument(
@@ -226,7 +228,7 @@ def main(argv: list[str] | None = None) -> int:
         "--expand",
         type=Path,
         help="a JSON file binding each repeat_over name to a list; expands every "
-        "template against it and validates the result as a whole config (F.4)",
+        "template against it and validates the result as a whole config",
     )
     templates_cmd.add_argument(
         "--out", type=Path, help="where to write the expanded config (with --expand)"
@@ -235,7 +237,7 @@ def main(argv: list[str] | None = None) -> int:
         "--author",
         metavar="MODEL",
         help="fill every hole by asking the infer server to author it from the hole's "
-        "prompt, constrained by its schema_ref - criterion 22 (F.6)",
+        "prompt, constrained by its schema_ref",
     )
     templates_cmd.add_argument("--host", default="http://localhost:11434")
     templates_cmd.add_argument(
@@ -243,9 +245,8 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         metavar="DIR",
         help="project each template and its bindings into a UserFlow document set, "
-        "one state per fill, and write them to DIR - gap 20 (M.4). The destination "
-        "the build reads is jets/workspace_assets/user_flows, the third asset group "
-        "(U.2); DIR is a parameter so a check can project into a temporary directory "
+        "one state per fill, and write them to DIR. The destination the build reads "
+        "is jets/workspace_assets/user_flows, the third asset group; DIR is a parameter so a check can project into a temporary directory "
         "and compare",
     )
 
@@ -266,7 +267,7 @@ def main(argv: list[str] | None = None) -> int:
 
     fixtures_cmd = sub.add_parser(
         "fixtures",
-        help="assess the harvested compute_pipes test fixtures as library material (F.2b)",
+        help="assess the harvested compute_pipes test fixtures as library material",
     )
     fixtures_cmd.add_argument(
         "--fixtures", type=Path, required=True,
@@ -284,7 +285,7 @@ def main(argv: list[str] | None = None) -> int:
     repairs_cmd = sub.add_parser(
         "repairs",
         help="the repair-case library: real config defects and the commits that fixed "
-        "them, classified by what the contract could see (P.2)",
+        "them, classified by what the contract could see",
     )
     repairs_cmd.add_argument(
         "--library", type=Path,
@@ -308,7 +309,7 @@ def main(argv: list[str] | None = None) -> int:
 
     gc_cmd = sub.add_parser(
         "generate-compile",
-        help="T.3 / criterion 38: generate each template's holes under two or more "
+        help="generate each template's holes under two or more "
         "candidate-selection methods, expand, and report compile-pass per operator "
         "with denominators",
     )
@@ -333,8 +334,8 @@ def main(argv: list[str] | None = None) -> int:
     gc_cmd.add_argument(
         "--embed-model",
         default="nomic-embed-text",
-        help="the embedding model the semantic arm ranks with; I-53 measured with "
-        "this one",
+        help="the embedding model the semantic arm ranks with; the semantic arm was "
+        "measured with this one",
     )
     gc_cmd.add_argument("--shots", type=int, default=4)
     gc_cmd.add_argument("--timeout", type=int, default=180)
@@ -350,7 +351,7 @@ def main(argv: list[str] | None = None) -> int:
     validate_cmd = sub.add_parser(
         "validate",
         help="validate the live corpus against the emitted schema with the Go "
-        "validator (santhosh-tekuri/jsonschema/v6) - the B.15 gate",
+        "validator (santhosh-tekuri/jsonschema/v6) - the corpus gate",
     )
     validate_cmd.add_argument(
         "--code", type=Path, required=True, help="the JetStore repo root"
@@ -567,7 +568,7 @@ def main(argv: list[str] | None = None) -> int:
             f"{stats['recovered_added']} recovered from history)"
         )
         for finding in thin_lost:
-            print(f"FINDING criterion 24 - {finding}", file=sys.stderr)
+            print(f"FINDING thin type lost a part in curation - {finding}", file=sys.stderr)
         return 1 if (ex.unresolved or drift or thin_lost or rec.unresolved) else 0
 
     if args.command == "bundles":
