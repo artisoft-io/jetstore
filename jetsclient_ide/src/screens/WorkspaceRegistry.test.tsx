@@ -212,12 +212,10 @@ const REGISTRY_ROWS = [
 /**
  * Selects the row whose workspace name is given, and waits for it to stick.
  *
- * **The wait is not politeness.** Publishing a selection notifies the form store,
- * which rebuilds the query context inside `useTableBinding` and refetches; the
- * reply clears the selection and an effect restores it from form state one tick
- * later (I-185). So a synchronous assertion after this call reads the table
- * mid-sequence, which is a race rather than a failure — and it is exactly the
- * flake I-104 recorded, arriving from the other side.
+ * The wait was needed while a tick refetched the table: the reply cleared the
+ * selection and an effect restored it from form state a moment later. A tick
+ * sends no request since November 2026 (`WorkspaceRegistry.tick.test.tsx`), and
+ * the wait is kept because it costs nothing.
  */
 async function selectRow(name: string) {
   const row = screen.getByText(name).closest("tr")!;
