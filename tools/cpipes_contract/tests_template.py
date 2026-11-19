@@ -61,6 +61,26 @@ def _superproject() -> Path:
 
 
 SUPERPROJECT = _superproject()
+
+
+def _corpus_config(recorded: str) -> dict:
+    """A corpus configuration named as this package records it, read under those names.
+
+    `recorded` names its workspace by the neutral name; `aliases` resolves it to the
+    directory on disk and replaces the real names in what it reads, so a comparison
+    against an expansion compares like with like. Without the alias file the
+    workspace cannot be found, and the check is pending rather than failed.
+    """
+    from cpipes_contract import aliases
+
+    names = aliases.load()
+    path = names.path(SUPERPROJECT, recorded)
+    if not path.is_file():
+        raise Pending(
+            f"{recorded} is not in this checkout"
+            + ("" if names else f"; set {aliases.ENV} to the alias file naming its workspace")
+        )
+    return names.anonymise_json(json.loads(path.read_text()))
 SCHEMA = json.loads((HERE / "cpipes_schema.json").read_text())
 BASE = json.loads((HERE / "templates" / "qc_metrics.template.json").read_text())
 
@@ -218,9 +238,7 @@ def test_a_bad_fragment_is_reported_and_still_spliced():
 
 from cpipes_contract.expand import from_target  # noqa: E402
 
-TARGET_PATH = (
-    SUPERPROJECT / "workspaces" / "walrus_ws" / "pipes_config" / "map_claim.pc.json"
-)
+TARGET_PATH = "workspaces/org3_ws/pipes_config/map_claim.pc.json"
 
 
 def _round_trip():
@@ -229,7 +247,7 @@ def _round_trip():
         json.loads((HERE / "templates" / "map_claim_load_stages.template.json").read_text())
     )
     ctx = json.loads((HERE / "templates" / "map_claim_load_stages.bindings.json").read_text())
-    target = json.loads(TARGET_PATH.read_text())
+    target = _corpus_config(TARGET_PATH)
     cfg, findings = expand(tpl, ctx, from_target(target, key="step_name"), SCHEMA)
     return tpl, target, cfg, findings
 
@@ -355,7 +373,7 @@ def test_every_bundle_is_authorable():
 
 from cpipes_contract.qc_bindings import QcShapeError, derive, status_column  # noqa: E402
 
-QC = SUPERPROJECT / "workspaces" / "cedargate_ws" / "pipes_config"
+QC = "workspaces/org1_ws/pipes_config"
 QC_TEMPLATE = Template.model_validate(
     json.loads((HERE / "templates" / "qc_report.template.json").read_text())
 )
@@ -364,7 +382,7 @@ QC_NOT_EXACT = ("qc_biometric", "qc_pharmacyclaim", "qc_medicalclaim")
 
 
 def _qc(name):
-    target = json.loads((QC / f"{name}.pc.json").read_text())
+    target = _corpus_config(f"{QC}/{name}.pc.json")
     cfg, bad = expand(QC_TEMPLATE, derive(target), lambda h, c: {"$UNFILLED": h.name}, SCHEMA)
     return target, cfg, bad
 
@@ -405,7 +423,7 @@ def test_no_fragment_comes_from_a_model_or_the_library():
     values, so a `fill` callable that returns nonsense changes nothing.
     """
     calls = []
-    target = json.loads((QC / "qc_participation.pc.json").read_text())
+    target = _corpus_config(f"{QC}/qc_participation.pc.json")
     cfg, _ = expand(
         QC_TEMPLATE, derive(target),
         lambda h, c: (calls.append(h.name), {"$UNFILLED": h.name})[1], SCHEMA,
@@ -465,14 +483,14 @@ def _status_case(cfg):
 
 
 def test_derive_finds_the_status_column_by_what_it_writes_not_where_it_sits():
-    """PL-036: the status column is located by name, so moving it moves nothing.
+    """The status column is located by name, so moving it moves nothing.
 
     `derive` read `columns[9]` until 2026-11-08. Here the status column of a config
     that carries filters is moved to the front of the report pipe's columns; the
     filters recovered must be the same four. At the index, column 9 is then an
     ordinary `value` column and the read was a `KeyError`.
     """
-    target = json.loads((QC / "qc_eligibility.pc.json").read_text())
+    target = _corpus_config(f"{QC}/qc_eligibility.pc.json")
     want = derive(target)["status_filters"]
     assert len(want) == 4, want
     moved = copy.deepcopy(target)
@@ -485,7 +503,7 @@ def test_derive_finds_the_status_column_by_what_it_writes_not_where_it_sits():
 
 def test_a_report_pipe_without_one_status_column_is_refused_by_name():
     """None, or two, is a `QcShapeError` saying so, not an `IndexError` or a mis-slice."""
-    target = json.loads((QC / "qc_participation.pc.json").read_text())
+    target = _corpus_config(f"{QC}/qc_participation.pc.json")
     for label, edit in (
         ("none", lambda cols: cols.remove(status_column(cols))),
         ("two", lambda cols: cols.append(copy.deepcopy(status_column(cols)))),
@@ -532,7 +550,7 @@ def test_the_status_filter_carries_its_substring_rather_than_deriving_it():
     control; `test_criterion_23_two_of_the_five_non_exact_reproduce_exactly` is where the
     live configs have their say.
     """
-    target = json.loads((QC / "qc_participation.pc.json").read_text())
+    target = _corpus_config(f"{QC}/qc_participation.pc.json")
     context = derive(target)
     context["status_filters"] = [
         {"env_key": "${calculateCMSHCC}", "substring": "'HCC'"},

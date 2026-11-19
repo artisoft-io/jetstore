@@ -112,6 +112,6 @@ def render(good: list[dict], bad: list[dict], cov: dict) -> str:
         f"  fixtures repeat: {len(cov['duplicated_by_fixtures'])} type(s) the corpus already covers",
         "",
         "**Not merged.** A fixture is correct for its test, which is not the same as valid",
-        "under the contract - see this module's docstring, and I-45.",
+        "under the contract - see this module's docstring.",
     ]
     return "\n".join(lines)

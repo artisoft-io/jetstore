@@ -1,5 +1,5 @@
 {
-  "comment": "The B.16 negative suite (criterion 6): every case marked invalid must FAIL schema validation - a negative that validates is a schema hole. Each case mutates the one valid base so it fails for exactly the intended reason. The classes are the task's five - wrong discriminator, missing required field, inapplicable field for the type, unknown operator type, invented field name - plus I-14's runtime shape and the B.13 type decisions. Run via `go run ./tools/cpipes_contract/validate` or `python -m cpipes_contract validate`.",
+  "comment": "The negative suite: every case marked invalid must FAIL schema validation - a negative that validates is a schema hole. Each case mutates the one valid base so it fails for exactly the intended reason. The classes are the task's five - wrong discriminator, missing required field, inapplicable field for the type, unknown operator type, invented field name - plus I-14's runtime shape and the B.13 type decisions. Run via `go run ./tools/cpipes_contract/validate` or `python -m cpipes_contract validate`.",
   "cases": [
     {
       "name": "base",
@@ -8,7 +8,7 @@
       "config": {"cluster_config": {}, "conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "map_record", "output_channel": {"type": "sql", "output_table_key": "t"}}]}]}]}
     },
     {
-      "name": "root pipes_config (I-14 runtime shape)",
+      "name": "root pipes_config (runtime shape)",
       "class": "runtime-shape",
       "expect": "invalid",
       "config": {"cluster_config": {}, "pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "map_record", "output_channel": {"type": "sql", "output_table_key": "t"}}]}]}
@@ -16,14 +16,14 @@
     {
       "name": "unknown operator type missing output_channel",
       "class": "missing-required",
-      "comment": "This was `unknown operator type`, in the `unknown-type` class, until 2026-09-13. Gap 2b made an unknown token the site-operator branch, so the token alone is no longer a violation - and the case went on passing, for the reason it does not name: the missing output_channel, which validateOutputChConfig requires of every transformation. Reclassified rather than deleted, and joined by the five below, which are what a site operator actually cannot do. A negative that passes for the wrong reason is the hole this suite exists to find.",
+      "comment": "This was `unknown operator type`, in the `unknown-type` class, until 2026-09-13. Site operators made an unknown token the site-operator branch, so the token alone is no longer a violation - and the case went on passing, for the reason it does not name: the missing output_channel, which validateOutputChConfig requires of every transformation. Reclassified rather than deleted, and joined by the five below, which are what a site operator actually cannot do. A negative that passes for the wrong reason is the hole this suite exists to find.",
       "expect": "invalid",
       "config": {"cluster_config": {}, "conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "no_such_operator"}]}]}]}
     },
     {
       "name": "site operator",
       "class": "sanity",
-      "comment": "The whole of gap 2b's I-778: a token no built-in claims is the site-operator branch, and a client config authoring one validates.",
+      "comment": "A token no built-in claims is the site-operator branch, and a client config authoring one validates.",
       "expect": "valid",
       "config": {"cluster_config": {}, "conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "site_scrub", "output_channel": {"type": "sql", "output_table_key": "t"}}]}]}]}
     },
@@ -108,7 +108,7 @@
       "name": "document missing cluster_config",
       "class": "missing-required",
       "expect": "invalid",
-      "comment": "JM-052, 2026-11-10: the base without its cluster_config. The sharding start step and the coordinator both refuse it, and until the start step did, it was a nil-pointer panic there rather than an error.",
+      "comment": "2026-11-10: the base without its cluster_config. The sharding start step and the coordinator both refuse it, and until the start step did, it was a nil-pointer panic there rather than an error.",
       "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "map_record", "output_channel": {"type": "sql", "output_table_key": "t"}}]}]}]}
     },
     {
@@ -166,13 +166,13 @@
       "config": {"cluster_config": {}, "conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "map_record", "output_channel": {"type": "stage", "name": "o", "channel_spec_name": "s", "write_step_id": "w", "format": "tsv"}}]}]}]}
     },
     {
-      "name": "generator nbr_rows as float (B.13: int or env-var string)",
+      "name": "generator nbr_rows as float (int or env-var string)",
       "class": "value-range",
       "expect": "invalid",
       "config": {"cluster_config": {}, "conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i", "type": "generator", "nbr_rows": 1.5}, "apply": [{"type": "map_record", "output_channel": {"type": "sql", "output_table_key": "t"}}]}]}]}
     },
     {
-      "name": "domain_keys with a numeric value (B.13: key or key list)",
+      "name": "domain_keys with a numeric value (key or key list)",
       "class": "value-range",
       "expect": "invalid",
       "config": {"cluster_config": {}, "channels": [{"name": "c", "columns": ["a"], "domain_keys": {"T": 42}}], "conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "map_record", "output_channel": {"type": "sql", "output_table_key": "t"}}]}]}]}

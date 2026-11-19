@@ -16,6 +16,7 @@ import json
 from collections import Counter, defaultdict
 from pathlib import Path
 
+from . import aliases
 from .corpus import LIVE_PARENT
 from .matrix_schema import (
     ANY_TOKEN,
@@ -304,6 +305,7 @@ def check_citations(
     """
     problems: list[str] = []
     cache: dict[Path, list[str]] = {}
+    names = aliases.load()
     ws_root = (workspaces_root or code_root).resolve()
     if workspaces_root is None:
         # resolve() first: the root is normally given as a relative `../..`, whose
@@ -331,12 +333,15 @@ def check_citations(
             problems.append(f"{where}: {column} is not file:line: {ref}")
             continue
         if file_part.startswith(WORKSPACES_PREFIX):
-            workspace = ws_root / Path(file_part).parts[0] / Path(file_part).parts[1]
+            # Recorded under the workspace's neutral name; `aliases` says which
+            # directory that is, and without it the workspace is simply not here.
+            on_disk = Path(names.resolve(file_part))
+            workspace = ws_root / on_disk.parts[0] / on_disk.parts[1]
             if not workspace.is_dir():
                 if unchecked is not None:
                     unchecked.append(f"{where}: {ref}")
                 continue
-            path = ws_root / file_part
+            path = ws_root / on_disk
         else:
             path = code_root / file_part
         lines = lines_of(path)
@@ -360,12 +365,14 @@ def check_exemplars(matrix: Matrix, corpus_root: Path) -> list[str]:
     """Resolve every exemplar. A fragment library whose exemplars do not resolve is a
     catalogue of things that may not exist."""
     problems: list[str] = []
+    names = aliases.load()
     for t in matrix.types:
         if t.exemplar_file == NONE:
             continue
-        path = corpus_root / t.exemplar_file
+        path = names.path(corpus_root, t.exemplar_file)
         if not path.is_file():
-            problems.append(f"types {_key(t)}: exemplar_file not found: {path}")
+            hint = "" if names else f" (is {aliases.ENV} set?)"
+            problems.append(f"types {_key(t)}: exemplar_file not found: {path}{hint}")
             continue
         if LIVE_PARENT not in Path(t.exemplar_file).parts:
             # A retired config under `workspaces/*/data/` is not evidence of anything

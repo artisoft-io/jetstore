@@ -240,7 +240,7 @@ def check(
             if total == 0:
                 notes.append(
                     f"hole {hole.name!r} fills {hole.schema_ref}, which the library has no part for "
-                    f"- authorable, but nothing can be shown as an example (Q-14)"
+                    f"- authorable, but nothing can be shown as an example"
                 )
             elif empty:
                 notes.append(

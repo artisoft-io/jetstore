@@ -6,6 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from . import aliases
 from . import corpus as corpus_mod
 from . import harness as harness_mod
 from .check import check, check_citations, check_exemplars, unfilled_report
@@ -682,6 +683,7 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"note: {len(unchecked)} citation(s) into workspaces/ not checked: "
             "the workspace is not in this checkout"
+            + ("" if aliases.load() else f", or {aliases.ENV} does not name its alias file")
         )
 
     for problem in problems:
