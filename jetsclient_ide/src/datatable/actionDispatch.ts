@@ -195,7 +195,7 @@ export function requestFor(
     case "toggleCheckboxVisible":
     case "refreshTable":
       throw new UnsupportedActionType(
-        `"${action.actionType}" is the table's own action and belongs to the widget (A.5), not the bar`,
+        `"${action.actionType}" is the table's own action and belongs to the widget, not the bar`,
       );
     default:
       throw new UnsupportedActionType(`unknown actionType "${action.actionType}"`);

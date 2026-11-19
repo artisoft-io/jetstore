@@ -3,7 +3,7 @@
  *
  * ## The workspace buttons went back to `/workspaces` on 2026-10-15
  *
- * Michel: a compile started from here showed no progress, because the compile's
+ * A compile started from here showed no progress, because the compile's
  * status is on the registry's table, so the IDE was the wrong place to start it.
  * Export and Load Client Config, Compile, Rules Unit Tests and the git buttons
  * are on `workspaceRegistryTable.tc.json` again, gated on a selected row as
@@ -30,7 +30,7 @@
  * from git (`DoWorkspaceReadAction`, `jets/datatable/workspace_data_table_action.go`).
  * So each `navigationParams` index and `enableWhen` column means exactly what it
  * meant on the table (though *Commit & Push*, *Push Only* and *Pull* have had no
- * gate since the same evening, at Michel's request), and the row is
+ * gate since the same evening, on request), and the row is
  * published into form state as a selection would publish it, which is what the
  * `doAction` entries read. The dialogs and actions are the registry's, through
  * the host the two screens share (`workspaceRegistryHost.tsx`).
@@ -101,7 +101,7 @@ export async function fetchRegistryRow(api: ApiClient, workspace: string): Promi
 /**
  * `onRefresh` is the IDE's half of the toolbar's Refresh (the document's
  * `refreshTable` action): the toolbar re-reads its own registry row and the IDE
- * re-reads what it shows. 2026-10-12, Michel: files that arrived outside the IDE
+ * re-reads what it shows. Since 2026-10-12: files that arrived outside the IDE
  * did not appear until the page was reloaded.
  */
 export function WorkspaceToolbar({

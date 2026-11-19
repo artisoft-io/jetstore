@@ -207,7 +207,7 @@ describe("the audit-log parser", () => {
       level: "info",
       message: JSON.stringify({ action: "read", fromClauses: [{ schema: "jetsapi", table: "source_config" }] }),
       logger_type: "audit_log",
-      user: "michel@artisoft.io",
+      user: "user@example.com",
     });
     const found = extractDataTableRequests(`noise\n${line}\n`);
     expect(found).toHaveLength(1);

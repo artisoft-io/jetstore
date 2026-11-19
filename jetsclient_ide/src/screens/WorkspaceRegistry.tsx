@@ -54,7 +54,7 @@
  * ## The host is shared with the Workspace IDE
  *
  * The buttons that need a workspace moved to the IDE's toolbar on 2026-10-11 and
- * came back on 2026-10-15 (Michel: a compile started from the IDE showed no
+ * came back on 2026-10-15 (a compile started from the IDE showed no
  * progress, which this table shows). The dialog host and the action dispatch
  * stayed in `workspaceRegistryHost.tsx`, which the IDE's toolbar still uses for
  * its Refresh, and this screen keeps what is its own: the table, its query
