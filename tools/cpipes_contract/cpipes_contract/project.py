@@ -809,7 +809,7 @@ def project(template: Template, context: dict, schema: dict) -> Projection:
             ["bindings"]))
     for path in objects:
         projector.notes.append(
-            f"no field: binding {path} is an object — a hole that was never declared (I-78), "
+            f"no field: binding {path} is an object — a hole that was never declared, "
             f"not a case to accommodate")
 
     # 2. One state per fill, in the order the expander asks for them.

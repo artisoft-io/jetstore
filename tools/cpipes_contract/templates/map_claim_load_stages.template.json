@@ -6,7 +6,7 @@
       "name": "load_stages",
       "schema_ref": "ConditionalPipeSpec",
       "repeat_over": "entities",
-      "prompt": "One stage per entity in `entities`: map the entity's records onto its domain table's columns, then write them. Each stage names its own input channel, output channel and write_step_id. Criterion 21 permits recovering this payload from the target and the filler here does exactly that - which is why this proves placement and F.6 may not reuse it."
+      "prompt": "One stage per entity in `entities`: map the entity's records onto its domain table's columns, then write them. Each stage names its own input channel, output channel and write_step_id. The filler here recovers this payload from the target config, which is why this template proves placement rather than authoring."
     }
   ],
   "body": {
@@ -36,17 +36,17 @@
     "output_tables": [
       {
         "key": "MedicalClaim",
-        "name": "wrs:MedicalClaim",
+        "name": "org3:MedicalClaim",
         "channel_spec_name": "MedicalClaim"
       },
       {
         "key": "PharmacyClaim",
-        "name": "wrs:PharmacyClaim",
+        "name": "org3:PharmacyClaim",
         "channel_spec_name": "PharmacyClaim"
       },
       {
         "key": "Opportunity",
-        "name": "wrs:Opportunity",
+        "name": "org3:Opportunity",
         "channel_spec_name": "Opportunity"
       },
       {
@@ -66,7 +66,7 @@
       },
       {
         "name": "InputClaim",
-        "class_name": "wrs:BaseClaim",
+        "class_name": "org3:BaseClaim",
         "columns": [
           "tmp:Net_Amount_Due",
           "tmp:Total_Paid_Amount",
@@ -78,28 +78,28 @@
       },
       {
         "name": "PharmacyClaim",
-        "class_name": "wrs:PharmacyClaim",
+        "class_name": "org3:PharmacyClaim",
         "columns": [
           "session_id"
         ]
       },
       {
         "name": "MedicalClaim",
-        "class_name": "wrs:MedicalClaim",
+        "class_name": "org3:MedicalClaim",
         "columns": [
           "session_id"
         ]
       },
       {
         "name": "PreviousEligibility",
-        "class_name": "wrs:Eligibility",
+        "class_name": "org3:Eligibility",
         "columns": [
           "session_id"
         ]
       },
       {
         "name": "Opportunity",
-        "class_name": "wrs:Opportunity",
+        "class_name": "org3:Opportunity",
         "columns": [
           "session_id"
         ]
@@ -253,7 +253,7 @@
                 "sort_config": {
                   "is_debug": false,
                   "sort_by": [
-                    "wrs:Generated_ID"
+                    "org3:Generated_ID"
                   ]
                 },
                 "output_channel": {
@@ -368,7 +368,7 @@
                   "is_debug": false,
                   "main_group_by": {
                     "group_by_name": [
-                      "wrs:Generated_ID"
+                      "org3:Generated_ID"
                     ]
                   }
                 },
@@ -391,7 +391,7 @@
                 "new_record": true,
                 "jetrules_config": {
                   "process_name": "jet_rules/claim/map_claim_main.jr",
-                  "input_rdf_type": "wrs:BaseClaim",
+                  "input_rdf_type": "org3:BaseClaim",
                   "max_input_count": 50000,
                   "pool_size": 10,
                   "is_debug": false,
@@ -454,7 +454,7 @@
             },
             "splitter_config": {
               "shard_on": {
-                "expr": "wrs:Generated_ID",
+                "expr": "org3:Generated_ID",
                 "max_nbr_jets_partitions": 3
               }
             },
@@ -482,7 +482,7 @@
             },
             "splitter_config": {
               "shard_on": {
-                "expr": "wrs:Generated_ID",
+                "expr": "org3:Generated_ID",
                 "max_nbr_jets_partitions": 3
               }
             },
@@ -511,7 +511,7 @@
             },
             "splitter_config": {
               "shard_on": {
-                "expr": "wrs:Generated_ID",
+                "expr": "org3:Generated_ID",
                 "max_nbr_jets_partitions": 3
               }
             },

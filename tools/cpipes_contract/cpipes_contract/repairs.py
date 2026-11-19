@@ -43,6 +43,8 @@ from typing import Any, Iterator
 
 import jsonschema
 
+from . import aliases
+
 # The four classes a repair falls into, by what the contract could see of it.
 CONTRACT_BLIND = "contract-blind"
 CONTRACT_VISIBLE = "contract-visible"
@@ -211,15 +213,17 @@ def check(cases: list[Case], schema: dict, corpus_root: Path) -> list[Finding]:
     should look at rather than something to re-derive silently on every run.
     """
     findings: list[Finding] = []
+    names = aliases.load()
     for case in cases:
         if case.provenance != PROVENANCE:
             findings.append(Finding(case.name, f"provenance is {case.provenance!r}, not {PROVENANCE!r}"))
         if case.cls not in CLASSES:
             findings.append(Finding(case.name, f"unknown class {case.cls!r}"))
             continue
-        ws_root = corpus_root / "workspaces" / case.workspace
+        ws_root = names.path(corpus_root / "workspaces", case.workspace)
         if not ws_root.exists():
-            findings.append(Finding(case.name, f"workspace not checked out: {ws_root}"))
+            hint = "" if names else f" (or {aliases.ENV} does not name its alias file)"
+            findings.append(Finding(case.name, f"workspace not checked out: {ws_root}{hint}"))
             continue
         # **Aggregated over the case's files exactly as the extractor aggregates
         # them**, because a case is a commit. Checking per file against a class
@@ -228,7 +232,9 @@ def check(cases: list[Case], schema: dict, corpus_root: Path) -> list[Finding]:
         # file is not.
         classes = set()
         for path in case.files:
-            before, after = blob(ws_root, case.sha + "^", path), blob(ws_root, case.sha, path)
+            on_disk = names.resolve(path)
+            before = blob(ws_root, case.sha + "^", on_disk)
+            after = blob(ws_root, case.sha, on_disk)
             if before is None or after is None:
                 findings.append(Finding(case.name, f"{path}: revision unavailable at {case.sha[:8]}"))
                 continue
@@ -272,7 +278,10 @@ def candidates(corpus_root: Path, workspace: str, schema: dict) -> Iterator[Case
     parser recovers it. What comes out of here is a candidate for a human to
     name, judge and keep or drop.
     """
-    ws_root = corpus_root / "workspaces" / workspace
+    # `workspace` is the neutral name, and so is everything the case records:
+    # its name, its files, its diagnosis and the values at its sites.
+    names = aliases.load()
+    ws_root = names.path(corpus_root / "workspaces", workspace)
     log = _git(ws_root, "log", "--diff-filter=M", "--format=%H\t%s",
                "--", "pipes_config/*.pc.json").stdout.decode()
     for line in log.strip().splitlines():
@@ -296,18 +305,18 @@ def candidates(corpus_root: Path, workspace: str, schema: dict) -> Iterator[Case
             before, after = blob(ws_root, sha + "^", path), blob(ws_root, sha, path)
             if before is None or after is None:
                 continue
-            kept.append(path)
+            kept.append(names.anonymise(path))
             classes.add(classify(before, after, schema))
-            sites += list(diff_sites(before, after))
+            sites += list(diff_sites(names.anonymise_json(before), names.anonymise_json(after)))
         if not kept:
             continue
         yield Case(
-            name=f"{workspace}-{sha[:7]}",
+            name=names.anonymise(f"{workspace}-{sha[:7]}"),
             workspace=workspace,
             sha=sha,
             files=kept,
             cls=classes.pop() if len(classes) == 1 else MIXED,
-            diagnosis=body,
+            diagnosis=names.anonymise(body),
             sites=sites,
         )
 

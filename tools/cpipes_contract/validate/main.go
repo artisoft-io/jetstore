@@ -31,7 +31,7 @@ func main() {
 	schemaPath := flag.String("schema", "tools/cpipes_contract/cpipes_schema.json", "the emitted cpipes schema")
 	corpusRoot := flag.String("corpus", "../..", "root holding workspaces/")
 	negatives := flag.String("negatives", "tools/cpipes_contract/negative_suite.json",
-		"the B.16 negative suite; empty to skip")
+		"the negative suite; empty to skip")
 	flag.Parse()
 
 	fh, err := os.Open(*schemaPath)
