@@ -165,6 +165,7 @@ add_executable(jets_test
   rete/loop_through_negation_test.cc
   rete/regex_cache_test.cc
   rete/vertex_observations_test.cc
+  rete/row_supports_test.cc
 )
 
 target_link_libraries(jets_test
@@ -220,9 +221,11 @@ endif()
 #                               (tag engine_keys): the compiler's statistics key of
 #                               each rule constant is the engine's key for it
 #   go_beta_row_pruning_engine  jets/compilerv2/compiler/beta_row_pruning_engine_test.go
-#                               (tag engine_rules): what a variable the compiler
-#                               prunes from a beta row costs truth maintenance;
-#                               its known over-retraction is a skipped subtest
+#                               (tag engine_rules): a row whose vertex leaves out
+#                               a variable of its parent's row keeps the supports
+#                               of its derivations, and goes with the last; and a
+#                               deleted triple that is both a parent row's and its
+#                               join withdraws the derivation
 option(JETS_GO_ENGINE_TESTS "Register with ctest the Go tests that link libjets.so" ON)
 find_program(JETS_GO_EXECUTABLE go)
 if(JETS_GO_ENGINE_TESTS AND JETS_GO_EXECUTABLE AND NOT JETS_SANITIZE)
@@ -233,7 +236,7 @@ if(JETS_GO_ENGINE_TESTS AND JETS_GO_EXECUTABLE AND NOT JETS_SANITIZE)
   # name, build tag, test name pattern, package
   foreach(go_test IN ITEMS
       "go_statistics_key_engine|engine_keys|TestStatisticsKeyAgreesWithTheEngine|./jets/compilerv2/compiler/"
-      "go_beta_row_pruning_engine|engine_rules|TestPrunedVariableTruthMaintenance|./jets/compilerv2/compiler/")
+      "go_beta_row_pruning_engine|engine_rules|TruthMaintenance$|./jets/compilerv2/compiler/")
     string(REPLACE "|" ";" go_test "${go_test}")
     list(GET go_test 0 go_test_name)
     list(GET go_test 1 go_test_tag)

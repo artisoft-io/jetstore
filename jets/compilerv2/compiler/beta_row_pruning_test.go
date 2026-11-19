@@ -10,17 +10,22 @@ package compiler
 // as soon as nothing below needs it, and several parent rows that differ only in
 // it make one row of the vertex.
 //
-// The engine keeps a relation's rows as a set (BetaRelation::insert_beta_row,
-// jets/rete/rete_session.h) and removes a row when any parent row that makes it
-// is withdrawn (ReteSession::triple_updated), without asking whether another
-// parent row still makes it. A row of a vertex with pruned variables can
-// therefore lose its consequents while it is still supported: the engine test
-// beside this one (beta_row_pruning_engine_test.go, tag engine_rules) shows it.
+// The engine keeps a relation's rows as a set, and a row of such a vertex keeps
+// the set of its supports: for each derivation, the values of the parent row at
+// the positions the row leaves out (NodeVertex::support_key_positions, computed
+// from the row initialiser at load, and BetaRelation's support sets,
+// jets/rete/beta_relation.h). Withdrawing a derivation removes the row only when
+// none is left. Until 2026-11 it removed the row at the first withdrawal, so a row
+// still supported lost its consequents; the engine test beside this one
+// (beta_row_pruning_engine_test.go, tag engine_rules) holds the fix.
 //
-// These tests pin what the compiler emits, so a change to the pruning is seen.
+// These tests pin what the compiler emits, so a change to the pruning is seen. The
+// engine relies on one property of it: every variable a vertex's own triple binds
+// is in its row, so the parent row's left-out values tell its derivations apart.
 
 import (
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -44,6 +49,52 @@ const keptRule = `@JetCompilerDirective source_file = "kept.jr";
 	resource ex:s = "ex:s";
 	resource ex:u = "ex:u";
 	[Kept]: (?x ex:q ?y).(?y ex:r ?w).(?x ex:t ?z) -> (?x ex:s ?z).(?x ex:u ?y);
+`
+
+// negatedRule's third vertex is a negation, which needs ?w and so comes after the
+// second antecedent: its row is (?w, ?x), and ?y is pruned. With one ?w shared by
+// every ?y, each ?y is a derivation of that one row.
+const negatedRule = `@JetCompilerDirective source_file = "negated.jr";
+	resource ex:q = "ex:q";
+	resource ex:r = "ex:r";
+	resource ex:n = "ex:n";
+	resource ex:s = "ex:s";
+	resource ex:a = "ex:a";
+	[Negated]: (?x ex:q ?y).(?y ex:r ?w).not(?w ex:n ?x) -> (?x ex:s ex:a);
+`
+
+// filteredRule is prunedRule with a filter on the pruned vertex.
+const filteredRule = `@JetCompilerDirective source_file = "filtered.jr";
+	resource ex:q = "ex:q";
+	resource ex:r = "ex:r";
+	resource ex:t = "ex:t";
+	resource ex:s = "ex:s";
+	[Filtered]: (?x ex:q ?y).(?y ex:r ?w).(?x ex:t ?z).[?z != ex:q] -> (?x ex:s ?z);
+`
+
+// selfJoinRule joins a predicate with itself: a reflexive triple (a q a) is then both
+// the first antecedent's triple and the second's join of one derivation.
+const selfJoinRule = `@JetCompilerDirective source_file = "selfjoin.jr";
+	resource ex:q = "ex:q";
+	resource ex:s = "ex:s";
+	[SelfJoin]: (?x ex:q ?y).(?y ex:q ?z) -> (?x ex:s ?z);
+`
+
+// selfJoinPrunedRule is selfJoinRule with a third vertex whose row (?x, ?w) leaves
+// out ?y and ?z.
+const selfJoinPrunedRule = `@JetCompilerDirective source_file = "selfjoinp.jr";
+	resource ex:q = "ex:q";
+	resource ex:s = "ex:s";
+	resource ex:t = "ex:t";
+	[SelfJoinP]: (?x ex:q ?y).(?y ex:q ?z).(?x ex:t ?w) -> (?x ex:s ?w);
+`
+
+// chainRule joins a predicate with itself three times: on a cycle (a q b), (b q a)
+// one triple is the first antecedent's and the third's.
+const chainRule = `@JetCompilerDirective source_file = "chain.jr";
+	resource ex:q = "ex:q";
+	resource ex:s = "ex:s";
+	[Chain]: (?x ex:q ?y).(?y ex:q ?z).(?z ex:q ?w) -> (?x ex:s ?w);
 `
 
 // droppedParentVars returns, by antecedent vertex, the variables of its parent's
@@ -114,5 +165,43 @@ func TestBetaRowKeepsAVariableAConsequentReads(t *testing.T) {
 	dropped := droppedParentVars(t, c)
 	if len(dropped[3]) != 1 {
 		t.Errorf("dropped %v, want vertex 3 to drop ?w alone", dropped)
+	}
+}
+
+// TestBetaRowKeepsEveryVariableOfItsTriple pins what the engine's support sets rely
+// on: a vertex's row carries every variable of its own triple, so two derivations
+// of one row differ only in the parent row's left-out values.
+func TestBetaRowKeepsEveryVariableOfItsTriple(t *testing.T) {
+	for _, r := range []struct{ file, rule string }{
+		{"pruned.jr", prunedRule}, {"kept.jr", keptRule}, {"negated.jr", negatedRule}, {"filtered.jr", filteredRule},
+	} {
+		c := NewCompiler("./testdata", r.file, false, false, true)
+		if err := c.CompileBuffer(r.rule); err != nil {
+			t.Fatal(err)
+		}
+		if c.ErrorLog().Len() > 0 {
+			t.Fatal(c.ErrorLog().String())
+		}
+		pruned := 0
+		for _, n := range c.JetRuleModel().ReteNodes {
+			if n.Type != "antecedent" {
+				continue
+			}
+			pruned += len(n.PrunedVars)
+			var row []string
+			for _, b := range n.BetaVarNodes {
+				row = append(row, b.Id)
+			}
+			for _, tok := range strings.FieldsFunc(n.NormalizedLabel, func(r rune) bool { return strings.ContainsRune(" ().", r) }) {
+				if strings.HasPrefix(tok, "?") && !slices.Contains(row, tok) {
+					t.Errorf("%s: vertex %d %s: its row %v leaves out %s of its own triple", r.file, n.Vertex, n.NormalizedLabel, row, tok)
+				}
+			}
+		}
+		// every rule here has a vertex that prunes (kept.jr's prunes ?w), or the
+		// property is not tested on a row that leaves anything out
+		if pruned == 0 {
+			t.Errorf("%s: %d pruned variables", r.file, pruned)
+		}
 	}
 }

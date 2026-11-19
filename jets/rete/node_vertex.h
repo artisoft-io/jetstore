@@ -6,6 +6,7 @@
 #include <string>
 #include <memory>
 #include <list>
+#include <vector>
 
 #include "absl/container/btree_set.h"
 
@@ -116,6 +117,13 @@ struct NodeVertex {
     return not consequent_alpha_vertexes.empty();
   }
 
+  // Whether the rows of this vertex count their supports (support_key_positions)
+  inline bool
+  counts_supports()const
+  {
+    return not support_key_positions.empty();
+  }
+
   inline int
   get_next_tid()const
   {
@@ -140,6 +148,15 @@ struct NodeVertex {
   // the consequents -- recomputing create_entity 0 mints a second entity and inserts
   // a stray jets:key, and recomputing a keyed one re-inserts its jets:key.
   bool                     records_consequents;
+  // Set by ReteMetaStore::initialize: the positions of the parent's row that this
+  // vertex's row does not carry. The compiler leaves out of a vertex's row every
+  // variable bound above it that neither its triple nor anything below reads (the
+  // pruned variables), so parent rows that differ only there make one row of this
+  // vertex. Their values are what tells those derivations apart, and a row of a vertex
+  // with any keeps the set of them that support it (BetaRelation's support sets), so
+  // that withdrawing one derivation leaves a row another still makes. Empty for a
+  // vertex whose row carries its parent's whole row, which is one derivation per row.
+  std::vector<int>         support_key_positions;
   // The peak row count of this vertex's beta relation in the last rete session that
   // released one, a size hint for the next session's relation (BetaRelation::
   // reserve_from_hint). The meta store is shared by the sessions of every pool worker:
