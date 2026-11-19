@@ -124,8 +124,8 @@ function stubServer(saveAnswer: { status: number; body: unknown } = { status: 20
       return new Response(
         JSON.stringify({
           token: "t0",
-          name: "Michel",
-          user_email: "michel@artisoft.io",
+          name: "Test User",
+          user_email: "user@example.com",
           is_admin: false,
           capabilities: ["workspace_ide"],
         }),
@@ -174,7 +174,7 @@ function stubServer(saveAnswer: { status: number; body: unknown } = { status: 20
 async function client(saveAnswer?: { status: number; body: unknown }) {
   const stub = stubServer(saveAnswer);
   const api = new ApiClient("", stub.fetchImpl);
-  await api.login("michel@artisoft.io", "pw");
+  await api.login("user@example.com", "pw");
   return { ...stub, api };
 }
 

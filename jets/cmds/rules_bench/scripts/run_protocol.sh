@@ -149,9 +149,9 @@ for c in $(expand_cpus "$cpus"); do
   g="$(<"$f")"
   [[ "$g" == performance ]] || bad+=("cpu$c=$g")
 done
-[[ ${#bad[@]} -eq 0 ]] || die "governor is not performance on: ${bad[*]} (a reboot resets it; it is Michel's to set, F46)"
+[[ ${#bad[@]} -eq 0 ]] || die "governor is not performance on: ${bad[*]} (a reboot resets it; set it before running)"
 paranoid="$(cat /proc/sys/kernel/perf_event_paranoid)"
-[[ "$paranoid" -le 1 ]] || die "kernel.perf_event_paranoid is $paranoid; it must be 1 or less (F46)"
+[[ "$paranoid" -le 1 ]] || die "kernel.perf_event_paranoid is $paranoid; it must be 1 or less"
 power="unknown"
 for ac in /sys/class/power_supply/A{C,DP}*/online; do
   [[ -r "$ac" ]] && { [[ "$(<"$ac")" == 1 ]] && power="mains" || power="battery"; break; }

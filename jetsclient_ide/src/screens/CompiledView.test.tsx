@@ -145,8 +145,8 @@ function stubServer() {
       return new Response(
         JSON.stringify({
           token: "t0",
-          name: "Michel",
-          user_email: "michel@artisoft.io",
+          name: "Test User",
+          user_email: "user@example.com",
           is_admin: false,
           capabilities: [WORKSPACE_IDE],
         }),
@@ -212,7 +212,7 @@ function stubServer() {
 async function mount(at = "/workspace") {
   const { fetchImpl, posts } = stubServer();
   const api = new ApiClient("", fetchImpl);
-  await api.login("michel@artisoft.io", "pw");
+  await api.login("user@example.com", "pw");
 
   render(
     <MemoryRouter initialEntries={[at]}>
@@ -584,7 +584,7 @@ describe("the two tabs that write workspace files", () => {
     // One row, naming the file itself rather than its key: the handler reads
     // `request["source_file_name"]` (`DeleteWorkspaceFile`).
     expect(sent.body["data"]).toEqual([
-      { source_file_name: "data_model/FilesRow.jr", user_email: "michel@artisoft.io" },
+      { source_file_name: "data_model/FilesRow.jr", user_email: "user@example.com" },
     ]);
 
     // The tree is re-read, and the view tab is still open — see the header.
@@ -641,7 +641,7 @@ describe("the two tabs that write workspace files", () => {
     const sent = adds()[0]!;
     expect(sent.workspaceName).toBe("ws");
     expect(sent.body["data"]).toEqual([
-      { source_file_name: "data_model/FilesNew.jr", user_email: "michel@artisoft.io" },
+      { source_file_name: "data_model/FilesNew.jr", user_email: "user@example.com" },
     ]);
   });
 
@@ -675,7 +675,7 @@ describe("the two tabs that write workspace files", () => {
     const deletes = () => posts.filter((p) => p.action === "delete_workspace_files");
     await waitFor(() => expect(deletes().length).toBe(1));
     expect(deletes()[0]!.body["data"]).toEqual([
-      { source_file_name: "data_model/FilesRow.jr", user_email: "michel@artisoft.io" },
+      { source_file_name: "data_model/FilesRow.jr", user_email: "user@example.com" },
     ]);
   });
 

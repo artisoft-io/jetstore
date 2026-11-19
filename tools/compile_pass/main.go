@@ -101,22 +101,22 @@ func main() {
 		"the authored bundle membership; the bundle is the unit a hole addresses, not the flat leaf")
 	host := flag.String("host", "http://localhost:11434", "inference server")
 	model := flag.String("model", "granite4.1:3b", "model tag")
-	everyNth := flag.Int("every", 3, "hold out every nth file (decision 13's split is at file level)")
+	everyNth := flag.Int("every", 3, "hold out every nth file (the split is at file level)")
 	maxCases := flag.Int("max-cases", 0, "stop after this many attempted cases; 0 means all of them")
 	iterations := flag.Int("iterations", 3, "propose-verify-repair iterations per case")
 	wall := flag.Duration("wall", 0, "wall-clock cap per case; 0 is unbounded")
 	timeout := flag.Duration("timeout", 300*time.Second, "per-call timeout")
 	planBudget := flag.Int("plan-budget", prompt.DefaultContextTokens,
 		"the window prompt.Fits is told the task has; NOT the served window — the schema rides in "+
-			"`format` and costs no prompt tokens (F113)")
+			"`format` and costs no prompt tokens")
 	numCtx := flag.Int("num-ctx", prompt.DefaultContextTokens,
 		"the context length the server is asked to serve (num_ctx)")
 	temperature := flag.Float64("temperature", 0,
 		"sampling temperature; 0 is greedy decoding, which is what makes a run comparable with itself")
 	seed := flag.Int("seed", 1, "sampling seed, sent with the temperature")
 	schemaInPrompt := flag.Bool("schema-in-prompt", false,
-		"also put the sub-schema in the instruction. The Phase-1 loop sends it only as `format`, "+
-			"which I-41 measured as not constraining the answer at all")
+		"also put the sub-schema in the instruction. The authoring loop sends it only as `format`, "+
+			"which was measured as not constraining the answer at all")
 	era := flag.String("era", string(eval.EraPreTemplates), "which side of the gap-19 template transition this run is")
 	dryRun := flag.Bool("dry-run", false, "build the cases and print the inventory; call no model and publish no figure")
 	selfCheck := flag.Bool("self-check", false,
@@ -233,7 +233,7 @@ func run(root, schemaPath, bundlePath, host, model, era string, everyNth, maxCas
 	// denominator.** A case whose removed instance does not validate
 	// when put back is not a case: no answer can pass it, including the right
 	// one. Thirteen of the 134 are in that state — `anonymize_file.pc.json`
-	// reads `$CGT_MULTIPART_OUTPUT` and `$MAIN_INPUT_ROW_COUNT` in its `when`
+	// reads `$ORG1_MULTIPART_OUTPUT` and `$MAIN_INPUT_ROW_COUNT` in its `when`
 	// clauses and the verifier's fixed environment defines neither — and
 	// counting them would have depressed every rate this harness publishes by
 	// about a tenth, invisibly.
@@ -483,7 +483,7 @@ func run(root, schemaPath, bundlePath, host, model, era string, everyNth, maxCas
 // apart; they stay apart, so what a reader needs is not a label
 // on each case but a statement of the population a figure was measured over.
 func caseSource(everyNth, planBudget, numCtx int, temperature float64, seed int, schemaInPrompt bool) string {
-	where := "schema in `format` only, as the Phase-1 loop sends it"
+	where := "schema in `format` only, as the authoring loop sends it"
 	if schemaInPrompt {
 		where = "schema in `format` and in the instruction"
 	}
@@ -769,7 +769,7 @@ func inventory(root string, candidates []eval.Instance, coverage, live map[strin
 		fmt.Printf("%-18s %8d %8d  %s\n", op, live[op], coverage[op], status)
 	}
 	fmt.Println("\nNo compile-pass figure is published from a dry run: no model was called, and a " +
-		"report that cannot name what answered is one decision 13's rules refuse.")
+		"report that cannot name what answered is one the evaluation rules refuse.")
 	_ = root
 	return nil
 }

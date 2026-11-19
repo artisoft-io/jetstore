@@ -3,9 +3,9 @@
     {
       "n": "Rule1", "s": 10,
       "When": [
-        ["?stateGpi", "rdf:type", "wrs:StateGpi"],
-        ["?stateGpi", "wrs:Claim_Gpi", "?gpi"],
-        ["?stateGpi", "wrs:hasStateNdc", "?stateNdc"]
+        ["?stateGpi", "rdf:type", "org3:StateGpi"],
+        ["?stateGpi", "org3:Claim_Gpi", "?gpi"],
+        ["?stateGpi", "org3:hasStateNdc", "?stateNdc"]
       ],
       "Filter": ["(?x2 + (?x3 apply_format \"%04d%02d%02d\")) == ?x4"],
       "Then": [

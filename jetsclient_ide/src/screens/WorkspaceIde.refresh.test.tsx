@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  *
  * **The Workspace IDE toolbar's Refresh re-reads what the IDE shows**: the file
- * tree, the toolbar's registry row and the changes table. 2026-10-12, Michel:
+ * tree, the toolbar's registry row and the changes table. Since 2026-10-12:
  * files that arrive outside the IDE -- a pull, a new unit test directory -- did
  * not appear until the page was reloaded. Open tabs stay open, as they do when a
  * compiled view adds a file.
@@ -48,8 +48,8 @@ function stubServer() {
       return new Response(
         JSON.stringify({
           token: "t0",
-          name: "Michel",
-          user_email: "michel@artisoft.io",
+          name: "Test User",
+          user_email: "user@example.com",
           is_admin: false,
           capabilities: [WORKSPACE_IDE],
         }),
@@ -98,7 +98,7 @@ const changesReads = (posts: Record<string, unknown>[]) =>
 async function mount() {
   const { fetchImpl, posts } = stubServer();
   const api = new ApiClient("", fetchImpl);
-  await api.login("michel@artisoft.io", "pw");
+  await api.login("user@example.com", "pw");
   render(
     <MemoryRouter initialEntries={["/workspace"]}>
       <Routes>

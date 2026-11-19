@@ -116,7 +116,7 @@ const host: ActionHost = {
   setBusy: () => {},
   goToState: () => {},
   close: () => {},
-  userEmail: () => "michel@artisoft.io",
+  userEmail: () => "user@example.com",
   now: () => 1_700_000_000_000,
 };
 

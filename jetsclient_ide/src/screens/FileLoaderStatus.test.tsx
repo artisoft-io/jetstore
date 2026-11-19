@@ -60,8 +60,8 @@ function stubServer() {
       return new Response(
         JSON.stringify({
           token: "t0",
-          name: "Michel",
-          user_email: "michel@artisoft.io",
+          name: "Test User",
+          user_email: "user@example.com",
           is_admin: false,
           capabilities: ["run_pipelines"],
         }),
@@ -85,7 +85,7 @@ function stubServer() {
 async function mount() {
   const { fetchImpl, posts } = stubServer();
   const api = new ApiClient("", fetchImpl);
-  await api.login("michel@artisoft.io", "pw");
+  await api.login("user@example.com", "pw");
   render(
     <ApiProvider api={api}>
       <NotificationsProvider>
@@ -166,7 +166,7 @@ describe("the screen the loader tab became", () => {
     await screen.findByText("domain table viewer");
   });
 
-  it("refreshes rather than throwing, which is the bar's half of D.10", async () => {
+  it("refreshes rather than throwing", async () => {
     // `refreshTable` is one of the two actions A.5 returned to the widget, and
     // `requestFor` throws `UnsupportedActionType` for it by design. Until D.10
     // nothing caught that: pressing *Refresh* raised out of an event handler and

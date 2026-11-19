@@ -177,7 +177,7 @@ const processRows: JetsRow[] = [["loadFile", "Load a file"], ["runRules", "Run t
 const execRows: JetsRow[] = [
   ["1", "2", "acme", "loadFile", "claims", "2026", "8", "1", "failed",
     "s3://bucket/in/f10.csv", "sess-1", "in-1", "req-1", "boom", "3", "{}",
-    "michel@artisoft.io", "00:00:10", "2026-08-24"],
+    "user@example.com", "00:00:10", "2026-08-24"],
 ];
 const mappingFunctions: JetsRow[] = [
   ["to_date", "1"],
@@ -212,8 +212,8 @@ function stubServer(overrides: { missing?: string[] } = {}) {
       return new Response(
         JSON.stringify({
           token: "t0",
-          name: "Michel",
-          user_email: "michel@artisoft.io",
+          name: "Test User",
+          user_email: "user@example.com",
           is_admin: false,
           // `client_config` is `mapFileUF`'s: both its save buttons declare it
           // (`file_mapping/form_config.dart`), and `insert_rows` into
@@ -334,7 +334,7 @@ async function mount(
 ) {
   const { fetchImpl, posts } = stubServer(overrides);
   const api = new ApiClient("", fetchImpl);
-  await api.login("michel@artisoft.io", "pw");
+  await api.login("user@example.com", "pw");
 
   render(
     <ApiProvider api={api}>
@@ -502,7 +502,7 @@ describe("driving the flow", () => {
       table_name: "staging_claims",
       file_key: "s3://bucket/in/f10.csv",
       status: "submitted",
-      user_email: "michel@artisoft.io",
+      user_email: "user@example.com",
     });
     // `insert_rows` targets a table named on the step, not on the document's
     // `from` — the grammar's `table` shorthand (`interpret.ts`, `post`).
@@ -932,7 +932,7 @@ describe("mapFileUF — the file mapping worksheet", () => {
     // statement takes one column.
     expect(inserts[0]!.body["fromClauses"]).toEqual([{ table: "delete/process_mapping" }]);
     expect(inserts[0]!.body["data"]).toEqual([
-      { table_name: "acme_org_claim", user_email: "michel@artisoft.io" },
+      { table_name: "acme_org_claim", user_email: "user@example.com" },
     ]);
 
     // Then one row per group, with the form-level values copied into each — the
@@ -943,7 +943,7 @@ describe("mapFileUF — the file mapping worksheet", () => {
     expect(rows[0]).toEqual({
       table_name: "acme_org_claim",
       object_type: "Claim",
-      user_email: "michel@artisoft.io",
+      user_email: "user@example.com",
       data_property: "claim:id",
       "flag.is_required": "1",
       input_column: "claim_id",
@@ -1053,7 +1053,7 @@ describe("loadConfigUF — loading client configuration", () => {
     expect(post.body["workspaceName"]).toBe("jets_ws");
     const row = (post.body["data"] as Record<string, unknown>[])[0]!;
     expect(row["updateDbClients"]).toBe("ACME,GLOBEX");
-    expect(row["user_email"]).toBe("michel@artisoft.io");
+    expect(row["user_email"]).toBe("user@example.com");
   });
 
   it("posts a null updateDbClients when the inline button is used instead", async () => {

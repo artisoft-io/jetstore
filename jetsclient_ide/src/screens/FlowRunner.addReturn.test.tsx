@@ -123,8 +123,8 @@ function stubServer(fillers = 0) {
     if (path === "/login") {
       return ok({
         token: "t0",
-        name: "Michel",
-        user_email: "michel@artisoft.io",
+        name: "Test User",
+        user_email: "user@example.com",
         is_admin: false,
         capabilities: ["workspace_ide", "client_config", "run_pipelines"],
       });
@@ -226,7 +226,7 @@ async function mount(
   visited.length = 0;
   const server = stubServer(fillers);
   const api = new ApiClient("", server.fetchImpl);
-  await api.login("michel@artisoft.io", "pw");
+  await api.login("user@example.com", "pw");
   render(
     <ApiProvider api={api}>
       <NotificationsProvider>
@@ -549,7 +549,7 @@ describe("Source Configuration opens on its table, adds and edits, and returns t
 
 describe("Start Pipeline always ends on Home", () => {
   it("leaves for /home on Cancel even when opened from the status filters flow", async () => {
-    // `jetstore_maintenance_02` Phase 2, Michel's decision of 2026-10-02. Opened
+    // Decided 2026-10-02. Opened
     // from `homeFiltersUF`'s status step, the url carries `returnTo` naming that
     // flow, and its *Cancel* and *Start Pipeline & Done* went back to it.
     // `exitScreenPath` is consulted before `returnTo` (`FlowRunner`, `exit`), and

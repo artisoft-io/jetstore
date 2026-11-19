@@ -478,8 +478,8 @@ def _add(lhs: Any, rhs: Any) -> Any:
 REFUSED: dict[str, str] = {
     "lookup": (
         "this node loads no lookup tables: graph._resolve_lookups refuses a "
-        "document declaring site_config.lookups, because D-202 keeps the "
-        "corpus's reference tables in their own package. An evaluator over no "
+        "document declaring site_config.lookups, because the corpus keeps its "
+        "reference tables in their own package. An evaluator over no "
         "table answers every query with a miss"
     ),
     "map": (
@@ -511,7 +511,7 @@ REFUSED: dict[str, str] = {
 #: The task that owes every refused column type. One name rather than one per
 #: entry, because the ruling on whether this node ever reaches parity with the
 #: built-ins is a single open question, with a decision reserved for it.
-REFUSED_OWED_BY = "P9-I04 / D-206"
+REFUSED_OWED_BY = "an open decision on whether this node reaches parity with the built-ins"
 
 
 def build(
@@ -696,8 +696,8 @@ _CAST_REFUSAL = (
     "switch has no string case on the left, so a `sum` over a column of numeric "
     "text errors on its second record in either engine unless the cast makes the "
     "running total a number. A QC pipeline summing a money column off a stage "
-    "file therefore needs the numeric arms of CastToRdfType, which is P9-I60 and "
-    "is P9-T12's to meet."
+    "file therefore needs the numeric arms of CastToRdfType, which this node "
+    "does not have yet."
 )
 
 #: The builder registry, which is also the declaration of what is implemented.

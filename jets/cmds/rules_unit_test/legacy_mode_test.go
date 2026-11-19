@@ -157,7 +157,7 @@ func TestOneRetractionBehaviourAndVisitLimit(t *testing.T) {
 		return
 	}
 	if out, err := workspace.CompileWorkspace(nil, "test_ws", "af6",
-		workspace.SkipAssetValidation("AF.6 test: test_ws has no user flows")); err != nil {
+		workspace.SkipAssetValidation("test: test_ws has no user flows")); err != nil {
 		t.Fatalf("compiling the scratch test_ws: %v\n%s", err, out)
 	}
 	root := filepath.Join(os.Getenv("WORKSPACES_HOME"), "test_ws")

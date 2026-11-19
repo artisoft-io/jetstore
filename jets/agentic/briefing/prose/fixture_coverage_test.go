@@ -72,7 +72,7 @@ func TestEveryRenderCaseIsAlsoAnEquivalenceCase(t *testing.T) {
 	}
 	sort.Strings(missing)
 	if len(missing) > 0 {
-		t.Errorf("criterion 82 does not see %d of this package's %d render cases, because the equivalence "+
+		t.Errorf("the equivalence check does not see %d of this package's %d render cases, because the equivalence "+
 			"test carries a transcription of them: %s\n\nAdd each one to TestRenderCases in "+
 			"jets/agentic/briefing/briefingtmpl/equivalence_test.go, where it is rendered through both "+
 			"arms and compared.", len(missing), len(mine), strings.Join(missing, ", "))

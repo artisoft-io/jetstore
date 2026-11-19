@@ -821,8 +821,8 @@ def _resolve_lookups(ctx: NodeContext, site: Any, token: str) -> tuple[Lookup, .
         return ()
     raise GraphNotBuilt(
         f"site operator '{token}' declares site_config.lookups {list(keys)}, and "
-        "this node loads no lookup tables: D-202 keeps the corpus's reference "
-        "tables in its own package and P9-T02 built the extension for the "
+        "this node loads no lookup tables: the corpus keeps its reference "
+        "tables in its own package and the lookup extension was built for the "
         "contract rather than for this corpus. Refused rather than handed empty "
         "tables, because a lookup that resolves to nothing answers every query "
         "with a miss."
@@ -1307,5 +1307,5 @@ def _assert_every_source_closed(
         raise GraphInvalid(
             f"the run finished with {len(unclosed)} channel(s) still open that a "
             f"pipe reads: {unclosed}. A reader of an unclosed channel never sees "
-            "EOF, so the equivalent Go pipeline hangs rather than fails (P9-I13)."
+            "EOF, so the equivalent Go pipeline hangs rather than fails."
         )

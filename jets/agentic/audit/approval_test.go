@@ -54,7 +54,7 @@ func TestApprovalIsDurableAndJoinedToTheChain(t *testing.T) {
 	seq, err := RecordApproval(ctx, pool, &Approval{
 		ApprovalEventId: "apv_k1_durable_" + proposalId, RunRef: runId, SubjectRef: proposalId,
 		FromState: "draft", ToState: "approved",
-		Actor: "michel@artisoft.io", TierAtEvent: "T2",
+		Actor: "user@example.com", TierAtEvent: "T2",
 		DecisionRationale: "read it, it is fine",
 	})
 	if err != nil {
@@ -77,7 +77,7 @@ func TestApprovalIsDurableAndJoinedToTheChain(t *testing.T) {
 	if evType != EventApproval {
 		t.Errorf("chain event is %q, want %q", evType, EventApproval)
 	}
-	if actor != "michel@artisoft.io" {
+	if actor != "user@example.com" {
 		t.Errorf("chain event actor is %q", actor)
 	}
 	var decoded map[string]any
@@ -127,7 +127,7 @@ func TestApprovalIsDurableAndJoinedToTheChain(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("after reopening, %d approvals; want 1", len(got))
 	}
-	if got[0].Actor != "michel@artisoft.io" || got[0].FromState != "draft" ||
+	if got[0].Actor != "user@example.com" || got[0].FromState != "draft" ||
 		got[0].ToState != "approved" || got[0].DecisionRationale != "read it, it is fine" {
 		t.Errorf("the approval did not survive intact: %+v", got[0])
 	}

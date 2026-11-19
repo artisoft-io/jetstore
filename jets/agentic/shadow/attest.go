@@ -133,8 +133,8 @@ func (a *Attestation) Report() string {
 	fmt.Fprintf(&b, "  no agent adjudicated its own work:      %d agent transitions into %v\n",
 		a.AdjudicationsByAgent, AdjudicationStatuses)
 	b.WriteString("  bound: jetsapi.incident_event has no append-only trigger, and a transition is " +
-		"hash-chained only where the incident names an AgentRun (AB.4). A deterministic classifier is " +
-		"not one, so these rows are durable and attributable and are not tamper-evident (R-44).\n")
+		"hash-chained only where the incident names an AgentRun. A deterministic classifier is " +
+		"not one, so these rows are durable and attributable and are not tamper-evident.\n")
 	return b.String()
 }
 

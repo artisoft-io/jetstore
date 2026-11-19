@@ -82,13 +82,13 @@ func TestAU1EncodingAgainstAccuracy(t *testing.T) {
 	p := at5LoadPopulation(t)
 
 	var doc strings.Builder
-	fmt.Fprintf(&doc, "# `AU.1` — TOON against JSON over one fact set\n\n")
+	fmt.Fprintf(&doc, "# TOON against JSON over one fact set\n\n")
 	fmt.Fprintf(&doc, "Run %s. Backend `%s`, model `%s`.\n\n",
 		time.Now().UTC().Format(time.RFC3339), arm.url, arm.model)
 	fmt.Fprintf(&doc, "**Every figure is an upper bound**: the population's NDCs were curated to "+
-		"resolve, so it excludes the unresolved-NDC case that occurs in production (criterion 80), "+
-		"and 27 of its 301 medical claims carry a primary diagnosis with no description behind it "+
-		"(I-566).\n\n")
+		"resolve, so it excludes the unresolved-NDC case that occurs in production, "+
+		"and 27 of its 301 medical claims carry a primary diagnosis with no description behind it."+
+		"\n\n")
 
 	members := make([]*auMember, 0, len(p.memberIDs))
 	for _, id := range p.memberIDs {

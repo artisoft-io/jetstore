@@ -143,7 +143,7 @@ func ListProposals(ctx context.Context, db Querier, states []string, limit int) 
 	}
 	for _, s := range states {
 		if !KnownState(s) {
-			return nil, fmt.Errorf("%q is not an approval state; the vocabulary is the nine of A.4", s)
+			return nil, fmt.Errorf("%q is not an approval state; the vocabulary has nine states", s)
 		}
 	}
 	// The LEFT JOIN is over a max, not the rows: a proposal with three

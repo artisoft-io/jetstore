@@ -953,7 +953,7 @@ def _refuse_what_cannot_be_merged(
         raise MergeRefused(
             f"merging {nbr_files} parquet part files is a schema-aware rewrite "
             "(MergeParquetPartitions), not a concatenation, and the library for "
-            "it arrives with the partition writer (P9-T07). A single parquet "
+            "it arrives with the partition writer work. A single parquet "
             "part is a copy and is supported — which is Go's own condition, "
             '`inputFormat == "parquet" && nbrFiles > 1`.'
         )

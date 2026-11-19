@@ -190,7 +190,7 @@ class MapRecord(Transformation):
     """Map the input record onto the output channel's columns."""
 
     token = "map_record"
-    owed_by = "P9-T06"
+    owed_by = "the expression and column evaluator work"
     summary = "map the input record onto the output channel's columns"
 
     @classmethod
@@ -300,7 +300,7 @@ class Filter(Transformation):
     """Pass on the records satisfying the authored condition."""
 
     token = "filter"
-    owed_by = "P9-T06"
+    owed_by = "the expression and column evaluator work"
     summary = "pass on the records satisfying the authored condition"
 
     @classmethod
@@ -535,7 +535,7 @@ class PartitionWriter(Transformation):
     """
 
     token = "partition_writer"
-    owed_by = "P9-T07"
+    owed_by = "the partition writer work"
     summary = "write the input channel's records to partition files"
 
     @classmethod
@@ -562,7 +562,7 @@ class PartitionWriter(Transformation):
                 "did not reach the operator, and the contract makes it a "
                 "required field — so this is the dispatch and never the "
                 "document. `graph._builtin_config` fills `args.config` from the "
-                "step's own `{type}_config` block (P9-I55)."
+                "step's own `{type}_config` block."
             )
         store = builder.store
         if store is None:
@@ -1022,7 +1022,7 @@ SPLITTER_PIPE_TOKEN = "splitter"
 def _refuse_streaming_beside_a_splitter(stream_data_out: bool) -> None:
     """Refuse `stream_data_out` under a splitter — the pairing, not the flag.
 
-    **Michel's ruling of 2026-09-19**: `stream_data_out` works *except* in
+    **Decided 2026-09-19**: `stream_data_out` works *except* in
     conjunction with a splitter, because each branch of the splitter holds its
     own connection to S3 and a run exhausts them. The hazard is a property of
     the pairing and of neither half: a splitter starts one handler and one
@@ -1056,7 +1056,7 @@ def _refuse_streaming_beside_a_splitter(stream_data_out: bool) -> None:
         "is the cardinality of the split key, which is data and therefore "
         "unbounded at authoring time. Set stream_data_out to false under a "
         "splitter, or partition first and stream from a step with one branch. "
-        "(Michel's ruling of 2026-09-19; D-243.)"
+        "(Decided 2026-09-19.)"
     )
 
 
@@ -1115,7 +1115,7 @@ def _builder(env: Any, token: str) -> Any:
             f"the '{token}' operator was built with "
             f"{type(env).__name__} rather than BuilderEnv, so it can reach "
             "neither the node's object store nor the authored spec. A built-in "
-            "is handed the builder context and a site factory is not (D-226); "
+            "is handed the builder context and a site factory is not; "
             "outside `graph.run`, build it with `BuilderEnv(...)` or call "
             "`build_from` with the store directly."
         )

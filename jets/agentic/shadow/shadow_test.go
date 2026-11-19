@@ -144,7 +144,7 @@ func TestNothingWritesTheRemediationTable(t *testing.T) {
 	if len(offenders) > 0 {
 		t.Errorf("production code writes jetsapi.remediation: %v.\n"+
 			"the entity was tabled with no executor so that a later autonomy gate has something to gate, and "+
-			"criterion 47 says in terms that nothing acts. If this is that executor arriving, "+
+			"nothing is meant to act yet. If this is that executor arriving, "+
 			"this test is what has to be retired with an argument rather than deleted", offenders)
 	}
 }

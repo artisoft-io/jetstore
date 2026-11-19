@@ -625,8 +625,7 @@ class SideEffects:
                     if value is None:
                         log.info(
                             "metric %r is not measurable in this runtime and is "
-                            "not written; see MEASURABLE_METRICS, D-225 and "
-                            "P9-I65",
+                            "not written; see MEASURABLE_METRICS",
                             name,
                         )
                         continue

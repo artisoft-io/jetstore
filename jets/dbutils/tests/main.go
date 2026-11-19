@@ -28,7 +28,7 @@ func main() {
 		FileName:      "test file2",
 		ContentType:   "rules",
 		Status:        "open",
-		UserEmail:     "michel@artisoft.io",
+		UserEmail:     "user@example.com",
 	}
 	fileContent := "this is the file content"
 	n, err := fo.WriteObject(dbpool, []byte(fileContent))

@@ -10,5 +10,5 @@ To compile lookup:
 ```
 docker run --rm -v=`pwd`:/go/work -w=/usr/local/lib/jets/compiler \
   --entrypoint=python3 jetstore:bullseye jetrule_lookup_loader.py      \
-  --base_path /go/work --rete_db usi_test1.db
+  --base_path /go/work --rete_db org2_test1.db
 ```
