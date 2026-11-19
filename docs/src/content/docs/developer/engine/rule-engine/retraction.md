@@ -1,6 +1,6 @@
 ---
 title: "Retraction and truth maintenance"
-description: "How the rule engine retracts what a withdrawn row inferred, and the retraction defects and switch it once kept."
+description: "How the rule engine retracts what a withdrawn row inferred, how a row keeps its supports, and the retraction defects and switch it once kept."
 kind: explanation
 sidebar:
   order: 1
@@ -9,9 +9,42 @@ sidebar:
 How the rule engine withdraws what a row inferred when the row loses its support, newest first. The
 older sections are the history of how the engine reached its one retraction behaviour, and say so.
 
-## A row that drops a variable can be retracted while still supported — found 2026-11-14
+## A deleted triple that is both a row's and its join is withdrawn — found and fixed 2026-11-18
 
-**Open, and not fixed: fixing it changes what rules infer.** The compiler keeps in a vertex's beta
+**Fixed with the support sets below, which needed it.** A graph callback runs once the triple has
+left the graph. When one triple is both the triple of a parent row and the join of that row's
+derivation below it, its deletion withdrew neither:
+
+- in `(?x ex:q ?y).(?y ex:q ?z) -> (?x ex:s ?z)`, erasing `(a ex:q a)`;
+- in `(?x ex:q ?y).(?y ex:q ?z).(?z ex:q ?w) -> (?x ex:s ?w)`, erasing `(a ex:q b)` of the cycle
+  `(a ex:q b)`, `(b ex:q a)`, which is the first antecedent's triple and the third's.
+
+The parent vertex's callback removed the parent row, and the retraction that followed asked the graph
+for the row's joins and no longer found the triple; the child vertex's callback then asked the parent
+relation for the row and no longer found the row. So the child's row stayed, with what it inferred:
+`(a ex:s a)` and `(a ex:s b)` outlived the triples they rested on. This is any rule that joins a
+predicate with itself, on a reflexive triple or a cycle, which a symmetric predicate makes common.
+
+**Why it is fixed here.** Before the support sets, the stale row at a vertex that drops a variable
+was often removed by the withdrawal of another of its derivations, the over-retraction below, so the
+two defects could cancel. With the support sets, the stale derivation's support kept the row after
+every real one had gone.
+
+**What the engine does now.** `triple_updated` and `triple_updated_for_filters` record the triple
+they are deleting for as long as they run (`ReteSession::DeletedTriple`, a stack, since a callback can
+re-enter). A retraction (`visit_rete_graph`, not inferring) offers each recorded triple to a positive
+child as a join of the removed row, when the child's pattern for that row finds it
+(`AlphaNode::compute_find_triple`) and the session no longer holds it. Withdrawing a derivation that
+does not exist withdraws nothing, so an extra offer is harmless. A negated child needs nothing: its
+candidate is built from the graph as it is.
+
+`TestDeletedTripleJoinTruthMaintenance` (`beta_row_pruning_engine_test.go`) runs the reflexive
+triple, the reflexive triple at a vertex that drops variables, and the cycle; each fails on the engine
+before the fix.
+
+## A row that drops a variable keeps its supports — found 2026-11-14, fixed 2026-11-18
+
+**Fixed: a row goes with its last derivation, not its first.** The compiler keeps in a vertex's beta
 row only the variables its own triple binds or a vertex or consequent below it reads, and leaves
 out every other variable bound above it (`BuildBetaNodesRecursively`, the vertex's pruned
 variables, in `jets/compilerv2/compiler/jet_rule_listener_rete.go`). So in
@@ -21,24 +54,45 @@ variables, in `jets/compilerv2/compiler/jet_rule_listener_rete.go`). So in
 ```
 
 the third vertex's row is `(?x, ?z)`: `?y`, the variable the second vertex joined on, is dropped,
-and three parent rows that differ only in `?y` make one row. The engine keeps a relation's rows as a
-set and removes a row when any parent row that makes it is withdrawn (`ReteSession::triple_updated`,
-`BetaRelation::row_removed`), without asking whether another still makes it. Erase `(x ex:q y1)` and
-`(x ex:s z)` is retracted, though `y2` and `y3` still support it. When a consequent reads `?y`, the
-rows stay distinct and the triple stays, with its reference count down by one.
+and three parent rows that differ only in `?y` make one row. The engine kept a relation's rows as a
+set and removed a row when any parent row that made it was withdrawn (`ReteSession::triple_updated`,
+`BetaRelation::row_removed`), without asking whether another still made it. Erase `(x ex:q y1)` and
+`(x ex:s z)` was retracted, though `y2` and `y3` still supported it.
 
-The shape is common, not rare: compiled on 2026-11-14, every one of four workspaces of rules, the
-example `jets_ws` among them, has vertices that drop a parent variable, from about one in seven to
-one in four of their antecedent vertices. Whether a run loses an inference depends on a supporting
-triple being withdrawn during it: an erase, an inferred triple retracted, or a negation or filter
-that changes. A fix is either a row that counts the parent rows making it, or a compiler that keeps
-every variable, at the cost of larger relations; either changes the results of rules that meet the
-case.
+**What the engine does now.** At load, `ReteMetaStore::initialize` gives each vertex the positions of
+its parent's row that its own row leaves out (`NodeVertex::support_key_positions`, read from the two
+row initialisers). A row of a vertex with any keeps the set of its supports, one per derivation: the
+parent row's values at those positions (`SupportKey`, `BetaRelation`'s support sets in
+`jets/rete/beta_relation.h`). Every variable of the vertex's own triple is in its row (the compiler
+keeps them, and `TestBetaRowKeepsEveryVariableOfItsTriple` pins it), so those values tell the
+derivations of one row apart.
+
+- **An insert** adds the derivation's support; a row inserted again is not inserted twice, as before.
+- **A withdrawal** (`BetaRelation::remove_candidate`) removes the derivation's support, and removes the
+  row, as before, only when none is left. A support that is not the row's (one a filter refused when
+  it was offered) withdraws nothing.
+- **A set, not a count**: a derivation offered twice, by a scan and by a callback that both reach it,
+  is one support, and withdrawing it twice withdraws it once.
+- **A filter's replay** (`triple_updated_for_filters`) still removes every row of its vertex, whatever
+  supports it, and inserts again what the parent rows still make, with their supports.
+- **A vertex whose row carries its parent's whole row** has one derivation per row, keeps no support
+  set, and runs the code it ran before.
+
+Forward inference is unchanged: the same rows are made, once each, and their consequents run once.
+Only a withdrawal that leaves another derivation behind behaves differently.
 
 `jets/compilerv2/compiler/beta_row_pruning_test.go` pins what the compiler emits, and
 `beta_row_pruning_engine_test.go` (tag `engine_rules`, run by `ctest` as
-`go_beta_row_pruning_engine`) runs both forms in the engine: the one that keeps `?y` passes, and the
-one that drops it is a skipped subtest that fails once the over-retraction is gone.
+`go_beta_row_pruning_engine`) runs four rules in the engine: one that keeps `?y`, one that drops it,
+one whose dropping vertex is a negation and one whose dropping vertex has a filter. Each withdraws
+its derivations one at a time and checks the inferred triple stays until the last goes, and comes
+back when one is asserted again. The three that drop a variable fail on the engine before the fix.
+
+The shape is common: compiled on 2026-11-14, every one of four workspaces of rules, the example
+`jets_ws` among them, has vertices that drop a parent variable, from about one in seven to one in
+four of their antecedent vertices. A run's results change only where a supporting triple is
+withdrawn during it while another derivation of the same row remains: an erase, an inferred triple
+retracted, or a negation or filter that changes.
 
 ## One retraction behaviour; `_0:no_truth_main_on_exist` deleted — 2026-10-24
 

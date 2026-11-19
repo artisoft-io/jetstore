@@ -78,7 +78,9 @@ class ReteSession {
       scratch_rows_(),
       scratch_depth_(0),
       held_rows_(),
-      reentries_(0)
+      held_supports_(),
+      reentries_(0),
+      deleted_triples_()
     {}
 
   ReteSession(ReteSession const&) = delete;
@@ -186,10 +188,13 @@ class ReteSession {
     HeldCandidates(HeldCandidates const&) = delete;
     HeldCandidates & operator=(HeldCandidates const&) = delete;
 
+    // The candidate, with the support key of its derivation from `parent_row`
     inline void
-    hold(BetaRow const& candidate)
+    hold(BetaRow const& candidate, BetaRow const* parent_row)
     {
-      rete_session_->held_rows_.push_back(create_beta_row(&rete_session_->arena_, candidate));
+      auto * arena = &rete_session_->arena_;
+      rete_session_->held_rows_.push_back(create_beta_row(arena, candidate));
+      rete_session_->held_supports_.push_back(make_support_key(candidate.get_node_vertex(), parent_row, arena));
     }
 
     inline void
@@ -197,6 +202,8 @@ class ReteSession {
     {
       auto & rows = rete_session_->held_rows_;
       if(rows.size() > base_) rows.erase(rows.begin() + static_cast<std::ptrdiff_t>(base_), rows.end());
+      auto & supports = rete_session_->held_supports_;
+      if(supports.size() > base_) supports.erase(supports.begin() + static_cast<std::ptrdiff_t>(base_), supports.end());
     }
 
     // Inserting a row evaluates nothing and builds no candidate
@@ -482,6 +489,35 @@ class ReteSession {
   passes_filter(b_index meta_node, BetaRow const* row);
 
   /**
+   * @brief The triple whose deletion the session is propagating, for as long as its
+   * callback runs
+   *
+   * A callback runs once the triple has left the graph. When one triple is both the
+   * triple of a parent row and the join of that row's derivation below it -- `(a q a)`
+   * in `(?x q ?y).(?y q ?z)`, or a cycle of a self-join -- the parent's callback
+   * removes the parent row, and the retraction that follows asks the graph for the
+   * row's joins and no longer finds the triple; the child's own callback then asks the
+   * parent relation for the row and no longer finds the row. Neither withdraws that
+   * derivation, and the row it made stayed, with what it inferred. So a retraction
+   * also offers each deleted triple whose callback is running to a positive child, as
+   * a join of the removed row (visit_rete_graph). Withdrawing a derivation that does
+   * not exist withdraws nothing, so offering one too many is harmless.
+   */
+  class DeletedTriple {
+   public:
+    DeletedTriple(ReteSession * rete_session, rdf::Triple const& t3)
+      : rete_session_(rete_session)
+    {
+      rete_session_->deleted_triples_.push_back(t3);
+    }
+    ~DeletedTriple() { rete_session_->deleted_triples_.pop_back(); }
+    DeletedTriple(DeletedTriple const&) = delete;
+    DeletedTriple & operator=(DeletedTriple const&) = delete;
+   private:
+    ReteSession * rete_session_;
+  };
+
+  /**
    * @brief The filter of `meta_node`, if any, as it is once its evaluation re-enters
    * the session no more
    *
@@ -521,7 +557,9 @@ class ReteSession {
   std::vector<BetaRow *>  scratch_rows_;           // CandidateRow's, in arena_, never destroyed
   std::size_t             scratch_depth_;          // CandidateRows live
   std::vector<BetaRowPtr> held_rows_;              // see HeldCandidates
+  std::vector<SupportKey> held_supports_;          // the support key of each held row
   std::uint64_t           reentries_;              // callbacks seen, see candidate_still_supported
+  std::vector<rdf::Triple> deleted_triples_;       // the deletions whose callbacks are running, see DeletedTriple
 };
 
 inline int
@@ -556,8 +594,9 @@ inline int
 ReteSession::HeldCandidates::insert_into(BetaRelation * relation)
 {
   auto & rows = rete_session_->held_rows_;
+  auto const& supports = rete_session_->held_supports_;
   for(auto i = base_; i < rows.size(); ++i) {
-    auto err = relation->insert_beta_row(rete_session_, std::move(rows[i]));
+    auto err = relation->insert_beta_row(rete_session_, std::move(rows[i]), &supports[i]);
     if(err) return err;
   }
   drop();
@@ -585,7 +624,7 @@ ReteSession::passes_filter(b_index meta_node, BetaRow const* row)
 // BetaRelation methods
 // --------------------------------------------------------------------------------------
 inline int
-BetaRelation::insert_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
+BetaRelation::insert_beta_row(ReteSession * rete_session, BetaRowPtr beta_row, SupportKey const* support)
 {
   // A relation in an arena is released without being destroyed, so a row it holds
   // must be in the same arena, or the row would never be freed
@@ -599,12 +638,13 @@ BetaRelation::insert_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
   this->scans_.freeze(BetaRowScanRegistry::kAllRows);
   auto [itor, is_new] = this->all_beta_rows_.insert(std::move(beta_row));
   if(is_new and this->all_beta_rows_.size() > this->peak_rows_) this->peak_rows_ = this->all_beta_rows_.size();
+  this->add_support(itor->get(), support);
   // a reference to the set's element: row_inserted does not change the set
   return this->row_inserted(rete_session, *itor, is_new);
 }
 
 inline int
-BetaRelation::insert_candidate(ReteSession * rete_session, BetaRow const& candidate)
+BetaRelation::insert_candidate(ReteSession * rete_session, BetaRow const& candidate, BetaRow const* parent_row)
 {
   // One lookup, which inserts if it finds no equal row. The set can grow, so its live
   // scans are frozen first, found or not: it costs nothing when none is live
@@ -616,6 +656,10 @@ BetaRelation::insert_candidate(ReteSession * rete_session, BetaRow const& candid
     construct(create_beta_row(this->arena_, candidate));
   });
   if(is_new and this->all_beta_rows_.size() > this->peak_rows_) this->peak_rows_ = this->all_beta_rows_.size();
+  if(this->node_vertex_ and this->node_vertex_->counts_supports()) {
+    auto support = make_support_key(this->node_vertex_, parent_row, this->arena_);
+    this->add_support(itor->get(), &support);
+  }
   // a reference to the set's element: row_inserted does not change the set
   return this->row_inserted(rete_session, *itor, is_new);
 }
@@ -668,13 +712,25 @@ BetaRelation::row_inserted(ReteSession * rete_session, BetaRowPtr const& beta_ro
 inline int
 BetaRelation::remove_beta_row(ReteSession * rete_session, BetaRowPtr beta_row)
 {
-  return this->row_removed(rete_session, this->all_beta_rows_.find(beta_row));
+  auto itor = this->all_beta_rows_.find(beta_row);
+  if(itor != this->all_beta_rows_.end()) this->drop_supports(itor->get());
+  return this->row_removed(rete_session, itor);
 }
 
 inline int
-BetaRelation::remove_candidate(ReteSession * rete_session, BetaRow const& candidate)
+BetaRelation::remove_candidate(ReteSession * rete_session, BetaRow const& candidate, BetaRow const* parent_row)
 {
-  return this->row_removed(rete_session, this->all_beta_rows_.find(candidate));
+  auto itor = this->all_beta_rows_.find(candidate);
+  if(itor != this->all_beta_rows_.end() and this->node_vertex_ and this->node_vertex_->counts_supports() and
+     not (*itor)->is_deleted()) {
+    // One derivation is withdrawn: the row goes only with its last support
+    auto support = make_support_key(this->node_vertex_, parent_row, this->arena_);
+    if(this->withdraw_support(itor->get(), support)) {
+      VLOG(56)<<"BetaRow remove one support of row "<<*itor<<", "<<this->support_count(itor->get())<<" left";
+      return 0;
+    }
+  }
+  return this->row_removed(rete_session, itor);
 }
 
 inline int
@@ -710,8 +766,7 @@ BetaRelation::row_removed(ReteSession * rete_session, beta_row_set::const_iterat
         this->remove_indexes(rete_session, beta_row);
       }
 
-      this->scans_.freeze(BetaRowScanRegistry::kAllRows);
-      this->all_beta_rows_.erase(beta_row);
+      this->erase_row(beta_row);
       return 0;
     }
 
@@ -737,8 +792,7 @@ BetaRelation::row_removed(ReteSession * rete_session, beta_row_set::const_iterat
       this->remove_indexes(rete_session, beta_row);
     }
 
-    this->scans_.freeze(BetaRowScanRegistry::kAllRows);
-    this->all_beta_rows_.erase(beta_row);
+    this->erase_row(beta_row);
   }
   return 0;
 }
