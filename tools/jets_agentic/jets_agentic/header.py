@@ -1,6 +1,6 @@
-"""The ownership header carried by every installed workspace asset (A21.4).
+"""The ownership header carried by every installed workspace asset.
 
-§3.9.4 makes JetStore-owned files reserved inside a client workspace and
+JetStore makes the files it owns reserved inside a client workspace and
 overwritten at build time, which only works if a knowledge engineer opening one
 can tell. The header says so in the file itself, and it carries the machine
 token `jetstore-owned-asset` that the install guard
