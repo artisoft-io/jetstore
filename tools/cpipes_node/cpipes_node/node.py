@@ -507,6 +507,34 @@ def _writer_results(result: Any) -> tuple[Any, ...]:
     )
 
 
+def _register_node_error(
+    effects: Any, config: Any, args: NodeArgs, error: BaseException
+) -> None:
+    """Record a refusal at the start, logging rather than raising if that fails.
+
+    `CoordinateComputePipes`' `gotError:` label, in its order: no row without
+    the run's arguments (`cpConfig.CommonRuntimeArgs == nil` returns the error
+    unrecorded), and a failure to write the row is a warning, so the error the
+    caller sees is always the node's own. The error itself is not logged here,
+    as Go logs it, because this node raises it and its caller reports it.
+    """
+    common = getattr(config, "common_runtime_args", None)
+    if common is None:
+        return
+    session_id = getattr(common, "session_id", "") or ""
+    try:
+        effects.register_node_error(
+            error, cpipes_step_id=str(getattr(common, "read_step_id", "") or "")
+        )
+    except Exception as exc:
+        log.warning(
+            "%s node %d WARNING while registering node error: %s",
+            session_id,
+            args.node_id,
+            exc,
+        )
+
+
 def coordinate(
     args: NodeArgs,
     config_source: ConfigSource,
@@ -527,30 +555,44 @@ def coordinate(
     `ProcessFilesAndReportStatus` inserts the `in progress` row *before* any
     work and updates it with a status afterwards whether the work succeeded or
     not, so a node that crashed is a `failed` row rather than an `in progress`
-    one nothing ever closes. Everything the scope gate refuses happens **before**
-    the INSERT, which is deliberate: a document this node will not run is a run
-    that never started, and a `pipeline_execution_details` row for it would say
-    otherwise.
+    one nothing ever closes.
+
+    **A refusal before the INSERT is a `failed` row too, as in Go.** The scope
+    gate, the environment and the file keys are all resolved before `begin()`,
+    and an error from any of them is recorded by
+    `SideEffects.register_node_error`, which is `RegisterNodeError` — what
+    `CoordinateComputePipes`' `gotError:` label calls for every error after the
+    config is unmarshalled. Without it the error reaches the Lambda's own result
+    and never the pipeline status's node error message. A document that cannot
+    be read or parsed records nothing, which is also Go's rule: without the
+    config there is no run identity to write the row against. Until 2026-11-19
+    this docstring held the opposite, that a document the scope gate refuses
+    should leave no row because the run never started; the Go node records a
+    row for the same class of refusal, and the two engines now agree.
     """
     config = parse_config(config_source.config_json(args.pipeline_execution_key))
-
-    report = check_scope(config, site_operators=site_operators)
-    report.raise_if_out_of_scope()
-    report.raise_if_unimplemented()
-
-    ctx = NodeContext(
-        args=args,
-        settings=settings,
-        config=config,
-        scope_report=report,
-        site_operators=site_operators,
-        store=store,
-        env=environment(config, args),
-        prefixes=prefixes or Prefixes.from_env(),
-    )
-    ctx.input_file_keys = _file_keys(config, args, store, ctx.prefixes)
-
     effects = side_effects_for(config, args, connection)
+
+    try:
+        report = check_scope(config, site_operators=site_operators)
+        report.raise_if_out_of_scope()
+        report.raise_if_unimplemented()
+
+        ctx = NodeContext(
+            args=args,
+            settings=settings,
+            config=config,
+            scope_report=report,
+            site_operators=site_operators,
+            store=store,
+            env=environment(config, args),
+            prefixes=prefixes or Prefixes.from_env(),
+        )
+        ctx.input_file_keys = _file_keys(config, args, store, ctx.prefixes)
+    except Exception as exc:
+        _register_node_error(effects, config, args, exc)
+        raise
+
     effects.begin()
     reporter = side_effects.MetricsReporter.for_config(effects, config)
     error: BaseException | None = None

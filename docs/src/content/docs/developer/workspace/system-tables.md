@@ -403,8 +403,10 @@ The table consist of:
 
 The `status` is `in progress` when the shard starts, then `completed`, `failed`, or `interrupted`
 when it was stopped by the kill switch (`ProcessFilesAndReportStatus`,
-`jets/compute_pipes/actions_process_file.go`). `CoordinateWork` also reads `errors`, meaning some
-session got a rule execution error, though no current worker writes it.
+`jets/compute_pipes/actions_process_file.go`). A shard that fails before it processes any file is
+inserted and set to `failed` at once, with its error in `error_message` and every count zero
+(`RegisterNodeError`), on the Go and the Python compute pipes nodes alike. `CoordinateWork` also reads
+`errors`, meaning some session got a rule execution error, though no current worker writes it.
 
 Depend on `pipeline_config`, `pipeline_execution_status`
 

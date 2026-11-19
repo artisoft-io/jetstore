@@ -172,6 +172,7 @@ site**, which is the step that moved the answer:
 |---|---|
 | `pipeline_execution_details` INSERT … RETURNING key | every node, before any work |
 | `pipeline_execution_details` UPDATE | every node, in a `finally` |
+| `pipeline_execution_details` INSERT, then UPDATE to `failed` | a node refused before the run's own row is opened |
 | `pipeline_execution_channel_details` INSERT ×N | after the UPDATE, additive |
 | `cpipes_metrics` INSERT ×N | only with a positive `report_interval_sec` |
 
@@ -193,9 +194,14 @@ would be an addition rather than conformance.
 node refuses both, so no document it accepts can reach the Go write; implementing it would be a path
 no document can take.
 
-**The error path writes nothing and is left writing nothing.** `CoordinateComputePipes`' `gotError:`
-carries `//*TODO insert error in pipeline_execution_details`. Filling it in would diverge in the
-direction that looks like an improvement.
+**A refusal at the start is a `failed` row, on both engines.** `CoordinateComputePipes`' `gotError:`
+calls `RegisterNodeError`, which inserts the `in progress` row and updates it to `failed` with the
+error's text and every count zero; the status update reads that text into the pipeline's failure
+details. The Python node does the same through `SideEffects.register_node_error`, for every error
+raised after the document is parsed and before the run's own row is opened: the scope gate, the
+environment and the file keys. A document that cannot be read or parsed, or that carries no
+`common_runtime_args`, records nothing, which is Go's rule too. A failure to write the row is logged
+as a warning and the node's own error is the one raised.
 
 **A metric this runtime cannot measure is omitted and its name logged, never substituted.** Go's four
 names are `runtime.MemStats` fields; CPython publishes neither a live heap nor a cumulative allocation
