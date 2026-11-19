@@ -54,14 +54,17 @@ unconditionally would be the race the brief warns about. Asserted rather than
 argued: `tests_side_effects.py` reads both conditions out of the Go source and
 holds them against `node._file_keys`' refusals. Recorded as an issue.
 
-**Go's error path records a `failed` row, and this node's does not yet.**
+**A refusal at the start records a `failed` row, on both engines.**
 `CoordinateComputePipes`' `gotError:` label calls `RegisterNodeError`
 (`actions_process_file.go`) since 2026-10-05, which inserts the `in progress`
-row and updates it to `failed` with the error's text, so that an error raised
-before the files are processed reaches the pipeline status. This node resolves
-its file keys before `begin()`, so a refusal at startup leaves no row. That is a
-known divergence, asserted in `tests_side_effects.py` so that closing it is a
-deliberate change on one side or the other.
+row and updates it to `failed` with the error's text and every count zero, so
+that an error raised before the files are processed reaches the pipeline status
+(`getNodeErrorMessage`, `jets/datatable/status_update.go`). This node resolves
+its file keys before `begin()`, and until 2026-11-19 a refusal there left no row
+at all. `SideEffects.register_node_error` is the mirror, and `node.coordinate`
+calls it for every error raised after the document is parsed and before
+`begin()`, as Go does for every error after the config is unmarshalled. The
+agreement is asserted in `tests_side_effects.py` against the Go source.
 
 # The shape of the seam
 
@@ -645,6 +648,29 @@ class SideEffects:
             log.exception("error inserting in jetsapi.cpipes_metrics table")
         return written
 
+    def register_node_error(
+        self, error: BaseException, cpipes_step_id: str = ""
+    ) -> None:
+        """`RegisterNodeError`: a node that failed before it began, as a `failed` row.
+
+        The `in progress` INSERT and then the UPDATE to `failed`, with the
+        error's text and every count zero, which is the Go function's two
+        statements in its order. No child row: the node wrote nothing, and Go's
+        function inserts none.
+
+        **It raises when a write fails, and the caller logs rather than
+        propagates**, which is Go's division: `RegisterNodeError` returns its
+        error and `CoordinateComputePipes` logs it as a warning and returns the
+        node's own error, so the reason the node failed is never replaced by the
+        reason its record could not be written.
+        """
+        self.begin()
+        self.finish(
+            status=STATUS_FAILED,
+            error_message=str(error),
+            cpipes_step_id=cpipes_step_id,
+        )
+
     def _require_key(self, what: str) -> int:
         if self.details_key is None:
             raise NodeError(
@@ -683,6 +709,11 @@ class NoSideEffects:
 
     def report_metrics(self, metrics_config: Any) -> int:
         return 0
+
+    def register_node_error(
+        self, error: BaseException, cpipes_step_id: str = ""
+    ) -> None:
+        return None
 
 
 #: The default. A name rather than `None` so a caller has an object to call.
