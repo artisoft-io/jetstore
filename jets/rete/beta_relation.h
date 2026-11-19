@@ -45,8 +45,86 @@ using BetaRelationPtr = std::shared_ptr<BetaRelation>;
 using SupportKey = absl::InlinedVector<rdf::r_index, 2, ArenaAllocator<rdf::r_index>>;
 using SupportSet = absl::flat_hash_set<SupportKey, absl::Hash<SupportKey>, std::equal_to<SupportKey>,
   ArenaAllocator<SupportKey>>;
-using SupportMap = absl::flat_hash_map<BetaRow const*, SupportSet, absl::Hash<BetaRow const*>,
-  std::equal_to<BetaRow const*>, ArenaAllocator<std::pair<BetaRow const* const, SupportSet>>>;
+
+// One row's supports. Nearly every row has one (measured on rule sets of several
+// hundred thousand such rows, about one in two thousand to one in fourteen had a
+// second), so the first is held in place and a set is allocated, in the row's arena,
+// only for the others: a set per row was most of what keeping supports cost.
+class RowSupports {
+ public:
+  explicit RowSupports(SupportKey first) : first_(std::move(first)), rest_(nullptr) {}
+  RowSupports(RowSupports && other) noexcept
+    : first_(std::move(other.first_)), rest_(std::exchange(other.rest_, nullptr)) {}
+  RowSupports & operator=(RowSupports && other) noexcept
+  {
+    if(this != &other) {
+      release();
+      first_ = std::move(other.first_);
+      rest_ = std::exchange(other.rest_, nullptr);
+    }
+    return *this;
+  }
+  RowSupports(RowSupports const&) = delete;
+  RowSupports & operator=(RowSupports const&) = delete;
+  ~RowSupports() { release(); }
+
+  inline std::size_t
+  size()const
+  {
+    return 1 + (rest_ ? rest_->size() : 0);
+  }
+
+  inline void
+  add(SupportKey const& support)
+  {
+    if(support == first_) return;
+    if(not rest_) {
+      ArenaAllocator<SupportSet> alloc(first_.get_allocator());
+      rest_ = alloc.allocate(1);
+      ::new (static_cast<void*>(rest_)) SupportSet(SupportSet::allocator_type(alloc));
+    }
+    rest_->insert(support);
+  }
+
+  // Withdraws `support`; false when none is left
+  inline bool
+  withdraw(SupportKey const& support)
+  {
+    if(support == first_) {
+      if(not rest_ or rest_->empty()) return false;
+      auto next = rest_->begin();
+      first_ = *next;
+      rest_->erase(next);
+      return true;
+    }
+    if(rest_) rest_->erase(support);
+    return true;
+  }
+
+  // The arena the supports are in, for ~ReteSession's checks
+  inline bool
+  in(BetaRowArena const* arena)const
+  {
+    return first_.get_allocator().arena() == arena and (not rest_ or rest_->get_allocator().arena() == arena);
+  }
+
+ private:
+  inline void
+  release()
+  {
+    if(not rest_) return;
+    ArenaAllocator<SupportSet> alloc(first_.get_allocator());
+    rest_->~SupportSet();
+    alloc.deallocate(rest_, 1);
+    rest_ = nullptr;
+  }
+
+  SupportKey   first_;
+  SupportSet * rest_;
+};
+
+using SupportMap = absl::flat_hash_map<BetaRow const*, RowSupports, absl::Hash<BetaRow const*>,
+  std::equal_to<BetaRow const*>, ArenaAllocator<std::pair<BetaRow const* const, RowSupports>>>;
 
 // The support key of the derivation of a row of `node_vertex` from `parent_row`, in
 // `arena`: empty when the vertex does not count supports
@@ -107,7 +185,7 @@ class BetaRelation {
     if(pending_beta_rows_.get_allocator().arena() != arena) return false;
     if(supports_.get_allocator().arena() != arena) return false;
     for(auto const& [row, supports]: supports_) {
-      if(supports.get_allocator().arena() != arena) return false;
+      if(not supports.in(arena)) return false;
     }
     auto in_arena = [arena](auto const& vec) {
       if(vec.get_allocator().arena() != arena) return false;
@@ -400,8 +478,18 @@ class BetaRelation {
   add_support(BetaRow const* row, SupportKey const* support)
   {
     if(not support or not node_vertex_ or not node_vertex_->counts_supports()) return;
-    auto itor = supports_.try_emplace(row, SupportSet::allocator_type(arena_)).first;
-    itor->second.insert(*support);
+    auto [itor, is_new] = supports_.try_emplace(row, *support);
+    if(not is_new) itor->second.add(*support);
+  }
+
+  // The same, taking the key: a new row's first support is moved into place
+  inline void
+  add_support(BetaRow const* row, SupportKey && support)
+  {
+    if(not node_vertex_ or not node_vertex_->counts_supports()) return;
+    // try_emplace moves the key only when it inserts (one probe either way)
+    auto [itor, is_new] = supports_.try_emplace(row, std::move(support));
+    if(not is_new) itor->second.add(support);
   }
 
   // Withdraws `support` from the row and says whether the row is still supported, and
@@ -414,8 +502,9 @@ class BetaRelation {
     if(not node_vertex_ or not node_vertex_->counts_supports()) return false;
     auto itor = supports_.find(row);
     if(itor == supports_.end()) return false;
-    itor->second.erase(support);
-    return not itor->second.empty();
+    if(itor->second.withdraw(support)) return true;
+    supports_.erase(itor);
+    return false;
   }
 
   // Drops every support of `row`

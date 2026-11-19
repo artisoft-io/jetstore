@@ -77,6 +77,13 @@ derivations of one row apart.
   supports it, and inserts again what the parent rows still make, with their supports.
 - **A vertex whose row carries its parent's whole row** has one derivation per row, keeps no support
   set, and runs the code it ran before.
+- **Nearly every row has one support.** On rule sets of several hundred thousand such rows, between one in
+  fourteen and one in two thousand had a second. So a row's first support is held in place
+  (`RowSupports`), and a set is allocated only for the others. Measured on internal workloads on
+  2026-11-18, against the engine before the fix: no measurable cost on a 1,000-claim session, and peak
+  memory +4.7% (+6.9% with a set per row). A rule set dense in such rows still runs about 6% slower:
+  about half a million rows that keep supports, in a run of under two seconds, each pay one more hash
+  lookup.
 
 Forward inference is unchanged: the same rows are made, once each, and their consequents run once.
 Only a withdrawal that leaves another derivation behind behaves differently.

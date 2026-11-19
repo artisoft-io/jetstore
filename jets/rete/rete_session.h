@@ -657,8 +657,7 @@ BetaRelation::insert_candidate(ReteSession * rete_session, BetaRow const& candid
   });
   if(is_new and this->all_beta_rows_.size() > this->peak_rows_) this->peak_rows_ = this->all_beta_rows_.size();
   if(this->node_vertex_ and this->node_vertex_->counts_supports()) {
-    auto support = make_support_key(this->node_vertex_, parent_row, this->arena_);
-    this->add_support(itor->get(), &support);
+    this->add_support(itor->get(), make_support_key(this->node_vertex_, parent_row, this->arena_));
   }
   // a reference to the set's element: row_inserted does not change the set
   return this->row_inserted(rete_session, *itor, is_new);
