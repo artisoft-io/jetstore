@@ -512,6 +512,30 @@ describe("makeQuery", () => {
     expect(makeQuery(context(config)).workspaceName).toBeUndefined();
   });
 
+  it("does not carry a workspace name the table's own selection wrote", () => {
+    // The registry publishes its selected row's workspace_name; reading it back
+    // made a tick change the table's own request, which refetched and cleared
+    // the tick. The route still supplies the name.
+    const config: TableConfig = {
+      ...tables["lfSourceConfigTable"]!,
+      formStateConfig: { keyColumnIdx: 0, otherColumns: [{ stateKey: "workspace_name", columnIdx: 1 }] },
+    };
+    const field = { group: 0, key: "workspaceRegistryTable" };
+    expect(
+      makeQuery(context(config, { formField: field, formState: formState({ workspace_name: "ws1" }) }))
+        .workspaceName,
+    ).toBeUndefined();
+    expect(
+      makeQuery(
+        context(config, {
+          formField: field,
+          formState: formState({ workspace_name: "ws1" }),
+          routeParams: { workspace_name: "ws2" },
+        }),
+      ).workspaceName,
+    ).toBe("ws2");
+  });
+
   it("attaches an orWith clause to its parent", () => {
     const config: TableConfig = {
       ...tables["lfSourceConfigTable"]!,

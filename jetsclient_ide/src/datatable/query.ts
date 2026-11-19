@@ -320,6 +320,19 @@ function addOrWith(
 }
 
 /**
+ * Whether a table's own selection writes `key` into form state: the key it is
+ * bound under, or one of the row's other columns (`publishSelection`).
+ */
+export function publishesKey(
+  config: TableConfig,
+  field: { group: number; key: string },
+  key: string,
+): boolean {
+  if (field.key === key) return true;
+  return config.formStateConfig?.otherColumns.some((c) => c.stateKey === key) ?? false;
+}
+
+/**
  * `_makeQuery` (`data_table_source.dart:428`).
  *
  * Key insertion order follows the Dart, so a serialised payload compares equal
@@ -471,9 +484,18 @@ export function makeQuery(ctx: QueryContext): DataTableAction {
 
   msg.sortAscending = ctx.sortAscending;
 
-  const fromState = field
-    ? ctx.formState?.getValue(field.group, KEYS.workspaceName)
-    : undefined;
+  // **Not from form state when this table's own selection writes the key.** The
+  // workspace registry publishes its selected row's `workspace_name`, so reading
+  // it back here made a tick change the table's own request: `useDataTable`
+  // fetches whenever the request changes, the reply cleared the selection, and
+  // the restore put it back a moment later, so the box flickered off and on.
+  // The name of a selected row is not a parameter of the query that lists the
+  // rows (the server ignores it for the registry, a `jetsapi` table), and no
+  // other table publishes the key. The route still supplies it.
+  const fromState =
+    field && !publishesKey(config, field, KEYS.workspaceName)
+      ? ctx.formState?.getValue(field.group, KEYS.workspaceName)
+      : undefined;
   const workspaceName =
     fromState != null ? fromState : ctx.routeParams?.[KEYS.workspaceName];
   if (workspaceName != null) {

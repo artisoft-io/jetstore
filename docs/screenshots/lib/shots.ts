@@ -110,11 +110,13 @@ export async function settle(page: Page, scope?: Locator): Promise<void> {
  * Ticks a row's checkbox and waits until the tick has held.
  *
  * Not Playwright's `check`, which reads the box once, straight after the click.
- * Ticking a row of some tables sends the table's query again (Workspaces does),
- * and the reply replaces the rows and clears the tick until the table restores
- * the selection from the form. A `check` whose read fell between the two failed
+ * Ticking a row of Workspaces used to send the table's query again, and the
+ * reply replaced the rows and cleared the tick until the table restored the
+ * selection from the form. A `check` whose read fell between the two failed
  * with "Clicking the checkbox did not change its state": twice in about ten
- * full runs, each time on a spec ticking the jets_ws row of Workspaces.
+ * full runs, each time on a spec ticking the jets_ws row of Workspaces. A tick
+ * sends no query since November 2026; the wait is kept because it is harmless
+ * and guards any table that refetches on a tick.
  */
 export async function tick(checkbox: Locator): Promise<void> {
   if (!(await checkbox.isChecked())) await checkbox.click();
