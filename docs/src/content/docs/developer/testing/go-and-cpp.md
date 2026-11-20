@@ -104,7 +104,7 @@ the three variables, ready to `eval`. Give it `-B <dir>` to build somewhere othe
 `--no-build` to print the variables for a build you already have:
 
 ```bash
-eval "$(utils/libjets_env.sh)"
+eval "$(utils/libjets_env.sh -B bld)"     # bld/ is ignored, like build/
 go test -count=1 ./jets/bridge/ ./jets/compute_pipes/
 ```
 

@@ -18,7 +18,7 @@
 #
 # Usage, from anywhere in the checkout:
 #   eval "$(utils/libjets_env.sh)"            # build into build/, export the env
-#   eval "$(utils/libjets_env.sh -B bld)"     # another build directory
+#   eval "$(utils/libjets_env.sh -B bld)"     # another build directory (ignored)
 #   utils/libjets_env.sh --no-build -B bld    # print the env for an existing build
 #   go test -count=1 ./jets/compute_pipes/
 #

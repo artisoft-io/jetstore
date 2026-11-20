@@ -44,6 +44,8 @@ temp.h
 build/
 # The sanitizer build tree, configured beside build/.
 build-san/
+# A build tree of one's own, as utils/libjets_env.sh -B bld makes for the Go tests.
+bld/
 vscode_build/
 bin
 pkg
