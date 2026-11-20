@@ -158,7 +158,7 @@ func (s *Schema) Confine() []wsvalidate.Finding {
 			Code:     CodeNoDisclaimer,
 			Path:     "/disclaimer",
 			Message: "this schema declares the shape of a briefing and no intended-use notice; " +
-				"A section 8.3 carries the not-medical-advice notice as a required field of the output record, " +
+				"the not-medical-advice notice is carried as a required field of the output record, " +
 				"because a banner is lost the moment the text is copied and a field travels with the record",
 		})
 	case strings.TrimSpace(s.Disclaimer.Field) == "":
@@ -178,7 +178,7 @@ func (s *Schema) Confine() []wsvalidate.Finding {
 				Path:     "/disclaimer/field",
 				Message: fmt.Sprintf(
 					"the disclaimer names %q and the briefing's response_format can produce it, so the model "+
-						"writes the notice; A section 8.3 asks for it to be populated deterministically, and the "+
+						"writes the notice; it is to be populated deterministically rather than by the model, and the "+
 						"notice is the one string here that must carry imperative language - a model field for it "+
 						"is a standing advisory-language exemption inside the document this check guards", field),
 			})
