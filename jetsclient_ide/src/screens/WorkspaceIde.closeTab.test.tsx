@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  *
  * **Closing a tab with unsaved changes asks first, in the app's own dialog.**
- * jetstore_maintenance_02 `I-39`, 2026-10-02.
+ * 2026-10-02.
  *
  * It asked with `window.confirm` until then, which the embedded browser pane
  * never shows — there it answered `false` at once, so a dirty tab could not be

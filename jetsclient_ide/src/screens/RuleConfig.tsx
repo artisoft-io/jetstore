@@ -1,9 +1,9 @@
 /**
- * `/ruleConfig` — the rules configuration screen. Task C.10.
+ * `/ruleConfig` — the rules configuration screen.
  *
  * ## Everything here is the v2 configuration, and the v1 siblings are gone
  *
- * C.0 deleted `ruleConfigTable`, `rulesConfigDialog` and `processConfigForm` with
+ * An earlier cleanup deleted `ruleConfigTable`, `rulesConfigDialog` and `processConfigForm` with
  * the `/processConfig` route they belonged to. Nothing in this screen refers to
  * one, which was worth checking rather than assuming: the menu entry named
  * `processConfig` points at `ruleConfigPath`
@@ -22,9 +22,9 @@
  * the process identify the record on an update, so the Dart locks both once they
  * hold a value (`makeReadOnlyWhenHasSelectedValue`) — without it, editing either
  * on an existing row would move the record rather than edit it. It is a schema
- * member as of this task; see `userflow/form.ts`.
+ * member since this screen was built; see `userflow/form.ts`.
  *
- * ## One escape, and it is the first thing in track C the value grammar cannot say
+ * ## One escape, and it is the first thing on these screens the value grammar cannot say
  *
  * `process_config_key` is looked up in the rows the *process* dropdown's query
  * returned, by the chosen process name. `ValueSchema`'s five members all read form
@@ -34,7 +34,8 @@
  * ## The screen renders one table and declares no form document
  *
  * `rulesConfigv2SelectForm` is action-less and holds a single data-table field, so
- * this is I-177's clause for the third time in this session's three screens.
+ * it is markup rather than a document, as on the process errors and user
+ * administration screens.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -72,8 +73,8 @@ const TABLE_KEY = "ruleConfigv2Table";
 /**
  * The base validation group. A dialog's repeat adds more; the screen has one.
  *
- * **A dialog gets its own `FormState` here, and C.2b's screen shares the
- * screen's.** That decision's stated ground is that *"the Dart shares one
+ * **A dialog gets its own `FormState` here, and the workspace registry screen's
+ * dialogs share the screen's.** That decision's stated ground is that *"the Dart shares one
  * `JetsFormState` between the screen and its dialogs"* — which is not what the
  * Dart does. `actionDispatcher` builds a **new** state,
  * `formConfig.makeFormState(parentFormState: formState)`
@@ -96,7 +97,7 @@ const TABLE_KEY = "ruleConfigv2Table";
  */
 const GROUP = 0;
 
-/** The one table document. Bundled rather than read from a workspace (I-170). */
+/** The one table document. Bundled rather than read from a workspace. */
 const TABLE_JSON: Record<string, unknown> = { ruleConfigv2Table: ruleConfigTableJson };
 
 const parsedForms = FormDocumentSchema.safeParse(formsJson);
@@ -108,7 +109,7 @@ const parsedTables = Object.fromEntries(
 /**
  * Findings from parsing and from resolving escape names, for the banner.
  *
- * The same shape C.2b's screen uses, and the same argument: a document that does
+ * The same shape the workspace registry screen uses, and the same argument: a document that does
  * not satisfy its schema fails in every test that imports this module rather than
  * when a user presses a button.
  */
@@ -146,9 +147,9 @@ export function documentFindings(): string[] {
 }
 
 export function RuleConfig({ api }: { api: ApiClient }) {
-  // X.1: a `navigate` request resolves in this app now.
+  // A `navigate` request resolves in this app now that the Flutter app is gone.
   const navigate = useNavigate();
-  /** Where a flow opened from this screen should return to (D.8). */
+  /** Where a flow opened from this screen should return to. */
   const location = useLocation();
   const here = `${location.pathname}${location.search}`;
   const routeParams = useParams();
@@ -162,9 +163,9 @@ export function RuleConfig({ api }: { api: ApiClient }) {
   const formState = useMemo(() => new FormState(), []);
   const dialog = useFormDialog();
   /**
-   * Whether the last action stopped because the *user* stopped it. **I-186**, and
-   * this is the first screen of mine that needs it: C.9's two dialogs are viewers
-   * with nothing to validate, and this one submits.
+   * Whether the last action stopped because the *user* stopped it. The process
+   * errors screen's two dialogs are viewers with nothing to validate, and this
+   * one submits, so this screen needs it.
    *
    * `runAction` returns null both when it ran to the end and when a `validate`
    * step failed or a `confirm` was refused. Treating the second as success closes
@@ -213,7 +214,8 @@ export function RuleConfig({ api }: { api: ApiClient }) {
   /**
    * The query context, keyed on its contents rather than on the form version.
    *
-   * **I-184, inherited rather than rediscovered.** Rebuilding this on every
+   * **A defect inherited from the workspace registry screen rather than
+   * rediscovered.** Rebuilding this on every
    * form-state change makes publishing a selection refetch the table, and the
    * refetch clears the selection that was just published — so every row-gated
    * button stays dead. Both of this screen's buttons are row-gated.
@@ -222,7 +224,7 @@ export function RuleConfig({ api }: { api: ApiClient }) {
    * carries no parameters, neither table has a `client` column and neither reads a
    * filter list, so every member `makeQuery` would splice is absent. What it buys
    * is that a table added here later gets the same context every other screen's
-   * does, which is decision 2's whole point.
+   * does, which is the whole point of building it in one place.
    */
   const contextKey = JSON.stringify(routeParams);
   const tableContext = useMemo(
@@ -352,7 +354,7 @@ export function RuleConfig({ api }: { api: ApiClient }) {
     [actions, host, activeState],
   );
 
-  /** Opens a dialog and waits. **Not while `busy`** — C.2b's finding: a modal is not work. */
+  /** Opens a dialog and waits. **Not while `busy`** — the workspace registry's finding: a modal is not work. */
   const openDialog = useCallback(
     async (form: string, params: Record<string, string>) => {
       setBusy(false);
@@ -454,11 +456,12 @@ export function RuleConfig({ api }: { api: ApiClient }) {
             case "navigate": {
               // **This arm used to hand the browser to Flutter unconditionally**,
               // which was right when the other app served every screen this one
-              // does not. X.1 removed the destination, so it resolves in-app and
+              // does not. The Flutter app's retirement removed the destination, so it resolves in-app and
               // reports when it cannot — the convention `escapes.ts` set for a name
               // with no body.
               const to = inAppPath(action.configScreenPath, request.params);
-              // D.8 — see `UserAdmin.tsx` for why this is applied uniformly.
+              // The flow returns here when it ends — see `UserAdmin.tsx` for why
+              // this is applied uniformly.
               if (to !== null) void navigate(withReturnTo(to, here));
               else setError(unservedScreenMessage(action.label, request.path));
               return;

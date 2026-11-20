@@ -1,11 +1,10 @@
 /**
  * @vitest-environment jsdom
  *
- * **C.5's exit condition: the screen renders and reaches the server, not that
+ * **The exit condition: the screen renders and reaches the server, not that
  * the document parses.**
  *
- * I-104 is why this is a rendering test rather than a check over the form
- * document: a document-level check passes on a field nothing draws. So this
+ * This is a rendering test rather than a check over the form document because a document-level check passes on a field nothing draws. So this
  * drives the screen the way `FlowRunner.test.tsx` drives a flow — everything
  * below `ApiClient` is real, and the only stub is `fetch`, answering as
  * `jets/apiserver/api_infer_server.go` does.
@@ -28,7 +27,7 @@
  *    endpoint is the enforcement point — but eight buttons naming a capability
  *    is eight chances to omit one;
  *  - **the stop confirmation is a modal dialog, and only *Stop it* stops.**
- *    jetstore_maintenance_02 `AB.4` (D07), 2026-10-01. It was a panel below the
+ *    2026-10-01. It was a panel below the
  *    form, exercised only in passing by the gating case; the panel's two clicks
  *    there now go through the dialog, and the case below is the confirmation's
  *    own. jsdom has no `showModal`, so `ModalDialog` falls back to the `open`

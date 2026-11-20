@@ -1,10 +1,10 @@
 /**
- * The served-screen map. Task C.6.
+ * The served-screen map.
  *
  * **The interesting assertion is the one that reads `App.tsx`.** A row here is a
  * claim that this app serves a screen, and the failure it is guarding against is
  * a row that outlives its route — a table action would then navigate in-app to a
- * path nothing matches, which C.16 answers with a 404 rather than with the
+ * path nothing matches, which this app answers with a 404 rather than with the
  * Flutter screen that would have worked. So the map is checked against the route
  * table rather than against a list somebody keeps by hand.
  */
@@ -93,7 +93,7 @@ describe("the served-screen map", () => {
   });
 
   it("covers the four ScreenOne routes", () => {
-    // C.7, C.8, C.11 and C.12. Named as a set rather than counted, because the
+    // Named as a set rather than counted, because the
     // claim is that this app now serves all four rather than that it serves four.
     for (const template of [
       "/executionStatusDetails/:session_id",
@@ -128,7 +128,7 @@ describe("the served-screen map", () => {
   });
 
   it("renames only where a task decided to, and says which", () => {
-    // One row of the seven. C.4 serves the Query Tool at `/query-tool`; every
+    // One row of the seven. The Query Tool is served at `/query-tool`; every
     // other React path is the Flutter template verbatim, which is what makes a
     // handoff a prefix change rather than a translation.
     const renamed = Object.entries(SERVED_SCREENS).filter(([template, s]) => template !== s.reactPath);
@@ -139,7 +139,7 @@ describe("the served-screen map", () => {
    * **Every navigation target in the corpus resolves in this app.**
    *
    * This replaces three checks that compared `SERVED_SCREENS` against the Flutter
-   * route table, which X.1 deleted. Those asked *does this app claim a screen the
+   * route table, which went with the Flutter app. Those asked *does this app claim a screen the
    * other one declares* — a question with no referent once there is one app — and
    * what replaces them is stronger rather than weaker: it asks the question the
    * user experiences, which is whether pressing a button goes anywhere.
@@ -160,14 +160,14 @@ describe("the served-screen map", () => {
       feature_branch: "fb",
       workspace_uri: "u",
       startAtKey: "a",
-      // D.10's entry point takes four, of which two are new to this list
+      // The file loader's entry point takes four, of which two are new to this list
       // (`client`, `org`); `object_type` and `table_name` are already above.
       client: "c",
       org: "g",
     };
     // **The list is derived, so its emptiness has to be asserted separately.** A
     // glob that matched nothing would make the filter below pass over zero paths
-    // and report success — the vacuous-pass failure C.0 found in the corpus tests,
+    // and report success — the vacuous-pass failure once found in the corpus tests,
     // where a corpus that does not move is not evidence a deletion was inert.
     expect(CONFIG_SCREEN_PATHS.length).toBeGreaterThanOrEqual(10);
 
@@ -187,10 +187,10 @@ describe("the served-screen map", () => {
 
     // The eleven, which is the whole corpus (`user_flows/` holds eleven `.uf.json`
     // plus three projections, and a projection has no Flutter route).
-    // **Ten since 2026-10-01**: `/registerFileKeyUF` went with its flow
-    // (`jetstore_maintenance_02` `AD.4`), and `user_flows/` holds ten.
+    // **Ten since 2026-10-01**: `/registerFileKeyUF` went with its flow, and
+    // `user_flows/` holds ten.
     // **Eleven since 2026-10-11**, and the eleventh is not a Flutter route:
-    // `rulesUnitTestUF` (`rules_unit_test_harness` `AD.3`) is a new flow a table
+    // `rulesUnitTestUF`, the rules unit-test flow, is a new flow a table
     // button opens, and this map is the only way a button names a flow.
     expect(Object.keys(FLOW_ROUTES)).toHaveLength(11);
   });
@@ -199,10 +199,10 @@ describe("the served-screen map", () => {
     expect(reactFlowRoute("/workspaces/loadConfigUF/:workspace_name", { workspace_name: "org1" })).toBe(
       "/flow/loadConfigUF?workspace_name=org1",
     );
-    // F.10's decision, kept: a flow whose arguments are absent is not opened with
+    // An earlier decision, kept: a flow whose arguments are absent is not opened with
     // an empty worksheet.
     expect(reactFlowRoute("/fileMappingUF/mapping/:table_name/:object_type", { table_name: "t" })).toBeNull();
-    // `AD.3`: the workspace registry's *Rules Unit Tests* button, which carries
+    // The workspace registry's *Rules Unit Tests* button, which carries
     // the row's workspace the way *Load Client Config* does — and refuses to open
     // a flow that would test no workspace.
     expect(
@@ -276,7 +276,7 @@ describe("the served-screen map", () => {
 });
 
 /**
- * Where a flow goes when it ends. Task D.8, from **I-265**.
+ * Where a flow goes when it ends.
  *
  * The end-to-end behaviour is `FlowRunner.test.tsx`'s — a flow finishing and the
  * app arriving somewhere. What is here is the part with a decision in it: which
@@ -302,7 +302,7 @@ describe("the origin a flow url carries", () => {
   });
 
   it("carries the origin over, rather than nesting, when reopening the flow it is in", () => {
-    // `jetstore_maintenance_02` Phase 2, 2026-10-01: the menu entry of the
+    // Fixed 2026-10-01: the menu entry of the
     // current flow set `returnTo` to the flow itself, so *Close* took two presses.
     const here = "/flow/clientRegistryUF?returnTo=%2Fhome";
     expect(withReturnTo("/flow/clientRegistryUF", here)).toBe("/flow/clientRegistryUF?returnTo=%2Fhome");
@@ -348,14 +348,13 @@ describe("the origin a flow url carries", () => {
   it("falls back to a route the app serves and no capability gates", () => {
     // The value is asserted rather than the constant, because what makes `/home`
     // the right answer is that it is the index and is ungated — `/workspace`, the
-    // fallback until D.8, is neither.
+    // earlier fallback, is neither.
     expect(FLOW_EXIT_FALLBACK).toBe("/home");
   });
 });
 
 /**
  * Where a flow begins, when a button says somewhere other than its first state.
- * Task D.10, from **I-260**.
  */
 describe("the flow entry points", () => {
   it("is a separate map from FLOW_ROUTES, which stays the Flutter routes", () => {

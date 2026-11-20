@@ -1,30 +1,30 @@
 /**
  * The form state a data table publishes into and reads back from.
  *
- * Task A.4c. Ported from `JetsFormState`
+ * Ported from `JetsFormState`
  * (`jetsclient/lib/components/jets_form_state.dart:53`), narrowed to what the
  * table needs: values, selected rows, updated-key tracking, and a listener.
  *
  * **This is a seed, not the finished form state.** The Flutter class also holds
  * validation groups, invalid-key sets, a cache and anonymous callbacks, all of
- * which belong to the form widgets rather than to the table. When A.3's inputs
+ * which belong to the form widgets rather than to the table. When the form's inputs
  * and dropdowns land they should *extend* this rather than introduce a second
  * store — two form states in one screen is the failure this file exists to avoid.
  *
- * **The group dimension is paid as of I.1** — `resizeFormState` and
- * `removeValidationGroup` below (I-31). The array of groups was always the right
- * shape; what was missing was the arithmetic. **The value cache is paid as of
- * I.2b**, narrowly: `queryRows` holds what a form's named queries returned. All
+ * **The group dimension is paid** — `resizeFormState` and
+ * `removeValidationGroup` below. The array of groups was always the right
+ * shape; what was missing was the arithmetic. **The value cache is paid**,
+ * narrowly: `queryRows` holds what a form's named queries returned. All
  * five `addCacheValue` call sites in `jetsclient` write a query result — four in
  * `components/form.dart` and one in `components/dropdown_form_field.dart` — so a
  * cache of anything else has no author to serve. Still outstanding: the
- * invalid-key set and the anonymous callbacks (I-9).
+ * invalid-key set and the anonymous callbacks.
  *
  * Three behaviours are load-bearing and easy to lose in a rewrite:
  *
  *  - **Setting `null` removes the binding** rather than storing a null, so
  *    `getValue` returning `undefined` and "the key was explicitly cleared" are
- *    the same state. A.4a's query builder depends on it: an absent key is what
+ *    the same state. The query builder depends on it: an absent key is what
  *    makes a where clause fall back to its default or drop out.
  *  - **A key is marked updated only when the value actually changes.** The
  *    refresh-on-change machinery reads those marks, so marking on every write
@@ -82,7 +82,7 @@ export class FormState {
   }
 
   /**
-   * The rows a form's named query returned. Task I.2b.
+   * The rows a form's named query returned.
    *
    * **Outside the group dimension, deliberately.** The Dart's cache is likewise
    * flat — `addCacheValue(key, value)` takes no group
@@ -93,7 +93,7 @@ export class FormState {
    * Keyed by the query's own name rather than by a cache key the document
    * chooses. The Dart offers both (`returnedModelCacheKey`, and the map keys of
    * `dropdownItemsQueries`), which is two names for one set of rows; one name is
-   * the same cut I-52 made thirteen times over on the table document.
+   * the same cut made thirteen times over on the table document.
    */
   setQueryRows(name: string, rows: JetsRow[]): void {
     this.queries.set(name, rows);
@@ -105,8 +105,7 @@ export class FormState {
   }
 
   /**
-   * `resizeFormState` (`jets_form_state.dart:139`). Task I.1, and the answer to
-   * I-31.
+   * `resizeFormState` (`jets_form_state.dart:139`).
    *
    * **It grows and never shrinks, and that is the Dart's behaviour rather than
    * an omission.** The Dart computes `n = newGroupCount - groupCount` and does
@@ -121,12 +120,12 @@ export class FormState {
    * `form.dart:210` reads `data[inputFieldsQuery]`, takes its length, adds one
    * spare group when the form offers an "add another" affordance
    * (`formWithDynamicRows`), and calls this. The file mapping tool is one group
-   * per field to be mapped on exactly that mechanism, which is why I-31 named
-   * F.8 as the consumer.
+   * per field to be mapped on exactly that mechanism, which makes it the
+   * consumer.
    *
    * **No maximum-iteration cutoff lives here, and the reason is now ours.** The
-   * suggestion to cap the count came from the agentic project's `from_model`
-   * case, which has since been retired (I-44) — so the rule stands on its own
+   * suggestion to cap the count came from a model-driven case, which has since
+   * been retired — so the rule stands on its own
    * merits rather than as a concession: the store's job is to hold values, and a
    * policy limit inside it is a limit every caller inherits silently. A caller
    * that needs a bound imposes it on the number it passes.
@@ -151,8 +150,8 @@ export class FormState {
    *
    * **Out of range throws rather than asserting.** The Dart asserts
    * (`:156`) and Dart strips asserts in release builds, so there the guard is a
-   * development-time courtesy and production relies on `removeAt` raising — see
-   * I-47 for how widely that pattern runs in `jetsclient`. Throwing here matches
+   * development-time courtesy and production relies on `removeAt` raising, a
+   * pattern that runs widely in `jetsclient`. Throwing here matches
    * what this class already chose for `group()`, and makes the two enforcement
    * points agree in every build rather than only in debug.
    *
@@ -248,9 +247,9 @@ export class FormState {
   }
 
   /**
-   * The second notification channel, added by S.2a.
+   * The second notification channel, added with the action interpreter.
    *
-   * **`JetsFormState` has two and A.4c implemented one.** `addListener` fires on
+   * **`JetsFormState` has two and the first port implemented one.** `addListener` fires on
    * a value change and is what the refresh-on-watched-key machinery reads;
    * `addCallback`/`invokeCallbacks` (`jets_form_state.dart:122`) is separate and
    * fires when something happens that a table should re-read the *server* for.

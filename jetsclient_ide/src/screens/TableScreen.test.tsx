@@ -1,21 +1,23 @@
 /**
  * @vitest-environment jsdom
  *
- * **C.7 and C.8's exit condition: the route parameter reaches the `WHERE`.**
+ * **The execution details screens' exit condition: the route parameter reaches
+ * the `WHERE`.**
  *
  * The claim these two screens make is one clause long — that `:session_id` from
  * the url becomes a predicate on the query — and **it is not observable from the
  * rows.** A `pipeline_execution_details` table with no `session_id` filter returns
  * every session's shards and renders perfectly; the screen looks right, the
  * columns are right, the label is right, and it is showing another user's run.
- * That is I-104's failure with a different field, so the assertions below are
+ * That is a contract tested from the end that cannot fail, with a different
+ * field, so the assertions below are
  * about **the request the table sent**.
  *
  * Everything below `ApiClient` is real, as in `FlowRunner.test.tsx`. The only
  * stub is `fetch`, dispatching on `fromClauses[0].table` the way the apiserver
  * dispatches on the statement it composes.
  *
- * **Rows are awaited, never labels** (I-104's flake): a table's rows arrive from
+ * **Rows are awaited, never labels**: a table's rows arrive from
  * an effect one tick after its label, so `findByText(label)` then `getByText(row)`
  * is racy and the failure surfaces somewhere else.
  */
@@ -143,10 +145,10 @@ describe("the route parameter reaches the where clause", () => {
 
   it("adds no implicit client filter, because neither table has a client column", async () => {
     // The measured negative. `makeQuery` appends `{column: "client"}` when
-    // `selectedClient` is set *and* the table has such a column; there is no
-    // `selectedClient` store in this app, and these two tables have no such
-    // column, so the clause count is exactly the configured one. C.6 is where
-    // that stops being true — `inputRegistryTable` has the column.
+    // `selectedClient` is set *and* the table has such a column; these two
+    // tables have no such column, so the clause count is exactly the configured
+    // one whatever the store holds. The home screen's `inputRegistryTable` is
+    // where that stops being true — it has the column.
     for (const which of ["status", "stats"] as const) {
       const { posts } = await mount(which, "sess-1");
       await waitFor(() => expect(reads(posts).length).toBeGreaterThan(0));
@@ -158,8 +160,8 @@ describe("the route parameter reaches the where clause", () => {
 
 describe("the document is what the request is built from", () => {
   it("selects run_duration as the SQL the document authors", async () => {
-    // The second and last `calculatedAs` in the corpus, and the one C.7 decided
-    // stays an authored fragment. It reaches the wire, which is the half of that
+    // The second and last `calculatedAs` in the corpus, and the one decided to
+    // stay an authored fragment. It reaches the wire, which is the half of that
     // decision a schema test cannot show.
     const { posts } = await mount("status", "sess-7");
     await screen.findByText("completed");
@@ -210,8 +212,8 @@ describe("the document is what the request is built from", () => {
 
 describe("maxLines, which nothing drew until this task", () => {
   it("clamps the error message and gives it the configured width", async () => {
-    // I-104's rule applied in advance: `maxLines` was authored and consumed in
-    // one change. `error_message` is 3 lines at 600px on this table and is the
+    // A field that validates and draws nothing is the failure to avoid, so
+    // `maxLines` was authored and consumed in one change. `error_message` is 3 lines at 600px on this table and is the
     // only column of either that sets anything.
     const { posts } = await mount("status", "sess-7");
     const cell = await screen.findByText("boom: the loader could not parse row 44");

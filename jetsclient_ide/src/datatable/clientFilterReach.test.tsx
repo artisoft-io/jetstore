@@ -1,14 +1,13 @@
 /**
  * @vitest-environment jsdom
  *
- * The client filter reaches every table with a `client` column. Task D.3,
- * from **I-259**'s note.
+ * The client filter reaches every table with a `client` column.
  *
  * ## What this is actually testing, and why it is a whole file
  *
- * `makeQuery` has added the implicit `WHERE client = $n` since A.4a, gated on
+ * `makeQuery` has always added the implicit `WHERE client = $n`, gated on
  * `selectedClient` being set *and* the table declaring a `client` column. **Until
- * D.3 exactly one caller passed `selectedClient`** — `Home.tsx` — so the filter
+ * this change exactly one caller passed `selectedClient`** — `Home.tsx` — so the filter
  * narrowed the Home screen's tables and did nothing anywhere else, including in
  * every user flow. The report's wording is *"not only to tables on the Home
  * screen but also to all tables in user flows that have the column `client`"*.

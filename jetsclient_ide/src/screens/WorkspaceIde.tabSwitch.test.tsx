@@ -1,8 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * **Switching tabs keeps a tab's unsaved edits on screen.** `jetstore_maintenance_02`
- * `I-65`, 2026-10-27. The editor now makes a fresh state for each file it is shown,
+ * **Switching tabs keeps a tab's unsaved edits on screen.** 2026-10-27. The editor now makes a fresh state for each file it is shown,
  * so what it shows on a switch is the `content` the screen passes. That is the
  * tab's current text. It was its saved text, and the old editor's replace
  * transaction then reset the tab to it, so edits were lost by leaving a tab and

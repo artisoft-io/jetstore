@@ -1,5 +1,5 @@
 /*
- * The Infer Server Admin screen. Task C.5.
+ * The Infer Server Admin screen.
  *
  * Its own file rather than an addition to `styles.css`, on the precedent
  * `proposals/proposals.css` set: a screen's layout is the screen's, and the
@@ -50,8 +50,7 @@
  *
  * ~~`styles.css` declares `.banner-error` and `.banner-ok` and no warning
  * variant; this one is scoped here rather than adding a third to the shared
- * sheet for a single screen.~~ **A modal dialog since 2026-10-01**
- * (jetstore_maintenance_02 `AB.2`, D07): the panel this styled sat below a
+ * sheet for a single screen.~~ **A modal dialog since 2026-10-01**: the panel this styled sat below a
  * full-height form, so it needed a banner's colours to be noticed once found.
  * Inside a dialog it is the only thing on screen, and the dialog's own size and
  * colours are `.uf-dialog`'s in `styles.css`. What is left is the warning tone

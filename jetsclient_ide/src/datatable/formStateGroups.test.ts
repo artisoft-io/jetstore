@@ -1,5 +1,5 @@
 /**
- * The form state's group dimension. Task I.1, and the answer to I-31.
+ * The form state's group dimension: how many groups a form state holds.
  *
  * `FormState` was always an array of groups — the right shape for a repeating
  * structure — and had no way to change how many. These are the two methods that

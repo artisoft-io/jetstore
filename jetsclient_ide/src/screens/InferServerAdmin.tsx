@@ -1,14 +1,14 @@
 /**
- * The Infer Server Admin screen. Task C.5, `/inferServerAdmin`.
+ * The Infer Server Admin screen, `/inferServerAdmin`.
  *
- * The first of track C's form-only screens, and the first screen in this app to
+ * The first of the migrated form-only screens, and the first screen in this app to
  * render a `.form.json` that is not a flow's.
  *
  * ## The form is a document, and it lives beside the screen
  *
  * `documents/inferServerAdminScreen.form.json`, imported as a JSON module and
- * parsed through `FormDocumentSchema` — the decision C.2 took for the whole of
- * track C. **A screen's documents are bundled and a flow's are not**, and the
+ * parsed through `FormDocumentSchema` — the decision taken for every migrated
+ * screen. **A screen's documents are bundled and a flow's are not**, and the
  * reason is a circularity rather than filing: `routing.ts` makes a flow React's
  * *iff* `user_flows/<key>.uf.json` exists **in the workspace**, so a flow's
  * documents are a per-workspace fact by design. There is one `/inferServerAdmin`
@@ -17,8 +17,9 @@
  *
  * ## Four things the Dart form does that `FormDocumentSchema` cannot say
  *
- * One is built, three are reported and not worked around. They are C.5's finding
- * and they bind C.10, C.13 and C.14 — the schema was measured against the flows,
+ * One is built, three are reported and not worked around. They were found on
+ * this screen and they bind the rules configuration, user administration and
+ * later form screens too — the schema was measured against the flows,
  * and this screen's button vocabulary is richer than any flow needed.
  *
  *  1. **`isEnabledEval` — built.** `FormActionSchema.enabledWhen` names a
@@ -243,14 +244,13 @@ export function InferServerAdmin({ api }: { api: ApiClient }) {
         return;
       }
       // The stop confirmation is a render, not an await. ~~The Dart opens a
-      // danger-zone dialog and this app has no dialog host on `jets_ai` yet
-      // (I-68). A panel below the toolbar is the same decision point without
-      // building the second one.~~ **Corrected 2026-10-01
-      // (jetstore_maintenance_02 `AB.3`, its `I-8`): the host exists and the
-      // panel was the defect.** `FormDialog` has opened a native modal
-      // `<dialog>` since C.2b, so I-68's condition was met long before this
+      // danger-zone dialog and this app has no dialog host yet. A panel below
+      // the toolbar is the same decision point without building the second
+      // one.~~ **Corrected 2026-10-01: the host exists and the panel was the
+      // defect.** `FormDialog` has opened a native modal `<dialog>` since the
+      // workspace registry screen, so the host existed long before this
       // comment was re-read, and the panel sat below a form styled to fill the
-      // screen, where the user had to scroll to find it (D07). It is a modal
+      // screen, where the user had to scroll to find it. It is a modal
       // `ModalDialog` now, the element `FormDialog` itself is built on.
       if (action.action === ACTIONS.stop) {
         setConfirmStop(true);
@@ -291,7 +291,7 @@ export function InferServerAdmin({ api }: { api: ApiClient }) {
 
   /**
    * **Two lists, because a rule can gate a button without decorating a box.**
-   * D.11, from the report: the request box sat in the error state from the
+   * From a defect report: the request box sat in the error state from the
    * moment the screen opened, on a screen the user may have come to only to
    * press *Start* or *Models*.
    *
@@ -315,12 +315,11 @@ export function InferServerAdmin({ api }: { api: ApiClient }) {
       <FormRenderer form={FORM} host={host} errors={shownErrors} />
 
       {/*
-        The stop confirmation, as a modal dialog. jetstore_maintenance_02 `AB.2`
-        (D07), 2026-10-01.
+        The stop confirmation, as a modal dialog, 2026-10-01.
 
         **Modal because the action terminates a GPU instance.** The panel it
         replaces was non-modal and rendered after a full-height form, so it was
-        below the fold (assessment F35); a modal `<dialog>` is in the top layer,
+        below the fold; a modal `<dialog>` is in the top layer,
         centred, holds focus and leaves the screen behind it inert.
 
         **Every way out that is not *Stop it* means *Keep it running***: the

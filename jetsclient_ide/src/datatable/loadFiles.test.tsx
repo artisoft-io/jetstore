@@ -1,20 +1,20 @@
 /**
  * @vitest-environment jsdom
  *
- * **A.4c's exit condition: `load_files`' two tables behave as the Flutter app
- * does.**
+ * **The form-state binding's exit condition: `load_files`' two tables behave
+ * as the Flutter app does.**
  *
  * The flow is 28 lines of Dart and the cheapest one that uses a data table, and
  * it is also a complete specimen of the widget — single and multi selection,
  * publication into form state, a where clause reading the other table's
  * selection, a join clause, a default clause, hidden and numeric columns, server
- * sorting and paging. That is why the sizing nominated it, and why these tests
- * are the ones that matter: everything else in A.4a–A.4c is unit-tested against
- * a function, and this is the only place the three pieces are asked to behave
+ * sorting and paging. That is why it was chosen, and why these tests
+ * are the ones that matter: everything else in the query builder, the table
+ * state and the binding is unit-tested against a function, and this is the only place the three pieces are asked to behave
  * like an application.
  *
  * What is still not covered, and is not coverable here: the server. Both tables
- * talk to a stub. See I-7.
+ * talk to a stub; `live.test.ts` is where they meet a real apiserver.
  */
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -27,7 +27,7 @@ import { useTableBinding } from "./useTableBinding";
 import type { DataTableFetcher, DataTableResponse } from "./useDataTable";
 import type { JetsRow, TableConfig } from "./types";
 
-/** A row's own box, and not the heading's select-all box (JM-187). */
+/** A row's own box, and not the heading's select-all box. */
 const ROW_BOX = /^Select row /;
 
 const tables = corpus.tables as unknown as Record<string, TableConfig>;

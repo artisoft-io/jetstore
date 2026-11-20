@@ -1,5 +1,5 @@
 /**
- * The git profile screen. Task C.14.
+ * The git profile screen.
  *
  * `ScreenWithForm` over `FormKeys.userGitProfile` in the Flutter app, reached
  * from the app bar rather than from a menu
@@ -38,8 +38,8 @@
  * flow — and no Flutter route would have to change for it to. **That reason is
  * narrower than the one written here until 2026-08-26**, which was that
  * `migratedUserFlows` is empty; it was all eleven by then, and the sentence still
- * holds because `userFlowRoutes` claims flow routes only. If track X ever wants the handoff before
- * it retires `jetsclient`, the app bar would drop its `params` map and point at
+ * holds because `userFlowRoutes` claims flow routes only. Had the handoff been
+ * wanted before `jetsclient` was retired, the app bar would drop its `params` map and point at
  * `/ide/git-profile`; it would not need to learn a parameter shape, because there
  * is none to learn.
  *
@@ -47,7 +47,7 @@
  *
  * `screen_reachability.json` gives `userGitProfileScreen` an empty `access` list,
  * and that is a statement about the *configuration* rather than a claim that
- * anyone may reach it (I-20). Read off the code, the gates are:
+ * anyone may reach it. Read off the code, the gates are:
  *
  *  - **the screen**: an authenticated session. The Flutter app bar refuses to
  *    navigate unless `user.isAuthenticated`; here the shell's session gate is the
@@ -224,7 +224,7 @@ export function GitProfileScreen({ api }: { api: ApiClient }) {
        * form. The server takes whoever the request names — the statement's
        * `WHERE user_email = $5` is a parameter and `user_profile` is held by
        * three of the four seeded roles — so which email a client puts here is the
-       * whole of who gets edited. Recorded as **I-187**.
+       * whole of who gets edited. That is a server-side gap, recorded as such.
        */
       await api.dataTable({
         action: "insert_rows",
@@ -248,7 +248,7 @@ export function GitProfileScreen({ api }: { api: ApiClient }) {
       setStatus("Git profile updated.");
       // Leaving the screen is the Flutter behaviour and it also stops the token
       // sitting in a mounted input for the rest of the session. `/` redirects to
-      // the workspace IDE until C.6 lands the home screen this corresponds to.
+      // the home screen this corresponds to.
       void navigate("/");
     } catch (error) {
       setError(

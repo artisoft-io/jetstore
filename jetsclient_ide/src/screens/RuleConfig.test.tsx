@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * **C.10 driven end to end.** Everything below `ApiClient` is real; `fetch` is the
+ * **The rules configuration screen driven end to end.** Everything below `ApiClient` is real; `fetch` is the
  * only stub.
  *
  * The two things here that no earlier screen test covers:
@@ -176,7 +176,7 @@ describe("the dialog", () => {
     const dialog = await screen.findByRole("dialog", { name: "Rule Configuration" });
 
     // The two dropdowns fill from their queries — the form-level `queries` and
-    // `itemsFrom` of I.2b, on a screen rather than on a flow.
+    // `itemsFrom`, on a screen rather than on a flow.
     const client = (await within(dialog).findByLabelText("Client")) as HTMLSelectElement;
     await waitFor(() => expect(within(client).getAllByRole("option").length).toBeGreaterThan(1));
     fireEvent.change(client, { target: { value: "globex" } });
@@ -205,7 +205,7 @@ describe("the dialog", () => {
     const dialog = await screen.findByRole("dialog", { name: "Rule Configuration" });
 
     // **Both identifying fields arrive filled and locked.** `isReadOnlyWhenSet`,
-    // C.10's schema member: on an update the client and the process are what the
+    // a schema member added for this screen: on an update the client and the process are what the
     // `WHERE` matches, so editing either would move the record rather than edit it.
     const client = within(dialog).getByLabelText("Client") as HTMLSelectElement;
     const process = within(dialog).getByLabelText("Process") as HTMLSelectElement;
@@ -241,9 +241,10 @@ describe("the dialog", () => {
     // appends `error.message`, which is what makes a json failure say *where*.
     await within(dialog).findByText(/Rule configuration must be a valid json array\./);
     expect(inserts(posts, "rule_configv2")).toEqual([]);
-    // Still open — I-186. The Dart's own validator rejects the same input
-    // (`config_delegates.dart`, the `ruleConfigJson` case), and the `json` rule is
-    // one of S.5's two, so this is a rule rather than an escape.
+    // Still open: a failed `validate` does not close the dialog. The Dart's own
+    // validator rejects the same input (`config_delegates.dart`, the
+    // `ruleConfigJson` case), and `json` is one of the form schema's built-in
+    // rules, so this is a rule rather than an escape.
     expect(screen.queryByRole("dialog")).not.toBeNull();
   });
 });

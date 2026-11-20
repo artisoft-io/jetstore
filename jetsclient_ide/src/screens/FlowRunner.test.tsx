@@ -1,11 +1,11 @@
 /**
  * @vitest-environment jsdom
  *
- * **F.0a's exit condition: a flow runs in the app rather than in a harness.**
+ * **The claim: a flow runs in the app rather than in a harness.**
  *
  * `proofFlows.test.ts` already drove both flows through `engine` + `interpret` +
- * `validateForm` in memory, and it was right about all of it — the finding I-50
- * recorded is that the *application* had none of it: no route, no screen, no
+ * `validateForm` in memory, and it was right about all of it — what was found
+ * is that the *application* had none of it: no route, no screen, no
  * registry value, and a store that read two of the four documents. So the thing
  * worth testing here is not the flow's logic a second time. It is the seams: a
  * url resolves to a screen, the screen fetches five documents over the real api
@@ -56,7 +56,7 @@ import loadFilesForms from "../../../jets/workspace_assets/user_flows/loadFilesU
 import mapFileForms from "../../../jets/workspace_assets/user_flows/mapFileUF.form.json";
 import { FlowRunner } from "./FlowRunner";
 
-/** A row's own box, and not the heading's select-all box (JM-187). */
+/** A row's own box, and not the heading's select-all box. */
 const ROW_BOX = /^Select row /;
 
 afterEach(cleanup);
@@ -71,15 +71,15 @@ const files: Record<string, string> = {
   "table_configs/lfSourceConfigTable.tc.json": serialise(lfSourceConfigTable),
   "table_configs/lfFileKeyStagingTable.tc.json": serialise(lfFileKeyStagingTable),
 
-  // F.1. The committed documents rather than a fixture, which is the whole point
+  // The file mapping flow. The committed documents rather than a fixture, which is the whole point
   // of the test: what is being checked is that *these* files run.
   "user_flows/mapFileUF.uf.json": serialise(mapFileFlow),
   "user_flows/mapFileUF.ua.json": serialise(mapFileActions),
   "user_flows/mapFileUF.form.json": serialise(mapFileForms),
 
-  // F.2. Its route carries `?workspace_name=&workspace_uri=`, and the two text
-  // fields that show them are read-only — which the corpus says of 20 of the 36
-  // text inputs and the schema could not say until this task.
+  // The load config flow. Its route carries `?workspace_name=&workspace_uri=`,
+  // and the two text fields that show them are read-only — which the corpus says
+  // of 20 of the 36 text inputs and the schema could not say until then.
   "user_flows/loadConfigUF.uf.json": serialise(loadConfigFlow),
   "user_flows/loadConfigUF.ua.json": serialise(loadConfigActions),
   "user_flows/loadConfigUF.form.json": serialise(loadConfigForms),
@@ -91,8 +91,8 @@ const files: Record<string, string> = {
   "table_configs/otherWorkspaceActionOptions.tc.json": serialise(otherWorkspaceActionOptions),
   "table_configs/wpPullWorkspaceConfirmOptions.tc.json": serialise(wpPullWorkspaceConfirmOptions),
 
-  // F.5. Four table documents for five states, and the fourth is the one
-  // registered on the *non-flow* side (plan F18) — the first document in this
+  // The home filters flow. Four table documents for five states, and the fourth
+  // is the one registered on the *non-flow* side — the first document in this
   // workspace that no flow corpus produced.
   "user_flows/homeFiltersUF.uf.json": serialise(homeFiltersFlow),
   "user_flows/homeFiltersUF.ua.json": serialise(homeFiltersActions),
@@ -102,11 +102,11 @@ const files: Record<string, string> = {
   "table_configs/hfFileKeyFilterTypeTableUF.tc.json": serialise(hfFileKeyFilterTypeTable),
   "table_configs/pipelineExecStatusTable.tc.json": serialise(execStatusTable),
 
-  // **A synthetic flow, and it is synthetic on purpose** (I.2b). No shipping flow
+  // **A synthetic flow, and it is synthetic on purpose.** No shipping flow
   // pairs a query-backed dropdown with a typeahead — `fmMappingFormUF` has both
-  // and reaches them through a row builder, which is F.1's — so the wiring from
+  // and reaches them through a row builder, the file mapping flow's — so the wiring from
   // `useFormQueries` through `FormHost.queryRows` to the two widgets has no real
-  // document to be exercised by yet. I-24's rule: a behaviour no configuration
+  // document to be exercised by yet. The rule: a behaviour no configuration
   // exercises needs a case written for it, and that case is necessarily invented.
   "user_flows/itemSourceProbe.uf.json": serialise({
     schemaVersion: 1,
@@ -189,7 +189,7 @@ interface Posted {
   body: Record<string, unknown>;
 }
 
-/** Added to the login response by a case; the D04 custom-button case sets it. */
+/** Added to the login response by a case; the custom-button case sets it. */
 let extraLogin: Record<string, unknown> = {};
 /** The stage, by path, for `fetch_file_from_stage`; a path not here is a 404. */
 let stageFiles: Record<string, string> = {};
@@ -343,13 +343,13 @@ async function mount(
           {/* **The harness renders the banners**, as `Home.test.tsx`'s does and for
               the same reason: `AppShell` draws them and this tree does not, so a
               case asserting a refusal would otherwise find nothing and have no way
-              to tell "refused" from "did nothing". Added at D.10 for the entry
-              point's `ufPrevious`. */}
+              to tell "refused" from "did nothing". Added for the entry point's
+              `ufPrevious`. */}
           <Banners />
           <MemoryRouter initialEntries={[`/flow/${flowKey}${overrides.search ?? ""}`]}>
             <Routes>
               <Route path="/flow/:key" element={<FlowRunner api={api} />} />
-              {/* The three destinations a flow can leave for (D.8): the app's
+              {/* The three destinations a flow can leave for: the app's
                   index, an origin the url named, and the editor — which is where
                   every flow used to land regardless. All three are stubbed so
                   that a wrong exit fails by naming the screen it reached. */}
@@ -383,7 +383,7 @@ describe("the route and the load", () => {
 
   it("heads the screen with the flow's title rather than its key", async () => {
     await mount();
-    // **The defect I-263 reported**: this was `<h1>{key}</h1>`, so a user saw
+    // **The defect reported**: this was `<h1>{key}</h1>`, so a user saw
     // `loadFilesUF`. The title is a field of the `.uf.json` now, and the document
     // read here is the committed one rather than a fixture.
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe("Load Files");
@@ -451,7 +451,7 @@ describe("driving the flow", () => {
     await mount();
     await screen.findByText("vendorA");
 
-    // A.4c publishes the selected row's columns into form state; the second
+    // The table binding publishes the selected row's columns into form state; the second
     // table's where clause reads `table_name` out of it. This is the assertion
     // that the two states share one `FormState`.
     fireEvent.click(screen.getAllByRole("checkbox", { name: ROW_BOX })[0]!);
@@ -463,7 +463,7 @@ describe("driving the flow", () => {
   });
 
   it("disables Previous on the first step and enables it on the second", async () => {
-    // **D.11.** `back` throws below two entries in `visited`, and not one of the
+    // **The Back gate.** `back` throws below two entries in `visited`, and not one of the
     // **174** `ufPrevious` buttons in the installed documents declares a gate —
     // so every flow's first page offered a live *Previous* whose only outcome
     // was an error message.
@@ -523,10 +523,11 @@ describe("driving the flow", () => {
     await mount();
     await finish();
 
-    // **`/home`, and it was `/workspace` until D.8.** `loadFilesUF` sets no
-    // `exitScreenPath` and this url carries no origin, so this is the fallback —
-    // which was the editor because F.0a wrote it when `/` redirected there. X.1
-    // moved the index and nothing revisited the exit (I-265).
+    // **`/home`, and it was `/workspace` until the exit was fixed.** `loadFilesUF`
+    // sets no `exitScreenPath` and this url carries no origin, so this is the
+    // fallback — which was the editor because the first runner was written when
+    // `/` redirected there. Retiring Flutter moved the index and nothing revisited
+    // the exit.
     expect(await screen.findByText("the home screen")).toBeTruthy();
   });
 
@@ -559,7 +560,7 @@ describe("driving the flow", () => {
 });
 
 /**
- * Starting a flow partway through. Task D.10, from **I-260**.
+ * Starting a flow partway through.
  *
  * The entry point in the corpus is `fmInputSourceMappingUF`'s *Load Data*, which
  * resolves to `/flow/loadFilesUF?client=…&org=…&object_type=…&table_name=…&startAt=select_file_keys`
@@ -677,7 +678,7 @@ describe("the table action bar", () => {
 
     // `dropStagingTable` is `isVisibleWhenCheckboxVisible` and
     // `isEnabledWhenHavingSelectedRows`, so it appears with the checkbox column
-    // and stays disabled until a row is picked — the gate composition S.2b built.
+    // and stays disabled until a row is picked — the gate composition of the action grammar.
     const drop = screen.getByRole("button", { name: "Drop Staging Table" });
     expect((drop as HTMLButtonElement).disabled).toBe(true);
 
@@ -695,10 +696,10 @@ describe("the table action bar", () => {
   });
 
   it("renders a file key unshortened when the document names no cell filter", async () => {
-    // **The negative half of I-54, and it is here because the positive half
-    // cannot be.** `fileKeyLabel` is registered now (`actions/registry.ts`), and
+    // **The negative half of the cell-filter check, and it is here because the
+    // positive half cannot be.** `fileKeyLabel` is registered now (`actions/registry.ts`), and
     // none of the three columns that name it is on a table either proof flow
-    // uses — they are `startPipelineUF`'s, whose form document track F has not
+    // uses — they are `startPipelineUF`'s, whose form document had not been
     // written. So the assertion available today is that a column without the
     // name renders the value untouched; `registry.test.ts` covers the body and
     // `store.test.ts` covers the name resolving.
@@ -764,14 +765,14 @@ describe("a form whose item sources are queries", () => {
 });
 
 /**
- * `mapFileUF`, the whole of task F.1.
+ * `mapFileUF`, the whole of it.
  *
- * The corpus's most expensive flow (I-61) driven from its committed documents:
+ * The corpus's most expensive flow driven from its committed documents:
  * three named queries, a form drawn once per query row, a typeahead and a
  * query-backed dropdown inside each row, a validator escape, and two save
  * buttons whose bodies are grammar rather than an escape.
  *
- * **The route carries parameters and until F.1 it could not.** Flutter serves
+ * **The route carries parameters and until this flow it could not.** Flutter serves
  * this flow at `/fileMappingUF/mapping/:table_name/:object_type`, and both are
  * substituted into `inputFieldsQuery` — with neither, the worksheet has no rows.
  */
@@ -993,7 +994,7 @@ const LOAD_CONFIG_SEARCH =
   "?workspace_name=jets_ws&workspace_uri=git%40github.com%3Aartisoft-io%2Fjets_ws.git";
 
 /**
- * `loadConfigUF`, on the screen. Task F.2.
+ * `loadConfigUF`, on the screen.
  *
  * **What only a rendered form can show**, and the reason this block exists
  * alongside `proofFlows.test.ts`'s: the two text fields are read-only, and the
@@ -1008,7 +1009,7 @@ describe("loadConfigUF — loading client configuration", () => {
     const uri = screen.getByLabelText("Workspace URI") as HTMLInputElement;
     expect(name.value).toBe("jets_ws");
     expect(uri.value).toBe("git@github.com:artisoft-io/jets_ws.git");
-    // `isReadOnly` — 20 of the corpus's 36 text inputs set it, and until F.2 the
+    // `isReadOnly` — 20 of the corpus's 36 text inputs set it, and until this flow the
     // schema could not say so. An editable copy here is a form on which the user
     // retargets the pull.
     expect(name.readOnly).toBe(true);
@@ -1019,7 +1020,7 @@ describe("loadConfigUF — loading client configuration", () => {
     // **Every other query parameter is seeded into form-state group 0 by name**,
     // and this screen is where that is visible: two of its fields render the
     // route's parameters. `returnTo` is the runner's own and no form declares it,
-    // so it must not arrive as a value (D.8). This shows the fields are
+    // so it must not arrive as a value. This shows the fields are
     // unaffected and that the origin is not rendered anywhere; it does not
     // inspect the form state, which this screen does not expose.
     await mount("loadConfigUF", { search: `${LOAD_CONFIG_SEARCH}&returnTo=%2Fworkspaces` });
@@ -1106,7 +1107,7 @@ describe("loadConfigUF — loading client configuration", () => {
 });
 
 /**
- * `homeFiltersUF` in the app. Task F.5.
+ * `homeFiltersUF` in the app.
  *
  * **The first flow whose behaviour reaches the screen through an escape**, and
  * the first whose table document is not the flow corpus's. What is worth driving
@@ -1183,8 +1184,8 @@ describe("home_filters in the app", () => {
     await screen.findByText("sess-1");
 
     // **The seam `proofFlows.test.ts` cannot see.** `updateHomeFilters` writes a
-    // module-level store; the query builder has taken `homeFilters` since A.4a
-    // and nothing supplied it, so before F.5 this clause would simply have been
+    // module-level store; the query builder has taken `homeFilters` since it was
+    // written and nothing supplied it, so before this flow this clause would simply have been
     // absent and the screen would have looked correct.
     const read = posts.filter(
       (p) =>
@@ -1271,7 +1272,7 @@ describe("home_filters in the app", () => {
   });
 
   it("asks for a request id list in the app's own prompt, and filters on the answer", async () => {
-    // jetstore_maintenance_02 `I-39` (2026-10-02): `window.prompt` until then,
+    // 2026-10-02: `window.prompt` until then,
     // which the embedded browser pane never shows, so the button did nothing.
     const { posts } = await walkToTheTable();
     await screen.findByText("sess-1");
@@ -1293,8 +1294,7 @@ describe("home_filters in the app", () => {
   });
 
   /**
-   * **The deployment's custom buttons are drawn here too** (jetstore_maintenance_02
-   * `D04`, `I-26`, decided 2026-10-01): wherever Pipeline Status is drawn, not on
+   * **The deployment's custom buttons are drawn here too** (decided 2026-10-01): wherever Pipeline Status is drawn, not on
    * Home alone, through the helper Home uses (`actions/pipelineStatusButtons.ts`).
    */
   describe("with a deployment's custom button", () => {

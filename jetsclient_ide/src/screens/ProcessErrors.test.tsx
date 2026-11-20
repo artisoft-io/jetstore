@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * **C.9 driven end to end**, on `WorkspaceRegistry.test.tsx`'s shape and for its
+ * **The process errors screen driven end to end**, on `WorkspaceRegistry.test.tsx`'s shape and for its
  * reasons. Everything below `ApiClient` is real; the only stub is `fetch`,
  * answering as the apiserver's `/dataTable` switch does.
  *
@@ -9,8 +9,8 @@
  * that would render a plausible screen if it were wrong:
  *
  *  - **The request carries `session_id` from the route.** Without it the screen
- *    draws correctly and shows every session's errors. C.7 measured the same
- *    hazard by deleting `routeParams` from its context: 3 of 8 cases failed and
+ *    draws correctly and shows every session's errors. An earlier screen measured
+ *    the same hazard by deleting `routeParams` from its context: 3 of 8 cases failed and
  *    **5 passed**. The equivalent mutation is measured below.
  *  - **The repeating dialog draws one table per input source**, each filtering on
  *    *its own group's* values — including a column name resolved through
@@ -110,8 +110,8 @@ function stubServer(options: { reteCell?: string | null } = {}) {
         }
         // The input-records table names no table at all — `public` with an empty
         // name, resolved at query time — and declares no columns, so the server
-        // is the one that describes the result. That is F81's mechanism, and the
-        // dialog's tables reach it here.
+        // is the one that describes the result. That is the `columnDef`
+        // mechanism, and the dialog's tables reach it here.
         return new Response(
           JSON.stringify({
             rows: [["r1", "v1"]],
@@ -182,7 +182,7 @@ async function mount(options: { session?: string; reteCell?: string | null } = {
   );
   // A row value rather than the heading: a static heading renders a tick before
   // the rows arrive, so waiting on it would let every assertion below run against
-  // an empty table (I-104).
+  // an empty table.
   await screen.findByText("CLM-1");
   return { posts, api };
 }
@@ -219,7 +219,7 @@ describe("the screen", () => {
     ]);
     // **The assertion the screen exists for.** `session_id` is a *form-state* key
     // in the configuration and there is no form state, so it resolves out of the
-    // route (F67). Delete `routeParams` from `tableContext` and this is the case
+    // route. Delete `routeParams` from `tableContext` and this is the case
     // that fails; the rest of this file still passes.
     expect(read["whereClauses"]).toEqual([
       { table: "process_errors", column: "session_id", values: ["sess-42"] },
@@ -233,7 +233,7 @@ describe("the screen", () => {
 
   it("clamps the error message column, which is the only column that asks", async () => {
     await mount();
-    // C.7 brought `maxLines` and `columnWidth` into the schema and `DataTable`
+    // `maxLines` and `columnWidth` are in the schema and `DataTable`
     // draws them; `error_message` on this table is the third of the four columns
     // in the corpus that set them, and the first inside a screen with dialogs.
     const cell = screen.getByText("a long stack trace");
@@ -271,13 +271,12 @@ describe("the input-records dialog", () => {
 
     const dialog = await screen.findByRole("dialog", { name: "Input Records for a Domain Key" });
     // Two rows returned by `inputFields`, so two validation groups and two
-    // tables. This is F.1's `repeat`, on a screen's dialog rather than on a flow —
-    // and the whole of what C.9 needed for the shape the plan's §4 risk was aimed
-    // at.
+    // tables. This is the form's `repeat`, on a screen's dialog rather than on a
+    // flow — and the whole of what this screen needed for a dialog of that shape.
     await waitFor(() => expect(within(dialog).getAllByRole("table")).toHaveLength(2));
 
     /*
-      **Waited for rather than asserted, fixed at D.9.** The `waitFor` above
+      **Waited for rather than asserted.** The `waitFor` above
       settles when the two tables are *in the DOM*, and each table issues its
       read from its own effect — so the requests trail the markup and this
       assertion was reading `posts` in the gap between. It is racy by
@@ -325,11 +324,10 @@ describe("the input-records dialog", () => {
     fireEvent.click(button("View Input Records"));
     const dialog = await screen.findByRole("dialog", { name: "Input Records for a Domain Key" });
     await waitFor(() => expect(within(dialog).getAllByRole("table")).toHaveLength(2));
-    // **The tables' reads are waited for, not only the tables** (jetstore_maintenance_02
-    // `I-30`, 2026-10-27). Each table posts its read from its own effect, after the
+    // **The tables' reads are waited for, not only the tables** (2026-10-27). Each table posts its read from its own effect, after the
     // markup the wait above settles on, so a count taken there could still move:
     // the read then arrived after `before` and was reported below as a post made
-    // by Close. The race D.9 fixed in the case above, one test further on; it lost
+    // by Close. The race fixed in the case above, one test further on; it lost
     // once in twenty full runs.
     await waitFor(() =>
       expect(
@@ -380,7 +378,7 @@ describe("the rule session explorer", () => {
 
     // Nothing is selected, so the two dependent tables are gated — their where
     // clauses name a key that form state does not hold, and that is
-    // `hasBlockingFilter` rather than an empty result (F82).
+    // `hasBlockingFilter` rather than an empty result.
     await within(dialog).findByText("hc:Claim");
     expect(within(dialog).queryByText("claim:1")).toBeNull();
 

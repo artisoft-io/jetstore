@@ -1,10 +1,10 @@
 /**
  * @vitest-environment jsdom
  *
- * Tests for the table's own actions (task A.5).
+ * Tests for the table's own actions.
  *
  * These four configurations — three `toggleCheckboxVisible` and one
- * `refreshTable` — sat in S.2's pile because they sit in the same `actions`
+ * `refreshTable` — sat among the flow actions because they sit in the same `actions`
  * array as the ten that dispatch into a flow's delegate. They act on the table,
  * so what is asserted here is table behaviour: what the user sees change, and
  * what the server is asked for afterwards.
@@ -58,7 +58,7 @@ describe("useTableModes", () => {
   it("toggles the checkbox column and nothing else", () => {
     // The Dart flipped copy-on-click on every checkbox toggle
     // (`_noCopy2Clipboard = _checkboxVisible`, `data_table.dart:483`) because the
-    // two modes competed for a click on a row. D.6 removed the copy mode, so a
+    // two modes competed for a click on a row. The copy mode is gone, so a
     // configured `toggleCheckboxVisible` now does only what its name says.
     const hook = runHook({ isCheckboxVisible: true } as TableConfig);
     expect(Object.keys(hook).sort()).toEqual(["checkboxVisible", "toggleCheckboxVisible"]);
@@ -69,7 +69,7 @@ describe("useTableModes", () => {
   });
 
   it("takes nothing from noCopy2Clipboard, which never decided behaviour in the corpus anyway", () => {
-    // I-278, and the corpus is the argument rather than the code. All 11 of the
+    // The corpus is the argument rather than the code. All 11 of the
     // 37 configurations that set the field also set `isCheckboxVisible: true`,
     // where the Dart's own default was already suppression — so setting it
     // changed no load-time behaviour in any of them, and its whole observable
@@ -77,7 +77,7 @@ describe("useTableModes", () => {
     // reader does not restore a gate the corpus never exercised.
     const setters = Object.values(tables).filter((t) => t.noCopy2Clipboard === true);
     // **Eight in the fixture since 2026-10-01**: the three add-or-edit option
-    // tables `D06` retired set it too (`jetstore_maintenance_02` `AF.2`–`AF.4`).
+    // tables retired that day set it too.
     expect(setters).toHaveLength(8);
     expect(setters.every((t) => t.isCheckboxVisible)).toBe(true);
     expect(runHook({ isCheckboxVisible: true, noCopy2Clipboard: true } as TableConfig))
@@ -97,7 +97,7 @@ describe("copying a cell", () => {
   }
 
   it("copies the full cell text on click, with no toggle to arm first", async () => {
-    // I-262: this is the behaviour the report asked to keep. It used to need
+    // This is the behaviour the report asked to keep. It used to need
     // *Enable Copy Cell* pressed first on any table with checkboxes showing.
     const { config, formState, fetcher } = seededOrg();
     config.isCheckboxVisible = true;
@@ -157,7 +157,7 @@ describe("the checkbox column", () => {
   });
 
   it("no longer drags a copy button along with it", () => {
-    // Until D.6 revealing the column also revealed an *Enable Copy Cell* button,
+    // Until 2026-08-27 revealing the column also revealed an *Enable Copy Cell* button,
     // because `org` leaves `noCopy2Clipboard` unset and so qualified for one.
     // Both states are asserted: the button is absent either way, so a
     // reintroduction fails here rather than only in the browser.
@@ -171,7 +171,7 @@ describe("the checkbox column", () => {
 
 describe("refreshTable", () => {
   it("goes back to the first page and keeps the page size the user chose", () => {
-    // JM-060 (2026-11-05). Until then this test pinned the Dart's reset,
+    // Since 2026-11-05. Until then this test pinned the Dart's reset,
     // `rowsPerPage = availableRowsPerPage[0]` (`data_table.dart:354`), which sent
     // a user who chose 50 rows back to 10 on every refresh. The page size is now
     // left alone; the page index still goes to 0, so a refresh that returns
@@ -211,7 +211,7 @@ describe("refreshTable", () => {
   });
 
   it("keeps the rows-per-page choice across the Refresh button, end to end", async () => {
-    // JM-060 through the rendered table: choose the second page size in the
+    // The same through the rendered table: choose the second page size in the
     // footer, move to page 2, press Refresh. The control and the next request
     // still carry the chosen size, and the request is for the first page again.
     // `org` is configured at 50, so the choice is 100.

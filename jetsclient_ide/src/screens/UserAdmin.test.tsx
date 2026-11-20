@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * **C.13 driven end to end.** Everything below `ApiClient` is real; `fetch` is the
+ * **The user administration screen driven end to end.** Everything below `ApiClient` is real; `fetch` is the
  * only stub, answering as the apiserver's `/dataTable` switch does.
  *
  * This is the first screen in the track whose dialog **writes**, so the cases here
@@ -130,7 +130,7 @@ async function mount(options: { isAdmin?: boolean; capabilities?: string[] } = {
       </NotificationsProvider>
     </ApiProvider>,
   );
-  // A row value rather than the heading — the heading renders a tick early (I-104).
+  // A row value rather than the heading — the heading renders a tick early.
   await screen.findByText("ada@example.com");
   return { posts, api };
 }
@@ -287,7 +287,7 @@ describe("the edit dialog", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Submit" }));
     await within(dialog).findByText("User state Active / Inactive must be selected.");
     expect(inserts(posts, "update/users").length).toBe(before);
-    // **The dialog is still open.** I-186: `runAction` returns null both for "ran
+    // **The dialog is still open.** `runAction` returns null both for "ran
     // to the end" and for "a validate step failed", and closing on the second puts
     // the error on screen for one frame inside a dialog being unmounted.
     expect(screen.queryByRole("dialog")).not.toBeNull();
@@ -360,7 +360,7 @@ describe("deleting a user", () => {
    * Two selected accounts produced two rows both naming the first: one user
    * deleted twice, the other left in place, with a success notification and a
    * refreshed table saying it had worked. The spelling was fixed to
-   * `fromKeyAtIndex` at C.3b, and then the *table* was made single-select
+   * `fromKeyAtIndex`, and then the *table* was made single-select
    * (2026-08-26), which is the decision this case now pins.
    *
    * **The two are not alternatives and both are kept.** Single-select is the

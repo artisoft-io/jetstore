@@ -1,10 +1,10 @@
 /**
  * @vitest-environment jsdom
  *
- * The git profile screen. Task C.14.
+ * The git profile screen.
  *
  * **Driven through a stubbed `fetch` with everything below `ApiClient` real**,
- * which is `FlowRunner.test.tsx`'s shape and I-104's rule: the document-level
+ * which is `FlowRunner.test.tsx`'s shape and its rule: the document-level
  * checks a screen port passes are not the ones that catch a missing binding, and
  * only a test that renders can see what the screen actually sends.
  *
@@ -13,7 +13,7 @@
  *  - **the form is seeded from the session**, not from route parameters, which is
  *    what makes the parameterless route correct rather than merely tidier;
  *  - **`user_email` in the request is the signed-in account's**, which is the
- *    half of I-187 this app controls — the server takes whoever the request
+ *    half of that gap this app controls — the server takes whoever the request
  *    names;
  *  - **the confirmation field is not sent**, because the statement has no column
  *    for it and it is a second copy of a credential.
@@ -216,7 +216,7 @@ describe("the git profile screen", () => {
     // 422, not 401: the api client turns *every* 401 into a session expiry and
     // signs the user out, so a capability refusal from this endpoint would end
     // the session rather than report anything. That is `client.ts`'s policy and
-    // it is recorded as **I-189** rather than worked around here.
+    // it is recorded as an issue rather than worked around here.
     const { api } = await clientWith({ status: 422 });
     renderScreen(api);
     fillValid();

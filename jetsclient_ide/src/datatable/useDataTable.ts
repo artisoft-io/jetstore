@@ -1,18 +1,18 @@
 /**
  * The data table's state: rows, paging, sorting, selection, and the fetch.
  *
- * Task A.4b. This is `JetsDataTableSource.getModelData`
+ * This is `JetsDataTableSource.getModelData`
  * (`jetsclient/lib/components/data_table_source.dart:683`) and the paging half of
  * `JetsDataTableState`, as a hook.
  *
  * **What it deliberately does not do is the reactive half.** In the Flutter app
  * this object also listens to the enclosing form, blocks the request when a
  * where clause names a form-state key that is empty, and publishes selections
- * back into form state. That is A.4c. Here the caller passes a `QueryContext`
- * and says whether the query is `blocked`; keeping the decision outside means
- * A.4c can be written without reopening this file, and means this hook is
- * usable by a table that has no form at all — which is 9 of the 37
- * configurations plus every screen table Phase 3 will add.
+ * back into form state. That is `useTableBinding`. Here the caller passes a
+ * `QueryContext` and says whether the query is `blocked`; keeping the decision
+ * outside means the binding can be written without reopening this file, and
+ * means this hook is usable by a table that has no form at all — which is 9 of
+ * the 37 configurations plus every screen table.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -20,7 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isRawStatementTable, makeQuery, makeRawQuery } from "./query";
 // `keepSelectedRows` is not applied at the end of a fetch. `showSelectedOnly`
 // filters the page down to the selected rows *after* the selection has been
-// restored from form state, so A.4c's restore applies it, through
+// restored from form state, so the binding's restore applies it, through
 // `restoreSelected`. (Until 2026-11-11 the restore called it and discarded the
 // result, so the filter did nothing.)
 import {
@@ -62,19 +62,19 @@ export type DataTableFetcher = (
 
 export interface UseDataTableOptions {
   config: TableConfig;
-  /** Everything A.4a needs beyond the config. Paging and sorting are supplied here. */
+  /** Everything the query builder needs beyond the config. Paging and sorting are supplied here. */
   context: Omit<
     QueryContext,
     "config" | "indexOffset" | "rowsPerPage" | "sortColumnName" | "sortColumnTableName" | "sortAscending"
   >;
   fetcher: DataTableFetcher;
   /**
-   * A.4c sets this when a where clause reads a form-state key that is empty.
+   * The binding sets this when a where clause reads a form-state key that is empty.
    * The Dart calls it `hasBlockingFilter`; blocked means *do not ask the server*,
    * and it is the difference between "no rows yet" and "no rows".
    */
   blocked?: boolean;
-  /** Bumping this refetches — A.4c uses it when a watched form-state key changes. */
+  /** Bumping this refetches — the binding uses it when a watched form-state key changes. */
   refreshToken?: number;
   onSelectionChange?: (args: {
     selection: Selection;
@@ -109,8 +109,8 @@ export interface DataTableState {
   sortByVisibleColumn(index: number): void;
   setRowSelected(index: number, value: boolean): void;
   /**
-   * The select-all box: every row of the page selected, or none. JM-187,
-   * 2026-11-12. Refused, as a tick is, on a read-only table, and on a
+   * The select-all box: every row of the page selected, or none (2026-11-12).
+   * Refused, as a tick is, on a read-only table, and on a
    * single-select one, where it has no meaning.
    */
   setAllSelected(value: boolean): void;
@@ -225,7 +225,7 @@ export function useDataTable(options: UseDataTableOptions): DataTableState {
   // **The branch is `fetchData`'s, not `_makeQuery`'s**, and it is here for the
   // same reason it is there: a raw-statement table's body carries a statement and
   // none of the structure — no from, no where, no columns, no paging. One
-  // configuration in either corpus takes it (task C.4). See `query.ts`.
+  // configuration in either corpus takes it. See `query.ts`.
   const queryPayload = isRaw
     ? makeRawQuery(queryContext)
     : makeQuery(queryContext);

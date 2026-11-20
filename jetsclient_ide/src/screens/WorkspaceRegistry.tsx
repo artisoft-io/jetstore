@@ -1,5 +1,5 @@
 /**
- * The workspace registry, `/workspaces`. Task C.2b — track C's first screen.
+ * The workspace registry, `/workspaces`: the first non-flow screen migrated.
  *
  * ## What a screen is, as against a flow
  *
@@ -18,8 +18,8 @@
  * workspace is created. Documents describing it cannot live in the thing it
  * exists to produce.
  *
- * Agreed as the rule for all of track C before it was built, so that eight later
- * screens do not each decide it.
+ * Agreed as the rule for every migrated screen before it was built, so that
+ * eight later screens do not each decide it.
  *
  * ## The documents are still documents
  *
@@ -29,18 +29,18 @@
  * transport and nothing else — which is the property that lets the same
  * `FormRenderer`, the same interpreter and the same `TableView` serve both hosts.
  *
- * ## Five decisions this screen takes on behalf of the rest of track C
+ * ## Five decisions this screen takes on behalf of the other migrated screens
  *
  * 1. **Documents are bundled**, above.
- * 2. **A screen supplies a `QueryContext`.** I-104 is why this is not optional:
- *    `FormDataTable` called `useTableBinding` with no context at all, so
+ * 2. **A screen supplies a `QueryContext`.** It is not optional because of a
+ *    defect: `FormDataTable` called `useTableBinding` with no context at all, so
  *    `homeFilters` and `dataRegistryFilters` were always absent and a filtered
  *    table rendered unfiltered and looked correct. This screen's table needs
  *    neither, and supplying the context anyway is what stops the next screen from
  *    discovering it needs one.
  * 3. **Route parameters reach a table's `where` clauses through
  *    `QueryContext.routeParams`**, from `useParams()`. `makeQuery` has read them
- *    since A.4a — `makeWhereClause` falls back to the route when form state holds
+ *    since it was first written — `makeWhereClause` falls back to the route when form state holds
  *    nothing — so a screen owes the params and nothing else. `/workspaces` has
  *    none, and `useParams()` returning `{}` is the honest way to say so.
  * 4. **The table publishes its selection into form state under its own key**, as
@@ -63,8 +63,8 @@
  * ## How it is tested
  *
  * `WorkspaceRegistry.test.tsx`, on `FlowRunner.test.tsx`'s shape: the screen is
- * driven against a stubbed `fetch` with everything below `ApiClient` real. I-104's
- * narrower lesson is that a field added to a schema has two halves and the corpus
+ * driven against a stubbed `fetch` with everything below `ApiClient` real. The
+ * narrower lesson of the context defect above is that a field added to a schema has two halves and the corpus
  * can only tell you about the first, so the tests render rather than parse.
  */
 
@@ -104,7 +104,7 @@ export function WorkspaceRegistry({ api }: { api: ApiClient }) {
    * The deployment's workspace, which two of this screen's predicates read.
    *
    * The Flutter app fetches this once at sign-in and keeps it in three globals;
-   * this app has no sign-in bootstrap (I-67), so the screen that needs it asks.
+   * this app has no sign-in bootstrap, so the screen that needs it asks.
    * **The table renders regardless of whether this succeeds**: a failure here
    * makes `addWorkspace`'s name and branch editable when they should be locked,
    * which is worth a banner and is not worth refusing the screen — the server
@@ -136,7 +136,7 @@ export function WorkspaceRegistry({ api }: { api: ApiClient }) {
   const fetcher: DataTableFetcher = useMemo(() => (payload) => api.dataTable(payload), [api]);
 
   /**
-   * The query context every table on this screen is built with — decision 2.
+   * The query context every table on this screen is built with — decision 2 above.
    *
    * **Keyed on the context's *contents*, not on the form-state version, and the
    * difference is a defect this screen's first test run found.** `useTableBinding`
@@ -152,9 +152,9 @@ export function WorkspaceRegistry({ api }: { api: ApiClient }) {
    * The symptom is a table where clicking a checkbox ticks it and no row-gated
    * button ever enables. Serialising the contents makes a new object appear when
    * a filter or a route parameter actually moves and not otherwise — which is
-   * what F.5 needed and is strictly narrower. Recorded as **I-184**, because
-   * `FlowRunner` has the same shape and a flow whose table both filters and
-   * selects would meet it.
+   * what the flows' filters needed and is strictly narrower. Worth knowing,
+   * because `FlowRunner` has the same shape and a flow whose table both filters
+   * and selects would meet it.
    */
   const homeFilters = currentHomeFilters();
   const dataRegistryFilters = currentDataRegistryFilters();

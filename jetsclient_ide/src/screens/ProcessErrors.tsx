@@ -1,11 +1,11 @@
 /**
- * `/processErrors/:session_id` — the pipeline's execution errors. Task C.9.
+ * `/processErrors/:session_id` — the pipeline's execution errors.
  *
- * ## The largest screen in track C has the simplest layout, and that is a
+ * ## The largest screen ported has the simplest layout, and that is a
  * correction rather than a boast
  *
- * `sizing_screen_migration.md` §7 ranks this row at **4 tables and 2 dialogs**,
- * the largest in the track. Both halves of the count are worth restating before
+ * The screen-migration sizing ranked this screen at **4 tables and 2 dialogs**,
+ * the largest of the screens ported. Both halves of the count are worth restating before
  * reading the file:
  *
  *  - **There are five configurations, not four.** `inputRecordsFromProcessErrorTable`
@@ -18,35 +18,35 @@
  *    (`jetsclient/lib/modules/form_config_impl.dart`, `FormKeys.viewProcessErrors`);
  *    the other four live inside the two dialogs.
  *
- * **So I-177's rule needs one more clause.** It says *a screen with one table
+ * **So the screens' rule needs one more clause.** It says *a screen with one table
  * renders it; a screen with several declares them*, and it did not contemplate
  * that "several" might all be behind dialogs. The number that decides the screen's
  * layout is how many tables the *screen* has, which here is one — so this file
  * renders a `TableView` directly and declares no form document of its own, exactly
- * as C.2b's registry screen does.
+ * as the workspace registry screen does.
  *
- * ## No `viewProcessErrorsForm` document, and the reason is not size — I-178
+ * ## No `viewProcessErrorsForm` document, and the reason is not size
  *
  * The Dart form exists only to hold the table, and it is *action-less*:
  * `FormSchema.actions` is `min(1)` because every form in either corpus that a user
  * can act on has a button, and this one has none. A document for it would be a
  * form with no actions wrapping a field with no siblings — which the schema would
  * have to be weakened to admit, to describe a thing that carries no information.
- * This is the third reason a screen has declined a document, after C.4's (the
- * behaviour lives *between* two forms) and C.5's (the endpoint is outside the
- * allowlist).
+ * This is the third reason a screen has declined a document, after the Query
+ * Tool's (the behaviour lives *between* two forms) and the inference server
+ * screen's (the endpoint is outside the allowlist).
  *
  * ## The route parameter is the whole filter
  *
  * `processErrorsTable`'s first where clause names `session_id` as a *form-state*
  * key and there is no form state to find it in, so `_makeWhereClause` falls
- * through to the route's parameters (F67). The React port is `routeParams` on the
+ * through to the route's parameters. The React port is `routeParams` on the
  * `QueryContext`, which is the one thing this screen must not get wrong: without
  * it the screen renders perfectly and shows **every session's** errors.
  * `ProcessErrors.test.tsx` asserts the request rather than the rows for that
  * reason, and mutation-tests it.
  *
- * ## The two dialogs differ in kind, and both go through C.2b's host
+ * ## The two dialogs differ in kind, and both go through the registry screen's host
  *
  * *View Input Records* is a `showDialog`: seed the parameters, open the form,
  * whose `repeat` draws one table per input source of the pipeline. *View Rule
@@ -94,8 +94,8 @@ const TABLE_KEY = "processErrorsTable";
 /**
  * The base validation group. A dialog's repeat adds more; the screen has one.
  *
- * **A dialog gets its own `FormState` here, and C.2b's screen shares the
- * screen's.** That decision's stated ground is that *"the Dart shares one
+ * **A dialog gets its own `FormState` here, and the workspace registry screen
+ * shares the screen's.** That decision's stated ground is that *"the Dart shares one
  * `JetsFormState` between the screen and its dialogs"* — which is not what the
  * Dart does. `actionDispatcher` builds a **new** state,
  * `formConfig.makeFormState(parentFormState: formState)`
@@ -121,8 +121,8 @@ const GROUP = 0;
 /**
  * The five table documents, by key.
  *
- * **A screen imports its committed documents rather than reading a workspace**
- * (I-170), and a dialog's tables are the screen's for the same reason its own is:
+ * **A screen imports its committed documents rather than reading a workspace**,
+ * and a dialog's tables are the screen's for the same reason its own is:
  * there is one `/processErrors` per deployment, not one per workspace.
  */
 const TABLE_JSON: Record<string, unknown> = {
@@ -142,7 +142,7 @@ const parsedTables = Object.fromEntries(
 /**
  * Findings from parsing and from resolving escape names, for the banner.
  *
- * The same shape C.2b's screen uses, and the same argument: a document that does
+ * The same shape the workspace registry screen uses, and the same argument: a document that does
  * not satisfy its schema fails in every test that imports this module rather than
  * when a user presses a button.
  */
@@ -180,9 +180,9 @@ export function documentFindings(): string[] {
 }
 
 export function ProcessErrors({ api }: { api: ApiClient }) {
-  // X.1: a `navigate` request resolves in this app now.
+  // A `navigate` request resolves in this app now that Flutter is retired.
   const navigate = useNavigate();
-  /** Where a flow opened from this screen should return to (D.8). */
+  /** Where a flow opened from this screen should return to. */
   const location = useLocation();
   const here = `${location.pathname}${location.search}`;
   const routeParams = useParams();
@@ -237,14 +237,14 @@ export function ProcessErrors({ api }: { api: ApiClient }) {
   /**
    * The query context, keyed on its contents rather than on the form version.
    *
-   * **I-184, inherited rather than rediscovered.** Rebuilding this on every
+   * **A defect inherited rather than rediscovered.** Rebuilding this on every
    * form-state change makes publishing a selection refetch the table, and the
    * refetch clears the selection that was just published — so every row-gated
    * button stays dead. Both of this screen's buttons are row-gated.
    *
    * `routeParams` is the only member with a value here: this screen has no client
    * selector and reads no filter state, and `makeQuery` splices `homeFilters` and
-   * `dataRegistryFilters` only for a table with a form field naming them (F67).
+   * `dataRegistryFilters` only for a table with a form field naming them.
    */
   const contextKey = JSON.stringify(routeParams);
   const tableContext = useMemo(
@@ -258,7 +258,8 @@ export function ProcessErrors({ api }: { api: ApiClient }) {
   const queries = useFormQueries(currentForm, activeState, queryPost);
 
   /**
-   * Sizing and seeding the repeating dialog. Task F.1's mechanism, second consumer.
+   * Sizing and seeding the repeating dialog. The flow runner's repeating-group
+   * mechanism, second consumer.
    *
    * `viewInputRecordsDialog` draws one group per row of `inputFields`, and
    * `seedInputRecordsRow` writes the eight values each group's table filters on.
@@ -370,7 +371,7 @@ export function ProcessErrors({ api }: { api: ApiClient }) {
     [actions, host, activeState],
   );
 
-  /** Opens a dialog and waits. **Not while `busy`** — C.2b's finding: a modal is not work. */
+  /** Opens a dialog and waits. **Not while `busy`** — the registry screen's finding: a modal is not work. */
   const openDialog = useCallback(
     async (form: string, params: Record<string, string>) => {
       setBusy(false);
@@ -464,11 +465,11 @@ export function ProcessErrors({ api }: { api: ApiClient }) {
             case "navigate": {
               // **This arm used to hand the browser to Flutter unconditionally**,
               // which was right when the other app served every screen this one
-              // does not. X.1 removed the destination, so it resolves in-app and
+              // does not. Retiring Flutter removed the destination, so it resolves in-app and
               // reports when it cannot — the convention `escapes.ts` set for a name
               // with no body.
               const to = inAppPath(action.configScreenPath, request.params);
-              // D.8 — see `UserAdmin.tsx` for why this is applied uniformly.
+              // The flow returns here — see `UserAdmin.tsx` for why this is applied uniformly.
               if (to !== null) void navigate(withReturnTo(to, here));
               else setError(unservedScreenMessage(action.label, request.path));
               return;
