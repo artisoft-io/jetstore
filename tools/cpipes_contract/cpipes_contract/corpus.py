@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterator
 
+from . import aliases
 from .matrix_schema import (
     ANY_TOKEN,
     NONE,
@@ -54,11 +55,31 @@ def is_production(path: Path) -> bool:
 TypeKey = tuple[str, str]
 
 
+# The pipeline configurations JetStore owns and installs into every workspace's
+# `pipes_config/` (`jets/workspace_assets`). A workspace does not commit them - it
+# ignores them - so whether a checkout holds a copy depends on whether the installer
+# has run there, and each installed copy is the same file once per workspace.
+JETSTORE_ASSETS = Path(__file__).resolve().parents[3] / "jets" / "workspace_assets" / LIVE_PARENT
+
+
+def jetstore_assets() -> frozenset[str]:
+    """The names of the `.pc.json` JetStore installs into a workspace's `pipes_config/`."""
+    return frozenset(p.name for p in JETSTORE_ASSETS.glob("*.pc.json"))
+
+
 def config_files(root: Path) -> tuple[list[Path], list[Path]]:
-    """Split the workspaces' `.pc.json` into (live, retired)."""
+    """Split the workspaces' `.pc.json` into (live, retired).
+
+    An installed copy of a JetStore-owned configuration is neither: it is not the
+    workspace's material, and counting it would make the corpus depend on whether the
+    asset installer has run in the checkout being measured.
+    """
     live: list[Path] = []
     retired: list[Path] = []
+    assets = jetstore_assets()
     for path in sorted((root / "workspaces").rglob("*.pc.json")):
+        if path.parent.name == LIVE_PARENT and path.name in assets:
+            continue
         (live if LIVE_PARENT in path.parts else retired).append(path)
     return live, retired
 
@@ -291,13 +312,17 @@ def apply(matrix: Matrix, measurement: Measurement) -> None:
     Counting by hand is how the seed acquired both its bad exemplars and its wrong
     totals. The numbers are measured or they are not written.
     """
+    # The walk reads the corpus under its real workspace names; the matrix records
+    # them under neutral ones, as every other file in this package does, and
+    # `check --corpus` resolves them back through the same alias file.
+    names = aliases.load()
     for t in matrix.types:
         key = (t.go_struct, t.type_token)
         t.corpus_instances = measurement.instances.get(key, 0)
         t.corpus_prod_instances = measurement.prod_instances.get(key, 0)
         exemplar = measurement.exemplars.get(key)
         if exemplar is not None:
-            t.exemplar_file, t.exemplar_path = exemplar
+            t.exemplar_file, t.exemplar_path = names.anonymise(exemplar[0]), exemplar[1]
         # When the walk found none, a hand-proposed exemplar is left standing rather
         # than erased: while extraction is partial the walk cannot reach every type,
         # and the proposal is still verified by `check --corpus`. Once the type
