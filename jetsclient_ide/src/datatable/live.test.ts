@@ -80,7 +80,7 @@ describe.skipIf(!live)("against a live apiserver", () => {
     expect(status, `server said: ${JSON.stringify(body)}`).toBe(200);
   });
 
-  it.each(querying)("accepts the payload A.4a builds for %s", async (key) => {
+  it.each(querying)("accepts the payload makeQuery builds for %s", async (key) => {
     const { status, body } = await post(payloadFor(key));
     expect(status, `server said: ${JSON.stringify(body)}`).toBe(200);
 

@@ -628,7 +628,7 @@ describe("the documents the fixture no longer carries", () => {
   );
   const offFixture = documents.filter(({ key, doc }) => !(key in tables) && doc.source === "query");
 
-  it("includes the four query tables Phase 1 took out of the fixture", () => {
+  it("includes the four query tables taken out of the fixture", () => {
     // The guard on the payload check below: an empty or misread directory would
     // pass it vacuously.
     expect(offFixture.map(({ key }) => key)).toEqual(

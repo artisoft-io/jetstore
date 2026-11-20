@@ -26,7 +26,7 @@ import { makeQuery } from "../datatable/query";
 import { fromDocument } from "../datatable/tableTranslate";
 import { CompiledViewDocumentSchema } from "./compiledView";
 import { COMPILED_VIEW_TABLES, hasActionBar } from "./CompiledView";
-import { compiledViews, TABS_DEFERRED_TO_C3B } from "./sectionContract";
+import { compiledViews, TABS_NOT_YET_DRAWN } from "./sectionContract";
 
 interface CorpusField {
   type: string;
@@ -84,7 +84,7 @@ describe("the compiled view documents", () => {
    * **The assertion the deferral rests on.** A view that silently shows three of
    * four tabs is a screen that looks complete, so the tabs still to be drawn are
    * named rather than omitted, and drawn + deferred has to equal the Dart's list
-   * *in order*. Once they are drawn, `TABS_DEFERRED_TO_C3B` empties and this case
+   * *in order*. Once they are drawn, `TABS_NOT_YET_DRAWN` empties and this case
    * becomes an equality — it does not have to be rewritten.
    */
   it("account for every table the Dart form holds, drawn or deferred, in order", () => {
@@ -92,7 +92,7 @@ describe("the compiled view documents", () => {
       const formKey = DART_FORM_KEY[view];
       if (formKey === undefined) continue;
       const drawn = doc.tabs.map((t) => t.table);
-      const deferred = TABS_DEFERRED_TO_C3B[view] ?? [];
+      const deferred = TABS_NOT_YET_DRAWN[view] ?? [];
       expect([...drawn, ...deferred], view).toEqual(corpusTables(formKey));
     }
     // The skip is asserted rather than silent: exactly one view has no Dart form,
@@ -117,7 +117,7 @@ describe("the compiled view documents", () => {
     // Derived from the documents, which is what the component branches on.
     const bound = eight.filter((k) => hasActionBar(COMPILED_VIEW_TABLES[k]!));
     expect(bound).toEqual(withActions);
-    expect(Object.values(TABS_DEFERRED_TO_C3B).flat()).toEqual([]);
+    expect(Object.values(TABS_NOT_YET_DRAWN).flat()).toEqual([]);
   });
 
   /**

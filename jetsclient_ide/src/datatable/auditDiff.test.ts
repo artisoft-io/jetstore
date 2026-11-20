@@ -221,7 +221,7 @@ describe("the audit-log parser", () => {
   });
 });
 
-describe("captured Flutter requests match what A.4a builds", () => {
+describe("captured Flutter requests match what makeQuery builds", () => {
   const log = readFileSync(logPath, "utf8");
   const observed = extractDataTableRequests(log);
 

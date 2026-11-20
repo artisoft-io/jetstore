@@ -691,7 +691,7 @@ describe("the 28 configurations still translated from the flow fixture", () => {
  * rather than described because a decision recorded only in prose is a decision
  * the next task can contradict without anything failing.
  */
-describe("pipelineExecStatusTable, the table track C and track F share", () => {
+describe("pipelineExecStatusTable, the table a flow and a screen share", () => {
   const doc = documents["pipelineExecStatusTable"]!;
 
   it("is a query table with two from clauses and the source_period join", () => {
@@ -745,7 +745,7 @@ describe("pipelineExecStatusTable, the table track C and track F share", () => {
     expect(escapeNamesOf(doc)).toEqual(["alwaysEnabled", "fileKeyLabel", "hasHomeFilters"]);
   });
 
-  it("carries the second row's cross-document references, so I-88's check sees them", () => {
+  it("carries the second row's cross-document references, so validateTableActions sees them", () => {
     // `resubmitPipeline` is the flow's only table-run action and
     // `showFailureDetailsDialog` its only table-opened form, and **both are on the
     // second row**. Before this table `actionNamesOf` and `validateTableActions` walked

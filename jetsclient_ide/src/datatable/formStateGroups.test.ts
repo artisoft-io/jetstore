@@ -69,7 +69,7 @@ describe("resizeFormState", () => {
     expect(editable.groupCount).toBe(4);
   });
 
-  it("imposes no maximum of its own — a cap is the caller's (I-44)", () => {
+  it("imposes no maximum of its own — a cap is the caller's", () => {
     const fs = new FormState();
     fs.resizeFormState(500);
     expect(fs.groupCount).toBe(500);

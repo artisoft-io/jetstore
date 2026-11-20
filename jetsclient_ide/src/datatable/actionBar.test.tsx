@@ -408,7 +408,7 @@ describe("enableWhen — the selected row's criteria", () => {
     expect(flowGated).toHaveLength(0);
   });
 
-  it("refuses Delete on an active workspace, which is the defect I-181 names", () => {
+  it("refuses Delete on an active workspace, which it once allowed", () => {
     // `deleteWorkspace` requires status to contain neither `active` nor
     // `in progress`. Before the row gate `availability` did not read the field, so this
     // button was enabled on every selected row — a destructive action the Flutter

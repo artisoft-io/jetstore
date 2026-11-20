@@ -100,7 +100,7 @@ describe("DataTable", () => {
     expect(lastCall["sortAscending"]).toBe(true);
   });
 
-  it("hands the fetcher exactly what A.4a builds", async () => {
+  it("hands the fetcher exactly what makeQuery builds", async () => {
     const fetcher = respondWith([]);
     render(<Harness config={sourceConfig} fetcher={fetcher} />);
     await waitFor(() => expect(fetcher).toHaveBeenCalled());
@@ -144,7 +144,7 @@ describe("DataTable", () => {
     await waitFor(() => expect(boxes[0]!.checked && boxes[1]!.checked).toBe(true));
   });
 
-  it("selects and clears every row of the page with the heading's box (JM-187)", async () => {
+  it("selects and clears every row of the page with the heading's box", async () => {
     const config = tables["lfFileKeyStagingTable"]!;
     const row = (k: string): JetsRow => [k, "acme", "v", "t", "f", "2026", "8", "1", "p", "tbl", "s", "d", "spk"];
     render(<Harness config={config} fetcher={respondWith([row("1"), row("2"), row("3")])} />);

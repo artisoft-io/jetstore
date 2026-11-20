@@ -169,7 +169,7 @@ export const viewsNotBuiltInReact: ReadonlySet<string> = new Set<string>();
  * this constant turned that assertion into a plain equality without a line of it
  * being rewritten.
  */
-export const TABS_DEFERRED_TO_C3B: Readonly<Record<string, readonly string[]>> = {};
+export const TABS_NOT_YET_DRAWN: Readonly<Record<string, readonly string[]>> = {};
 
 /** The document for a section's declared view, or null when this app has none. */
 export function compiledViewFor(compiledView: string | undefined): CompiledViewDocument | null {
