@@ -62,7 +62,7 @@ class FanOut(Pipe):
     """
 
     token = "fan_out"
-    owed_by = "P9-T04"
+    owed_by = "the channel and fan-out work"
     summary = "apply each transformation to every record of one input channel"
 
     @classmethod
@@ -102,7 +102,7 @@ class MergeFiles(Pipe):
     """
 
     token = "merge_files"
-    owed_by = "P9-T08"
+    owed_by = "the merge work"
     summary = "concatenate partition files into a single output file"
     drives_channel_graph = False
     fixed_input_channel_type = "stage"

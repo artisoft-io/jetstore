@@ -1,11 +1,11 @@
 {
   "_comment": [
     "Every value declared as a `static const ... = \"...\"` in jetsclient/lib/utils/constants.dart,",
-    "frozen at commit b4cda702 on 2026-08-26, immediately before X.1 deleted that app.",
+    "frozen at commit b4cda702 on 2026-08-26, immediately before that app was deleted.",
     "",
     "This is a fixture rather than a live read because the file it came from no longer exists.",
     "The check it feeds \u2014 every key an action document names is a declared constant's *value* \u2014",
-    "has caught the name-for-value trap four times (A.3, S.1, the sizing, S.2a) and the keys it",
+    "has caught the name-for-value trap four times and the keys it",
     "guards are still in the documents, so the check outlived its source rather than its purpose.",
     "",
     "It is frozen and will not be regenerated: there is nothing left to regenerate it from. A key",

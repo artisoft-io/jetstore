@@ -87,42 +87,42 @@ var causeClasses = []CauseClass{
 		Evidenceability: None,
 		Note: "input_registry and file_key_staging record what arrived and nothing records what was due; " +
 			"there is no schedule, no SLA and no expected-delivery table, so \"did not arrive\" is the " +
-			"absence of a row with nothing asserting a row was owed (§9.5, I-262)",
+			"absence of a row with nothing asserting a row was owed",
 	},
 	{
 		Name:            CauseSourceContentChange,
 		Loci:            []string{triage.LocusRowsLostSilently, triage.LocusPerRecordFailuresReported},
 		Evidenceability: Coarse,
 		Note: "volume and file size move on the worker row, but input_bad_records_count is read-time parse " +
-			"failure only and is 0 for parquet by construction (P3 F49); column-level change needs a " +
+			"failure only and is 0 for parquet by construction; column-level change needs a " +
 			"profile, and the analyze operator runs in 4 of 47 configurations into a destination the " +
-			"config chooses (§9.5)",
+			"config chooses",
 	},
 	{
 		Name: CauseTransportFailure,
 		Loci: []string{triage.LocusRunNotStarted, triage.LocusWorkerFailed,
 			triage.LocusSinkFailedUnderCompletedWorker, triage.LocusWrittenNotArrived},
 		Evidenceability: Coarse,
-		Note: "the text reaches failure_details or an error_message and the class does not (F199), and the " +
-			"one machine-readable class the platform computes is discarded before the database (F198); " +
+		Note: "the text reaches failure_details or an error_message and the class does not, and the " +
+			"one machine-readable class the platform computes is discarded before the database; " +
 			"locus written_not_arrived is the only structural instrument and it is a check against S3 or " +
-			"Postgres rather than a query (§9.5)",
+			"Postgres rather than a query",
 	},
 	{
 		Name:            CauseParseFailure,
 		Loci:            []string{triage.LocusRowsLostSilently, triage.LocusPerRecordFailuresReported},
 		Evidenceability: Evidenced,
 		Note: "input_bad_records_count is exactly this and it counts without sampling; the one exclusion is " +
-			"P3 F77's, that an unparseable date inside map_record is discarded with no row, no log line " +
-			"and no count (§9.5)",
+			"that an unparseable date inside map_record is discarded with no row, no log line " +
+			"and no count",
 	},
 	{
 		Name:            CauseValidationBreach,
 		Loci:            []string{triage.LocusPerRecordFailuresReported},
 		Evidenceability: Conditional,
 		Note: "a jets:exception reaches process_errors for the 9 of 12 jetrules instances that wire a " +
-			"channel (F188), capped at 20 per operator instance (F187), and without saying which rule " +
-			"(F185: the message is the only populated column) (§9.5)",
+			"channel, capped at 20 per operator instance, and without saying which rule " +
+			"(the message is the only populated column)",
 	},
 	{
 		Name: CauseTransformationDefect,
@@ -145,13 +145,13 @@ var causeClasses = []CauseClass{
 		// apply a correction already made elsewhere and
 		// record that the table's own cell has not been edited.
 		Evidenceability: Coarse,
-		Note: "the locus yes, the cause coarsely: N.4's StepRegression establishes that this step used to " +
-			"work, and a run now names a workspace and a compiled version (§16.2, AB.3), which that " +
-			"version now pairs with a commit (AH.2) — so two runs of the same step under different " +
-			"versions are distinguishable and what changed inside a version is not (F337). **The join " +
+		Note: "the locus yes, the cause coarsely: the StepRegression detector establishes that this step used to " +
+			"work, and a run now names a workspace and a compiled version, which that " +
+			"version now pairs with a commit — so two runs of the same step under different " +
+			"versions are distinguishable and what changed inside a version is not. **The join " +
 			"is through a read that is known wrong**: four call sites resolve the workspace version as " +
 			"MAX(version) with no workspace predicate, so a deployment with two workspaces can stamp a " +
-			"run with the other one's version (§18.4, I-347)",
+			"run with the other one's version",
 	},
 	{
 		Name: CauseInfrastructureFailure,
@@ -159,23 +159,23 @@ var causeClasses = []CauseClass{
 			triage.LocusWorkerFailed},
 		Evidenceability: Coarse,
 		Note: "the ECS StoppedReason arm of the decoder is real and which of its four arms fired is not " +
-			"recorded (F198), and locus worker_not_terminated collapses a killed task, an out-of-memory " +
-			"kill, a lost node and a hung read into one observation (§9.5)",
+			"recorded, and locus worker_not_terminated collapses a killed task, an out-of-memory " +
+			"kill, a lost node and a hung read into one observation",
 	},
 	{
 		Name:            CauseDependencyFailure,
 		Loci:            nil,
 		Evidenceability: None,
 		Note: "there is no dependency graph of any kind; the cross-step DAG join is available for at most " +
-			"one hop and only for stage-mediated hops (I-113), and external dependencies are modelled " +
-			"nowhere (§9.5, I-262)",
+			"one hop and only for stage-mediated hops, and external dependencies are modelled " +
+			"nowhere",
 	},
 	{
 		Name:            CauseCapacityOrCostDeviation,
 		Loci:            nil,
 		Evidenceability: None,
-		Note: "F201: no cost, no memory, no CPU, and the only duration is one wall clock per worker that " +
-			"includes queueing on the header (§9.5, I-262)",
+		Note: "no cost, no memory, no CPU, and the only duration is one wall clock per worker that " +
+			"includes queueing on the header",
 	},
 	{
 		Name:            CauseBenignVariation,
@@ -183,7 +183,7 @@ var causeClasses = []CauseClass{
 		Evidenceability: Asymmetric,
 		Note: "the class can be proposed and not established: confirming benign needs the absence of a " +
 			"cause, which no record supplies, and ConfigConfounders.Read == false is the ordinary state " +
-			"for the runs that failed earliest (F194). §9.5's cell reads \"6 above all\", which is not a " +
+			"for the runs that failed earliest. the triage design's cell reads \"6 above all\", which is not a " +
 			"closed list of loci",
 	},
 }

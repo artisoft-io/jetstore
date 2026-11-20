@@ -127,7 +127,7 @@ func (JetrulesConfig) refusedFields() map[string]string {
 	const throughput = "is a pipeline throughput setting; a test runs one engine on its own input sessions"
 	const reporting = "is pipeline output; a test reports through its result file"
 	return map[string]string{
-		"metadata_input_sources":  "is not supported in a rules unit test (it reads from S3, Q-9); assert reference data through rule_config or an input session",
+		"metadata_input_sources":  "is not supported in a rules unit test (it reads from S3); assert reference data through rule_config or an input session",
 		"pool_size":               throughput,
 		"max_input_count":         throughput,
 		"max_rete_sessions_saved": throughput,

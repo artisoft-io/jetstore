@@ -1,8 +1,8 @@
-"""The sidecar emitter (A1.6) — `jets_agentic.meta.json`.
+"""The sidecar emitter — `jets_agentic.meta.json`.
 
 Emitter-only metadata that never reaches the RETE engine: descriptions,
-defaults, requiredness, the key markers, and the vocabulary values. Item 2a's
-JSON Schema emitter and item 3's glossary/signature emitters read this file
+defaults, requiredness, the key markers, and the vocabulary values. The
+JSON Schema emitter and the glossary and signature emitters read this file
 (and, for client-authored classes, the workspace's triples table — one
 emitter, two sources).
 """

@@ -634,7 +634,7 @@ def test_the_partition_writer_refuses_an_env_it_cannot_read_the_store_from():
         PartitionWriter.build(env(), args_for())
     message = str(exc.value)
     assert "BuilderEnv" in message
-    assert "D-226" in message
+    assert "a site factory is not" in message
 
 
 def test_the_partition_writer_refuses_a_node_with_no_object_store(tmp_path: Path):
@@ -1384,7 +1384,7 @@ def test_a_bucket_naming_the_jetstore_sentinel_is_the_nodes_own(tmp_path: Path):
 def test_an_env_variable_in_the_bucket_is_substituted(tmp_path: Path):
     """`ReplaceEnvVars(externalBucket, ctx.env)`, which is how the bucket decision spells it.
 
-    Michel's wording is `${CORPUS_OUT_BUCKET}`, so the substitution is on the
+    The decision spells it `${CORPUS_OUT_BUCKET}`, so the substitution is on the
     path a corpus actually takes and not a nicety.
     """
     own, other = tmp_path / "own", tmp_path / "other"

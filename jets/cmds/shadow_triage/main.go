@@ -80,13 +80,13 @@ var (
 	attest   = flag.Bool("attest", false, "read the incident record back and report whether anything acted; classify nothing")
 
 	actor        = flag.String("actor", "", "the agent identity recorded on every transition; defaults to the classifier ref")
-	severity     = flag.String("severity", shadow.SeverityInfo, "the severity written on every incident. No locus determines one (I-306) and shadow mode's default is `info`, argued from the posture: nothing acts on these rows")
+	severity     = flag.String("severity", shadow.SeverityInfo, "the severity written on every incident. No locus determines one and shadow mode's default is `info`, argued from the posture: nothing acts on these rows")
 	modelVersion = flag.String("model-version", shadow.ModelVersion, "the domain model version written on every incident")
 	generation   = flag.Int("generation", 1, "classifier and ranker generation")
 
-	minRatio     = flag.Float64("min-ratio", 0.5, "locus rows_lost_silently fires below this output/input ratio (unsourced, R-21)")
-	minInput     = flag.Int64("min-input", 1000, "locus rows_lost_silently ignores workers that read fewer rows than this (unsourced, R-21)")
-	minPriorRuns = flag.Int64("min-prior-runs", 3, "locus step_never_started needs at least this many prior runs in the baseline (unsourced, R-36)")
+	minRatio     = flag.Float64("min-ratio", 0.5, "locus rows_lost_silently fires below this output/input ratio (unsourced)")
+	minInput     = flag.Int64("min-input", 1000, "locus rows_lost_silently ignores workers that read fewer rows than this (unsourced)")
+	minPriorRuns = flag.Int64("min-prior-runs", 3, "locus step_never_started needs at least this many prior runs in the baseline (unsourced)")
 
 	usingSshTunnel = flag.Bool("usingSshTunnel", false, "connect to the database through an open ssh tunnel")
 )
@@ -198,7 +198,7 @@ func doJob(ctx context.Context, db *pgxpool.Pool, sum *summary) error {
 		return nil
 	}
 	log.Printf("classifying %d run(s); severity is %q for every incident, which is a posture and not a "+
-		"measurement (I-306)", len(sessions), *severity)
+		"measurement", len(sessions), *severity)
 
 	w := writerFromFlags()
 	census := map[string]int{}
@@ -221,7 +221,7 @@ func doJob(ctx context.Context, db *pgxpool.Pool, sum *summary) error {
 		}
 		sum.UnmappedLoci = append(sum.UnmappedLoci, res.UnmappedLoci...)
 		if len(res.UnmappedLoci) > 0 {
-			log.Printf("%s: %v fired and §9.5 maps them to no cause class, so those incidents carry no hypothesis",
+			log.Printf("%s: %v fired and the cause mapping maps them to no cause class, so those incidents carry no hypothesis",
 				s, res.UnmappedLoci)
 		}
 	}
@@ -249,7 +249,7 @@ func doJob(ctx context.Context, db *pgxpool.Pool, sum *summary) error {
 		return nil
 	default:
 		log.Printf("%d incident(s) written over %d run(s), with %d hypothesis(es); %d locus/session pairs "+
-			"were already raised and were left alone (Q-34)", incidents, len(sessions), hypotheses, already)
+			"were already raised and were left alone", incidents, len(sessions), hypotheses, already)
 	}
 
 	// Say what the record now shows, in the same run that wrote it. Criterion 47
@@ -302,7 +302,7 @@ func run(ctx context.Context, db *pgxpool.Pool, sum *summary) error {
 		extent.Headers, stamp(extent.OldestHeader), stamp(extent.OldestWorker), extent.Regime())
 	if !extent.ChannelDetails {
 		log.Printf("record: jetsapi.pipeline_execution_channel_details is absent, so locus " +
-			"sink_failed_under_completed_worker is not_evaluable on every run here (I-132)")
+			"sink_failed_under_completed_worker is not_evaluable on every run here")
 	}
 	return doJob(ctx, db, sum)
 }

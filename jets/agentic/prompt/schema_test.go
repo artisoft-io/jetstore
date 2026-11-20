@@ -102,7 +102,7 @@ func TestAgainstTheRealContract_TransformationSpecDoesNotFit(t *testing.T) {
 	}{
 		{"ChannelSpec", true, "a channel spec is small and comfortable"},
 		{"TransformationColumnSpec", true, "decision 9's fragment granularity, and the unit that works today"},
-		{"TransformationSpec", false, "§3.3 proposes constraining to this, and it does not fit the window"},
+		{"TransformationSpec", false, "the design proposes constraining to this, and it does not fit the window"},
 	} {
 		t.Run(tc.def, func(t *testing.T) {
 			sub, err := Subschema(doc, tc.def)

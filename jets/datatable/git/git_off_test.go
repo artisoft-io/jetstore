@@ -126,7 +126,7 @@ func TestGitOffStartsNoGitProcess(t *testing.T) {
 	}
 
 	if ranGit() {
-		t.Error("a git process was started with git off; criterion 58 is the whole point of this test")
+		t.Error("a git process was started with git off, which is the whole point of this test")
 	}
 }
 

@@ -249,7 +249,7 @@ def test_an_error_channel_of_an_unexpected_width_is_not_refused(tmp_path=None):
 
 
 def test_the_column_vocabulary_is_refused_by_name_and_not_defaulted():
-    with pytest.raises(OperatorNotImplemented, match="P9-T06"):
+    with pytest.raises(OperatorNotImplemented, match="the expression and column evaluator work"):
         _env().column_evaluator(None, None, None)  # type: ignore[arg-type]
 
 

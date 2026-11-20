@@ -34,8 +34,8 @@ async function signedIn(
     new Response(
       JSON.stringify({
         token: "t0",
-        name: "Michel",
-        user_email: "michel@artisoft.io",
+        name: "Test User",
+        user_email: "user@example.com",
         is_admin: false,
         capabilities,
         ...build,
@@ -44,7 +44,7 @@ async function signedIn(
     ),
   ) as unknown as typeof fetch;
   const api = new ApiClient("", fetchImpl);
-  await api.login("michel@artisoft.io", "pw");
+  await api.login("user@example.com", "pw");
   return api;
 }
 
@@ -126,7 +126,7 @@ describe("AppShell", () => {
     renderShell(await signedIn(), nav);
     expect(await screen.findByText("screen: workspace")).toBeTruthy();
     expect(screen.getByRole("navigation", { name: "Screens" })).toBeTruthy();
-    expect(screen.getByText("Michel")).toBeTruthy();
+    expect(screen.getByText("Test User")).toBeTruthy();
   });
 
   it("navigates between screens without a reload", async () => {
@@ -162,7 +162,7 @@ describe("AppShell", () => {
       expired
         ? new Response("{}", { status: 401 })
         : new Response(
-            JSON.stringify({ token: "t0", name: "Michel", user_email: "m@x.io", is_admin: true, capabilities: [] }),
+            JSON.stringify({ token: "t0", name: "Test User", user_email: "m@x.io", is_admin: true, capabilities: [] }),
             { status: 200 },
           ),
     ) as unknown as typeof fetch;

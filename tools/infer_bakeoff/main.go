@@ -126,18 +126,18 @@ func main() {
 		"the Ollama server for arms 1 and 2 — an address literal, never a name (see the package comment)")
 	vllmHost := flag.String("vllm-host", "http://[::1]:11434",
 		"the vLLM server for arm 3 — an address literal, never a name")
-	model := flag.String("model", "granite4.1:3b", "the model tag to ask for; name it beside every figure (Q-38)")
+	model := flag.String("model", "granite4.1:3b", "the model tag to ask for; name it beside every figure")
 	vllmModel := flag.String("vllm-model", "", "the model tag arm 3 asks for, when the vLLM server names it differently; empty means -model")
 	everyNth := flag.Int("every-nth", 3, "hold out every nth file")
 	perOperator := flag.Int("per-operator", 3, "how many held-out cases to take per operator; 0 means all")
 	maxCases := flag.Int("max-cases", 0, "overall cap on cases per arm, 0 for no cap")
 	shots := flag.Int("shots", 4, "worked examples arm 2 carries, drawn from the training split only")
 	numCtx := flag.Int("num-ctx", prompt.DefaultContextTokens, "num_ctx the Ollama arms ask the server for")
-	temperature := flag.Float64("temperature", 0, "sampling temperature; 0 and a fixed seed, so a rerun is a rerun (F118)")
+	temperature := flag.Float64("temperature", 0, "sampling temperature; 0 and a fixed seed, so a rerun is a rerun")
 	seed := flag.Int("seed", 1, "sampling seed")
 	maxTokens := flag.Int("max-tokens", 4096, "ceiling on the answer, applied to every arm — vLLM's max_tokens and Ollama's num_predict")
 	timeout := flag.Duration("timeout", 10*time.Minute, "bound on one model call")
-	control := flag.Bool("control", false, "run the first arm again at the end, as a repeated-arm control (plan §20.7)")
+	control := flag.Bool("control", false, "run the first arm again at the end, as a repeated-arm control")
 	verbose := flag.Bool("v", false, "print the answer and the removed instance for every case")
 	dryRun := flag.Bool("dry-run", false, "build every prompt, probe every server, and call no model")
 	out := flag.String("out", "", "also write the run as JSON here")
@@ -887,7 +887,7 @@ func render(rep *runReport, live, held map[string]int) string {
 	var b strings.Builder
 	b.WriteString("first-shot schema validity — the fraction of requests whose FIRST response\n")
 	b.WriteString("validated against the schema the request carried. Per operator, with\n")
-	b.WriteString("denominators. No aggregate (decision 13).\n\n")
+	b.WriteString("denominators. No aggregate.\n\n")
 
 	ops := map[string]bool{}
 	for _, a := range rep.Arms {
@@ -958,7 +958,7 @@ func render(rep *runReport, live, held map[string]int) string {
 		fmt.Fprintf(&b, "  %-18s %3d held out of %d live\n", op, held[op], live[op])
 	}
 	b.WriteString("\nembed: no vLLM arm exists — it calls Ollama's /api/embed and the vLLM operator\n")
-	b.WriteString("speaks /v1/chat/completions (F424). Its vLLM column is a structural zero rather\n")
+	b.WriteString("speaks /v1/chat/completions. Its vLLM column is a structural zero rather\n")
 	b.WriteString("than an unmeasured cell, and it is not a row above because it authors no\n")
 	b.WriteString("transformation this corpus holds out.\n")
 
@@ -979,7 +979,7 @@ func render(rep *runReport, live, held map[string]int) string {
 	b.WriteString("tunnel and a load balancer and the other over loopback, a cross-arm timing\n")
 	b.WriteString("difference measures the hardware and the transport. First-shot validity is\n")
 	b.WriteString("unaffected: whether a response satisfies a schema does not depend on where it\n")
-	b.WriteString("was computed, which is why plan §20.2 made it the primary figure.\n")
+	b.WriteString("was computed, which is why it is the primary figure.\n")
 	return b.String()
 }
 

@@ -21,7 +21,7 @@
  * **Back on this screen since 2026-10-15.** From 2026-10-11 the buttons that
  * need a workspace were on the Workspace IDE's toolbar (`WorkspaceToolbar.tsx`),
  * and the cases for them mounted the toolbar. They returned to the registry at
- * Michel's request, because a compile started from the IDE showed no progress
+ * request, because a compile started from the IDE showed no progress
  * there: the compile's status is on this table. So those cases select a row
  * again, and keep what the toolbar taught them — Export refused only for
  * `local workspace removed`, the three git buttons ungated, and the flows
@@ -77,8 +77,8 @@ function stubServer(active = { name: "jets_ws", branch: "jets_ai", uri: "git@exa
       return new Response(
         JSON.stringify({
           token: "t0",
-          name: "Michel",
-          user_email: "michel@artisoft.io",
+          name: "Test User",
+          user_email: "user@example.com",
           is_admin: false,
           capabilities: ["workspace_ide"],
         }),
@@ -140,7 +140,7 @@ function LocationProbe() {
 async function mount(active?: { name: string; branch: string; uri: string }) {
   const { fetchImpl, posts } = stubServer(active);
   const api = new ApiClient("", fetchImpl);
-  await api.login("michel@artisoft.io", "pw");
+  await api.login("user@example.com", "pw");
 
   render(
     <ApiProvider api={api}>
@@ -174,7 +174,7 @@ async function mount(active?: { name: string; branch: string; uri: string }) {
 async function mountToolbar(workspace: string) {
   const { fetchImpl, posts } = stubServer();
   const api = new ApiClient("", fetchImpl);
-  await api.login("michel@artisoft.io", "pw");
+  await api.login("user@example.com", "pw");
 
   render(
     <ApiProvider api={api}>
@@ -305,7 +305,7 @@ describe("the screen", () => {
 
     // And this is the active workspace on its base branch: its status ends
     // `feature branch missing or removed`, which a bare `removed` gate read as a
-    // removed workspace and refused Export for (Michel, 2026-10-11). The three
+    // removed workspace and refused Export for (2026-10-11). The three
     // git buttons have no gate at all since the same evening.
     expect(button("Export Client Config").hasAttribute("disabled")).toBe(false);
     for (const label of ["Commit & Push Workspace", "Push Only", "Pull Workspace"]) {
@@ -323,7 +323,7 @@ describe("the screen", () => {
     await mount();
     await selectRow("initech_ws");
     // `in progress` refuses the seven with a status gate; the three git buttons
-    // have none since 2026-10-11 (Michel: always enabled).
+    // have none since 2026-10-11 (always enabled).
     //
     // **Wait on the button that becomes *enabled*, not on one that becomes
     // disabled.** This waited on `Open` being disabled, which is also true with
@@ -440,7 +440,7 @@ describe("the dialog host", () => {
     expect(sent["fromClauses"]).toEqual([{ table: "commit_workspace" }]);
     expect(sent["workspaceName"]).toBe("globex_ws");
     const row = (sent["data"] as Record<string, unknown>[])[0]!;
-    expect(row["user_email"]).toBe("michel@artisoft.io");
+    expect(row["user_email"]).toBe("user@example.com");
     // `last_git_log` is redacted on the way out, which the Dart does at every one
     // of these arms — the log can be a megabyte and the server does not read it.
     expect(row["last_git_log"]).toBe("redacted");

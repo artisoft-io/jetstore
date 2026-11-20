@@ -1,8 +1,8 @@
 """Where the `.pc.json` comes from, how it is validated, and the scope gate.
 
 Everything the node reads beyond `{id, jp, pe}` it reads from
-`jetsapi.cpipes_execution_status` and from S3 — Michel's characterisation of
-the seam, and `actions_coordinate_cp.go` is exactly that: one `SELECT` for the
+`jetsapi.cpipes_execution_status` and from S3 — that is the
+seam, and `actions_coordinate_cp.go` is exactly that: one `SELECT` for the
 config and one object store for the data. This module is the first half.
 
 **The gate walks objects, not field paths.** A hand-written walk down

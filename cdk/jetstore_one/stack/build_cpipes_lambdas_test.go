@@ -46,7 +46,7 @@ func TestCpipesNodeLambdaDefaultEntryIsTheEntryDeployedToday(t *testing.T) {
 
 func TestLambdaEntryOrDefault(t *testing.T) {
 	const name = "JETS_CPIPES_NODE_LAMBDA_ENTRY"
-	const siteEntry = "/home/ws/cedargate_ws/go/lambdas/cp_node"
+	const siteEntry = "/home/ws/org1_ws/go/lambdas/cp_node"
 	tests := []struct {
 		what  string
 		set   bool

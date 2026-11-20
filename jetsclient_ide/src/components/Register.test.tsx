@@ -25,7 +25,7 @@ const GOOD = "correct-horse-battery";
 
 describe("the rules, which are the Dart's", () => {
   it("accepts what registrationFormValidator accepts", () => {
-    expect(registrationProblem("Michel", "a@b.co", GOOD, GOOD)).toBeNull();
+    expect(registrationProblem("Test User", "a@b.co", GOOD, GOOD)).toBeNull();
   });
 
   it("refuses a one-character name, as `characters.length > 1` does", () => {
@@ -33,7 +33,7 @@ describe("the rules, which are the Dart's", () => {
   });
 
   it("refuses an email of three characters or fewer", () => {
-    expect(registrationProblem("Michel", "a@b", GOOD, GOOD)).toBe("Enter your email address.");
+    expect(registrationProblem("Test User", "a@b", GOOD, GOOD)).toBe("Enter your email address.");
   });
 
   /**
@@ -42,14 +42,14 @@ describe("the rules, which are the Dart's", () => {
    * nobody notices in a diff of a new file.
    */
   it("requires fourteen characters, not eight", () => {
-    expect(registrationProblem("Michel", "a@b.co", "x".repeat(13), "x".repeat(13))).toBe(
+    expect(registrationProblem("Test User", "a@b.co", "x".repeat(13), "x".repeat(13))).toBe(
       `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
     );
-    expect(registrationProblem("Michel", "a@b.co", "x".repeat(14), "x".repeat(14))).toBeNull();
+    expect(registrationProblem("Test User", "a@b.co", "x".repeat(14), "x".repeat(14))).toBeNull();
   });
 
   it("requires the confirmation to match", () => {
-    expect(registrationProblem("Michel", "a@b.co", GOOD, `${GOOD}!`)).toBe(
+    expect(registrationProblem("Test User", "a@b.co", GOOD, `${GOOD}!`)).toBe(
       "The passwords do not match.",
     );
   });
@@ -77,8 +77,8 @@ describe("the screen", () => {
     const onSubmit = vi.fn(async () => {});
     render(<Register onSubmit={onSubmit} onSignIn={() => {}} />);
     fill({
-      Name: "Michel",
-      Email: "Michel@Artisoft.IO",
+      Name: "Test User",
+      Email: "User@Example.COM",
       Password: GOOD,
       "Confirm password": GOOD,
     });
@@ -86,13 +86,13 @@ describe("the screen", () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
     // The name is sent as typed; only the email is lower-cased, which is the
     // Dart's `TextRestriction.allLower` on that field and not on the other.
-    expect(onSubmit).toHaveBeenCalledWith("Michel", "michel@artisoft.io", GOOD);
+    expect(onSubmit).toHaveBeenCalledWith("Test User", "user@example.com", GOOD);
   });
 
   it("does not post when a rule fails, and says which", async () => {
     const onSubmit = vi.fn(async () => {});
     render(<Register onSubmit={onSubmit} onSignIn={() => {}} />);
-    fill({ Name: "Michel", Email: "a@b.co", Password: "short", "Confirm password": "short" });
+    fill({ Name: "Test User", Email: "a@b.co", Password: "short", "Confirm password": "short" });
     fireEvent.click(screen.getByRole("button", { name: "Create account" }));
     expect((await screen.findByRole("alert")).textContent).toBe(
       `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
@@ -109,7 +109,7 @@ describe("the screen", () => {
   it("offers sign-in rather than entering the app", async () => {
     const onSignIn = vi.fn();
     render(<Register onSubmit={async () => {}} onSignIn={onSignIn} />);
-    fill({ Name: "Michel", Email: "a@b.co", Password: GOOD, "Confirm password": GOOD });
+    fill({ Name: "Test User", Email: "a@b.co", Password: GOOD, "Confirm password": GOOD });
     fireEvent.click(screen.getByRole("button", { name: "Create account" }));
     expect((await screen.findByRole("status")).textContent).toContain("Registration successful");
     fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
@@ -121,7 +121,7 @@ describe("the screen", () => {
       throw new ApiError("That email is already registered. Sign in instead.", 409);
     });
     render(<Register onSubmit={onSubmit} onSignIn={() => {}} />);
-    fill({ Name: "Michel", Email: "a@b.co", Password: GOOD, "Confirm password": GOOD });
+    fill({ Name: "Test User", Email: "a@b.co", Password: GOOD, "Confirm password": GOOD });
     fireEvent.click(screen.getByRole("button", { name: "Create account" }));
     expect((await screen.findByRole("alert")).textContent).toContain("already registered");
   });
@@ -142,11 +142,11 @@ describe("the api client", () => {
 
   it("sends `user_email`, not `email` — the field user.User unmarshals", async () => {
     const { api, calls } = client(200);
-    await api.register("Michel", "michel@artisoft.io", GOOD);
+    await api.register("Test User", "user@example.com", GOOD);
     expect(calls[0]?.url).toBe("/register");
     expect(calls[0]?.body).toEqual({
-      name: "Michel",
-      user_email: "michel@artisoft.io",
+      name: "Test User",
+      user_email: "user@example.com",
       password: GOOD,
     });
   });
@@ -169,8 +169,8 @@ describe("the api client", () => {
   });
 
   it("leaves the client signed out on success", async () => {
-    const { api } = client(200, { token: "t0", name: "Michel" });
-    await api.register("Michel", "michel@artisoft.io", GOOD);
+    const { api } = client(200, { token: "t0", name: "Test User" });
+    await api.register("Test User", "user@example.com", GOOD);
     expect(api.isAuthenticated).toBe(false);
   });
 });

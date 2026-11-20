@@ -68,7 +68,7 @@ describe("the route title table", () => {
     // decide this — which is worth an assertion because the obvious reading of a
     // first-match loop is that it does, and a table ordered on that belief would
     // pass every other case in this file.
-    expect(titleNameFor("/workspaces/cgt/home")).toBe("Workspace IDE");
+    expect(titleNameFor("/workspaces/org1/home")).toBe("Workspace IDE");
     expect(titleNameFor("/workspaces")).toBe("Workspaces");
   });
 

@@ -89,8 +89,8 @@ function stubServer(options: { reteCell?: string | null } = {}) {
       return new Response(
         JSON.stringify({
           token: "t0",
-          name: "Michel",
-          user_email: "michel@artisoft.io",
+          name: "Test User",
+          user_email: "user@example.com",
           is_admin: false,
           capabilities: ["jetstore_read"],
         }),
@@ -164,7 +164,7 @@ async function mount(options: { session?: string; reteCell?: string | null } = {
     "reteCell" in options ? { reteCell: options.reteCell } : {},
   );
   const api = new ApiClient("", fetchImpl);
-  await api.login("michel@artisoft.io", "pw");
+  await api.login("user@example.com", "pw");
 
   render(
     <ApiProvider api={api}>

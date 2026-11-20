@@ -3,7 +3,7 @@ package datatable
 import "testing"
 
 // A node running as an ecs task reports its error only in pipeline_execution_details,
-// the state machine only gets the task stopped reason (CPED-180).
+// the state machine only gets the task stopped reason.
 func TestMergeFailureDetails(t *testing.T) {
 	ecsReason := "Essential container in task exited from family:JetStoreDEIDStackcpipesTaskDefinitionB56DEB92"
 	nodeErr := "1791184366588 while merging files using s3 copy: operation error S3: CreateMultipartUpload, AccessDenied"

@@ -52,8 +52,8 @@ function stubServer() {
       return new Response(
         JSON.stringify({
           token: "t0",
-          name: "Michel",
-          user_email: "michel@artisoft.io",
+          name: "Test User",
+          user_email: "user@example.com",
           is_admin: false,
           capabilities: [],
         }),
@@ -90,7 +90,7 @@ function stubServer() {
 async function mount(which: "domain" | "preview") {
   const { fetchImpl, posts } = stubServer();
   const api = new ApiClient("", fetchImpl);
-  await api.login("michel@artisoft.io", "pw");
+  await api.login("user@example.com", "pw");
 
   const config =
     which === "domain"
@@ -131,7 +131,7 @@ async function mount(which: "domain" | "preview") {
 
 const reads = (posts: Posted[]) => posts.map((p) => p.body).filter((b) => b["action"] !== undefined);
 
-describe("C.11 — the domain and staging table viewer", () => {
+describe("the domain and staging table viewer", () => {
   it("takes both the table name and the session from the url", async () => {
     // **The `from` clause is empty in the document** — `{schema: "public"}` with
     // no table — and `makeQuery` fills it from `table_name`. So this screen puts
@@ -158,7 +158,7 @@ describe("C.11 — the domain and staging table viewer", () => {
     expect(screen.getByRole("columnheader", { name: /Paid Amount/ })).toBeTruthy();
   });
 
-  it("shows its title, which C.7's and C.8's screens do not have", async () => {
+  it("shows its title, which the other viewer screens do not have", async () => {
     // `ScreenKeys.fileRegistryTable` declares `title:` where
     // `ScreenKeys.execStatusDetailsTable` has it commented out — so this is
     // `TableScreen`'s optional prop getting its first consumer.
@@ -167,7 +167,7 @@ describe("C.11 — the domain and staging table viewer", () => {
   });
 });
 
-describe("C.12 — the input file preview", () => {
+describe("the input file preview", () => {
   it("asks the preview_file arm, with the file key from the url", async () => {
     const { posts } = await mount("preview");
     await screen.findByText("a,b,c");
@@ -245,7 +245,7 @@ describe("a file key holding / reaches the preview", () => {
     const key = "in/client=acme/year=2026/claims #1?.csv";
     const { fetchImpl, posts } = stubServer();
     const api = new ApiClient("", fetchImpl);
-    await api.login("michel@artisoft.io", "pw");
+    await api.login("user@example.com", "pw");
     function Launch() {
       const navigate = useNavigate();
       useEffect(() => {

@@ -36,7 +36,7 @@ INSERT INTO jetsapi."source_config" (object_type,client,org,automated,table_name
    '',
    0,
    NULL,
-   'michel@artisoft.io'),
+   'user@example.com'),
   ('FW_Thing',
    'UTest',
    'Test',
@@ -52,7 +52,7 @@ INSERT INTO jetsapi."source_config" (object_type,client,org,automated,table_name
    '',
    0,
    NULL,
-   'michel@artisoft.io'),
+   'user@example.com'),
   ('TestLooping',
    'UTest',
    'Test',
@@ -68,7 +68,7 @@ INSERT INTO jetsapi."source_config" (object_type,client,org,automated,table_name
    '',
    0,
    NULL,
-   'michel@artisoft.io'),
+   'user@example.com'),
   ('HF_Person',
    'UTest',
    'Test',
@@ -84,7 +84,7 @@ INSERT INTO jetsapi."source_config" (object_type,client,org,automated,table_name
    '',
    0,
    NULL,
-   'michel@artisoft.io')
+   'user@example.com')
 ON CONFLICT DO NOTHING;
 
 
@@ -99,10 +99,10 @@ DELETE FROM jetsapi."rule_configv2" WHERE "client" = 'UTest';
 -- Table process_input
 DELETE FROM jetsapi."process_input" WHERE "client" = 'UTest';
 INSERT INTO jetsapi."process_input" (key,client,org,object_type,table_name,source_type,lookback_periods,entity_rdf_type,key_column,status,user_email) VALUES
-  (320667, 'UTest', 'Test', 'TestLookup', 'UTest_Test_TestLookup', 'file', 0, 'tl:Patient', NULL, 'created', 'michel@artisoft.io'),
-  (320668, 'UTest', 'Test', 'TestLooping', 'UTest_Test_TestLooping', 'file', 0, 'lp:Person', NULL, 'created', 'michel@artisoft.io'),
-  (320669, 'UTest', 'Test', 'HF_Person', 'UTest_Test_HF_Person', 'file', 0, 'hf:Person', NULL, 'created', 'michel@artisoft.io'),
-  (320700, 'UTest', 'Test', 'FW_Thing', 'UTest_Test_FW_Thing', 'file', 0, 'fw:Thing', NULL, 'created', 'michel@artisoft.io')
+  (320667, 'UTest', 'Test', 'TestLookup', 'UTest_Test_TestLookup', 'file', 0, 'tl:Patient', NULL, 'created', 'user@example.com'),
+  (320668, 'UTest', 'Test', 'TestLooping', 'UTest_Test_TestLooping', 'file', 0, 'lp:Person', NULL, 'created', 'user@example.com'),
+  (320669, 'UTest', 'Test', 'HF_Person', 'UTest_Test_HF_Person', 'file', 0, 'hf:Person', NULL, 'created', 'user@example.com'),
+  (320700, 'UTest', 'Test', 'FW_Thing', 'UTest_Test_FW_Thing', 'file', 0, 'fw:Thing', NULL, 'created', 'user@example.com')
 ON CONFLICT DO NOTHING;
 
 SELECT setval(pg_get_serial_sequence('jetsapi.process_input', 'key'), max(key)) FROM jetsapi.process_input;
@@ -123,7 +123,7 @@ INSERT INTO jetsapi."pipeline_config" (process_name,client,process_config_key,ma
    0,
    '[]',
    'Unit testing lookups',
-   'michel@artisoft.io'),
+   'user@example.com'),
   ('Test_FW_Schema',
    'UTest',
    106,
@@ -137,7 +137,7 @@ INSERT INTO jetsapi."pipeline_config" (process_name,client,process_config_key,ma
    0,
    '[]',
    'Test cpipes with fixed_width file',
-   'michel@artisoft.io'),
+   'user@example.com'),
   ('TestLooping',
    'UTest',
    74,
@@ -151,7 +151,7 @@ INSERT INTO jetsapi."pipeline_config" (process_name,client,process_config_key,ma
    0,
    '[]',
    'Unit testing looping',
-   'michel@artisoft.io'),
+   'user@example.com'),
   ('Test_HF_Analysis',
    'UTest',
    69,
@@ -165,16 +165,16 @@ INSERT INTO jetsapi."pipeline_config" (process_name,client,process_config_key,ma
    0,
    '[]',
    'Unit test cpipes with schema provider',
-   'michel@artisoft.io')
+   'user@example.com')
 ON CONFLICT DO NOTHING;
 
 
 -- Table process_mapping
 DELETE FROM jetsapi."process_mapping" WHERE "table_name" = 'UTest_Test_TestLookup';
 INSERT INTO jetsapi."process_mapping" (table_name,data_property,input_column,function_name,argument,default_value,error_message,user_email) VALUES
-  ('UTest_Test_TestLookup', 'jets:key', 'jets:key', NULL, NULL, NULL, NULL, 'michel@artisoft.io'),
-  ('UTest_Test_TestLookup', 'tl:condition', NULL, NULL, NULL, NULL, NULL, 'michel@artisoft.io'),
-  ('UTest_Test_TestLookup', 'tl:diagnosis', NULL, NULL, NULL, NULL, NULL, 'michel@artisoft.io')
+  ('UTest_Test_TestLookup', 'jets:key', 'jets:key', NULL, NULL, NULL, NULL, 'user@example.com'),
+  ('UTest_Test_TestLookup', 'tl:condition', NULL, NULL, NULL, NULL, NULL, 'user@example.com'),
+  ('UTest_Test_TestLookup', 'tl:diagnosis', NULL, NULL, NULL, NULL, NULL, 'user@example.com')
 ON CONFLICT DO NOTHING;
 
 
@@ -185,8 +185,8 @@ DELETE FROM jetsapi."process_mapping" WHERE "table_name" = 'UTest_Test_FW_Thing'
 -- Table process_mapping
 DELETE FROM jetsapi."process_mapping" WHERE "table_name" = 'UTest_Test_TestLooping';
 INSERT INTO jetsapi."process_mapping" (table_name,data_property,input_column,function_name,argument,default_value,error_message,user_email) VALUES
-  ('UTest_Test_TestLooping', 'jets:key', 'jets:key', NULL, NULL, NULL, NULL, 'michel@artisoft.io'),
-  ('UTest_Test_TestLooping', 'lp:name', NULL, NULL, NULL, NULL, NULL, 'michel@artisoft.io')
+  ('UTest_Test_TestLooping', 'jets:key', 'jets:key', NULL, NULL, NULL, NULL, 'user@example.com'),
+  ('UTest_Test_TestLooping', 'lp:name', NULL, NULL, NULL, NULL, NULL, 'user@example.com')
 ON CONFLICT DO NOTHING;
 
 

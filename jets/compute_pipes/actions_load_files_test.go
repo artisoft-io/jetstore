@@ -2380,7 +2380,7 @@ John                     Doe                      abcdef                   Montr
 Robert                   Smith                    abcdef                   New York                 0a2b3c4d5eqwerty                   asdfg                    
 john                     Albert                   abcdef                   Huston                   1111111111qwerty                   asdfg                    
 Peter                    Sunny                    abcdef                   Madrid                   2222222222qwerty                   asdfg                    
-     Michel                 Dufresne                  some thing else            Montreal             2222334    some other thing            some more....      `
+     Martin                 Lefebvre                  some thing else            Montreal             2222334    some other thing            some more....      `
 	headers := []string{"first_name",
 		"last_name",
 		"other1",
@@ -2400,7 +2400,7 @@ John                     Doe                      abcdef                   Montr
 Robert                   Smith                    abcdef                   New York                 0a2b3c4d5eqwerty                   asdfg                    
 john                     Albert                   abcdef                   Huston                   1111111111qwerty                   asdfg                    
 Peter                    Sunny                    abcdef                   Madrid                   2222222222qwerty             
-     Michel                 Dufresne                  some thing else            Montreal             2222334    some other thing`
+     Martin                 Lefebvre                  some thing else            Montreal             2222334    some other thing`
 	headers := []string{"first_name",
 		"last_name",
 		"other1",
@@ -2420,7 +2420,7 @@ John                     Doe                      abcdef                   Montr
 Peter                    Sunny                    abcdef                   Madrid                   2222222222qwerty             
 Robert                   Smith                    abcdef                   New York                 0a2b3c4d5eqwerty                   asdfg                    THIS IS TOO LONG
 john                     Albert                   abcdef                   Huston                   1111111111qwerty                   asdfg                    
-     Michel                 Dufresne                  some thing else            Montreal             2222334    some other thing`
+     Martin                 Lefebvre                  some thing else            Montreal             2222334    some other thing`
 	headers := []string{"first_name",
 		"last_name",
 		"other1",

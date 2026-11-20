@@ -43,8 +43,8 @@ function stubServer() {
       return new Response(
         JSON.stringify({
           token: "t0",
-          name: "Michel",
-          user_email: "michel@artisoft.io",
+          name: "Test User",
+          user_email: "user@example.com",
           is_admin: false,
           capabilities: [WORKSPACE_IDE],
           jetstore_version: "1759338000",
@@ -96,7 +96,7 @@ function stubServer() {
 
 async function mount() {
   const api = new ApiClient("", stubServer());
-  await api.login("michel@artisoft.io", "pw");
+  await api.login("user@example.com", "pw");
   render(
     <MemoryRouter initialEntries={["/workspace"]}>
       <Routes>

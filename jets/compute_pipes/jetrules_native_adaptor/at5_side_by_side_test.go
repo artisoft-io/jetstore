@@ -503,7 +503,7 @@ func TestAT5TheTemplateAndTheModelOverOneFactSet(t *testing.T) {
 	p := at5LoadPopulation(t)
 
 	var doc strings.Builder
-	fmt.Fprintf(&doc, "# `AT.5` — the template arm and the model arm over one fact set\n\n")
+	fmt.Fprintf(&doc, "# The template arm and the model arm over one fact set\n\n")
 	fmt.Fprintf(&doc, "Run %s.\n\n", time.Now().UTC().Format(time.RFC3339))
 	fmt.Fprintf(&doc, "- Population: `%s`, %d members, %d medical claims, %d pharmacy fills.\n",
 		at5PopulationDir, len(p.memberIDs), p.medicalRows, p.pharmacyRows)
@@ -517,9 +517,9 @@ func TestAT5TheTemplateAndTheModelOverOneFactSet(t *testing.T) {
 	}
 	fmt.Fprintf(&doc, "\n**Every figure taken from this run is an upper bound.** The population's NDCs "+
 		"were curated to resolve — 0 misses over %d fills — so it excludes the unresolved-NDC case that "+
-		"occurs in production (criterion 80). The medical side was not curated to the same standard: 27 "+
-		"of its %d claims carry a primary diagnosis (`M54.50`, `M54.51`) with no description behind it "+
-		"(I-566).\n\n", p.pharmacyRows, p.medicalRows)
+		"occurs in production. The medical side was not curated to the same standard: 27 "+
+		"of its %d claims carry a primary diagnosis (`M54.50`, `M54.51`) with no description behind it."+
+		"\n\n", p.pharmacyRows, p.medicalRows)
 
 	var firstRequest []byte
 	for _, id := range p.memberIDs {

@@ -94,7 +94,7 @@ def test_the_lookup_refusal_names_the_graph_s_own_refusal():
     """
     with pytest.raises(ColumnUnsupported) as exc:
         build(expr(type="lookup", name="x", lookup_name="t"))
-    assert "D-202" in str(exc.value)
+    assert "the corpus keeps its reference tables" in str(exc.value)
 
 
 # --- select, value, eval -----------------------------------------------------

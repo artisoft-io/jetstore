@@ -98,7 +98,7 @@ func TestOutcomeRowsAndHashChain(t *testing.T) {
 
 	events := []*Event{
 		{RunId: runId, EventType: EventIntent, Actor: "agent:rca", Tier: "T2", ToolName: "propose_remediation", Payload: []byte(`{"action":"requeue"}`)},
-		{RunId: runId, EventType: EventApproval, Actor: "michel@artisoft.io", Tier: "T2", Payload: []byte(`{"to_state":"approved"}`)},
+		{RunId: runId, EventType: EventApproval, Actor: "user@example.com", Tier: "T2", Payload: []byte(`{"to_state":"approved"}`)},
 		{RunId: runId, EventType: EventOutcome, Actor: "agent:rca", Tier: "T2", ToolName: "propose_remediation", Payload: []byte(`{"status":"succeeded"}`)},
 	}
 	for i, ev := range events {

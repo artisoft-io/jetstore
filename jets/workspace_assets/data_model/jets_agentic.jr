@@ -7,7 +7,7 @@
 # model from your own file that imports this one.
 #   import "data_model/jets_agentic.jr"
 # =======================================================================================
-# The schema-first authoring surface of decision 7: new agentic entities are
+# The schema-first authoring surface: new agentic entities are
 # authored in the Python source; existing data models and all rules stay in .jr.
 
 import "data_model/jets_model.jr"
@@ -51,7 +51,7 @@ class jetsa:ApprovalEvent {
   $as_table = true
 };
 
-# A proposed code or configuration change (§A.2.10), flattened to scalar
+# A proposed code or configuration change (the proposal's ChangeProposal), flattened to scalar
 class jetsa:ChangeProposal {
   $base_classes = [jets:Entity],
   $data_properties = [
@@ -78,7 +78,7 @@ class jetsa:ChangeProposal {
   $as_table = true
 };
 
-# A deterministic detector's observation (§A.2.6), widened at N.2 from the
+# A deterministic detector's observation (the proposal's Anomaly), a table.
 class jetsa:Anomaly {
   $base_classes = [jets:Entity],
   $data_properties = [
@@ -99,7 +99,7 @@ class jetsa:Anomaly {
   $as_table = true
 };
 
-# One evidence item of a Hypothesis (§A.2.8 `$defs`): a value object in
+# One evidence item of a Hypothesis (the proposal's evidence `$defs`): a
 class jetsa:Evidence {
   $base_classes = [owl:Thing],
   $data_properties = [
@@ -110,7 +110,7 @@ class jetsa:Evidence {
   $as_table = false
 };
 
-# A causal hypothesis for an Incident (§A.2.8): the RCA agent's output
+# A causal hypothesis for an Incident (the proposal's Hypothesis): the RCA
 class jetsa:Hypothesis {
   $base_classes = [jets:Entity],
   $data_properties = [
@@ -130,7 +130,7 @@ class jetsa:Hypothesis {
   $as_table = true
 };
 
-# A triaged cluster of anomalies (§A.2.7), keyed on a session (AB.1).
+# A triaged cluster of anomalies (the proposal's Incident), keyed on a session.
 class jetsa:Incident {
   $base_classes = [jets:Entity],
   $data_properties = [
@@ -153,7 +153,7 @@ class jetsa:Incident {
   $as_table = true
 };
 
-# A proposed corrective action (§A.2.9), tabled at AB.2 and with no executor.
+# A proposed corrective action (the proposal's Remediation), a table with no executor.
 class jetsa:Remediation {
   $base_classes = [jets:Entity],
   $data_properties = [
@@ -166,7 +166,7 @@ class jetsa:Remediation {
   $as_table = true
 };
 
-# A released version of the domain model itself (proposal §5.3: identity
+# A released version of the domain model itself (the proposal gives its
 class jetsa:DomainModelVersion {
   $base_classes = [jets:Entity],
   $data_properties = [
@@ -195,7 +195,7 @@ class jetsa:IncidentEvent {
   $as_table = true
 };
 
-# How a hypothesis was ranked, as numbers (Q-46, answered by the user
+# How a hypothesis was ranked, as numbers (decided 2026-09-04).
 class jetsa:HypothesisBasis {
   $base_classes = [owl:Thing],
   $data_properties = [
@@ -336,7 +336,7 @@ text jetsa:EVIDENCEABILITY_COARSE = "coarse";
 text jetsa:EVIDENCEABILITY_ASYMMETRIC = "asymmetric";
 text jetsa:EVIDENCEABILITY_NONE = "none";
 
-# Rule-visible property metadata (§3.5): data_classification markers as
+# Rule-visible property metadata: data_classification markers as
 # triples, readable in working memory and at build time (workspace.db triples).
 resource jetsa:data_classification = "jetsa:data_classification";
 triple(jetsa:statement, jetsa:data_classification, "PHI");

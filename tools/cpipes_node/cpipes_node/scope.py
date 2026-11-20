@@ -250,7 +250,7 @@ def render_scope() -> str:
     """The scope, as the abort message prints it.
 
     The message names the scope searched and not only the token, because
-    "unknown operator: cgt_scrub" leaves the author unable to tell a typo from
+    "unknown operator: org1_scrub" leaves the author unable to tell a typo from
     a built-in this node has not taken on, and those have different repairs.
     """
     lines = ["  the scope searched:\n"]

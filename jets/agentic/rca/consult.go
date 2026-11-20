@@ -137,14 +137,14 @@ func (r *ConsultReport) Describe() string {
 		return b.String()
 	}
 	fmt.Fprintf(&b, "%d hypotheses, %d of them carrying contradicting evidence; %d supporting items "+
-		"and %d contradicting. %d evidence item(s) cite a source §9.7 found has no substrate; "+
-		"%d hypothesis/hypotheses name a class §9.5 attaches to no locus; %d pair a class with a locus "+
-		"§9.5 does not list for it; %d sit at a locus triage did not find present, of which %d are at a "+
+		"and %d contradicting. %d evidence item(s) cite a source with no substrate in the record; "+
+		"%d hypothesis/hypotheses name a class the cause mapping attaches to no locus; %d pair a class with a locus "+
+		"the cause mapping does not list for it; %d sit at a locus triage did not find present, of which %d are at a "+
 		"locus it evaluated and found absent and %d at one it could not evaluate at all. "+
 		"The deterministic floor produced %d hypotheses over the same evidence, %d with contradicting "+
 		"evidence and %d citing a source with no substrate. "+
 		"%d prompt tokens, %d completion tokens. "+
-		"**None of these counts is an accuracy**: the labelled population is zero (plan §10), so "+
+		"**None of these counts is an accuracy**: the labelled population is zero, so "+
 		"whether either ranking is right is not a question this measures.",
 		r.Hypotheses, r.WithContradicting, r.SupportingItems, r.ContradictingItems,
 		r.UnsubstantiatedSources, r.ClassesWithNoLocus, r.PairsOutsideTheTable, r.LociNotPresent,
@@ -254,7 +254,7 @@ func (r Ranker) Consult(ctx context.Context, client Inferer, model string, in *I
 		Basis: fmt.Sprintf("%s ranked %d hypotheses for session %s after consulting model %s over the "+
 			"same evidence the deterministic floor read. The floor's ranking is the comparison and is "+
 			"returned separately; nothing here is scored for correctness, the labelled population being "+
-			"zero (plan §10).", r.Ref(), len(answer.Hypotheses), in.Report.SessionId, model),
+			"zero.", r.Ref(), len(answer.Hypotheses), in.Report.SessionId, model),
 	}
 	for i := range answer.Hypotheses {
 		a := answer.Hypotheses[i]

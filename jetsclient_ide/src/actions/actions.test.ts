@@ -45,7 +45,7 @@ function makeHost(overrides: Partial<ActionHost> = {}) {
     setBusy: (busy) => events.push(busy ? "busy" : "idle"),
     goToState: (state) => events.push(`goToState:${state}`),
     close: () => events.push("close"),
-    userEmail: () => "michel@artisoft.io",
+    userEmail: () => "user@example.com",
     now: () => 1_700_000_000_000,
     ...overrides,
   };

@@ -11,13 +11,11 @@ import (
 // The validator's file types and the IDE's sections, tied.
 //
 // **They are two lists in two packages, and a file type added to one and not
-// the other has happened at least three times** (jetstore_maintenance_02
-// `I-48`, 2026-10-27, which names ui_refresh `I-27`, cgt_test_harness_filters
-// `R-15` and rules_unit_test_harness `I-46`). A validator row with no section is
-// a file type the save path checks and the IDE cannot open: `.pv.json` had been
-// one since 2026-09-05, and this test found it on its first run. Michel's answer
-// to that project's `Q-21`, the same day, kept the sections a Go table and asked
-// for this test rather than a data-driven registry.
+// the other has happened at least three times** (counted 2026-10-27). A
+// validator row with no section is a file type the save path checks and the IDE
+// cannot open: `.pv.json` had been one since 2026-09-05, and this test found it
+// on its first run. The decision the same day kept the sections a Go table and
+// asked for this test rather than a data-driven registry.
 
 // fileTypesNotShownInTheIde are the validated file types that no section lists,
 // each on purpose, with the reason. **Empty, and kept**: a type goes here only

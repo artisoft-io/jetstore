@@ -129,7 +129,7 @@ func TestTakeMaxVertexVisits(t *testing.T) {
 	rc := []map[string]any{
 		{"jets:key": map[string]any{"value": "jets:iState", "type": "resource"},
 			"jets:max_vertex_visits": map[string]any{"value": "1000000", "type": "int"}},
-		{"usi_sm:clientName": "x"},
+		{"org2_sm:clientName": "x"},
 	}
 	out, n, err := takeMaxVertexVisits(rc)
 	if err != nil || n != 1000000 || len(out) != 2 {

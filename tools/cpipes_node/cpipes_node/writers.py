@@ -464,7 +464,7 @@ def check_compression(compression: str) -> None:
         f"compression {compression!r} is not implemented by this node's csv "
         "device writer. The Go writer uses the snappy framing format "
         "(snappy.NewBufferedWriter) and a raw-snappy stand-in would be a file "
-        "the Go reader cannot open, which is worse than a refusal (P9-I59). "
+        "the Go reader cannot open, which is worse than a refusal. "
         "Note that a 'stage' output channel's compression defaults to 'snappy', "
         'so an authored document must set "compression": "none".'
     )
