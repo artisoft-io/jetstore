@@ -1,17 +1,16 @@
 /**
  * The table's display mode, and the refresh that resets its page and selection.
- * Task A.5, less the copy toggle D.6 deleted.
+ * The copy toggle that once sat beside them was deleted.
  *
  * **These are the widget's own actions, and they were misfiled.** Three
  * `toggleCheckboxVisible` configurations and one `refreshTable` sit in the same
  * `actions` array as the ten `doAction`s that dispatch into a flow's delegate,
- * so S.2 was given all 25 — but these four change the table's own presentation
- * and its own state, with no flow involvement at all. The sizing
- * (`sizing_action_grammar.md` §5) found them; this file is where they belong,
- * beside A.4b's widget.
+ * so the action bar was given all 25 — but these four change the table's own presentation
+ * and its own state, with no flow involvement at all. A survey of the action
+ * grammar found them; this file is where they belong, beside the table widget.
  *
  * ~~A fifth belongs here too and is not in the 25: `toggleCopy2Clipboard` is
- * never configured.~~ **Deleted 2026-08-27 at D.6 (I-262), and the reason is the
+ * never configured.~~ **Deleted 2026-08-27, and the reason is the
  * premise rather than the control.** The Dart kept copy-on-click and row
  * selection opposed because both answered a *click on a row*: a table you were
  * ticking rows in could not also be one where every click copied a cell, so a
@@ -47,7 +46,7 @@ export interface TableModes {
  * `_noCopy2Clipboard = _checkboxVisible` on every flip, so revealing the
  * checkbox column turned copying off and hiding it turned copying on.
  *
- * **The second half of all that is gone as of D.6 and only the checkbox state
+ * **The second half of all that is gone since 2026-08-27 and only the checkbox state
  * remains.** The reason the coupling existed does not survive the port: in
  * Flutter both modes answered a click on a row, and here a checkbox answers
  * selection and nothing else reads a cell click. Keeping the coupling would now
@@ -62,7 +61,7 @@ export interface TableModes {
  * its whole observable effect was to withhold the toggle button. Delete the
  * button and the field has no distinct meaning left to honour. It stays in the
  * schema and in `TableConfig` because the workspace documents that set it must
- * keep validating (I-278).
+ * keep validating.
  */
 export function useTableModes(config: TableConfig): TableModes {
   const [checkboxVisible, setCheckboxVisible] = useState(config.isCheckboxVisible);
@@ -76,8 +75,7 @@ export function useTableModes(config: TableConfig): TableModes {
 /**
  * What a table has to be told to do when it refreshes.
  *
- * **No `setRowsPerPage`, and its absence is the point** (jetstore_maintenance
- * JM-060, 2026-11-05): the page size is the user's choice, and a refresh is not
+ * **No `setRowsPerPage`, and its absence is the point** (2026-11-05): the page size is the user's choice, and a refresh is not
  * allowed to touch it. Leaving it out of the interface makes that a type error
  * rather than a comment.
  */
@@ -92,12 +90,12 @@ export interface Refreshable {
  * share: the table's Refresh button, a watched form-state key changing, and a
  * write elsewhere asking every table to re-read (`onRefreshRequested`).
  *
- * **It departs from the Dart on the page size, deliberately, since 2026-11-05**
- * (jetstore_maintenance JM-060). The Dart sets
+ * **It departs from the Dart on the page size, deliberately, since 2026-11-05.**
+ * The Dart sets
  * `rowsPerPage = availableRowsPerPage[0]`, whose `[0]` is the configured size
  * (`data_table.dart:354`), so a user who chose 50 rows went back to the table's
- * configured 10 on every refresh. This port reproduced that faithfully from A.5
- * on, and users reported it as the defect it is: a refresh asks for fresh rows,
+ * configured 10 on every refresh. This port reproduced that faithfully at
+ * first, and users reported it as the defect it is: a refresh asks for fresh rows,
  * not for the table's settings to be put back. So the page size the user chose
  * is kept.
  *

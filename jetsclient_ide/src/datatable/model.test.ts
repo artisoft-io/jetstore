@@ -1,5 +1,5 @@
 /**
- * Tests for the data table's logic (task A.4b).
+ * Tests for the data table's logic.
  *
  * The three `DIVERGENCE` cases get their own tests asserting the *corrected*
  * behaviour, with the Dart's answer written into the test name. If someone
@@ -53,7 +53,7 @@ describe("visibleColumns", () => {
     const visible = visibleColumns(cols);
     expect(visible).toHaveLength(1);
     // The surviving column still points at position 1 of the row array — hiding
-    // is not reindexing, and A.4c's bindings depend on that.
+    // is not reindexing, and the form-state bindings depend on that.
     expect(visible[0]!.index).toBe(1);
   });
 });
@@ -113,7 +113,7 @@ describe("resolveSortColumn", () => {
   );
 
   // **Six since 2026-10-01**: the three add-or-edit option tables were retired
-  // with the steps `D06` removed (`jetstore_maintenance_02` `AF.2`–`AF.4`).
+  // with the add-or-edit steps their flows no longer have.
   it("leaves exactly the six static tables without a resolvable sort column", () => {
     expect(unsortable).toHaveLength(6);
     for (const key of unsortable) {
@@ -237,7 +237,7 @@ describe("selection", () => {
   });
 
   it("clears the previous row in a single-select table and reports it", () => {
-    // The reported indices are what A.4c needs: the Dart calls
+    // The reported indices are what the form-state binding needs: the Dart calls
     // `_updateFormState(i, false)` on each one before setting the new row.
     let sel = emptySelection(3);
     sel = toggleSelection(sel, 0, true, true).selection;

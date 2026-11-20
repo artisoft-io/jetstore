@@ -1,13 +1,13 @@
 # The screens' fixtures
 
 Two files, generated from the running Flutter app, both answering one half of
-Phase 3's sizing gate: `screen_configs.json` counts what the non-flow screens
+the screen migration's sizing question: `screen_configs.json` counts what the non-flow screens
 *hold*, and `screen_reachability.json` says what *reaches* them.
 
 **Both were stale for a day, and every number below moved when they were
-repaired.** C.0 (jetstore#2018, 2026-08-25) deleted seven registry entries and
+repaired.** jetstore#2018 (2026-08-25) deleted seven registry entries and
 bumped both Dart `expectedChecksum` constants, and neither fixture was
-regenerated with them; C.0a regenerated both from the same app the same day. The
+regenerated with them; both were regenerated from the same app the same day. The
 counts here are as of that regeneration. **What made the gap possible is fixed
 rather than noted** — see *Regenerating*, below, which is where the instruction
 that was not followed lives.
@@ -24,14 +24,13 @@ It holds the configuration of the screens **outside** `lib/modules/user_flows/` 
 
 **It exists because the other three corpora do not cover this.** They are all
 scoped to the user flows; the data-table corpus README says so in its first line.
-Phase 3 of the UI port migrates mostly the screens they exclude, and its plan
-opens with a gate that refuses to size that work from a `grep`. This file is that
-gate's answer. See `projects/ui_refresh/plan/phase3_plan.md` §1 in the
-`jetstore_agentic_ai` repository.
+The screen migration of the UI port moves mostly the screens they exclude, and
+its plan refused to size that work from a `grep`. This file is the answer to
+that.
 
 ## It enumerates; the other three list
 
-The earlier corpora carry hand-maintained key lists, which I-25 records as debt.
+The earlier corpora carry hand-maintained key lists, which are recorded as debt.
 This one asks the registries for their keys, through five accessors added for the
 purpose — `screenTableConfigKeys`, `workspaceTableConfigKeys`,
 `screenFormConfigKeys`, `workspaceFormConfigKeys` and
@@ -46,7 +45,7 @@ enumeration that cannot be wrong about its own contents.
 
 ## What it establishes
 
-| Quantity | Non-flow screens | Before C.0's deletions | User flows, for comparison |
+| Quantity | Non-flow screens | Before the 2026-08-25 deletions | User flows, for comparison |
 |---|---:|---:|---:|
 | Table configurations | **25** | 28 | 37 |
 | Form configurations | **28** | 32 | 50 |
@@ -57,11 +56,11 @@ enumeration that cannot be wrong about its own contents.
 | Buttons carrying a `capability` | **20** | *uncounted* | 7 |
 
 The "before" column is kept for one revision only, because the sizing document
-and the Phase 3 plan were both written against it and a reader arriving from
+and the screen migration plan were both written against it and a reader arriving from
 either needs to know which number they are holding.
 
 **Two of its cells say *uncounted* rather than a number, and the distinction is
-the whole of C.0a's second finding.** The other columns moved because
+the whole of the regeneration's second finding.** The other columns moved because
 configuration was *deleted*; those two moved because a container was **never
 walked**. See *The buttons no corpus could see*, below. A reviewer looking at two
 repairs an hour apart that both move counts in this file is looking at two
@@ -78,13 +77,14 @@ define disjoint table configurations.
 `FormDropdownWithSharedItemsFieldConfig` and `FormTypeaheadFieldConfig` are as
 absent here as they are in the flows.
 
-C.0's five deletions took only `FormInputFieldConfig` and
+The five form deletions took only `FormInputFieldConfig` and
 `FormDataTableFieldConfig` fields — 2 and 3 of them — so the shape of this
 surface is what it was and only its size moved.
 
 ## The buttons no corpus could see
 
-**Added 2026-08-25, by C.0a, on the day C.5 was about to consume this file.**
+**Added 2026-08-25, with the regeneration, on the day the inference server
+screen was about to consume this file.**
 
 `allFields` (`jetsclient/test/corpus_support.dart`) walks the three field
 containers a `FormConfig` may use. **`FormConfig.actions` is a fourth container**
@@ -93,10 +93,10 @@ owned it, so **30 buttons on this surface and 143 in the flows were in no corpus
 at all.**
 
 **The consequence was measured rather than hypothesised, by the party holding the
-consumer.** `inferServerAdminForm` — C.5's screen, and this file's only
-`infer_server_admin` form — declares **eight** buttons: seven among its fields and
-**Submit** in `actions`. The corpus reported seven. *Porting C.5 from this file
-would have shipped a screen with no submit button.*
+consumer.** `inferServerAdminForm` — the inference server screen, and this file's
+only `infer_server_admin` form — declares **eight** buttons: seven among its
+fields and **Submit** in `actions`. The corpus reported seven. *Porting that
+screen from this file would have shipped a screen with no submit button.*
 
 **It stayed invisible because the undercount was not uniform.** Most forms put
 every button in `actions` and reported none; `inferServerAdminForm` is the one
@@ -121,9 +121,9 @@ side:
    beside `fields`.
 
 **Each of the three passes over this configuration was written for the question in
-front of it, and each lost what the next question needed.** That is I-12's *"a
-corpus is exactly as trustworthy as its traversal"* with a mechanism rather than a
-moral, and it is the third time on this surface.
+front of it, and each lost what the next question needed.** *A corpus is exactly
+as trustworthy as its traversal*, with a mechanism rather than a moral, and it is
+the third time on this surface.
 
 ## Regenerating
 
@@ -137,10 +137,10 @@ The test prints the corpus between `===BEGIN SCREEN CONFIG CORPUS===` and
 `===END SCREEN CONFIG CORPUS===`, and prints its checksum. Copy the JSON between
 the markers into this file, and put the new checksum into `expectedChecksum` in
 that test. **Both, together.** The browser has no filesystem, which is why the
-corpus is printed rather than written (I-5).
+corpus is printed rather than written.
 
 **~~The checksum is what makes a stale fixture fail rather than diverge
-quietly.~~ It was not, and C.0 is the proof** — corrected 2026-08-25. The Dart
+quietly.~~ It was not, and jetstore#2018 is the proof** — corrected 2026-08-25. The Dart
 assertion compares the app's configuration against the Dart constant; the fixture
 is in neither operand, so regenerating the app and bumping the constant while
 leaving this file alone was green on both sides of the repository. *Both,
@@ -150,8 +150,8 @@ together* was a convention with no enforcement behind it.
 `jetsclient_ide/src/corpusFixtures.test.ts` hashes each of the five fixtures and
 asserts it against the `expectedChecksum` its corpus test declares. It runs under
 `npm test`, needs no Flutter and no browser, and covers all five corpora rather
-than these two. Restoring the pre-C.0a fixtures makes it fail on both, naming the
-checksums C.0's commit replaced.
+than these two. Restoring the fixtures from before the regeneration makes it fail
+on both, naming the checksums jetstore#2018 replaced.
 
 ---
 
@@ -162,11 +162,9 @@ Generated from the running Flutter app by
 hand.**
 
 `screen_configs.json` counts configuration; it does not ask whether a user can
-get to it. **G3.2 asks that**, because the migration is per route: a screen
-nothing reaches costs nothing to leave behind, and a screen only an administrator
-reaches is not on the critical path. See
-`projects/ui_refresh/plan/phase3_plan.md` §1.2 sub-question 3, and the sizing
-document that reads this file.
+get to it. **The migration's sizing asks that**, because the migration is per
+route: a screen nothing reaches costs nothing to leave behind, and a screen only
+an administrator reaches is not on the critical path.
 
 ## Reachability here is a closure over configuration
 
@@ -192,7 +190,7 @@ capability `c` is reachable two ways — by an administrator, or by a user holdi
 
 ## What it establishes
 
-| Quantity | | Before C.0's deletions |
+| Quantity | | Before the 2026-08-25 deletions |
 |---|---:|---:|
 | Screen configurations registered | **25** | 30 |
 | Routes in `jetsRoutesMap` | **27** | 28 |
@@ -203,7 +201,7 @@ capability `c` is reachable two ways — by an administrator, or by a user holdi
 | Routes with no configured edge | **5** | 6 |
 
 **`orphanScreenKeys` is now empty, and that is a result rather than a default.**
-The four it held are exactly the four C.0 deleted, so the list has gone to zero by
+The four it held are exactly the four jetstore#2018 deleted, so the list has gone to zero by
 the work it existed to commission — which is the only way a dead-configuration
 list should ever empty. `routesWithNoConfiguredEdge` is the one left worth reading
 first.
@@ -224,14 +222,14 @@ code":**
 
 **The third row is gone rather than reclassified.** It held
 `reteSessionTriplesTable`, whose only opener was a commented-out `configForm` and
-which this table called the one that really was dead; C.0 deleted it. The count
+which this table called the one that really was dead; jetstore#2018 deleted it. The count
 fell by three and the reached count by two, because the other two deletions —
 `clientsAndProcessesTableView` and `ruleConfigTable` — *were* reached, from the
-`/processConfig` route that C.0 deleted alongside them.
+`/processConfig` route that was deleted alongside them.
 
 **~~a *string template* over server data~~ — corrected 2026-08-25.** That row
 described `formConfigKey` as composed as `"workspace.$pageMatchKey.form"`, which
-it was when this file was written and has not been since C.1 (jetstore#2019):
+it was when this file was written and has not been since jetstore#2019:
 `compiledViewFormKey` (`workspace_ide/screen_delegates_helpers.dart:149`) is now a
 lookup into the two-entry `compiledViewForms` map, total by construction, and a
 section this client has no view for gets `null` rather than a key that misses.
@@ -244,15 +242,15 @@ migration order, and its screen inventory is data-driven from the apiserver
 rather than enumerable here.
 
 **"No configured edge" is a statement about the configuration, not a claim that
-the route is dead** (I-20). All five are reached from Dart:
+the route is dead**. All five are reached from Dart:
 `/login` and `/register` from `user_delegates.dart` and `http_client.dart`,
 `/userGitProfile/…` from `userGitProfilePath` in `app_bar.dart:43`, `/workspaces/:workspace_name/home`
 from `screen_delegates.dart` and `screen_delegates_helpers.dart`, and `/404` from
 the route parser's fallback.
 
 **There were six, and the sixth was `/processConfig`, reached from nowhere at
-all** because both `processConfig` menu entries pointed at `ruleConfigPath`. C.0
-deleted the route and its screen, so all five that remain are reached from Dart
+all** because both `processConfig` menu entries pointed at `ruleConfigPath`.
+jetstore#2018 deleted the route and its screen, so all five that remain are reached from Dart
 and the distinction this paragraph draws no longer has a counterexample in the
 corpus. It is kept because the distinction is what stops the next reader treating
 "no configured edge" as "dead".

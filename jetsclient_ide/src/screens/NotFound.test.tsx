@@ -1,10 +1,10 @@
 /**
  * @vitest-environment jsdom
  *
- * **C.16's exit condition is a route table's behaviour, not a widget's.**
+ * **The 404's exit condition is a route table's behaviour, not a widget's.**
  *
  * The screen is four lines and nothing about it is worth a test on its own. What
- * is worth one is the thing C.16 decided: an unmatched path **reports** instead
+ * is worth one is the thing decided with it: an unmatched path **reports** instead
  * of redirecting to the editor, and the routes that are matched still are.
  *
  * So this renders the same `<Routes>` the application declares, against a
@@ -64,13 +64,13 @@ describe("the route table's two ends", () => {
 
   it("still redirects the bare prefix, which is a known destination", () => {
     // `/ide/` is a url the Flutter app deliberately links to. The index route
-    // handles it and is not the catch-all; C.16 changed one and not the other.
+    // handles it and is not the catch-all; the 404 changed one and not the other.
     at("/");
     expect(screen.getByText("the editor")).toBeTruthy();
   });
 
   it("leaves a matched route matched", () => {
-    // I-50's route. A catch-all that swallowed this is exactly the failure the
+    // The flow route a catch-all once hid. A catch-all that swallowed this is exactly the failure the
     // 404 exists to make visible, so the regression worth guarding is the
     // opposite one: a 404 that swallows a route that does exist.
     at("/flow/loadFilesUF");

@@ -9,10 +9,10 @@
  *
  * Everything else in this package drives a stub, which is the right default —
  * these tests need a database with a schema in it and cannot run in CI as it
- * stands. But a stub can only prove that the client agrees with itself. Issues
- * I-4 and I-7 both say the same thing from different ends: the payloads A.4a
- * builds were read out of the Dart rather than produced by it, and the responses
- * A.4b unpacks were read out of the Go. This file is where those two readings
+ * stands. But a stub can only prove that the client agrees with itself, and
+ * that has two ends: the payloads `makeQuery` builds were read out of the Dart
+ * rather than produced by it, and the responses `useDataTable` unpacks were read
+ * out of the Go. This file is where those two readings
  * meet something that can contradict them.
  *
  * **Read-only.** Every request here is `action: "read"`, which is what
@@ -80,11 +80,11 @@ describe.skipIf(!live)("against a live apiserver", () => {
     expect(status, `server said: ${JSON.stringify(body)}`).toBe(200);
   });
 
-  it.each(querying)("accepts the payload A.4a builds for %s", async (key) => {
+  it.each(querying)("accepts the payload makeQuery builds for %s", async (key) => {
     const { status, body } = await post(payloadFor(key));
     expect(status, `server said: ${JSON.stringify(body)}`).toBe(200);
 
-    // The response shape A.4b unpacks, asserted against the real thing rather
+    // The response shape `useDataTable` unpacks, asserted against the real thing rather
     // than against a reading of `DoReadAction`.
     expect(Array.isArray(body["rows"])).toBe(true);
     for (const row of (body["rows"] as unknown[]).slice(0, 3)) {
@@ -116,7 +116,7 @@ describe.skipIf(!live)("against a live apiserver", () => {
   });
 
   it("returns a columnDef when the request names no columns", async () => {
-    // The least-certain path in A.4b: no user flow uses it, and its field names
+    // The least-certain path in `useDataTable`: no user flow uses it, and its field names
     // — `isnumeric`, lowercase — were read from the Go rather than observed.
     const { status, body } = await post({
       ...payloadFor("lfSourceConfigTable"),
@@ -132,7 +132,7 @@ describe.skipIf(!live)("against a live apiserver", () => {
     for (const field of ["index", "name", "label"]) {
       expect(first, `columnDef is missing ${field}`).toHaveProperty(field);
     }
-    // Asserted separately because this is the exact spelling A.4b reads.
+    // Asserted separately because this is the exact spelling `useDataTable` reads.
     expect(Object.keys(first)).toContain("isnumeric");
   });
 });

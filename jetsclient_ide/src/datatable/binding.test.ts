@@ -1,5 +1,5 @@
 /**
- * Tests for the form-state binding (task A.4c).
+ * Tests for the form-state binding.
  *
  * The interesting assertions are about *ordering* and about the difference
  * between "no rows yet" and "no matching rows", which is the distinction the
@@ -38,7 +38,7 @@ describe("FormState", () => {
     fs.setValue(0, "k", "v");
     expect(fs.getValue(0, "k")).toBe("v");
     fs.setValue(0, "k", null);
-    // Undefined, not null: A.4a's where-clause fallback tests for absence.
+    // Undefined, not null: the query builder's where-clause fallback tests for absence.
     expect(fs.getValue(0, "k")).toBeUndefined();
   });
 

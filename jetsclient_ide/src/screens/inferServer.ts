@@ -1,7 +1,7 @@
 /**
  * The Infer Server Admin screen's domain: its envelopes, its status, its gates.
  *
- * Task C.5. Split from `InferServerAdmin.tsx` so the two predicates the form
+ * Split from `InferServerAdmin.tsx` so the two predicates the form
  * document names can be registered in `actions/registry.ts` without that file
  * importing a React component — the same separation `src/cpipes/templateApply.ts`
  * has, and for the same reason: **the registration site is the registry's and the

@@ -1,5 +1,5 @@
 /**
- * Tests for the `/dataTable` query builder (task A.4a).
+ * Tests for the `/dataTable` query builder.
  *
  * Three layers, and the third is the one that makes this a port rather than a
  * rewrite:
@@ -11,7 +11,7 @@
  *     They assert properties that must hold for every table rather than one
  *     payload each, which is what catches a branch that only ever runs on
  *     configurations nobody wrote a fixture for.
- *  3. **Goldens** for `load_files`, the flow Phase 2 proves the widget on, with
+ *  3. **Goldens** for `load_files`, the flow the widget was proved on, with
  *     the payload written out in full.
  *
  * **What the goldens are, honestly.** They are the payload read out of the Dart
@@ -380,7 +380,7 @@ describe("makeQuery", () => {
 
   /*
     **`FILTERS_BY_FIELD`, the one table from field key to filter list**, which
-    replaced the two key branches when `session_registry` Phase 2 added two tables
+    replaced the two key branches when the session registry added two tables
     (2026-11-08). The three cases below are its whole contract: each key gets its
     own list and no other, and the archive's clauses arrive on the archive.
   */
@@ -566,11 +566,11 @@ describe("the whole corpus", () => {
   it("is the 28 user flow tables still in the fixture, 22 of which query", () => {
     // **37 and 28 until 2026-10-01**, when `client`, `scSourceConfigKey` and
     // `pcPipelineConfigTable` — three query tables — left the fixture to be
-    // maintained by hand (`jetstore_maintenance_02` `AF.1`, `D06`). Their payloads
-    // are no longer built here; their documents are checked by the schema, the
-    // Go save path and the cross-document set test instead. **31 the same day**:
-    // `AF.2`–`AF.4` retired the three static option tables of the add-or-edit
-    // steps `D06` removed. **28 and 22 on 2026-10-15**: Release 4.0.4 retired
+    // maintained by hand. Their payloads are no longer built here; their
+    // documents are checked by the schema, the Go save path and the
+    // cross-document set test instead. **31 the same day**: the three static
+    // option tables of the removed add-or-edit steps were retired. **28 and 22
+    // on 2026-10-15**: Release 4.0.4 retired
     // three query tables with `startPipelineUF`'s merged and historical sources.
     expect(keys).toHaveLength(28);
     expect(querying).toHaveLength(22);
@@ -582,7 +582,7 @@ describe("the whole corpus", () => {
 
   it("emits no where clauses for a table whose filters all read empty state", () => {
     // With nothing in form state and no route, a table filtered entirely on form
-    // state contributes nothing — the *reason* A.4c has to block the request
+    // state contributes nothing — the *reason* the binding has to block the request
     // rather than send it, since this payload would return every row.
     const config = tables["lfFileKeyStagingTable"]!;
     const msg = makeQuery(
@@ -601,12 +601,11 @@ describe("the whole corpus", () => {
 
 /**
  * The table documents the fixture no longer carries, read from disk.
- * `jetstore_maintenance_02` `AM.5` (`I-29`).
  *
  * From 2026-10-01 a document this repository edits leaves the emitted set and is
  * edited by hand (`table.test.ts`, `HAND_MAINTAINED_KEYS`), and with it left
- * `the whole corpus`'s payload check above, which iterates the fixture. Phase 1
- * moved four query tables out that way (`pipelineExecStatusTable`, `client`,
+ * `the whole corpus`'s payload check above, which iterates the fixture. Four
+ * query tables moved out that way (`pipelineExecStatusTable`, `client`,
  * `scSourceConfigKey`, `pcPipelineConfigTable`), and more followed. **The set is
  * derived rather than listed**: every query document in either directory whose
  * key the fixture lacks, translated by `fromDocument` as the runtime does
@@ -629,7 +628,7 @@ describe("the documents the fixture no longer carries", () => {
   );
   const offFixture = documents.filter(({ key, doc }) => !(key in tables) && doc.source === "query");
 
-  it("includes the four query tables Phase 1 took out of the fixture", () => {
+  it("includes the four query tables taken out of the fixture", () => {
     // The guard on the payload check below: an empty or misread directory would
     // pass it vacuously.
     expect(offFixture.map(({ key }) => key)).toEqual(

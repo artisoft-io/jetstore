@@ -139,7 +139,7 @@ export function useRegistryActionHost({
   afterAction,
 }: RegistryActionHostOptions): RegistryActionHost {
   const navigate = useNavigate();
-  /** Where a flow opened from this screen should return to (D.8). */
+  /** Where a flow opened from this screen should return to. */
   const location = useLocation();
   const here = `${location.pathname}${location.search}`;
   const { setError, setStatus } = useNotifications();
@@ -158,7 +158,7 @@ export function useRegistryActionHost({
 
   const formState = useMemo(() => new FormState(), []);
   /**
-   * Whether the last action stopped because the *user* stopped it. **I-186.**
+   * Whether the last action stopped because the *user* stopped it.
    *
    * `runAction` returns `string | null`, and `null` means two different things:
    * the action ran to the end, or a `validate` step failed / a `confirm` was
@@ -280,7 +280,7 @@ export function useRegistryActionHost({
       // nothing about either, so both are inert rather than wrong.
       goToState: () => {},
       close: () => dialog.close("ok"),
-      // C.3's route, reached without a page reload. The cross-*app* link a
+      // The workspace home's route, reached without a page reload. The cross-*app* link a
       // `showScreen` action makes is still `window.location.href` below; this is
       // for a destination inside this bundle, and `openWorkspace` is the one
       // escape that has one.
@@ -363,13 +363,13 @@ export function useRegistryActionHost({
             }
             case "navigate": {
               // **Both of this table's `configScreenPath`s are flows** — *Load
-              // Client Config* and *Pull Workspace* — and until X.1 this handed
+              // Client Config* and *Pull Workspace* — and until the Flutter app was retired this handed
               // the browser to the Flutter app to serve them. There is no other
               // app now, so the same two templates resolve in-app through the map
               // ported out of the Dart before it was deleted.
               const internal = inAppPath(action.configScreenPath, request.params);
               if (internal !== null) {
-                // D.8: both of these are flows, so both come back here.
+                // Both of these are flows, so both come back here.
                 void navigate(withReturnTo(internal, here));
                 return;
               }

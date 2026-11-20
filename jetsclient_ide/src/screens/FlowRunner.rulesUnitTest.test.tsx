@@ -2,8 +2,7 @@
  * @vitest-environment jsdom
  *
  * **The Rules Unit Tests flow, driven through the screen a user sees.**
- * `rules_unit_test_harness` Phase 1, task `AD.7`, 2026-10-11; criterion 19's
- * flow half.
+ * 2026-10-11.
  *
  * The flow opens on its runs table (the hub), *+ Add* goes to the test case
  * table, two tests are ticked, *Start Test(s)* posts them, and the flow is back
@@ -65,7 +64,7 @@ interface Posted {
 
 /**
  * The apiserver: three tables, and the rules_unit_test target appending one
- * `queued` run per row it is sent, as `AC.2`'s batch hook does.
+ * `queued` run per row it is sent, as the server's batch hook does.
  *
  * Runs are rows of `rutExecutionTable`'s fourteen columns, kept newest first.
  */
@@ -219,7 +218,7 @@ describe("the Rules Unit Tests flow", () => {
     expect(read.body["sortColumn"]).toBe("key");
     expect(read.body["sortAscending"]).toBe(false);
     // Qualified, so PostgreSQL sorts the integer column rather than its text
-    // cast: run 10 above run 9 (the browser pass, `AG.1`).
+    // cast: run 10 above run 9 (found in a browser check).
     expect(read.body["sortColumnTable"]).toBe("rules_unit_test_execution");
     expect(read.body["whereClauses"]).toEqual([
       expect.objectContaining({ column: "workspace_name", values: [WORKSPACE] }),
@@ -233,7 +232,7 @@ describe("the Rules Unit Tests flow", () => {
 
     await screen.findByText("looping test 1");
     // Disabled with nothing ticked: the table's `required` rule and the button's
-    // `enableOnlyWhenFormValid` (definition F45).
+    // `enableOnlyWhenFormValid`.
     await waitFor(() => expect(button("Start Test(s)").disabled).toBe(true));
     // The test with findings is listed with them, so the user sees why.
     expect(screen.getByText(/unknown field commment/)).toBeTruthy();
@@ -249,7 +248,7 @@ describe("the Rules Unit Tests flow", () => {
     expect(button("+ Add")).toBeTruthy();
     expect(screen.queryByText("the workspaces screen")).toBeNull();
 
-    // One post, fanned out one row per test, each carrying test_path (AC's I-17),
+    // One post, fanned out one row per test, each carrying test_path,
     // to the flow's workspace.
     const sent = inserts(posts);
     expect(sent).toHaveLength(1);

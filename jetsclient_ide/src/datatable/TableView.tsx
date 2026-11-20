@@ -1,5 +1,5 @@
 /**
- * A bound table with its two action rows. Task C.2b.
+ * A bound table with its two action rows.
  *
  * **Extracted from `FormRenderer`'s `FormDataTable` rather than written beside
  * it.** That function was the only place `useTableBinding`, `DataTable` and the
@@ -41,7 +41,7 @@ export interface TableViewProps {
   field: { group: number; key: string };
   formState: FormState;
   fetcher: DataTableFetcher;
-  /** Route params, the selected client and the two filter lists — I-104. */
+  /** Route params, the selected client and the two filter lists. */
   context?: UseTableBindingOptions["context"];
   /** Named predicates a table action's `isEnabled` resolves through. */
   predicates: Readonly<Record<string, (formState: FormState, group: number) => boolean>>;
@@ -75,9 +75,9 @@ export function TableView({
   const selectedRows = binding.rows.filter((_, index) => binding.selection[index] === true);
 
   /**
-   * The two actions A.5 returned to the widget, handed to the bar. Task D.10.
+   * The two actions the widget owns, handed to the bar.
    *
-   * `binding` has held both since A.5 and nothing passed them on; see
+   * `binding` always held both and nothing passed them on until this; see
    * `ActionBar`'s `WidgetActions` for what that cost.
    */
   const widget = {
@@ -87,13 +87,13 @@ export function TableView({
 
   const barContext = {
     // Which predicate an `isEnabled` action names depends on the table as well
-    // as the action — `actionBarModel.ts`'s `ActionContext.tableKey`, `D02`.
+    // as the action — `actionBarModel.ts`'s `ActionContext.tableKey`.
     tableKey: config.key,
     selectedRowCount,
     selectedRows,
     checkboxVisible: binding.modes.checkboxVisible,
     // `blocked` is `hasBlockingFilter`, which is this predicate inverted —
-    // A.4c's answer reused rather than recomputed.
+    // the binding's answer reused rather than recomputed.
     whereClauseSatisfied: !binding.blocked,
     formState,
     predicates,
@@ -102,7 +102,7 @@ export function TableView({
   /**
    * The action rows, top to bottom — **a list, so a row is one entry**.
    *
-   * **The second row is F.5's.** `ActionBar` renders nothing for an empty list,
+   * **The second row came later.** `ActionBar` renders nothing for an empty list,
    * so it costs one element on the 37 flow tables and draws five buttons on
    * `pipelineExecStatusTable` and eight on `workspaceRegistryTable`. Separate
    * bars rather than one concatenated list because the Dart draws two
@@ -110,18 +110,17 @@ export function TableView({
    * `secondRowActions` index unreachable from a finding pointer that names the
    * row.
    *
-   * **A list rather than two hard-coded bars since 2026-10-01**
-   * (`jetstore_maintenance_02`, `D03`), because `DataTable` now lays each entry
+   * **A list rather than two hard-coded bars since 2026-10-01**, because `DataTable` now lays each entry
    * out as a line of its own and needs to know where one row ends. It is also
-   * the extension point for `D04`'s third row: that is one more entry here, and
+   * the extension point for a third row: that is one more entry here, and
    * nothing in `DataTable` or the stylesheet changes.
    *
-   * **And it was** (`AE.1`, 2026-10-01): `thirdRowActions` is the third entry, and
+   * **And it was** (2026-10-01): `thirdRowActions` is the third entry, and
    * this diff is the whole of what drawing it cost.
    */
-  // **The deployment's custom buttons go at the end of the last row** (`D04`,
-  // `AE.8`, 2026-10-01): `fromConfigRowActions` is never in a document — both
-  // schemas refuse it (`ui_refresh` I-102) — and is filled at run time by the one
+  // **The deployment's custom buttons go at the end of the last row**
+  // (2026-10-01): `fromConfigRowActions` is never in a document — both
+  // schemas refuse it — and is filled at run time by the one
   // screen that has any, after the row's authored buttons, which is where Flutter
   // drew them and where the report asks for them.
   const authoredRows = [config.actions, config.secondRowActions, config.thirdRowActions];

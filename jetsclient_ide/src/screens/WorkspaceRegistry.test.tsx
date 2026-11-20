@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * **C.2b's exit condition: a non-flow screen runs in the app.**
+ * **The first non-flow screen runs in the app.**
  *
  * On `FlowRunner.test.tsx`'s shape and for its reason. The documents, the
  * schemas, the interpreter and the widgets are all tested elsewhere; what is
@@ -14,9 +14,9 @@
  * Everything below the api client is real. The only stub is `fetch`, answering as
  * the apiserver's `/dataTable` switch does.
  *
- * **I-104 is why these render rather than parse.** A field added to a schema has
+ * **These render rather than parse, deliberately.** A field added to a schema has
  * two halves and the corpus can only tell you about the first; the half that bit
- * F.5 was a document that validated, round-tripped and drew nothing.
+ * an earlier change was a document that validated, round-tripped and drew nothing.
  *
  * **Back on this screen since 2026-10-15.** From 2026-10-11 the buttons that
  * need a workspace were on the Workspace IDE's toolbar (`WorkspaceToolbar.tsx`),
@@ -99,7 +99,7 @@ function stubServer(active = { name: "jets_ws", branch: "jets_ai", uri: "git@exa
         );
       // **The table's own read, and the arm name is the assertion.** A document
       // with no `apiAction` would arrive here as `read` and this stub would 422 —
-      // which is the whole of what C.2a's enum buys, tested from the wire rather
+      // which is the whole of what the `apiAction` enum buys, tested from the wire rather
       // than from the schema.
       //
       // The IDE's toolbar reads one workspace's row through the same query with a
@@ -149,7 +149,7 @@ async function mount(active?: { name: string; branch: string; uri: string }) {
           <Banners />
           <MemoryRouter initialEntries={["/workspaces"]}>
             {/* Surfaces the in-app location so the Open button's destination can be
-                asserted rather than inferred from a banner (C.3). */}
+                asserted rather than inferred from a banner. */}
             <LocationProbe />
             <Routes>
               <Route path="/workspaces" element={<WorkspaceRegistry api={api} />} />
@@ -269,7 +269,8 @@ describe("the screen", () => {
     await mount();
     // The second row is where Compile, Rules Unit Tests, Commit, Push, Pull and
     // the three git buttons live. Rendering one bar would have lost nine of the
-    // fourteen and looked like a working screen, which is I-104's second finding.
+    // fourteen and looked like a working screen: a contract tested from the end
+    // that could not fail.
     // From 2026-10-11 to 2026-10-15 the table drew four and the IDE's toolbar the
     // rest; this is the layout from before, restored.
     const groups = screen.getAllByRole("group");
@@ -329,9 +330,9 @@ describe("the screen", () => {
     // disabled.** This waited on `Open` being disabled, which is also true with
     // no row selected at all — so the wait returned before the selection landed
     // and the assertions below raced the restore, failing about two runs in five.
-    // That is I-104's shape in a `waitFor` predicate: a condition satisfied by the
-    // state you are waiting to leave is not a wait. Found by C.3 running the suite
-    // repeatedly for its own flake check; the case itself is C.2b's and correct.
+    // That is a check that cannot fail, in a `waitFor` predicate: a condition
+    // satisfied by the state you are waiting to leave is not a wait. Found by
+    // running the suite repeatedly as a flake check; the case itself is correct.
     await waitFor(() => expect(button("Push Only").hasAttribute("disabled")).toBe(false));
     for (const label of [
       "Open", "Export Client Config", "Load Client Config", "Delete",
@@ -389,7 +390,7 @@ describe("every dialog the table can open", () => {
   });
 
   it("carries workspace_ide on the six OK buttons and on neither Cancel", async () => {
-    // **The capability no corpus reports** (I-180): `FormConfig.actions` is a
+    // **The capability no corpus reports**: `FormConfig.actions` is a
     // container `allFields` does not walk, so these six declarations exist in the
     // Dart and in the transcription and in no generated fixture. Asserting them
     // here is the only mechanical check they have.
@@ -635,8 +636,8 @@ describe("the actions that are not dialogs", () => {
   });
 
   /**
-   * **I-183, closed by C.3 — and the case changed shape rather than being
-   * deleted.** It asserted that Open *reports* instead of navigating, because the
+   * **Closed once the workspace home existed — and the case changed shape rather
+   * than being deleted.** It asserted that Open *reports* instead of navigating, because the
    * destination did not exist; it now asserts where it goes. What is kept from the
    * original is the second assertion: the escape does **not** post
    * `workspace_query_structure`.
@@ -661,7 +662,7 @@ describe("the actions that are not dialogs", () => {
   /**
    * The three flows, and where they come back to. Since 2026-10-11 none of
    * `loadConfigUF`, `workspacePullUF` and `rulesUnitTestUF` names an
-   * `exitScreenPath`, so each returns where it was launched (D.8's `returnTo`):
+   * `exitScreenPath`, so each returns where it was launched (its `returnTo`):
    * here, now that the buttons are here again.
    */
   it.each([
@@ -710,7 +711,7 @@ describe("the export dialog's item query", () => {
     fireEvent.click(button("Export Client Config"));
     const dialog = await screen.findByRole("dialog");
     await waitFor(() => expect(within(dialog).getByText("acme")).toBeTruthy());
-    // I.2b's transport: one `raw_query_map`, the literal prompt item kept in
+    // The dropdown's transport: one `raw_query_map`, the literal prompt item kept in
     // front of the rows.
     expect(posts.some((p) => p.body["action"] === "raw_query_map")).toBe(true);
     expect(within(dialog).getByText("Select a Client")).toBeTruthy();

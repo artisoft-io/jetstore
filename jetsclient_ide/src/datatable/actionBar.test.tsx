@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * Tests for the table action bar (task S.2b).
+ * Tests for the table action bar.
  *
  * **Driven from the corpus, not from examples.** The 25 `ActionConfig`s are in
  * `fixtures/table_configs.json`, generated out of the running Flutter app, so
@@ -26,7 +26,7 @@ afterEach(cleanup);
 
 const tables = (corpus as unknown as { tables: Record<string, TableConfig> }).tables;
 const allActions: ActionConfig[] = Object.values(tables).flatMap((t) => t.actions ?? []);
-/** The bar's share: everything except the two A.5 returned to the widget. */
+/** The bar's share: everything except the two the widget owns. */
 const widgetOwned = new Set(["toggleCheckboxVisible", "refreshTable"]);
 const barActions = allActions.filter((a) => !widgetOwned.has(a.actionType));
 
@@ -46,14 +46,13 @@ function makeContext(overrides: Partial<ActionContext> = {}): ActionContext {
 
 describe("the corpus this task owns", () => {
   it("is 18 of the 22 configurations, the other four being the widget's", () => {
-    // **25 and 21 until D.10**, which added `fmInputSourceMappingUF`'s two
-    // `showScreen` buttons (**I-260**) — the first configuration in this corpus
-    // with no Dart original. The widget's four are unchanged, which is the half
+    // **25 and 21 until `fmInputSourceMappingUF`'s two `showScreen` buttons
+    // were added** — the first configuration in this corpus with no Dart
+    // original. The widget's four are unchanged, which is the half
     // worth asserting: this test is about the split rather than about the size.
     // **27 and 23 until 2026-10-01**, when `client`, `scSourceConfigKey` and
-    // `pcPipelineConfigTable` left this fixture to be maintained by hand
-    // (`jetstore_maintenance_02` `AF.1`, `D06`), taking four bar actions with
-    // them: `deleteClient`, `dropStagingTable`, `deleteSourceConfig` and
+    // `pcPipelineConfigTable` left this fixture to be maintained by hand,
+    // taking four bar actions with them: `deleteClient`, `dropStagingTable`, `deleteSourceConfig` and
     // `deletePipelineConfig`. `lfSourceConfigTable` keeps its own
     // `dropStagingTable`. **22 and 18 since 2026-10-15**, when Release 4.0.4
     // retired `merged_input_registry_keys` and its *Clear Filters* with it.
@@ -77,7 +76,7 @@ describe("the corpus this task owns", () => {
   });
 
   it("dispatches the two filter prompts pipelineExecStatusTable adds", () => {
-    // F.5, and the only non-flow table in `tables/` — so the corpus above cannot
+    // The only non-flow table in `tables/` — so the corpus above cannot
     // see these two and they are written out. Both resolve to a `promptFilter`
     // request rather than being handled here, on the same terms as every other
     // row: what a button asks for is data.
@@ -114,7 +113,7 @@ describe("the corpus this task owns", () => {
     // It is not a crash. The Dart guards on `row != null` (`data_table.dart:589`)
     // and simply omits the parameter, so the dialog opens with those fields
     // empty — which is a worse failure than a disabled button and a better one
-    // than an exception. Reproduced rather than corrected; see I-24.
+    // than an exception. Reproduced rather than corrected.
     const positional = barActions.filter((a) =>
       Object.values(a.navigationParams ?? {}).some((v) => typeof v === "number"),
     );
@@ -136,7 +135,7 @@ describe("the corpus this task owns", () => {
     const withFnc = [...new Set(barActions.filter((a) => a.hasIsEnabledFnc).map((a) => a.key))];
     expect(withFnc).toEqual(["clearFilters"]);
     // `enabledPredicateFor["clearFilters"]` until 2026-10-01; the runtime now
-    // asks the emitter's own mapping (`jetstore_maintenance_02`, `D02`).
+    // asks the emitter's own mapping.
     for (const [key, table] of Object.entries(tables)) {
       for (const action of (table.actions ?? []).filter((a) => a.hasIsEnabledFnc)) {
         expect(isEnabledEscapeFor(key, action.key)).toBe("hasDataRegistryFilters");
@@ -149,7 +148,7 @@ describe("availability", () => {
   const find = (key: string) => barActions.find((a) => a.key === key)!;
 
   // `deleteOrg` rather than `deleteClient` since 2026-10-01: the `client` table
-  // left this fixture (`AF.1`), and `deleteOrg` carries the same three gates.
+  // left this fixture, and `deleteOrg` carries the same three gates.
   it("disables a selection-gated action until a row is selected", () => {
     const action = find("deleteOrg");
     expect(action.isEnabledWhenHavingSelectedRows).toBe(true);
@@ -341,7 +340,7 @@ describe("the rendered bar", () => {
   });
 
   it("disables an action whose capability the user lacks, without hiding it", () => {
-    // A.2's decision, and I-10's correction: gated sites disable, never hide.
+    // The capability model's rule: gated sites disable, never hide.
     const action = barActions.find((a) => a.capability === "run_pipelines")!;
     renderBar([action], makeContext());
     const button = screen.getByRole("button", { name: action.label });
@@ -366,7 +365,7 @@ describe("the rendered bar", () => {
 });
 
 /**
- * The row gate. Task C.2, and the entry it closes is **I-181**.
+ * The row gate.
  *
  * **Driven from the screen corpus rather than from examples**, for the same
  * reason the file's header gives for the flow corpus — but with a difference
@@ -409,9 +408,9 @@ describe("enableWhen — the selected row's criteria", () => {
     expect(flowGated).toHaveLength(0);
   });
 
-  it("refuses Delete on an active workspace, which is the defect I-181 names", () => {
+  it("refuses Delete on an active workspace, which it once allowed", () => {
     // `deleteWorkspace` requires status to contain neither `active` nor
-    // `in progress`. Before C.2 `availability` did not read the field, so this
+    // `in progress`. Before the row gate `availability` did not read the field, so this
     // button was enabled on every selected row — a destructive action the Flutter
     // app makes impossible.
     const action = gated("deleteWorkspace");

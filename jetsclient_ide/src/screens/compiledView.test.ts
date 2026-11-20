@@ -1,6 +1,5 @@
 /**
  * The compiled-view documents, against the corpus they are transcribed from.
- * Task C.3.
  *
  * **Half of one of these documents cannot be checked against anything, and this
  * file's job is to be precise about which half.** `allFields`
@@ -10,13 +9,14 @@
  * generated. The **table keys and their order** are therefore measured here; the
  * **labels** are transcribed from the Dart and cited in `sectionContract.ts`.
  *
- * That is a third shape of corpus loss and it is worth naming, because C.0b's fix
- * could not have caught it. C.0b found a container that was **not walked**
+ * That is a third shape of corpus loss and it is worth naming, because the
+ * earlier corpus fix could not have caught it. That fix found a container that
+ * was **not walked**
  * (`FormConfig.actions`) and a branch that **stripped** what it walked
  * (`fieldToJson` having no `FormActionConfig` case). This is a container that
  * **is** walked, for its contents, with its own structure discarded — and the
  * fixture is stable and complete about the thing it decided to carry, so no
- * checksum moves and nothing looks wrong. **I-205.**
+ * checksum moves and nothing looks wrong.
  */
 
 import { describe, expect, it } from "vitest";
@@ -26,7 +26,7 @@ import { makeQuery } from "../datatable/query";
 import { fromDocument } from "../datatable/tableTranslate";
 import { CompiledViewDocumentSchema } from "./compiledView";
 import { COMPILED_VIEW_TABLES, hasActionBar } from "./CompiledView";
-import { compiledViews, TABS_DEFERRED_TO_C3B } from "./sectionContract";
+import { compiledViews, TABS_NOT_YET_DRAWN } from "./sectionContract";
 
 interface CorpusField {
   type: string;
@@ -46,9 +46,9 @@ function corpusTables(formKey: string): string[] {
 /**
  * The Dart form key a compiled view corresponds to.
  *
- * **`lookups` has none, and that absence is the whole of C.3a.** The Flutter app
- * declared `FormKeys.wsLookupsForm` and never registered it; C.1 deleted the
- * constant. So there is no corpus entry to compare that view's tabs against, and
+ * **`lookups` has none, and that absence is the whole of its view's story.** The
+ * Flutter app declared `FormKeys.wsLookupsForm` and never registered it, and the
+ * constant was later deleted. So there is no corpus entry to compare that view's tabs against, and
  * the cases below skip it by construction rather than by an exclusion list — a
  * view whose key is missing here has nothing to be measured against, which is a
  * different claim from a view whose tabs disagree.
@@ -82,9 +82,9 @@ describe("the compiled view documents", () => {
 
   /**
    * **The assertion the deferral rests on.** A view that silently shows three of
-   * four tabs is a screen that looks complete, so the tabs C.3b will add are
+   * four tabs is a screen that looks complete, so the tabs still to be drawn are
    * named rather than omitted, and drawn + deferred has to equal the Dart's list
-   * *in order*. When C.3b lands, `TABS_DEFERRED_TO_C3B` empties and this case
+   * *in order*. Once they are drawn, `TABS_NOT_YET_DRAWN` empties and this case
    * becomes an equality — it does not have to be rewritten.
    */
   it("account for every table the Dart form holds, drawn or deferred, in order", () => {
@@ -92,7 +92,7 @@ describe("the compiled view documents", () => {
       const formKey = DART_FORM_KEY[view];
       if (formKey === undefined) continue;
       const drawn = doc.tabs.map((t) => t.table);
-      const deferred = TABS_DEFERRED_TO_C3B[view] ?? [];
+      const deferred = TABS_NOT_YET_DRAWN[view] ?? [];
       expect([...drawn, ...deferred], view).toEqual(corpusTables(formKey));
     }
     // The skip is asserted rather than silent: exactly one view has no Dart form,
@@ -103,8 +103,8 @@ describe("the compiled view documents", () => {
   });
 
   it("defer nothing, and the two that carry an action bar are drawn bound", () => {
-    // **The measurement C.3 made to justify the deferral, kept because C.3b made
-    // it the measurement behind the split.** Exactly two of the eight have any
+    // **The measurement made to justify the deferral, kept because it became the
+    // measurement behind the split.** Exactly two of the eight have any
     // action at all, and the same two are the ones this app now renders through
     // `TableView` rather than `useDataTable` — so the corpus and the component
     // agree about which tables need a selection, and neither is asserting it
@@ -117,7 +117,7 @@ describe("the compiled view documents", () => {
     // Derived from the documents, which is what the component branches on.
     const bound = eight.filter((k) => hasActionBar(COMPILED_VIEW_TABLES[k]!));
     expect(bound).toEqual(withActions);
-    expect(Object.values(TABS_DEFERRED_TO_C3B).flat()).toEqual([]);
+    expect(Object.values(TABS_NOT_YET_DRAWN).flat()).toEqual([]);
   });
 
   /**
@@ -126,7 +126,7 @@ describe("the compiled view documents", () => {
    *
    * In the Dart every one of these eight tables *is* a form field — a
    * `FormDataTableFieldConfig` under `wsDataModelForm` or `wsJetRulesForm` — and
-   * C.6 found the hard way that a screen table having a `formField` is not a
+   * the home screen work found the hard way that a screen table having a `formField` is not a
    * property of screens in general: the home screen's three are form fields, and
    * `makeQuery` compares that field key against four names before splicing the
    * home filters. So "a screen table has no form field" is not an assumption
@@ -139,7 +139,7 @@ describe("the compiled view documents", () => {
    * `KEYS` the filter blocks compare against, and the `workspaceName` lookup falls
    * back to `routeParams` when there is no form state to read.
    *
-   * **C.3b's two are in this loop and they hold, which sharpens the claim rather
+   * **The two files tables are in this loop and they hold, which sharpens the claim rather
    * than contradicting it.** Those two *do* get a form field — `TableView` needs
    * one to publish a selection — and it still buys their query nothing. What the
    * field buys them is the selection itself, which is not a query concern: the
@@ -194,14 +194,13 @@ describe("the compiled view documents", () => {
       expect(t.modelStateFormKey, key).toBeUndefined();
       expect(t.hasModelStateHandler, key).toBe(false);
       // No `client` column, so the implicit client filter never applies and this
-      // screen has no reason to read C.6's `selectedClient` store.
+      // screen has no reason to read the home screen's `selectedClient` store.
       expect(t.columns.some((c) => c.name === "client"), key).toBe(false);
     }
   });
 
   it("refuses a one-tab document, which is the rule about screens made checkable", () => {
-    // "A screen with one table renders it; a screen with several declares them"
-    // (I-177). `workspaceHome` and `workspaceRegistry` are the two the Dart
+    // "A screen with one table renders it; a screen with several declares them". `workspaceHome` and `workspaceRegistry` are the two the Dart
     // registers as forms and this app will not give a document to.
     const oneTab = {
       schemaVersion: 1,

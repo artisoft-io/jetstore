@@ -10,7 +10,7 @@
 }
 
 /* The header is a column of action rows, the label inline with the first.
-   2026-10-01, `jetstore_maintenance_02`'s `D03`: this was one flex row holding
+   Until 2026-10-01 this was one flex row holding
    the label and every action bar, so a second row of buttons was laid out on
    the first row's line rather than beneath it. `DataTable` now renders one
    `__header-row` per action row. */
@@ -40,7 +40,7 @@
   font-weight: 600;
 }
 
-/* Left-justified: the buttons flow straight after the label (`D03`). This rule
+/* Left-justified: the buttons flow straight after the label. This rule
    carried `margin-left: auto` until 2026-10-01, which pushed every table's
    buttons to the right-hand edge. `flex-wrap` lets a long row wrap within its
    own line on a narrow window rather than overflowing the header. */
@@ -52,7 +52,7 @@
 
 .jets-datatable__error {
   margin: 0.25rem 0.5rem;
-  /* The same literal `.btn-danger` carried until D.11 gave the palette a
+  /* The same literal `.btn-danger` carried until the palette gained a
      `--danger`; this is the last copy of it. */
   color: var(--danger);
 }
@@ -90,7 +90,7 @@
 }
 
 /*
- * A cell the configuration limits to N lines. Task C.7.
+ * A cell the configuration limits to N lines.
  *
  * `white-space: nowrap` above is what every other cell wants and is exactly wrong
  * here: the four columns that set `maxLines` hold an error message or a rule's
@@ -129,7 +129,7 @@
   color: inherit;
 }
 
-/* The header row of a one-column picker whose caption already says it. D.11.
+/* The header row of a one-column picker whose caption already says it.
    The row stays in the table — `<th scope="col">` is what associates a cell with
    its column for a screen reader — and loses its height and its rule, so it does
    not draw an empty bar between the caption and the first option. */
@@ -155,7 +155,7 @@
 /* **`var(--ink-3)` and not a literal black: this text was invisible in dark
    mode.** `rgb(0 0 0 / 0.6)` is 60% black, which reads on the light ground and
    is black-on-near-black on the dark one — so *No rows.* and the blocked message
-   were there and could not be read. Found at D.11 while checking the Query
+   were there and could not be read. Found while checking the Query
    Tool's new empty-state string in the browser, which is the only way this was
    ever going to be found: it is invisible, so it looks like a table with no
    message rather than a message with no contrast. */
@@ -181,7 +181,7 @@
    font whose metrics have nothing to do with `‹`/`›`, so each button sized itself
    to whatever its own glyph asked for. Fixing it by naming the glyphs would work
    until the next font; giving the button a height of its own does not depend on
-   what is inside it. D.11. */
+   what is inside it. */
 .jets-datatable__footer button {
   min-width: 2rem;
   height: 1.75rem;

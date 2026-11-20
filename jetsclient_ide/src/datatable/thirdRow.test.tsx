@@ -1,15 +1,14 @@
 /**
  * @vitest-environment jsdom
  *
- * The third action row, drawn. jetstore_maintenance_02, `D04`, task `AE.1`
- * (2026-10-01).
+ * The third action row, drawn (2026-10-01).
  *
- * `TableView` lays each entry of its `actionRows` out as a line of its own (`D03`,
- * `AA.4`), so a third row is a third line by construction — **this asserts that
+ * `TableView` lays each entry of its `actionRows` out as a line of its own, so a
+ * third row is a third line by construction — **this asserts that
  * construction, not the layout**: jsdom computes no boxes, so it catches the row
  * being dropped or merged into another and says nothing about where it lands on
- * screen. Criterion 11's *in the report's order* is the Home screen's test once
- * the row has its buttons (`AE.4`, `AE.5`).
+ * screen. That the buttons appear *in the report's order* is the Home screen's
+ * test, now that the row has its buttons.
  */
 
 import { cleanup, render, screen } from "@testing-library/react";

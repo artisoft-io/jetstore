@@ -1,18 +1,18 @@
 /**
  * The data table's state: rows, paging, sorting, selection, and the fetch.
  *
- * Task A.4b. This is `JetsDataTableSource.getModelData`
+ * This is `JetsDataTableSource.getModelData`
  * (`jetsclient/lib/components/data_table_source.dart:683`) and the paging half of
  * `JetsDataTableState`, as a hook.
  *
  * **What it deliberately does not do is the reactive half.** In the Flutter app
  * this object also listens to the enclosing form, blocks the request when a
  * where clause names a form-state key that is empty, and publishes selections
- * back into form state. That is A.4c. Here the caller passes a `QueryContext`
- * and says whether the query is `blocked`; keeping the decision outside means
- * A.4c can be written without reopening this file, and means this hook is
- * usable by a table that has no form at all — which is 9 of the 37
- * configurations plus every screen table Phase 3 will add.
+ * back into form state. That is `useTableBinding`. Here the caller passes a
+ * `QueryContext` and says whether the query is `blocked`; keeping the decision
+ * outside means the binding can be written without reopening this file, and
+ * means this hook is usable by a table that has no form at all — which is 9 of
+ * the 37 configurations plus every screen table.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -20,7 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isRawStatementTable, makeQuery, makeRawQuery } from "./query";
 // `keepSelectedRows` is not applied at the end of a fetch. `showSelectedOnly`
 // filters the page down to the selected rows *after* the selection has been
-// restored from form state, so A.4c's restore applies it, through
+// restored from form state, so the binding's restore applies it, through
 // `restoreSelected`. (Until 2026-11-11 the restore called it and discarded the
 // result, so the filter did nothing.)
 import {
@@ -62,19 +62,19 @@ export type DataTableFetcher = (
 
 export interface UseDataTableOptions {
   config: TableConfig;
-  /** Everything A.4a needs beyond the config. Paging and sorting are supplied here. */
+  /** Everything the query builder needs beyond the config. Paging and sorting are supplied here. */
   context: Omit<
     QueryContext,
     "config" | "indexOffset" | "rowsPerPage" | "sortColumnName" | "sortColumnTableName" | "sortAscending"
   >;
   fetcher: DataTableFetcher;
   /**
-   * A.4c sets this when a where clause reads a form-state key that is empty.
+   * The binding sets this when a where clause reads a form-state key that is empty.
    * The Dart calls it `hasBlockingFilter`; blocked means *do not ask the server*,
    * and it is the difference between "no rows yet" and "no rows".
    */
   blocked?: boolean;
-  /** Bumping this refetches — A.4c uses it when a watched form-state key changes. */
+  /** Bumping this refetches — the binding uses it when a watched form-state key changes. */
   refreshToken?: number;
   onSelectionChange?: (args: {
     selection: Selection;
@@ -109,8 +109,8 @@ export interface DataTableState {
   sortByVisibleColumn(index: number): void;
   setRowSelected(index: number, value: boolean): void;
   /**
-   * The select-all box: every row of the page selected, or none. JM-187,
-   * 2026-11-12. Refused, as a tick is, on a read-only table, and on a
+   * The select-all box: every row of the page selected, or none (2026-11-12).
+   * Refused, as a tick is, on a read-only table, and on a
    * single-select one, where it has no meaning.
    */
   setAllSelected(value: boolean): void;
@@ -160,7 +160,20 @@ export function useDataTable(options: UseDataTableOptions): DataTableState {
   const [currentDataPage, setCurrentDataPage] = useState(0);
   const [rowsPerPage, setRowsPerPageState] = useState(config.rowsPerPage);
   const [sortAscending, setSortAscending] = useState(config.sortAscending);
-  const [selection, setSelection] = useState<Selection>(emptySelection(0));
+  const [selection, setSelectionState] = useState<Selection>(emptySelection(0));
+  // The selection as last written, ahead of the render that shows it. A tick
+  // computes its next selection from this rather than inside a `setState`
+  // updater, so that it can tell the caller after the write and outside render:
+  // an updater runs while React renders, a caller's publish into form state
+  // updates other components, and React warns about that and, under StrictMode,
+  // runs the updater twice. Every write goes through `setSelection` below, so
+  // two ticks before one render (the restore from form state ticks each restored
+  // row in one effect) still build on each other.
+  const selectionRef = useRef<Selection>(selection);
+  const setSelection = useCallback((next: Selection) => {
+    selectionRef.current = next;
+    setSelectionState(next);
+  }, []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
@@ -212,7 +225,7 @@ export function useDataTable(options: UseDataTableOptions): DataTableState {
   // **The branch is `fetchData`'s, not `_makeQuery`'s**, and it is here for the
   // same reason it is there: a raw-statement table's body carries a statement and
   // none of the structure — no from, no where, no columns, no paging. One
-  // configuration in either corpus takes it (task C.4). See `query.ts`.
+  // configuration in either corpus takes it. See `query.ts`.
   const queryPayload = isRaw
     ? makeRawQuery(queryContext)
     : makeQuery(queryContext);
@@ -308,62 +321,59 @@ export function useDataTable(options: UseDataTableOptions): DataTableState {
       // A server-sorted table refetches, which clears the selection; a raw
       // statement is re-ordered here, so a selection by position would now name
       // other rows.
-      if (isRaw) setSelection((current) => emptySelection(current.length));
+      if (isRaw) setSelection(emptySelection(selectionRef.current.length));
     },
-    [columns, config.sortColumnName, sort.sortColumnIndex, isRaw],
+    [columns, config.sortColumnName, sort.sortColumnIndex, isRaw, setSelection],
   );
 
   const setRowSelected = useCallback(
     (index: number, value: boolean) => {
       if (config.isReadOnly) return;
-      setSelection((current) => {
-        const result = toggleSelection(
-          current,
-          index,
-          value,
-          config.isCheckboxSingleSelect,
-        );
-        onSelectionChangeRef.current?.({
-          selection: result.selection,
-          rows,
-          deselected: result.deselected,
-          changedIndex: index,
-          selected: value,
-        });
-        return result.selection;
+      const result = toggleSelection(
+        selectionRef.current,
+        index,
+        value,
+        config.isCheckboxSingleSelect,
+      );
+      setSelection(result.selection);
+      onSelectionChangeRef.current?.({
+        selection: result.selection,
+        rows,
+        deselected: result.deselected,
+        changedIndex: index,
+        selected: value,
       });
     },
-    [config.isCheckboxSingleSelect, config.isReadOnly, rows],
+    [config.isCheckboxSingleSelect, config.isReadOnly, rows, setSelection],
   );
 
   const setAllSelected = useCallback(
     (value: boolean) => {
       if (config.isReadOnly || config.isCheckboxSingleSelect) return;
-      setSelection((current) => {
-        const changed: number[] = [];
-        const next = rows.map((_, i) => {
-          if ((current[i] === true) !== value) changed.push(i);
-          return value;
-        });
-        if (changed.length > 0) {
-          onSelectionChangeRef.current?.({
-            selection: next,
-            rows,
-            deselected: [],
-            changedIndex: changed[0]!,
-            selected: value,
-            changed,
-          });
-        }
-        return next;
+      const current = selectionRef.current;
+      const changed: number[] = [];
+      const next = rows.map((_, i) => {
+        if ((current[i] === true) !== value) changed.push(i);
+        return value;
       });
+      setSelection(next);
+      if (changed.length > 0) {
+        onSelectionChangeRef.current?.({
+          selection: next,
+          rows,
+          deselected: [],
+          changedIndex: changed[0]!,
+          selected: value,
+          changed,
+        });
+      }
     },
-    [config.isCheckboxSingleSelect, config.isReadOnly, rows],
+    [config.isCheckboxSingleSelect, config.isReadOnly, rows, setSelection],
   );
 
   const clearSelection = useCallback(() => {
-    setSelection((current) => emptySelection(current.length));
-  }, []);
+    setSelection(emptySelection(selectionRef.current.length));
+  }, [setSelection]);
 
   return {
     rows,

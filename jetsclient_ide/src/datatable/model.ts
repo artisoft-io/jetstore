@@ -1,21 +1,21 @@
 /**
  * The data table's logic, with no React in it.
  *
- * Task A.4b. Everything here is ported from `JetsDataTableState`
+ * Everything here is ported from `JetsDataTableState`
  * (`jetsclient/lib/components/data_table.dart:303`) and `JetsDataTableSource`
  * (`data_table_source.dart`), and lives apart from the component for the same
- * reason A.4a lives apart from the widget: it can then be tested by calling it.
+ * reason the query builder lives apart from the widget: it can then be tested by calling it.
  *
  * **Three of these functions deliberately do not match the Dart, because the
  * Dart is wrong.** Each is marked `DIVERGENCE` with what the original does and
  * what breaks. They are rendering behaviour rather than wire format, so unlike
- * A.4a there is no compatibility argument for reproducing the defect — and the
+ * the query builder there is no compatibility argument for reproducing the defect — and the
  * port is the only reason anyone read these forty lines closely enough to notice.
  */
 
 import type { ColumnConfig, JetsRow } from "./types";
 
-/** Columns the table renders. Hidden columns are still fetched — see A.4a. */
+/** Columns the table renders. Hidden columns are still fetched — see `makeQuery`. */
 export function visibleColumns(columns: ColumnConfig[]): ColumnConfig[] {
   return columns.filter((c) => !c.isHidden);
 }
@@ -237,7 +237,7 @@ export function pageAfterRowsPerPageChange(
  * first thing a reader of the User Guide's screenshots asked about. No column
  * gives a null a meaning of its own: both cell filters pass a null through. The
  * `cellFilter` closure cannot cross into TypeScript — three columns declare one,
- * all `file_key` — so a filtered column renders unfiltered until A.4b's caller
+ * all `file_key` — so a filtered column renders unfiltered until the table's caller
  * supplies a replacement. See the corpus README.
  */
 export function cellText(
@@ -259,7 +259,7 @@ export function cellFullText(row: JetsRow, column: ColumnConfig): string {
  * Which rows are selected, by position in the current page.
  *
  * Positional rather than keyed because everything downstream is positional: the
- * form-state binding A.4c implements reads `keyColumnIdx` and `columnIdx` out of
+ * form-state binding (`binding.ts`) reads `keyColumnIdx` and `columnIdx` out of
  * the row array, and the server returns rows as arrays.
  */
 export type Selection = readonly boolean[];
@@ -273,7 +273,7 @@ export function emptySelection(size: number): Selection {
  *
  * Single-select clears every other row first. The Dart does this by walking the
  * list and calling `_updateFormState(i, false)` on each previously selected row,
- * which is the form-state half; A.4c reproduces that side. This returns only the
+ * which is the form-state half; the binding reproduces that side. This returns only the
  * new selection and the rows that were deselected, so the caller can do both
  * without this function knowing what a form is.
  */

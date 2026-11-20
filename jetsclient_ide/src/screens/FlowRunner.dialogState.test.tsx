@@ -1,8 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * **A flow's dialog has its own form state.** `jetstore_maintenance_02` Phase 2,
- * `I-28`, 2026-10-01.
+ * **A flow's dialog has its own form state.** 2026-10-01.
  *
  * Until this file the flow runner wrote a dialog's parameters into the flow's
  * one form state and ran the dialog's actions against it. The Dart builds a new
@@ -54,7 +53,7 @@ interface Posted {
  *
  * **`pipeline_config` key 7 and `process_input` key 7 are both here on
  * purpose**: two serial columns collide as a matter of course, which is what made
- * `I-28` an overwrite of an unrelated row rather than a miss.
+ * the defect an overwrite of an unrelated row rather than a miss.
  */
 function stubServer() {
   const posts: Posted[] = [];
@@ -212,7 +211,7 @@ async function cancelDialog(dialog: HTMLElement) {
 
 describe("Pipeline Configuration: the process-input dialog decides insert or update on its own key", () => {
   /**
-   * The I-28 sequence: *Add/Update* on the main page with the main input ticked,
+   * The defect's sequence: *Add/Update* on the main page with the main input ticked,
    * then Next, *Add Data Source to Merge*, and *Add/Update* with nothing ticked.
    * The first open left `key` = "3" in the one shared state, so the add went to
    * `update2/process_input` with that key and overwrote the main input.
@@ -266,7 +265,7 @@ describe("Pipeline Configuration: the process-input dialog decides insert or upd
   });
 
   it("adds while editing with no row selected, and sends no list-valued key", async () => {
-    // The case I-28 suspected. It posted `update2/process_input` with the
+    // The case the defect report suspected. It posted `update2/process_input` with the
     // pipeline's key as `["7"]`, which pgx cannot encode into an int4: a 500.
     const { posts } = await editPipeline();
     untick("TBL_MAIN_3");
@@ -380,7 +379,7 @@ describe("Delete Client", () => {
     await screen.findByText("the client");
     tick("the client");
     fireEvent.click(button("Delete Client"));
-    // Asked in the app's own dialog (jetstore_maintenance_02 `I-39`): the
+    // Asked in the app's own dialog: the
     // embedded browser pane never shows `window.confirm`, which answered false
     // there, so the button did nothing. Nothing is posted until *OK*.
     await screen.findByRole("dialog");

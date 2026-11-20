@@ -1,8 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * **The *Clear Filters* gate.** `jetstore_maintenance_02`, defect `D02` and its
- * neighbour, tasks `AA.1` to `AA.3`, 2026-10-01.
+ * **The *Clear Filters* gate**, and the defect beside it, fixed 2026-10-01.
  *
  * Two defects in one gate, in opposite directions. Pipeline Status's button was
  * **never** gated, because the action bar looked predicates up by action key in a
@@ -92,7 +91,7 @@ describe("the Start Pipeline pickers' Clear Filters", () => {
     });
 
     it(`${key}: enabled once a data-registry filter is set`, () => {
-      // **Reverting AA.2 turns this red**: `hasDataRegistryFilters` as `false`.
+      // **Reverting the fix turns this red**: `hasDataRegistryFilters` as `false`.
       applyHomeFilters(BOTH);
       expect(clearFiltersOn(key, doc).disabled).toBe(false);
     });
@@ -103,19 +102,19 @@ describe("the Start Pipeline pickers' Clear Filters", () => {
  * **The runtime derives the predicate's name; the document states it.** They
  * have to agree, and nothing made them until this test.
  *
- * `fromDocument` keeps only the boolean `hasIsEnabledFnc` (`ui_refresh`'s I-66:
- * the translation must lose nothing, so `ActionConfig` carries no field the
+ * `fromDocument` keeps only the boolean `hasIsEnabledFnc` (the translation
+ * must lose nothing, so `ActionConfig` carries no field the
  * corpus cannot express), so the action bar asks `isEnabledEscapeFor` at runtime
  * — the function the emitter used to *write* `isEnabled`. For a document the
  * fixture emits, that is agreement by construction. **For a hand-authored one it
- * is not**, and `jetstore_maintenance_02` moves documents out of the fixture
- * (`Q-5`) and expects them to be written by a model: a document naming a
+ * is not**, and documents have moved out of the fixture to be maintained by
+ * hand, and may be written by a model: a document naming a
  * predicate the derivation would not choose would render with the derivation's
  * gate and no error. So the agreement is asserted over every committed document,
  * whoever wrote it.
  */
 /**
- * The two Home tabs `session_registry` Phase 2 added (2026-11-08), named here
+ * The two Home tabs the session registry added (2026-11-08), named here
  * rather than left to the glob below: the glob proves the documents and the
  * function agree, and these say what they agree on.
  */
@@ -152,7 +151,7 @@ describe("every committed table document's isEnabled", () => {
 
   const sites = Object.entries(documents).flatMap(([path, { default: doc }]) => {
     const key = path.slice(path.lastIndexOf("/") + 1, -".tc.json".length);
-    // Every row, the third (`D04`, `AE.1`) included: a hand-authored button there
+    // Every row, the third included: a hand-authored button there
     // naming a predicate the derivation would not choose is exactly the drift
     // this test exists for.
     return [...(doc.actions ?? []), ...(doc.secondRowActions ?? []), ...(doc.thirdRowActions ?? [])]

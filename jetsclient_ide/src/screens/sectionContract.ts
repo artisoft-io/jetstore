@@ -1,17 +1,17 @@
 /**
- * What this app renders for each compiled view the apiserver declares. Task C.3.
+ * What this app renders for each compiled view the apiserver declares.
  *
  * **This is the third reader of a declaration no corpus can reach**, and the
  * first one in this repository. The Workspace IDE's section list is *server*
  * data — one row of `wsfile.WorkspaceSections` per heading — so the Flutter
  * suite's five generated corpora, all built by walking client registries, close
- * over none of it. C.1 guarded it with two tests that check each other:
+ * over none of it. Two tests guarded it, each checking the other:
  * `jets/datatable/wsfile/sections_test.go` and
  * `jetsclient/test/workspace_section_contract_test.dart` carry the same
  * declaration string and the same checksum, so changing the Go table fails the
  * Go test and updating the Go constant alone fails the Dart one.
  *
- * **C.1's note said a third reader owes the same treatment, and this is it.**
+ * **A note there said a third reader owes the same treatment, and this is it.**
  * `sectionContract.test.ts` is the mirror of the Dart file, one repository over.
  *
  * ## The two honest answers, and why an empty set would be the wrong shape
@@ -19,10 +19,10 @@
  * For every non-empty compiled view the server declares, this client either
  * renders it — an entry in `compiledViews` — or names it in
  * `viewsNotBuiltInReact`. Nothing may be in both, and nothing may be in neither.
- * That is C.1's `viewsNotBuiltInFlutter` on this side of the port, and the
+ * That is the Dart's `viewsNotBuiltInFlutter` on this side of the port, and the
  * asymmetry between the two lists is the interesting part: `lookups` is in the
- * Dart's list permanently, because track X deletes that app rather than teaching
- * it the view, and it is in this one only until C.3a lands.
+ * Dart's list permanently, because the Flutter app is deleted rather than taught
+ * the view, and it is in this one only until this app builds it.
  */
 
 import dataModelView from "./views/data_model.view.json";
@@ -37,12 +37,12 @@ import { parseCompiledView, type CompiledViewDocument } from "./compiledView";
  * **Copied from `wsfile.SectionDeclaration()`, not derived from anything here.**
  * Deriving it from this app's own registry is the mistake the file exists to
  * avoid — it would agree with the client whatever the server sends. Recorded
- * 2026-08-25 against `jetstore_ai` at `worktree-ui-c3-workspacehome`, and
+ * 2026-08-25 against the `jetstore` feature branch that built this screen, and
  * identical to the copy in `jetsclient/test/workspace_section_contract_test.dart`.
- * `provenance=` added 2026-10-27 (jetstore_maintenance_02 `AL.2`), the ninth
+ * `provenance=` added 2026-10-27, the ninth
  * section; the Dart copy went with `jetsclient/`, so this file and the Go test
- * are the two ends now. `runbooks=` added 2026-11-06 (`runbooks` Phase 1, `AA.4`,
- * jetstore#2398), the tenth section, with no compiled view. `docs=` added
+ * are the two ends now. `runbooks=` added 2026-11-06 (jetstore#2398), the
+ * tenth section, with no compiled view. `docs=` added
  * 2026-11-13, the eleventh: the workspace's documentation pages, with no
  * compiled view.
  *
@@ -113,8 +113,8 @@ export function parseDeclaration(): { dir: string; view: string }[] {
  * The compiled views this app renders, keyed by the value the server sends.
  *
  * The tab labels are **transcribed from the Dart and are in no corpus** — see
- * `compiledView.ts` for the mechanism and **I-205** for why it is a third shape
- * of corpus loss rather than an instance of C.0b's:
+ * `compiledView.ts` for the mechanism, and for why it is a third shape of
+ * corpus loss rather than another instance of a fixture regenerated without it:
  *
  * - `data_model` — `FormKeys.wsDataModelForm`, `formTabsConfig`
  *   (`jetsclient/lib/modules/workspace_ide/form_config.dart`, `wsDataModelForm`):
@@ -123,8 +123,8 @@ export function parseDeclaration(): { dir: string; view: string }[] {
  *   *Jet Rules*, *Rule Terms*, *Files Relationship*, *Jet Rules Files*.
  * - `lookups` — **transcribed from nothing.** The Flutter app never built this
  *   view; `FormKeys.wsLookupsForm` and `DTKeys.wsLookupsTable` were declared,
- *   empty, and deleted by C.1. So its two labels are authored beside its two
- *   table documents (C.3a), and the pair to check them against is
+ *   empty, and deleted when the section contract was added. So its two labels
+ *   are authored beside its two table documents, and the pair to check them against is
  *   `jets/workspace_schema.sql` rather than a form registry.
  *
  * The section labels are `wsfile.WorkspaceSections`' `Label`, which is what the
@@ -139,10 +139,10 @@ export const compiledViews: Record<string, CompiledViewDocument> = {
 /**
  * Compiled views the server declares that this app does not render.
  *
- * **Empty as of C.3a, and kept.** It held `lookups` for one task: that view
- * compiles into `lookup_tables` and `lookup_columns` and was routed here rather
- * than to the Flutter app because track X deletes that one (**I-45**, decided
- * 2026-08-23 by the user). C.3a built it, so the set emptied — which is the
+ * **Empty since the lookups view was built, and kept.** It held `lookups` for
+ * one task: that view compiles into `lookup_tables` and `lookup_columns` and was
+ * routed here rather than to the Flutter app because that app is being deleted
+ * (decided 2026-08-23). The next task built it, so the set emptied — which is the
  * outcome a debt with a task against it is supposed to have, and the reason it
  * was a set rather than a comment.
  *
@@ -155,11 +155,11 @@ export const viewsNotBuiltInReact: ReadonlySet<string> = new Set<string>();
  * Tables of a declared view that this app does not draw yet, and the task that
  * will.
  *
- * **Empty as of C.3b, and kept**, on `viewsNotBuiltInReact`'s terms one level
+ * **Empty since the files tabs were drawn, and kept**, on `viewsNotBuiltInReact`'s terms one level
  * down. It held `wsDataModelFilesTable` and `wsJetRulesFilesTable` for one task:
  * both carry an action bar whose *Add File* opens a dialog and whose *Delete* is
- * gated on a selected row, and the app had no dialog host (**I-68**) when C.3
- * drew the other six tabs.
+ * gated on a selected row, and the app had no dialog host when the other six
+ * tabs were drawn.
  *
  * **What it bought is the reason it was a set rather than a comment.** A view
  * that silently shows three of four tabs is a screen that looks complete — the
@@ -169,7 +169,7 @@ export const viewsNotBuiltInReact: ReadonlySet<string> = new Set<string>();
  * this constant turned that assertion into a plain equality without a line of it
  * being rewritten.
  */
-export const TABS_DEFERRED_TO_C3B: Readonly<Record<string, readonly string[]>> = {};
+export const TABS_NOT_YET_DRAWN: Readonly<Record<string, readonly string[]>> = {};
 
 /** The document for a section's declared view, or null when this app has none. */
 export function compiledViewFor(compiledView: string | undefined): CompiledViewDocument | null {

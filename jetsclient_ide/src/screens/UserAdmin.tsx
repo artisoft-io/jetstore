@@ -1,5 +1,5 @@
 /**
- * `/userAdmin` — the user administration screen. Task C.13; gate changed 2026-11-07.
+ * `/userAdmin` — the user administration screen. Gate changed 2026-11-07.
  *
  * ## Gated on `user_admin`, which the admin passes and a role can hold
  *
@@ -39,17 +39,18 @@
  *
  * `userAdmin` is action-less and holds a single data-table field
  * (`jetsclient/lib/modules/form_config_impl.dart`, `FormKeys.userAdmin`), exactly
- * as C.9's screen form is — so this is I-177's clause again, and the second
- * screen to decline a document for that reason rather than for size. The
+ * as the process errors screen's form is — so an action-less form holding one
+ * table is markup rather than a document again, and this is the second screen
+ * to decline a document for that reason rather than for size. The
  * *dialog's* form is a document; the screen's is markup.
  *
- * ## This is C.9's file with different documents, and that is worth saying rather
+ * ## This is the process errors screen's file with different documents, and that is worth saying rather
  * than hiding
  *
  * Everything from `documentFindings` to `onFormAction` is the same shape as
  * `ProcessErrors.tsx`, which is in turn `WorkspaceRegistry.tsx`'s. **That is three
- * copies of a host and C.2b's own argument against copying `FormDataTable`
- * applies one level up**: what each copy has to get right independently is not the
+ * copies of a host and the argument against copying `FormDataTable` applies
+ * one level up**: what each copy has to get right independently is not the
  * markup but that a dialog gets its own form state, that the parameters are seeded
  * before a `doActionShowDialog` action runs, and that a modal is not `busy`. Every
  * one of those was a defect in one copy before it was a comment in another.
@@ -101,8 +102,8 @@ export const USER_ADMIN = "user_admin";
 /**
  * The base validation group. A dialog's repeat adds more; the screen has one.
  *
- * **A dialog gets its own `FormState` here, and C.2b's screen shares the
- * screen's.** That decision's stated ground is that *"the Dart shares one
+ * **A dialog gets its own `FormState` here, and the workspace registry screen's
+ * dialogs share the screen's.** That decision's stated ground is that *"the Dart shares one
  * `JetsFormState` between the screen and its dialogs"* — which is not what the
  * Dart does. `actionDispatcher` builds a **new** state,
  * `formConfig.makeFormState(parentFormState: formState)`
@@ -126,8 +127,8 @@ export const USER_ADMIN = "user_admin";
 const GROUP = 0;
 
 /**
- * The two table documents, by key. Bundled rather than read from a workspace
- * (I-170): there is one `/userAdmin` per deployment.
+ * The two table documents, by key. Bundled rather than read from a workspace:
+ * there is one `/userAdmin` per deployment.
  */
 const TABLE_JSON: Record<string, unknown> = {
   userTable: userTableJson,
@@ -143,7 +144,7 @@ const parsedTables = Object.fromEntries(
 /**
  * Findings from parsing and from resolving escape names, for the banner.
  *
- * The same shape C.2b's screen uses, and the same argument: a document that does
+ * The same shape the workspace registry screen uses, and the same argument: a document that does
  * not satisfy its schema fails in every test that imports this module rather than
  * when a user presses a button.
  */
@@ -181,9 +182,9 @@ export function documentFindings(): string[] {
 }
 
 export function UserAdmin({ api }: { api: ApiClient }) {
-  // X.1: a `navigate` request resolves in this app now.
+  // A `navigate` request resolves in this app now that the Flutter app is gone.
   const navigate = useNavigate();
-  /** Where a flow opened from this screen should return to (D.8). */
+  /** Where a flow opened from this screen should return to. */
   const location = useLocation();
   const here = `${location.pathname}${location.search}`;
   const routeParams = useParams();
@@ -197,9 +198,9 @@ export function UserAdmin({ api }: { api: ApiClient }) {
   const formState = useMemo(() => new FormState(), []);
   const dialog = useFormDialog();
   /**
-   * Whether the last action stopped because the *user* stopped it. **I-186**, and
-   * this is the first screen of mine that needs it: C.9's two dialogs are viewers
-   * with nothing to validate, and this one submits.
+   * Whether the last action stopped because the *user* stopped it. The process
+   * errors screen's two dialogs are viewers with nothing to validate, and this
+   * one submits, so this screen needs it.
    *
    * `runAction` returns null both when it ran to the end and when a `validate`
    * step failed or a `confirm` was refused. Treating the second as success closes
@@ -248,7 +249,8 @@ export function UserAdmin({ api }: { api: ApiClient }) {
   /**
    * The query context, keyed on its contents rather than on the form version.
    *
-   * **I-184, inherited rather than rediscovered.** Rebuilding this on every
+   * **A defect inherited from the workspace registry screen rather than
+   * rediscovered.** Rebuilding this on every
    * form-state change makes publishing a selection refetch the table, and the
    * refetch clears the selection that was just published — so every row-gated
    * button stays dead. Both of this screen's buttons are row-gated.
@@ -257,7 +259,7 @@ export function UserAdmin({ api }: { api: ApiClient }) {
    * carries no parameters, neither table has a `client` column and neither reads a
    * filter list, so every member `makeQuery` would splice is absent. What it buys
    * is that a table added here later gets the same context every other screen's
-   * does, which is decision 2's whole point.
+   * does, which is the whole point of building it in one place.
    */
   const contextKey = JSON.stringify(routeParams);
   const tableContext = useMemo(
@@ -387,7 +389,7 @@ export function UserAdmin({ api }: { api: ApiClient }) {
     [actions, host, activeState],
   );
 
-  /** Opens a dialog and waits. **Not while `busy`** — C.2b's finding: a modal is not work. */
+  /** Opens a dialog and waits. **Not while `busy`** — the workspace registry's finding: a modal is not work. */
   const openDialog = useCallback(
     async (form: string, params: Record<string, string>) => {
       setBusy(false);
@@ -490,11 +492,12 @@ export function UserAdmin({ api }: { api: ApiClient }) {
             case "navigate": {
               // **This arm used to hand the browser to Flutter unconditionally**,
               // which was right when the other app served every screen this one
-              // does not. X.1 removed the destination, so it resolves in-app and
+              // does not. The Flutter app's retirement removed the destination, so it resolves in-app and
               // reports when it cannot — the convention `escapes.ts` set for a name
               // with no body.
               const to = inAppPath(action.configScreenPath, request.params);
-              // D.8, and uniformly rather than where a flow is reachable today:
+              // The flow returns here when it ends, and uniformly rather than
+              // where a flow is reachable today:
               // `withReturnTo` only marks a `/flow/` path, and a skip list of the
               // screens that cannot reach one is a list that goes stale.
               if (to !== null) void navigate(withReturnTo(to, here));
@@ -525,7 +528,7 @@ export function UserAdmin({ api }: { api: ApiClient }) {
   );
 
   /**
-   * A dialog's button. **The first on any track C screen of mine that writes** —
+   * A dialog's button. **The first on any of the migrated screens that writes** —
    * `editUserProfile.ok` validates and posts, and Cancel is the dialog's.
    */
   const onFormAction = useCallback(

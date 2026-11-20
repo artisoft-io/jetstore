@@ -1,6 +1,6 @@
 /**
  * Builds the `/dataTable` request body from a table configuration and the state
- * around it. Task A.4a of the UI port's Phase 2.
+ * around it.
  *
  * **This is a port, not a redesign.** It reproduces
  * `jetsclient/lib/components/data_table_source.dart` — `_addOrWith` (`:294`),
@@ -11,7 +11,7 @@
  * does something surprising, the comment says so rather than fixing it.
  *
  * It is deliberately free of React, the DOM and any transport: the whole point
- * of splitting A.4a out of the widget is that this half has a checkable contract
+ * of splitting the query builder out of the widget is that this half has a checkable contract
  * and can be tested without either.
  */
 
@@ -65,7 +65,7 @@ export function isRawStatementTable(config: TableConfig): boolean {
 }
 
 /**
- * The request a raw-statement table sends. Task C.4.
+ * The request a raw-statement table sends.
  *
  * **Three divergences from `fetchData`, all of them stated rather than silent.**
  *
@@ -124,9 +124,9 @@ export function makeRawQuery(ctx: QueryContext): RawQueryAction {
  * Form-state and table keys the builder special-cases.
  *
  * Every one of these is a hard-coded key inside otherwise generic code, and that
- * is the assessment's §3.2 defect rather than a design: three of the four make
- * the builder behave differently for one named table. They are gathered here so
- * the port carries them visibly, and so Phase 3 can move them into the flow
+ * is a defect of the configuration (it embeds code) rather than a design: three
+ * of the four make the builder behave differently for one named table. They are
+ * gathered here so the port carries them visibly, and so they can move into the flow
  * configuration where they belong. Values from `jetsclient/lib/utils/constants.dart`.
  */
 export const KEYS = {
@@ -137,19 +137,19 @@ export const KEYS = {
   inputRegistryTable: "inputRegistryTable", // DTKeys
   mainInputRegistryKey: "main_input_registry_key", // FSK
   mergedInputRegistryKeys: "merged_input_registry_keys", // FSK
-  // No Dart original: the Home tabs `session_registry` Phase 2 added (2026-11-08).
+  // No Dart original: the Home tabs the session registry added (2026-11-08).
   pipelineArchiveTable: "pipelineArchiveTable",
   sessionRegistryTable: "sessionRegistryTable",
 } as const;
 
 /**
  * Which filter list a table receives, by its field key, and the table name its
- * clauses are rewritten to. `session_registry` Phase 2, 2026-11-08.
+ * clauses are rewritten to. 2026-11-08.
  *
  * **One table where `makeQuery` had a branch per list.** It said
  * `if (field.key === pipelineExecStatusTable)` for the home filters and an
  * `if` over three keys for the data-registry filters — the Dart's two blocks,
- * ported as written. Phase 2 adds two tables: *Archived Pipelines*, which takes
+ * ported as written. The session registry added two tables: *Archived Pipelines*, which takes
  * the home filters, and *Session Registry*, which takes a list of its own. Two
  * more branches would have made four places that know a table key; this is one.
  *
@@ -211,7 +211,7 @@ function firstRouteParam(
  * Returns `null` when the clause contributes nothing — an unsatisfied predicate,
  * or a form-state key with no value and no default. A null here is how a table
  * ends up querying without a filter it nominally has; the *blocking* behaviour
- * that stops the query outright lives in A.4c, not in this function.
+ * that stops the query outright lives in the form-state binding, not in this function.
  */
 export function makeWhereClause(
   wc: WhereClause,
@@ -403,7 +403,7 @@ export function makeQuery(ctx: QueryContext): DataTableAction {
       }
       // The Dart prints "Error: Don't have a table_name!" and carries on with an
       // empty table, producing a query the server rejects. Left as-is: turning it
-      // into a throw is a behaviour change, and A.4b is where the user-visible
+      // into a throw is a behaviour change, and the table widget is where the user-visible
       // error belongs.
     }
     return fc.asTableName !== ""

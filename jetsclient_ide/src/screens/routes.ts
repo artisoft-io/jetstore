@@ -1,5 +1,5 @@
 /**
- * Which screens this app serves, for a table action that names one. Task C.6.
+ * Which screens this app serves, for a table action that names one.
  *
  * ## The problem, which arrives with the first screen that links to another
  *
@@ -9,17 +9,17 @@
  * `window.location.href = "/#" + path`, which is right when the other app is the
  * only one that serves it, and is what `FlowRunner` and `WorkspaceRegistry` do.
  *
- * **It stops being right the moment this app serves the same screen.** C.7 and
- * C.8 ported `/executionStatusDetails` and `/executionStatsDetails` and their
- * handoff records the consequence plainly — *the screens run, and nothing links
- * to them*, because the only thing that links to either is the home screen's
- * `pipelineExecStatusTable` and that screen was C.6's. Without this map, C.6
- * would ship a button that leaves the React app for a screen React had ported
- * hours earlier.
+ * **It stops being right the moment this app serves the same screen.** When
+ * `/executionStatusDetails` and `/executionStatsDetails` were ported, the
+ * consequence was plain — *the screens run, and nothing links to them*, because
+ * the only thing that links to either is the home screen's
+ * `pipelineExecStatusTable`, which was ported next. Without this map, the home
+ * screen would ship a button that leaves the React app for a screen React had
+ * ported hours earlier.
  *
  * ## It is the mirror of `userFlowRoutes`, deliberately
  *
- * The Flutter app has the same problem in the other direction and F.10 solved it
+ * The Flutter app has the same problem in the other direction and solved it
  * the same way: `userFlowRoutes` maps a route template to what React serves
  * (`jetsclient/lib/routes/migrated_user_flows.dart`, `userFlowRoutes`). This is
  * that table for *screens*, on this side. Each screen adds its own row when it
@@ -35,12 +35,11 @@
  * name their parameters differently without either side knowing.
  *
  * **A row is a claim that this app serves the screen**, so every one below is
- * checked against `App.tsx` at the commit that adds it: C.7 and C.8's two, C.11
- * and C.12's two here, C.2b's `/workspaces`, C.4's `/queryTool` — the one row
- * whose React path is not the Flutter one, renamed by that task — and C.5's
- * `/inferServerAdmin`. A row for a screen this app does not serve is worse than a
- * missing row: the miss is a working link into Flutter, and the wrong row is a
- * 404 (C.16).
+ * checked against `App.tsx` at the commit that adds it, including `/workspaces`,
+ * `/queryTool` — the one row whose React path is not the Flutter one, renamed
+ * when it was ported — and `/inferServerAdmin`. A row for a screen this app does
+ * not serve is worse than a missing row: the miss is a working link into
+ * Flutter, and the wrong row is a 404 (`NotFound`).
  *
  * ## What is *not* here, and why that is not an omission
  *
@@ -49,14 +48,14 @@
  * holds `user_flows/<key>.uf.json` (`userflow/routing.ts`, `appForFlow`). That is
  * the one fact this table must not duplicate, because a second place to update is
  * the failure `routing.ts`'s header exists to prevent. No workspace holds those
- * documents today (I-87), so both flows fall through to Flutter, which is correct
+ * documents today, so both flows fall through to Flutter, which is correct
  * rather than a stub.
  *
- * ~~**Screens track C has not ported.**~~ **They landed, and the rows arrived three
- * tasks late — corrected 2026-08-25.** This paragraph read *"`/processErrors/:session_id`
- * is C.9's and `/ruleConfig` is C.10's; both fall through to Flutter until they
- * land"*, and C.13's `/userAdmin` was never mentioned because it did not exist when
- * this was written. All three are served now.
+ * ~~**Screens not yet ported.**~~ **They landed, and the rows arrived three
+ * changes late — corrected 2026-08-25.** This paragraph said `/processErrors/:session_id`
+ * and `/ruleConfig` fell through to Flutter until they were ported, and
+ * `/userAdmin` was never mentioned because it did not exist when this was
+ * written. All three are served now.
  *
  * **What kept it wrong is that the check could not see it.** `routes.test.ts`
  * asserted that every row names a route `App.tsx` serves — rows to routes — and the
@@ -64,7 +63,7 @@
  * returns `null` for an absent row, the test that asserts `null` keeps passing, and
  * the home screen quietly hands a user to Flutter for a screen this app had ported
  * hours earlier. **A one-directional check meeting the direction it cannot see**,
- * which is the shape Phase 3 has now recorded five times.
+ * a shape this port has met several times.
  *
  * The reverse check is in `routes.test.ts` as of this change, and it is *derived*
  * rather than listed: it reads the Flutter route table and this app's route table
@@ -108,16 +107,17 @@ export const SERVED_SCREENS: Readonly<Record<string, ServedScreen>> = {
    * corrected by it rather than around it: keys are verbatim from
    * `jets_routes_app.dart` for the ten screens that were routed there, and this
    * one names a screen that was a *tab* on the home screen and never had a route
-   * at all. D.10 gives it one (**I-260**), so the string is chosen here rather
+   * at all. It was given one when the Load Data button learned to open a flow
+ * partway, so the string is chosen here rather
    * than inherited — which is why the template and the React path are trivially
    * the same and always will be.
    */
   "/fileLoaderStatus": { reactPath: "/fileLoaderStatus" },
   /**
    * **The second key with no Flutter predecessor.** Flutter's home was `/`; this
-   * app's index has been `/home` since X.1 and `/` only redirects to it. Added for
-   * `startPipelineUF`'s `exitScreenPath` (`jetstore_maintenance_02` Phase 2,
-   * 2026-10-02: *Start Pipeline* always ends on Home), because an `exitScreenPath`
+   * app's index has been `/home` since the Flutter app was retired and `/` only
+   * redirects to it. Added for `startPipelineUF`'s `exitScreenPath` (2026-10-02:
+   * *Start Pipeline* always ends on Home), because an `exitScreenPath`
    * resolves through this table and a path not in it falls through to `returnTo`.
    */
   "/home": { reactPath: "/home" },
@@ -145,13 +145,13 @@ export function reactScreenPath(
  * **The destination for this case used to exist.** Every `navigate` arm did
  * `window.location.href = "/#" + path`, handing the user to the Flutter app,
  * which was right while there were two apps and is a navigation to nowhere now
- * that X.1 has retired the other one — the fragment is not sent to the server,
+ * that the Flutter app has been retired — the fragment is not sent to the server,
  * so it would land on this app's own root with a dead `#` and look like the
  * button did nothing much.
  *
  * Reporting is the convention this codebase already follows for the same shape
  * of problem: `escapes.ts` refuses an unresolved name rather than silently
- * skipping it, `FlowRunner` says which dialog kind it cannot open, and C.16's
+ * skipping it, `FlowRunner` says which dialog kind it cannot open, and
  * `NotFound` reports an unmatched path instead of redirecting. A `configScreenPath`
  * naming an unserved screen is now a configuration error, and configuration
  * errors are worth a sentence rather than a redirect.
@@ -164,7 +164,7 @@ export function unservedScreenMessage(label: string, path: string): string {
  * Where a `configScreenPath` goes in this app, or null.
  *
  * **Takes the template, not the resolved path**, and that distinction cost a test
- * failure while X.1 was being written: `SERVED_SCREENS` and `FLOW_ROUTES` are both
+ * failure while the Flutter app was being retired: `SERVED_SCREENS` and `FLOW_ROUTES` are both
  * keyed by the Flutter route *template*, while an `ActionRequest`'s `path` has the
  * parameters already substituted — so looking up `/executionStatusDetails/sess-1`
  * finds nothing and reports a screen the app serves as unserved. The resolved path
@@ -183,16 +183,16 @@ export function inAppPath(
 }
 
 /**
- * Where a flow goes when it ends. Task D.8, from **I-265**.
+ * Where a flow goes when it ends.
  *
  * ## What the port lost
  *
  * A Flutter flow that set no `exitScreenPath` **popped the navigator** — it
  * returned to whatever screen had pushed it. `FlowRunner`'s `exit` replaced the
  * pop with a constant, `navigate("/workspace")`, and that was defensible when
- * F.0a wrote it: `/` redirected to the editor then, so `/workspace` *was* this
- * app's index. **X.1 moved the index to `/home` and nothing revisited the flow
- * exit**, so every flow with no authored destination has landed on the Workspace
+ * the flow runner was written: `/` redirected to the editor then, so `/workspace`
+ * *was* this app's index. **Retiring the Flutter app moved the index to `/home`
+ * and nothing revisited the flow exit**, so every flow with no authored destination has landed on the Workspace
  * IDE since — a `workspace_ide` screen, for a population that mostly holds
  * `jetstore_read` and nothing else.
  *
@@ -255,7 +255,7 @@ export function isInAppPath(path: string): boolean {
  * that a launcher which has already decided beats this default.
  *
  * **Reopening the flow you are in carries its own origin over rather than
- * nesting it** (`jetstore_maintenance_02` Phase 2, 2026-10-01). Opening
+ * nesting it** (2026-10-01). Opening
  * `clientRegistryUF` from its own menu entry used to set `returnTo` to the
  * flow itself, so *Close* had to be pressed twice. The flow restarts (`App.tsx`,
  * `FlowRoute`) and leaves for wherever it was first opened from, or for the
@@ -284,11 +284,11 @@ export function returnToPath(search: URLSearchParams): string | null {
  * Where a flow goes when neither its document nor its url says.
  *
  * **`/home` rather than `/workspace`, and rather than nothing.** It is the app's
- * index since X.1, it is the one screen no capability gates, and it is the
- * destination the reporter offered as the acceptable second best. The case is
- * real rather than theoretical: a bookmarked flow, a flow opened in a new tab,
- * and a flow reached from the Flutter-era route templates before F.10's map was
- * asked for one.
+ * index since the Flutter app was retired, it is the one screen no capability
+ * gates, and it is the destination the reporter offered as the acceptable second
+ * best. The case is real rather than theoretical: a bookmarked flow, a flow
+ * opened in a new tab, and a flow reached from the Flutter-era route templates
+ * before the route map below was asked for one.
  */
 export const FLOW_EXIT_FALLBACK = "/home";
 
@@ -296,15 +296,15 @@ export const FLOW_EXIT_FALLBACK = "/home";
  * The legacy route template of each flow, and what it carries.
  *
  * **A port of `userFlowRoutes` out of `jetsclient/lib/routes/migrated_user_flows.dart`,
- * done at X.1 because that file was about to be deleted with the app.** It is the
+ * done when the Flutter app was retired, because that file was about to be
+ * deleted with it.** It is the
  * one piece of knowledge in there that outlives the Flutter client: a table
  * document's `configScreenPath` still names a flow by its *Flutter route*, and
  * those documents are workspace configuration rather than code — `workspaceRegistryTable`'s
  * *Load Client Config* and *Pull Workspace* buttons name two of these.
  *
- * **Ten since 2026-10-01**, when `/registerFileKeyUF` went with its flow
- * (`jetstore_maintenance_02` `AD.4`); a row leaves this map when its flow is
- * retired. ~~and is never added for a flow that has no Flutter route~~ **Eleven
+ * **Ten since 2026-10-01**, when `/registerFileKeyUF` went with its flow; a
+ * row leaves this map when its flow is retired. ~~and is never added for a flow that has no Flutter route~~ **Eleven
  * since 2026-10-11**: `rulesUnitTestUF` has no Flutter route and needs a row
  * anyway, because this map is the only way a table button opens a flow. A new
  * row is therefore a flow a table button opens, not a Flutter template, and says
@@ -314,9 +314,8 @@ export const FLOW_EXIT_FALLBACK = "/home";
  * whole reason this is a map rather than a string operation: `mapFileUF`'s leading
  * segment is `fileMappingUF`, `homeFiltersUF`'s is `configureHomeFiltersUF`,
  * `workspacePullUF`'s is `pullWorkspaceUF`, and `loadConfigUF`'s is `workspaces` —
- * which is the workspace registry's own route. That was the ui refresh project's
- * I-75, found when a key derived from the first path segment would have handed the
- * registry screen to a flow.
+ * which is the workspace registry's own route. That was found when a key derived
+ * from the first path segment would have handed the registry screen to a flow.
  *
  * The parameters travel as a query string because the React route is `/flow/:key`
  * with nothing positional after it; `FlowRunner` seeds every query parameter into
@@ -353,8 +352,8 @@ export const FLOW_ROUTES: Readonly<
   /**
    * **The one row with no Flutter predecessor**, and the header above is
    * corrected by it rather than around it, as `SERVED_SCREENS` was by
-   * `/fileLoaderStatus`. `rulesUnitTestUF` is a new flow
-   * (`rules_unit_test_harness` Phase 1, `AD.3`, 2026-10-11) reached from the
+   * `/fileLoaderStatus`. `rulesUnitTestUF` is a new flow (2026-10-11), the rules
+   * unit-test harness, reached from the
    * workspace registry's *Rules Unit Tests* button, and a table button names a
    * flow only through a template in this map: `inAppPath` has no third way. The
    * template is chosen to read as `loadConfigUF`'s does — the registry's own
@@ -373,7 +372,7 @@ export const FLOW_ROUTES: Readonly<
  * no flow or an argument is missing.
  *
  * **Missing arguments fall through to null rather than opening the flow anyway**,
- * which is F.10's decision kept: `mapFileUF` without `table_name` has no rows to
+ * which is the Flutter route map's decision kept: `mapFileUF` without `table_name` has no rows to
  * draw and `loadConfigUF` without `workspace_name` has no workspace, so the runner
  * would render an empty worksheet and say nothing about why. In the Flutter app
  * the fallback was the old screen; here it is a reported error, which is worse for
@@ -390,7 +389,7 @@ export function reactFlowRoute(
     const value = params[name];
     if (value === undefined || value === "") {
       // An optional parameter travels empty, so the flow's form state still has the
-      // key; a required one refuses the route, as F.10 decided.
+      // key; a required one refuses the route, as the Flutter route map decided.
       if (route.optional?.includes(name)) {
         query.set(name, "");
         continue;
@@ -406,7 +405,6 @@ export function reactFlowRoute(
 
 /**
  * Where a flow begins, when a button says somewhere other than its first state.
- * Task D.10, from **I-260**.
  *
  * ## What the report asks for
  *
@@ -435,8 +433,8 @@ export function reactFlowRoute(
  * the legacy map would make that map's own header false, and the header is the
  * thing that tells the next reader they may not add to it freely.
  *
- * **The parameters are declared rather than passed through, for F.10's reason one
- * step further on.** The obvious cheaper design is to let `reactFlowRoute` append
+ * **The parameters are declared rather than passed through, for the route map's
+ * reason one step further on.** The obvious cheaper design is to let `reactFlowRoute` append
  * whatever `resolveParams` resolved; that would seed *every* action's
  * `navigationParams` into the flow's form state, silently, on the four existing
  * flow routes that carry them. An entry point says what it carries, refuses when
@@ -526,7 +524,7 @@ export const FLOW_ENTRY_POINTS: Readonly<Record<string, FlowEntryPoint>> = {
  * Where an entry-point template goes in this app, or null.
  *
  * Null for a template that is not one, and null for one whose arguments are
- * incomplete — F.10's decision, and it bites harder here: a `loadFilesUF` opened
+ * incomplete — the route map's decision, and it bites harder here: a `loadFilesUF` opened
  * on its second page with no `table_name` would draw an empty file list and say
  * nothing, having skipped the page that would have set it.
  */

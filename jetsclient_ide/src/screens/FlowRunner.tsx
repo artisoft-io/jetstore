@@ -1,7 +1,7 @@
 /**
- * The flow runner. Task F.0a, and the thing I-50 found nobody had built.
+ * The flow runner, which was found missing once everything around it existed.
  *
- * Phase 2 built a schema, a validator, an interpreter, an engine, a store and
+ * The user-flow work built a schema, a validator, an interpreter, an engine, a store and
  * two proof flows' documents, and `proofFlows.test.ts` drove them end to end in
  * memory. **No browser ran a flow**, because there was no `/flow/:key` route, no
  * screen that read a `.form.json`, and no `EscapeRegistry` value outside tests.
@@ -35,8 +35,8 @@
  * and this app has no dialog host — five of the 25 configured table actions are
  * one of those two kinds and none is on a proof flow's tables. They report
  * plainly rather than doing nothing, which is the same choice `escapes.ts` made
- * about an unresolved name (I-68).~~ **Not true since C.2b, and corrected
- * 2026-10-01** (`jetstore_maintenance_02` Phase 2, `I-28`): `useFormDialog` below
+ * about an unresolved name.~~ **Not true since the workspace registry screen
+ * built the dialog host, and corrected 2026-10-01**: `useFormDialog` below
  * is the host, and seven table actions on four flows open one — `client` and
  * `org` in `clientRegistryUF`, `fmFileMappingTableUF`, `pipelineExecStatusTable`
  * in `homeFiltersUF`, and the three process-input tables of `pipelineConfigUF`.
@@ -49,7 +49,7 @@
  * `doActionShowDialog` cases), copies the action's parameters into it, and runs
  * the action against it. `seed` below is that, after `RuleConfig.tsx`'s.
  *
- * **This shared the flow's state until 2026-10-01, and I-28 is what it cost.**
+ * **This shared the flow's state until 2026-10-01, and this is what it cost.**
  * `pcPipelineConfigTable` publishes `key`; a parameter the selected row does not
  * supply is simply not sent (`resolveParams`); so a process-input dialog opened
  * with nothing selected inherited the pipeline's key — or an earlier dialog's —
@@ -121,7 +121,7 @@ export const FLOW_RUNNER = "workspace_ide";
  * The form-state group a flow runs in.
  *
  * Zero, and every flow in the corpus is zero: the group dimension is for a form
- * with repeating rows, which is `file_mapping`'s mechanism (I-31, I.1) and not a
+ * with repeating rows, which is `file_mapping`'s mechanism and not a
  * flow-level one. A flow that grows one will size it from a query at load, which
  * is what `resizeFormState` is for.
  */
@@ -136,7 +136,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   const { key } = useParams<{ key: string }>();
   const [search] = useSearchParams();
   /**
-   * The state this run opens on, or null for the document's own start. D.10.
+   * The state this run opens on, or null for the document's own start.
    *
    * Read here rather than inside the load effect so that the dependency is a
    * string: `search` is a new object every render, and the effect below must not
@@ -144,7 +144,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
    */
   const requestedStart = startAtState(search);
   const navigate = useNavigate();
-  /** Where this flow was opened, so a flow it opens can come back here (D.8). */
+  /** Where this flow was opened, so a flow it opens can come back here. */
   const location = useLocation();
   const here = `${location.pathname}${location.search}`;
   const { setError, setStatus } = useNotifications();
@@ -154,9 +154,9 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   const [loadFindings, setLoadFindings] = useState<string[] | null>(null);
   const [position, setPosition] = useState<FlowPosition | null>(null);
   const [errors, setErrors] = useState<FieldError[]>([]);
-  /** The deployment's custom buttons, from sign-in (`AE.8`, `I-26`). */
+  /** The deployment's custom buttons, from sign-in. */
   const customButtons = api.currentUser?.customButtons ?? [];
-  /** A refused clipboard write's text (`R-2`); see the host's `showText`. */
+  /** A refused clipboard write's text; see the host's `showText`. */
   const [shownText, setShownText] = useState<{ title: string; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   /**
@@ -169,9 +169,9 @@ export function FlowRunner({ api }: { api: ApiClient }) {
    * every build); and `groupCount` decides how many rows a repeating form draws,
    * which changes when the query returns and `resizeFormState` runs.
    *
-   * Added by F.1 because it is the first form where both matter: `mapperOk` and
-   * `mapperDraft` swap as the user types, and until F.1 no form on this screen
-   * gated a button on validity at all.
+   * Added with the file mapping flow because it is the first form where both
+   * matter: `mapperOk` and `mapperDraft` swap as the user types, and until then
+   * no form on this screen gated a button on validity at all.
    */
   const [stateVersion, setStateVersion] = useState(0);
 
@@ -181,12 +181,12 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   const formState = useMemo(() => new FormState(), [key]); // eslint-disable-line react-hooks/exhaustive-deps
   const workspaceApi = useMemo(() => new WorkspaceApi(api), [api]);
   /**
-   * The dialog host. **I-68, paid by C.2b's screen and wired here in the same
-   * change** — leaving the report in place while the host existed would have had
+   * The dialog host. **Built for the workspace registry screen and wired here in
+   * the same change** — leaving the report in place while the host existed would have had
    * the app telling a user something that had stopped being true.
    *
    * ~~The five table actions of kind `showDialog` or `doActionShowDialog` are still
-   * on no proof flow's tables, which is what let F.0a meet them and not need them.
+   * on no proof flow's tables, which is what let the first runner meet them and not need them.
    * So this path has no shipping consumer today and is wired anyway: the cost of
    * an unexercised branch is small, and the cost of a button that reports a
    * missing feature after the feature lands is a user who stops trusting the
@@ -200,7 +200,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
    * state that is discarded cannot leak a key into the next dialog.
    */
   const [dialogState, setDialogState] = useState<FormState | null>(null);
-  /** See `WorkspaceRegistry.tsx` — `runAction` cannot say why it stopped (I-186). */
+  /** See `WorkspaceRegistry.tsx` — `runAction` cannot say why it stopped. */
   const haltedByUser = useRef(false);
 
   useEffect(() => formState.subscribe(() => setStateVersion((n) => n + 1)), [formState]);
@@ -210,11 +210,11 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   );
 
   /**
-   * The tab takes the flow's name. D.10, from **I-272**.
+   * The tab takes the flow's name.
    *
    * `shell/documentTitle.ts` can only say *Flow* for `/flow/:key` — a flow's name
-   * is in its document, not in its url — and this is the same string D.7 puts in
-   * the heading. Null while it loads, so the route's own answer stands until
+   * is in its document, not in its url — and this is the same string the
+   * heading shows. Null while it loads, so the route's own answer stands until
    * there is a better one.
    */
   useDocumentTitleDetail(loaded?.flow.flow.title ?? null);
@@ -222,7 +222,8 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   /**
    * The flow's parameters, seeded into group 0 before anything reads them.
    *
-   * **A flow can need arguments and until F.1 this route could not carry any.**
+   * **A flow can need arguments and until the file mapping flow this route could
+   * not carry any.**
    * `mapFileUF` is served in Flutter by
    * `/fileMappingUF/mapping/:table_name/:object_type`
    * (`jetsclient/lib/routes/jets_routes_app.dart`, `ufMappingPath`), and both are
@@ -231,7 +232,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
    * 2026-10-01; the retired one carried none) carry parameters this way —
    * `clientRegistryUF` and `sourceConfigUF` a `startAtKey`, `mapFileUF` those
    * two, `workspacePullUF` five and `loadConfigUF` a `workspace_name`. This
-   * comment said four until F.10 counted them off `jetsRoutesMap`; the Flutter
+   * comment said four until they were counted off `jetsRoutesMap`; the Flutter
    * half that fills the query string is `userFlowRoutes`
    * (`jetsclient/lib/routes/migrated_user_flows.dart`).
    *
@@ -245,7 +246,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   useEffect(() => {
     for (const [name, value] of search.entries()) {
       // **Two of the names here are the runner's own, not the flow's** — `returnTo`
-      // (D.8) and `startAt` (D.10). Every other name in the query string is a flow
+      // and `startAt`. Every other name in the query string is a flow
       // argument and is seeded by name; these two say where the flow goes when it
       // ends and which page it opens on, no form declares either, and seeding them
       // would put a route and a state key into form state where values belong.
@@ -266,11 +267,11 @@ export function FlowRunner({ api }: { api: ApiClient }) {
       try {
         const active = await workspaceApi.activeWorkspace();
         setFileKeyLabelPattern(active.fileKeyLabelRe === "" ? null : active.fileKeyLabelRe);
-        // agentic_ai's `cpipesTemplateApply` writes a `.pc.json` into the workspace
+        // `cpipesTemplateApply` writes a `.pc.json` into the workspace
         // it was configured against, and `EscapeContext` deliberately does not carry
         // one. Set beside the line above because it is the same fact arriving from
         // the same response, and before the load because `FlowStore` resolves escape
-        // names against the registry (their U.3).
+        // names against the registry.
         setCpipesWorkspace({ workspaceName: active.name, api: workspaceApi });
         const store = new FlowStore(workspaceApi, {
           workspaceName: active.name,
@@ -313,7 +314,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
 
   /**
    * Leaves the flow: the document's `exitScreenPath`, then where it came from,
-   * then the front door. Task D.8, from **I-265**.
+   * then the front door.
    *
    * **The order is authored, inferred, default, and the first two agree wherever
    * both exist today.** `exitScreenPath` is a decision somebody wrote into the
@@ -325,11 +326,11 @@ export function FlowRunner({ api }: { api: ApiClient }) {
    * **`returnTo` replaces a pop the port dropped.** A Flutter flow with no
    * `exitScreenPath` popped the navigator back to whatever pushed it
    * (`user_flow_actions.dart`); this fell back to a constant instead, and since
-   * X.1 moved the index off the editor that constant has been the wrong screen
+   * retiring Flutter moved the index off the editor that constant has been the wrong screen
    * for everyone. See `screens/routes.ts` for why the origin travels in the url
    * rather than as `navigate(-1)` or a store.
    *
-   * **In-app since X.1.** `exitScreenPath` is a *Flutter* route template, so it
+   * **In-app since Flutter was retired.** `exitScreenPath` is a *Flutter* route template, so it
    * goes through `inAppPath`; `returnTo` is already this app's own path and does
    * not.
    */
@@ -352,7 +353,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
     return loaded.flow.forms.forms[state.formConfig] ?? null;
   }, [loaded, position]);
 
-  // The form's named queries — the dropdown and typeahead item sources of I.2b.
+  // The form's named queries — the dropdown and typeahead item sources.
   // Declared after `currentForm` because they are the *current* form's, and a
   // transition changes the set: `FlowStore` loads every form of the flow, and
   // only the one on screen has a reason to be querying.
@@ -365,17 +366,17 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   const onTopState = dialogForm !== null && dialogState !== null ? dialogState : formState;
 
   /**
-   * The named queries of whichever form is *on top*. Task C.2b.
+   * The named queries of whichever form is *on top*.
    *
    * A dialog's form has its own `queries`, and running the state's instead would
    * leave a query-backed dropdown in a dialog silently empty — the failure this
    * app refuses everywhere else. `dialogForm` is declared below and is null
    * whenever no dialog is open. ~~which is every frame of the eleven shipping flows:
-   * none of their tables carries a `showDialog` action, which is why F.0a met the
-   * two kinds and did not need them.~~ **Not true by 2026-10-01, and corrected
-   * then** (`jetstore_maintenance_02` `AF.2`): `org` (*Add Vendor/Org*),
-   * `fmFileMappingTableUF` and the three process-input tables of
-   * `pipelineConfigUF` open dialogs, and `D06` added `client`'s *Add Client* — the
+   * none of their tables carries a `showDialog` action, which is why the first
+   * runner met the two kinds and did not need them.~~ **Not true by 2026-10-01,
+   * and corrected then**: `org` (*Add Vendor/Org*), `fmFileMappingTableUF` and
+   * the three process-input tables of `pipelineConfigUF` open dialogs, and a
+   * later change added `client`'s *Add Client* — the
    * first whose dialog a test drives through this screen
    * (`FlowRunner.addReturn.test.tsx`), which is how `host.close` and
    * `host.validate` below were found reading the state's page rather than the
@@ -402,10 +403,10 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   }, [currentForm, loaded]);
 
   /**
-   * Sizing and seeding a repeating form. Task F.1.
+   * Sizing and seeding a repeating form.
    *
    * The count comes from the query, not from the document — `resizeFormState`
-   * grows and never shrinks (I.1), which is the Dart's behaviour and is why the
+   * grows and never shrinks, which is the Dart's behaviour and is why the
    * form state is per flow and the groups accumulate rather than reset. Then the
    * named `rowInitializers` escape writes each row into its group.
    *
@@ -488,15 +489,14 @@ export function FlowRunner({ api }: { api: ApiClient }) {
     () => ({
       /**
        * Runs a registered statement and returns its first row by column name.
-       * Task F.6.
        *
        * **This threw until now, and the comment it replaces named the flow that
        * would fix it.** The one Dart site is `getProcessInputRdfTypes`
        * (`modules/actions/utils/get_process_info.dart`,
        * `getProcessInputRdfTypes`), reached by `pcAddPipelineConfigUF`.
        *
-       * **`raw_query_map` rather than `raw_query`, so this shares I.2b's
-       * transport** — the same one request a form's item sources go through,
+       * **`raw_query_map` rather than `raw_query`, so this shares the form item
+       * sources' transport** — the same one request a form's item sources go through,
        * with the same `{key}` substitution and the same literal quoting
        * (`userflow/formQueries.ts`). The Dart uses `raw_query` here and
        * `raw_query_map` for a form's queries; collapsing to one is the port's
@@ -532,15 +532,14 @@ export function FlowRunner({ api }: { api: ApiClient }) {
         );
       },
       /**
-       * Validates the form **on top** — a dialog's while one is open.
-       * `jetstore_maintenance_02` `AF.2`, 2026-10-01.
+       * Validates the form **on top** — a dialog's while one is open. 2026-10-01.
        *
        * This read the state's form unconditionally, so a `validate` step in a
        * dialog's action checked the page *under* the dialog: the dialog's own
        * `required` rules were never enforced, and on a page whose table requires a
        * selection the action stopped silently with an error on a field the user
        * could not see. No shipping dialog had a consumer for it until *Add Client*
-       * (`D06`) — `crAddVendorOk` validates over `show_org`, whose form has no
+       * — `crAddVendorOk` validates over `show_org`, whose form has no
        * rules, which is why it passed — so the path was wired and unexercised, the
        * failure `openFlowDialog`'s header warns about.
        */
@@ -577,7 +576,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
         }
       },
       /**
-       * Reads rows from an endpoint, for an action escape. Task F.8.
+       * Reads rows from an endpoint, for an action escape.
        *
        * **`rows` rather than `result_map`, which is the other read shape this
        * screen already speaks.** `query` above posts `raw_query_map` and reads
@@ -599,15 +598,14 @@ export function FlowRunner({ api }: { api: ApiClient }) {
         }
       },
       /**
-       * Hands the browser a file to save. Task F.8.
+       * Hands the browser a file to save.
        *
        * The Dart's `download()` (`jetsclient/lib/utils/download.dart`) builds a
        * blob url, clicks an anchor and revokes it. **The revoke is not optional
        * housekeeping**: the object url pins the blob for the document's lifetime,
        * and a mapping export is a megabyte of held memory per press.
        */
-      // The Pipeline Status table's clipboard buttons (`jetstore_maintenance_02`
-      // `D04`): `homeFiltersUF` draws that table, so its third row runs here too,
+      // The Pipeline Status table's clipboard buttons: `homeFiltersUF` draws that table, so its third row runs here too,
       // and needs what Home's host gives it.
       fetchStageFile: fetchStageFileThrough(api),
       writeClipboard: browserWriteClipboard,
@@ -631,7 +629,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
       },
       /**
        * Closes the dialog when one is open, and leaves the flow otherwise.
-       * `jetstore_maintenance_02` `AF.2`, 2026-10-01.
+       * 2026-10-01.
        *
        * **This was `exit` unconditionally**, so a dialog action whose `post` uses
        * `transport: "insertRows"` — which closes its host on the response, as
@@ -640,7 +638,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
        * `close` to `dialog.close("ok")` (`Home.tsx`, `WorkspaceRegistry.tsx` and
        * four more); the flow runner was the one host that did not, and *Add
        * Vendor/Org* and the process-input dialogs were the unexercised consumers.
-       * `D06`'s *Add Client* is the first a test drives through this screen.
+       * *Add Client* is the first a test drives through this screen.
        */
       close: () => {
         if (dialogOpen) closeDialog("ok");
@@ -716,7 +714,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   );
 
   /**
-   * Opens a `configForm` a table action named, and waits for it. Task C.2b.
+   * Opens a `configForm` a table action named, and waits for it.
    *
    * The document is `loaded.flow.forms.forms[key]` — `FlowStore` loads every form
    * of the flow, not only the ones its states name, so a dialog's form is already
@@ -729,7 +727,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
    * action runs against *that*, after them, which is the Dart's order
    * (`data_table.dart`, the `doActionShowDialog` case: the two parameter maps
    * are copied, then `actionsDelegate` is called with the dialog's state). This
-   * ran the action first, against the flow's state, until 2026-10-01 (`I-28`):
+   * ran the action first, against the flow's state, until 2026-10-01:
    * `pcSetProcessInputRegistryKey` derives the registry key from the parameters,
    * so it read the *previous* open's and pre-selected the wrong registry row.
    * `RuleConfig.tsx` records the same trap.
@@ -769,7 +767,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   const onTableAction = useCallback(
     (request: ActionRequest, action: ActionConfig) => {
       // A deployment's custom button on Pipeline Status, which `homeFiltersUF`
-      // draws (`D04`, `I-26`): authored nowhere, so not a `runAction`.
+      // draws: authored nowhere, so not a `runAction`.
       const custom = runCustomButton(
         customButtons,
         action,
@@ -789,7 +787,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
           return;
         case "navigate": {
           // See `exit`: this app serves the destinations now, and says so when it
-          // does not. A flow reached from a flow carries this one back (D.8).
+          // does not. A flow reached from a flow carries this one back.
           const to = inAppPath(action.configScreenPath, request.params);
           if (to !== null) void navigate(withReturnTo(to, here));
           else setError(unservedScreenMessage(action.label, request.path));
@@ -813,7 +811,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
           // `showGetInputDialog`), which is what a prompt is; `host.confirm`
           // already maps the same way. Cancel yields null and the Dart's
           // `if (sessionIds != null)` guard is the same check.
-          // **Corrected 2026-10-02 (jetstore_maintenance_02 `I-39`): the app's
+          // **Corrected 2026-10-02: the app's
           // own prompt rather than the browser's**, which the embedded browser
           // pane never displays, so the button did nothing there. The contract
           // is the native one, so the rest is unchanged.
@@ -826,7 +824,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
           return;
         }
         case "openDialog":
-          // **I-68's debt, paid by C.2b.** The host is
+          // **The dialog host, built for the workspace registry screen.** The host is
           // `userflow/FormDialog.tsx`; what a flow supplies that a screen does
           // not is the form *document*, which is already loaded — `FlowStore`
           // reads every form of the flow, so a `configForm` a table names is in
@@ -878,7 +876,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
 
 
   /**
-   * The filters every table on the form is queried with. Task F.5.
+   * The filters every table on the form is queried with.
    *
    * **Rebuilt whenever the form state notifies**, which is what makes the escape
    * visible: `updateHomeFilters` writes a module-level store and calls
@@ -897,7 +895,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   if (loadFindings !== null) {
     return (
       <main className="screen uf-runner">
-        {/* **The key, and here that is right rather than the defect D.7 fixed.**
+        {/* **The key, and here that is right rather than the defect the title fixed.**
             The document did not load, so its title does not exist to be shown —
             and this screen's subject is the failure, whose audience is whoever
             authors the documents. `loadFilesUF` is the string they need to find
@@ -930,14 +928,14 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   return (
     <main className="screen uf-runner">
       <header className="uf-runner__header">
-        {/* **Task D.7, and the comment this replaces was wrong about its own
-            reason.** It read *"a flow document carries no title — S.1 dropped
-            it, because the key is the name and two names for one thing is one
-            too many (I-14)"*. I-14 refuses a document naming *itself*; a title
+        {/* **The comment this replaces was wrong about its own reason.** It
+            read *"a flow document carries no title — the schema dropped it,
+            because the key is the name and two names for one thing is one too
+            many"*. That rule refuses a document naming *itself*; a title
             names nothing else and duplicates nothing, and the Flutter app drew
             one above every flow form from the route's `ScreenConfig`
             (`jetsclient/lib/screens/user_flow_screen.dart:37`). So the heading
-            was showing `loadFilesUF` on a claim that did not hold — I-263. The
+            was showing `loadFilesUF` on a claim that did not hold. The
             title is in the document now (`UserFlowSchema`); a flow without one
             falls back to the key, which is what this line used to do
             unconditionally. The form may carry one too, and `FormRenderer`
@@ -993,7 +991,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
           queriesLoading: queries.loading,
           // **The smaller of the two, and both halves are load-bearing.** The
           // query's row count is what the Dart draws, and the store grows and
-          // never shrinks (I.1) — so taking the store's alone keeps drawing rows
+          // never shrinks — so taking the store's alone keeps drawing rows
           // a re-query no longer has, and taking the query's alone draws a group
           // the store does not have yet, because the resize happens in an effect
           // *after* the render that learns the rows. `min` is the state both are
@@ -1014,7 +1012,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
           onTableAction,
           onFormAction,
           formValid: formValid,
-          // D.11. `back` refuses below two, so this is the same test the engine
+          // The Back button. `back` refuses below two, so this is the same test the engine
           // makes, read off the same value — not a second rule that could drift
           // from it.
           canGoBack: position.visited.length > 1,
@@ -1028,7 +1026,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
 /**
  * The per-column display filters a flow's table names, resolved.
  *
- * The loop is `actions/cellFilters.ts`'s since D.10 — this is the lookup that
+ * The loop is `actions/cellFilters.ts`'s now — this is the lookup that
  * remains, which is the half that is a flow's rather than a document's.
  */
 function cellFiltersFor(loaded: LoadedFlow, tableKey: string): CellFilters {

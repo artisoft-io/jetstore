@@ -1,9 +1,9 @@
 /**
- * The home screen — Flutter's `/`, this app's `/home`. Task C.6.
+ * The home screen — Flutter's `/`, this app's `/home`.
  *
  * ## Three tabs, not three tables
  *
- * `sizing_screen_migration.md` §7 records this row as *3 tables, 1 dialog*, and
+ * The screen-migration sizing recorded this screen as *3 tables, 1 dialog*, and
  * that counts configuration rather than what is on screen at once. Flutter's
  * `FormKeys.home` is an **action-less form** whose `formTabsConfig` holds three
  * `FormTabConfig`s, one data-table field each
@@ -14,8 +14,9 @@
  *
  * ## The tables are form fields, and the filters depend on it
  *
- * **C.7's handoff says a screen table can never be filtered by `homeFilters` or
- * `dataRegistryFilters`, and that is true of a `ScreenOne` and false here.**
+ * **A screen table can never be filtered by `homeFilters` or
+ * `dataRegistryFilters`, it was said when the execution details screens were
+ * ported, and that is true of a `ScreenOne` and false here.**
  * `makeQuery` splices both only inside `if (field && field.key === …)`
  * (`datatable/query.ts`, `makeQuery`), and their reading — *a table that is not a
  * form field has no `formField`* — is exactly right. What does not carry is the
@@ -26,7 +27,7 @@
  * So each `TableView` below is given `field={{group: 0, key: <the table key>}}`,
  * which is `FormDataTableFieldConfig(key: DTKeys.x, dataTableConfig: DTKeys.x)`.
  * **Without it the filters the whole of `homeFiltersUF` exists to set reach
- * nothing and the screen looks correct**, which is I-104 on a fifth surface.
+ * nothing and the screen looks correct**, a failure no test of the rows can see.
  * `Home.test.tsx` mutation-tests the field key for that reason.
  *
  * ## Three sources of filter, and only one of them is this screen's
@@ -37,8 +38,8 @@
  * | `dataRegistryFilters` | the same flow | `inputRegistryTable` |
  * | `selectedClient` | the shell's picker (`shell/selectedClient.ts`) | any table with a `client` column — all three here |
  *
- * None of the three is stored on this screen, and that is I-102 decision 5 plus
- * its extension: *there is one build, so there is one set of filters*. The two
+ * None of the three is stored on this screen, and that is a design decision of
+ * the port, extended: *there is one build, so there is one set of filters*. The two
  * prompt buttons write `homeFilters` through `setIdFilter`, which is the same
  * module.
  *
@@ -46,11 +47,11 @@
  *
  * `inputRegistryTable` is one of the flows' 37. It is registered in
  * `jetsclient/lib/modules/user_flows/start_pipeline/data_table_config.dart` and
- * rendered here, which is **F18 read backwards** — that fact records a table
+ * rendered here, which is the reverse of the familiar case of a table
  * registered outside the flows and rendered by one. `pipelineExecStatusTable`
- * arrived with F.5. So this screen's three tables cost **one** translation.
+ * arrived with the flows' table documents. So this screen's three tables cost **one** translation.
  *
- * ## Four tabs since `session_registry` Phase 2 (JM-081, 2026-11-08)
+ * ## Four tabs since the Session Registry (2026-11-08)
  *
  * ***Session Registry*** and ***Archived Pipelines*** follow the two above, and
  * neither has a Dart original: both documents are written for the feature and
@@ -64,7 +65,7 @@
  *
  * **The selected tab is in the address, `?tab=<table key>`**, because two of
  * the four tabs have a *Set Filters* and one of them opens `homeFiltersUF`, which
- * returns here by `returnTo` (D.8) — and a remounted screen held its tab in
+ * returns here by `returnTo` — and a remounted screen held its tab in
  * state and came back on the first. The address is what the return carries.
  *
  * ***Session Registry*'s *Set Filters* is a dialog on this screen, not a flow**,
@@ -136,13 +137,13 @@ import srProcessTable from "../datatable/tables/srProcessTable.tc.json";
  */
 const TABS = [
   /*
-    **First and default since D.4** (**I-260**), and relabelled *Pipelines
+    **First and default**, and relabelled *Pipelines
     Status*: the tab strip's label is the tab's, not the table's, which is why
     this line changes and the document does not.
 
-    **`caption: ""` is the rest of I-260 and it is here rather than in the
+    **`caption: ""` is the rest of that request and it is here rather than in the
     document.** The report asks for the table's own caption to be emptied, and
-    D.4 tried that in `pipelineExecStatusTable.tc.json` and backed out:
+    an earlier change tried that in `pipelineExecStatusTable.tc.json` and backed out:
     `homeFiltersUF` renders the same document out of the workspace, so emptying
     its `label` takes the caption off the flow too. The tab strip above names
     this table and the caption repeats it; nothing names it in the flow. So the
@@ -158,7 +159,7 @@ const TABS = [
     neighbours — with a test asserting the copies agreed, which is a guard rather
     than a fix. One copy, read from where the flow reads it.
 
-    ~~**Leaving, but not yet.**~~ **Gone, D.10.** *File Loader Status* sat between
+    ~~**Leaving, but not yet.**~~ **Gone.** *File Loader Status* sat between
     these two until its destination existed; it is now `/fileLoaderStatus` and is
     reached from `fileMappingUF`'s *Loader Status* button (`FileLoaderStatus.tsx`).
     Two tabs rather than three, and the screen's own comment about issuing one
@@ -166,7 +167,7 @@ const TABS = [
   */
   { key: "inputRegistryTable", label: "Data Registry", document: inputRegistryTable, caption: null },
   /*
-    **Third and fourth, `session_registry` Phase 2 (2026-11-08).** Each tab's
+    **Third and fourth, the Session Registry (2026-11-08).** Each tab's
     caption is emptied as *Pipelines Status*'s is, and for its reason: the tab
     strip names the table. Unlike that one, these documents are this screen's
     alone, so the label could have been left out of them — it is kept, because a
@@ -178,7 +179,7 @@ const TABS = [
 
 /**
  * The tables a dialog of this screen draws, which are no tab's: the Session
- * Registry filters' process list (JM-185, 2026-11-12). They are parsed and
+ * Registry filters' process list (2026-11-12). They are parsed and
  * configured with the tabs' so a `dataTable` field finds its configuration.
  */
 const DIALOG_TABLES = [{ key: "srProcessTable", document: srProcessTable }] as const;
@@ -192,19 +193,19 @@ const tabIndexOf = (key: string | null): number => {
 /** The Session Registry filter dialog, which this screen seeds from the last answers. */
 const SESSION_REGISTRY_FILTERS_DIALOG = "sessionRegistryFiltersDialog";
 
-/** What *Set Session Id* asks on Session Registry, which also takes a range (`Q-6`). */
+/** What *Set Session Id* asks on Session Registry, which also takes a range. */
 const SESSION_REGISTRY_ID_PROMPT =
   "Enter session IDs comma separated, or a range from..to (either end may be empty, as 1000.. or ..2000)";
 
 /** The tab whose document comes from the workspace. */
 const WORKSPACE_TABLE = "pipelineExecStatusTable";
 
-/** One group, shared with the dialog — C.2b's decision, and the Dart's. */
+/** One group, shared with the dialog — the workspace registry's decision, and the Dart's. */
 const GROUP = 0;
 
 /**
  * Whether an action leaves the tables as they are, and their selection with
- * them: it writes, and every write says `refresh: false` (JM-188).
+ * them: it writes, and every write says `refresh: false`.
  */
 const keepsSelection = (action: ActionDef | undefined): boolean => {
   const posts = action?.steps.filter((step) => step.do === "post") ?? [];
@@ -217,7 +218,7 @@ const SCREEN_KEY = "homeScreen";
 /**
  * The five documents, parsed once at module load.
  *
- * Parsed rather than cast, for C.2b's stated reason: a document that does not
+ * Parsed rather than cast, for the workspace registry's stated reason: a document that does not
  * satisfy its schema fails in every test that imports this module rather than
  * when a user presses a button.
  */
@@ -306,7 +307,7 @@ export function documentFindings(workspaceTable: TableConfigDocument | null = nu
   for (const table of tables) {
     const document = table.result.data as TableConfigDocument;
     if (document.source !== "query") continue;
-    // Every row, the third (`D04`) included — `actionRowsOf`, `AE.1`.
+    // Every row, the third included — `actionRowsOf`.
     for (const [row, actions] of actionRowsOf(document)) {
       actions.forEach((action, index) => {
         if (action.action === "doAction" && !declared.has(action.actionName ?? "")) {
@@ -326,7 +327,7 @@ export function documentFindings(workspaceTable: TableConfigDocument | null = nu
 export function Home({ api }: { api: ApiClient }) {
   const routeParams = useParams();
   const navigate = useNavigate();
-  /** Where a flow opened from this screen should return to (D.8). */
+  /** Where a flow opened from this screen should return to. */
   const location = useLocation();
   const here = `${location.pathname}${location.search}`;
   const { setError, setStatus } = useNotifications();
@@ -356,7 +357,7 @@ export function Home({ api }: { api: ApiClient }) {
   /**
    * The open dialog's own form state, or null when none is open.
    *
-   * **A new one on every open, since 2026-11-05** (jetstore_maintenance JM-061).
+   * **A new one on every open, since 2026-11-05.**
    * Until then the dialog wrote into `formState`, the group the tables publish
    * their selections to, and nothing cleared its keys on close. So *Put Schema
    * Event* reopened holding the json of the previous open, after Save as after
@@ -370,11 +371,11 @@ export function Home({ api }: { api: ApiClient }) {
   /** The state a dialog's fields and actions read: the dialog's while one is open. */
   const activeState = dialogState ?? formState;
   /**
-   * The text a refused clipboard write fell back to (`R-2`), or null. D04's
+   * The text a refused clipboard write fell back to, or null. The
    * clipboard buttons hand it to the host's `showText`; `TextDialog` shows it.
    */
   const [shownText, setShownText] = useState<{ title: string; text: string } | null>(null);
-  /** The deployment's custom buttons, from sign-in (`AE.8`). */
+  /** The deployment's custom buttons, from sign-in. */
   const customButtons = api.currentUser?.customButtons ?? [];
 
   /**
@@ -460,8 +461,8 @@ export function Home({ api }: { api: ApiClient }) {
         if (!table.result.success) return acc;
         const caption = TABS.find((t) => t.key === table.key)?.caption ?? null;
         // The custom buttons, on Pipeline Status only; the document cannot carry
-        // them (`D04`, `AE.8`). `FlowRunner` does the same through the same helper
-        // (`I-26`), so every screen drawing that table draws them.
+        // them. `FlowRunner` does the same through the same helper,
+        // so every screen drawing that table draws them.
         const config = withCustomButtons(fromDocument(table.key, table.result.data), customButtons);
         return { ...acc, [table.key]: caption === null ? config : { ...config, label: caption } };
       }, {}),
@@ -496,7 +497,7 @@ export function Home({ api }: { api: ApiClient }) {
   /**
    * The query context all three tables are built with.
    *
-   * **Keyed on the contents rather than on `stateVersion`, per I-184.** C.2b found
+   * **Keyed on the contents rather than on `stateVersion`.** The workspace registry found
    * that rebuilding this object on every form-state change refetches on every
    * *selection* — the rows come back identical, the restore is guarded on the row
    * set having changed and does not run, and the selection is lost, so every
@@ -581,7 +582,7 @@ export function Home({ api }: { api: ApiClient }) {
           return null;
         }
       },
-      // D04's clipboard buttons (`AE.3`, `AE.4`): the file comes back through the
+      // The clipboard buttons: the file comes back through the
       // API client because `post` above keeps only the status.
       fetchStageFile: fetchStageFileThrough(api),
       writeClipboard: browserWriteClipboard,
@@ -596,7 +597,7 @@ export function Home({ api }: { api: ApiClient }) {
       },
       notify: (level, message) => (level === "error" ? setError(message) : setStatus(message)),
       setBusy,
-      // A screen has no states and nothing to close but its dialog — C.2b's two
+      // A screen has no states and nothing to close but its dialog — the registry's two
       // inert seams, for the same reason.
       goToState: () => {},
       close: () => dialog.close("ok"),
@@ -609,12 +610,12 @@ export function Home({ api }: { api: ApiClient }) {
 
   /**
    * **The whole `ActionResult`, not only its message, since 2026-10-01**
-   * (`jetstore_maintenance_02` `D01`, task `AD.3`). Until then this screen's one
+   * Until then this screen's one
    * dialog was a viewer, and `message === null` could only mean the action ran.
    * *Put Schema Event* opens with a `validate` step, and a failed validation also
    * returns a null message — with `completed: false`. Reading the message alone
-   * closed the dialog over the field errors it had just drawn, which is I-186 as
-   * `WorkspaceRegistry.tsx` met it; that screen remembers the halt in a ref, and
+   * closed the dialog over the field errors it had just drawn, the defect
+   * `WorkspaceRegistry.tsx` met first; that screen remembers the halt in a ref, and
    * this one can read it off the result because the result is in hand.
    */
   const runNamedAction = useCallback(
@@ -644,7 +645,7 @@ export function Home({ api }: { api: ApiClient }) {
         try {
           // A deployment's custom button names no entry in this screen's action
           // document — it is not authored anywhere — so it runs the clipboard
-          // mechanism directly with its own spec (`AE.8`).
+          // mechanism directly with its own spec.
           const custom = runCustomButton(
             customButtons,
             action,
@@ -664,7 +665,7 @@ export function Home({ api }: { api: ApiClient }) {
               if (outcome !== null) setError(outcome);
               // A refresh clears the selection, so an action whose writes change
               // no row on screen keeps it: *Resubmit as Pending*, whose sessions
-              // are often the next ones to delete (JM-188, 2026-11-12).
+              // are often the next ones to delete (2026-11-12).
               if (!keepsSelection(actions[request.name])) formState.requestRefresh();
               return;
             }
@@ -675,14 +676,14 @@ export function Home({ api }: { api: ApiClient }) {
                * five of them are React routes now, and `screens/routes.ts` is
                * the one place that says which. Sending them all to Flutter is
                * what every screen did until this one, and it is what would have
-               * left C.7's and C.8's screens unreachable — they are entered from
+               * left the execution details screens unreachable — they are entered from
                * this table and from nothing else.
                */
               const internal = inAppPath(action.configScreenPath, request.params);
-              // D.8: a flow this button opens comes back here rather than to
+              // A flow this button opens comes back here rather than to
               // the Workspace IDE. A no-op for the screens, which do not read it.
               if (internal !== null) void navigate(withReturnTo(internal, here));
-              // The `else` was a hand-off to Flutter until X.1 retired it. This
+              // The `else` was a hand-off to Flutter until Flutter was retired. This
               // screen's `startPipeline` and `setHomeFilters` buttons name flow
               // routes, which is what the second lookup above is for.
               else setError(unservedScreenMessage(action.label, request.path));
@@ -692,7 +693,7 @@ export function Home({ api }: { api: ApiClient }) {
               // The resolved `navigationParams` are seeded into a *new* state
               // for this open, because the dialog's fields read them by key —
               // that is what makes a column index mean anything. They were
-              // seeded into the shared group until JM-061 (2026-11-05), which
+              // seeded into the shared group until 2026-11-05, which
               // is what let a dialog's own fields survive its close.
               const seeded = new FormState();
               for (const [key, value] of Object.entries(request.params)) {
@@ -710,7 +711,7 @@ export function Home({ api }: { api: ApiClient }) {
               setBusy(false);
               const outcome = await dialog.open({ form: request.form, params: request.params });
               setDialogState(null);
-              // **A refresh on `ok`, since JM-061.** `showFailureDetailsDialog`
+              // **A refresh on `ok`, since 2026-11-05.** `showFailureDetailsDialog`
               // is a viewer that only ever closes with `cancel`. *Put Schema
               // Event*'s `post` step still requests a refresh on a 200, but it
               // now requests it of the dialog's state, which no table watches —
@@ -738,15 +739,15 @@ export function Home({ api }: { api: ApiClient }) {
               // ~~**`window.prompt`, which is what the Dart's `showGetInputDialog`
               // is**~~ — one `TextField` with CANCEL and OK
               // (`jetsclient/lib/components/dialogs.dart`, `showGetInputDialog`).
-              // I-102 decision 4: these are a request kind rather than a dialog,
+              // A design decision of the port: these are a request kind rather than a dialog,
               // and they were never blocked on the dialog host.
-              // **Corrected 2026-10-02 (jetstore_maintenance_02 `I-39`): the app's
+              // **Corrected 2026-10-02: the app's
               // own prompt, not the browser's**, which the embedded browser pane
               // never displays — `window.prompt` returned null there and the
               // button did nothing. Same contract: null is Cancel.
               /*
                 **Session Registry's *Set Session Id* is its own**: it filters
-                that tab's list and takes a range (`Q-6`), and a range it
+                that tab's list and takes a range, and a range it
                 refuses is said rather than sent (`setSessionRegistryIdFilter`).
                 The request does not name its table, so the open tab does —
                 the one tab mounted is the one whose bar was pressed.
@@ -788,7 +789,7 @@ export function Home({ api }: { api: ApiClient }) {
       // key is `dialogCancel` — the dialog's, not the action document's.
       // **Two dialogs since 2026-10-01**: *Put Schema Event*'s Save runs
       // `putSchemaEvent` from the action document, and its Cancel is the same
-      // `dialogCancel` (`jetstore_maintenance_02` `AD.3`).
+      // `dialogCancel`.
       if (isDialogCancel(action)) {
         dialog.close("cancel");
         return;

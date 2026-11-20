@@ -214,7 +214,7 @@
     },
 
     "openWorkspace": {
-      "description": "Open the selected workspace — the destination screen is C.3's, so this reports",
+      "description": "Open the selected workspace — the destination is the workspace home screen, so this reports",
       "steps": [
         { "do": "escape", "name": "openWorkspace" }
       ]

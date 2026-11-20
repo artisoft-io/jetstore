@@ -1,8 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * **The Workspace IDE shows the build information once.** jetstore_maintenance_02
- * Phase 1, task AC.3, for D05.
+ * **The Workspace IDE shows the build information once.** 2026-10-01.
  *
  * The shell draws the build line in a footer at the bottom of every screen, and
  * this screen already has a bottom bar of its own — so here the footer stands
@@ -11,7 +10,7 @@
  * status bar used to follow the editor only, so with no file open the line
  * would have been nowhere at all.
  *
- * jsdom has no layout, so *at the bottom* is a browser check (plan `AC.4`). What
+ * jsdom has no layout, so *at the bottom* is a browser check. What
  * is asserted here is *how many*, and *in which bar*.
  *
  * The shell is rendered rather than the screen alone, as in
