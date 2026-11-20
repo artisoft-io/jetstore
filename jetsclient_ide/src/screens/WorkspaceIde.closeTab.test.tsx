@@ -47,8 +47,8 @@ function stubServer() {
       return new Response(
         JSON.stringify({
           token: "t0",
-          name: "Michel",
-          user_email: "michel@artisoft.io",
+          name: "Test User",
+          user_email: "user@example.com",
           is_admin: false,
           capabilities: [WORKSPACE_IDE],
         }),
@@ -99,7 +99,7 @@ function stubServer() {
 /** Mounts the IDE in the shell and opens the one file. */
 async function openFile() {
   const api = new ApiClient("", stubServer());
-  await api.login("michel@artisoft.io", "pw");
+  await api.login("user@example.com", "pw");
   render(
     <MemoryRouter initialEntries={["/workspace"]}>
       <Routes>

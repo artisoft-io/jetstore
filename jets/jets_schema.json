@@ -1489,7 +1489,7 @@
       },
       {
         "columnName": "workspace_version",
-        "description": "The compiled workspace version in force when the run was submitted, MAX(version) of jetsapi.workspace_version. Binds a run to the compiled artefact it ran under; it is not a git commit -- see the note on workspace_version in the Phase 4 plan.",
+        "description": "The compiled workspace version in force when the run was submitted, MAX(version) of jetsapi.workspace_version. Binds a run to the compiled artefact it ran under; it is not a git commit.",
         "dataType": "text"
       }
     ],
@@ -2671,7 +2671,7 @@
       },
       {
         "columnName": "workspace_version",
-        "description": "The compiled workspace version in force when the run was submitted, MAX(version) of jetsapi.workspace_version. Binds a run to the compiled artefact it ran under; it is not a git commit -- see the note on workspace_version in the Phase 4 plan.",
+        "description": "The compiled workspace version in force when the run was submitted, MAX(version) of jetsapi.workspace_version. Binds a run to the compiled artefact it ran under; it is not a git commit.",
         "dataType": "text"
       },
       {

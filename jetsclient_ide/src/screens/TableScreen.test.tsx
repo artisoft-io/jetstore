@@ -60,8 +60,8 @@ function stubServer() {
       return new Response(
         JSON.stringify({
           token: "t0",
-          name: "Michel",
-          user_email: "michel@artisoft.io",
+          name: "Test User",
+          user_email: "user@example.com",
           // `anyUser` in the reachability corpus: both routes are `authRequired`
           // and gate on nothing further. The server still wants `read_data` for
           // the query itself, which is not a client-side check.
@@ -102,7 +102,7 @@ const screens = {
 async function mount(which: Screen, sessionId: string) {
   const { fetchImpl, posts } = stubServer();
   const api = new ApiClient("", fetchImpl);
-  await api.login("michel@artisoft.io", "pw");
+  await api.login("user@example.com", "pw");
   const config = screens[which];
 
   render(
@@ -246,7 +246,7 @@ describe("going straight from one route to the other", () => {
     // links pass through Home, which unmounts the screen and hid this.
     const { fetchImpl, posts } = stubServer();
     const api = new ApiClient("", fetchImpl);
-    await api.login("michel@artisoft.io", "pw");
+    await api.login("user@example.com", "pw");
     let navigate: NavigateFunction | undefined;
     function Navigator() {
       navigate = useNavigate();

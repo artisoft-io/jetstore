@@ -32,7 +32,7 @@ class Generator(InputChannel):
     """
 
     token = "generator"
-    owed_by = "P9-T04"
+    owed_by = "the channel and fan-out work"
     summary = "source with no input: nbr_nodes partitions of nbr_rows empty records"
 
     @classmethod
@@ -61,7 +61,7 @@ class Memory(InputChannel):
     """
 
     token = "memory"
-    owed_by = "P9-T04"
+    owed_by = "the channel and fan-out work"
     summary = "an in-process channel a previous step of this node wrote"
 
     @classmethod

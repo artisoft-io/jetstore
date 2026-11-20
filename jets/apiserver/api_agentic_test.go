@@ -695,7 +695,7 @@ func TestAVerdictIsRecordedAsAHumanAndTheRequestCannotSayOtherwise(t *testing.T)
 		FromStatus: "triaged", ToStatus: audit.IncidentReclassified,
 		Classification: "transformation_defect",
 		Rationale:      "the worker message names a mapping error, not a source failure",
-	}, "michel@artisoft.io")
+	}, "user@example.com")
 	if err != nil || code != http.StatusOK {
 		t.Fatalf("code %d err %v", code, err)
 	}
@@ -706,7 +706,7 @@ func TestAVerdictIsRecordedAsAHumanAndTheRequestCannotSayOtherwise(t *testing.T)
 	if got.ActorKind != audit.ActorHuman {
 		t.Errorf("actor kind recorded as %q; a verdict written through this endpoint is a person's", got.ActorKind)
 	}
-	if got.Actor != "michel@artisoft.io" {
+	if got.Actor != "user@example.com" {
 		t.Errorf("actor recorded as %q, want the authenticated user", got.Actor)
 	}
 	if got.FromStatus != "triaged" {
@@ -739,7 +739,7 @@ func TestAVerdictOnAnIncidentWithNoRunIsRecordedAndNotChained(t *testing.T) {
 		Action: "record_incident_transition", IncidentId: "inc_1",
 		FromStatus: "triaged", ToStatus: audit.IncidentSuppressedAsBenign,
 		Rationale: "a known seasonal dip",
-	}, "michel@artisoft.io")
+	}, "user@example.com")
 	if err != nil || code != http.StatusOK {
 		t.Fatalf("code %d err %v", code, err)
 	}
@@ -767,7 +767,7 @@ func TestAnIllegalVerdictEdgeIsRefused(t *testing.T) {
 	_, code, err := dispatch(t, ops, &AgenticAction{
 		Action: "record_incident_transition", IncidentId: "inc_1",
 		FromStatus: "triaged", ToStatus: "closed",
-	}, "michel@artisoft.io")
+	}, "user@example.com")
 	if err == nil || code != http.StatusBadRequest {
 		t.Fatalf("code %d err %v, want 400", code, err)
 	}
@@ -787,7 +787,7 @@ func TestAVerdictAgainstAStaleStatusIsAConflict(t *testing.T) {
 	_, code, err := dispatch(t, ops, &AgenticAction{
 		Action: "record_incident_transition", IncidentId: "inc_1",
 		FromStatus: "detected", ToStatus: "triaged",
-	}, "michel@artisoft.io")
+	}, "user@example.com")
 	if code != http.StatusConflict {
 		t.Fatalf("code %d err %v, want 409", code, err)
 	}
@@ -806,7 +806,7 @@ func TestAVerdictNamingAnUnknownClassificationIsRefused(t *testing.T) {
 		Action: "record_incident_transition", IncidentId: "inc_1",
 		FromStatus: "triaged", ToStatus: audit.IncidentReclassified,
 		Classification: "operator_error", Rationale: "because",
-	}, "michel@artisoft.io")
+	}, "user@example.com")
 	if err == nil || code != http.StatusBadRequest {
 		t.Fatalf("code %d err %v, want 400", code, err)
 	}
@@ -818,7 +818,7 @@ func TestAVerdictNamingAnUnknownClassificationIsRefused(t *testing.T) {
 func TestAVerdictOnAMissingIncidentIs404(t *testing.T) {
 	_, code, _ := dispatch(t, &fakeOps{}, &AgenticAction{
 		Action: "record_incident_transition", IncidentId: "inc_nope", ToStatus: "verified",
-	}, "michel@artisoft.io")
+	}, "user@example.com")
 	if code != http.StatusNotFound {
 		t.Fatalf("code %d, want 404", code)
 	}

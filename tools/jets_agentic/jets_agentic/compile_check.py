@@ -57,7 +57,7 @@ from . import jr
 from . import model as M
 from .main import REPO_ROOT
 
-MAIN_JR = """# Throwaway main file of the jets_agentic compile check (A1.8).
+MAIN_JR = """# Throwaway main file of the jets_agentic compile check.
 import "data_model/jets_model.jr"
 import "data_model/jets_agentic.jr"
 """

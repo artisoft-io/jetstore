@@ -89,11 +89,11 @@ describe("WorkspaceApi", () => {
     const { ws, calls } = await api([
       { status: 200, body: { result_type: "workspace_file_structure", result_data: [] } },
     ]);
-    await ws.fileTree("cedargate_ws");
+    await ws.fileTree("org1_ws");
     expect(calls[1]?.body).toMatchObject({
       action: "workspace_query_structure",
       fromClauses: [{ table: "workspace_file_structure" }],
-      workspaceName: "cedargate_ws",
+      workspaceName: "org1_ws",
     });
   });
 
@@ -183,11 +183,11 @@ describe("WorkspaceApi", () => {
 
   it("maps the workspace registry query onto summaries", async () => {
     const { ws } = await api([
-      { status: 200, body: { rows: [["cedargate_ws", "git@x", "cgt_ai"], ["jets_ws", "git@y", "jets_ai"]] } },
+      { status: 200, body: { rows: [["org1_ws", "git@x", "org1_ai"], ["jets_ws", "git@y", "jets_ai"]] } },
     ]);
     const list = await ws.listWorkspaces();
     expect(list).toEqual([
-      { name: "cedargate_ws", uri: "git@x", branch: "cgt_ai" },
+      { name: "org1_ws", uri: "git@x", branch: "org1_ai" },
       { name: "jets_ws", uri: "git@y", branch: "jets_ai" },
     ]);
   });

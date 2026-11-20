@@ -174,7 +174,7 @@ describe("the compiled view documents", () => {
     }
   });
 
-  it("are query tables with a real FROM, so none of them wants C.9's third source arm", () => {
+  it("are query tables with a real FROM, so none of them wants a third source arm", () => {
     const tables = (
       screenCorpus as {
         tables: Record<

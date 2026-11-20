@@ -702,7 +702,7 @@ func recordIncidentTransition(ctx context.Context, ops agenticOps, a *AgenticAct
 	}
 	if !audit.IncidentTransitionAllowed(inc.Status, a.ToStatus) {
 		return nil, http.StatusBadRequest, fmt.Errorf(
-			"incident %s is in %s, from which %q is not a permitted transition; permitted: %v (Appendix A.5)",
+			"incident %s is in %s, from which %q is not a permitted transition; permitted: %v",
 			inc.IncidentId, inc.Status, a.ToStatus, incidentTransitionsOrEmpty(inc.Status))
 	}
 	// Refused here rather than at the CHECK, so the message names the

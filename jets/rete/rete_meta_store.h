@@ -157,6 +157,26 @@ class ReteMetaStore {
       }
     }
 
+    // The positions of its parent's row that a vertex's row leaves out, which tell
+    // apart the derivations of one row (NodeVertex::support_key_positions). The
+    // head vertex's row is empty, and a vertex without an initializer has no row.
+    for(auto const& nodeptr: this->node_vertexes_) {
+      nodeptr->support_key_positions.clear();
+      if(not nodeptr->parent_node_vertex) continue;
+      auto const* initializer = nodeptr->get_beta_row_initializer();
+      auto const* parent_initializer = nodeptr->parent_node_vertex->get_beta_row_initializer();
+      if(not initializer or not parent_initializer) continue;
+      std::vector<bool> carried(static_cast<std::size_t>(parent_initializer->get_size()), false);
+      for(int index: *initializer) {
+        if(not (index & brc_parent_node)) continue;
+        auto pos = static_cast<std::size_t>(index & brc_low_mask);
+        if(pos < carried.size()) carried[pos] = true;
+      }
+      for(std::size_t pos = 0; pos < carried.size(); ++pos) {
+        if(not carried[pos]) nodeptr->support_key_positions.push_back(static_cast<int>(pos));
+      }
+    }
+
     // Number each vertex's children by the index of its beta relation they query,
     // once, here, before any session: BetaRelation::initialize adds the indexes in
     // child order and only checks the key (AQVInitializeIndexesVisitor). Each

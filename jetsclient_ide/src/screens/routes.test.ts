@@ -92,7 +92,7 @@ describe("the served-screen map", () => {
     ).toEqual([]);
   });
 
-  it("covers the four ScreenOne routes, which is F68's whole set", () => {
+  it("covers the four ScreenOne routes", () => {
     // C.7, C.8, C.11 and C.12. Named as a set rather than counted, because the
     // claim is that this app now serves all four rather than that it serves four.
     for (const template of [
@@ -196,8 +196,8 @@ describe("the served-screen map", () => {
   });
 
   it("carries a flow's parameters as a query string, and refuses a partial one", () => {
-    expect(reactFlowRoute("/workspaces/loadConfigUF/:workspace_name", { workspace_name: "cgt" })).toBe(
-      "/flow/loadConfigUF?workspace_name=cgt",
+    expect(reactFlowRoute("/workspaces/loadConfigUF/:workspace_name", { workspace_name: "org1" })).toBe(
+      "/flow/loadConfigUF?workspace_name=org1",
     );
     // F.10's decision, kept: a flow whose arguments are absent is not opened with
     // an empty worksheet.
@@ -290,8 +290,8 @@ describe("the origin a flow url carries", () => {
   });
 
   it("keeps the flow's own arguments, which travel in the same query string", () => {
-    const to = withReturnTo("/flow/loadConfigUF?workspace_name=cgt", "/workspaces");
-    expect(new URLSearchParams(to.split("?")[1]).get("workspace_name")).toBe("cgt");
+    const to = withReturnTo("/flow/loadConfigUF?workspace_name=org1", "/workspaces");
+    expect(new URLSearchParams(to.split("?")[1]).get("workspace_name")).toBe("org1");
     expect(returnToPath(new URLSearchParams(to.split("?")[1]))).toBe("/workspaces");
   });
 
@@ -396,7 +396,7 @@ describe("the flow entry points", () => {
     expect(new URLSearchParams(without.split("?")[1]).has("lfSourceConfigTable")).toBe(false);
   });
 
-  it("refuses a partial argument list, which F.10 decided for the flow routes", () => {
+  it("refuses a partial argument list, as the flow routes do", () => {
     // Harder here than there: a `loadFilesUF` opened on its second page without
     // `table_name` draws an empty file list, having skipped the page that would
     // have set it.

@@ -171,7 +171,7 @@ func (r Ranker) hypothesis(in *Input, byLocus map[string]*triage.Finding,
 		}
 		if g := byLocus[other]; g != nil && g.Verdict == triage.Present {
 			h.SupportingEvidence = append(h.SupportingEvidence, Evidence{
-				Statement: fmt.Sprintf("§9.5 says this class can also be carried by locus %s, and that "+
+				Statement: fmt.Sprintf("the cause mapping says this class can also be carried by locus %s, and that "+
 					"locus is present for this run as well: %s", other, g.Basis),
 				Source:    SourceRunTelemetry,
 				SourceRef: fmt.Sprintf("%s/%s", in.Report.SessionId, other),
@@ -200,7 +200,7 @@ func (r Ranker) hypothesis(in *Input, byLocus map[string]*triage.Finding,
 			Statement: fmt.Sprintf("the execution record's ability to evidence %s is %q: %s",
 				c.Name, c.Evidenceability, c.Note),
 			Source:    SourceCodeInspection,
-			SourceRef: "phase-4 plan §9.5",
+			SourceRef: "jets/agentic/rca cause mapping",
 		})
 	}
 
@@ -232,14 +232,14 @@ func (r Ranker) hypothesis(in *Input, byLocus map[string]*triage.Finding,
 		switch g.Verdict {
 		case triage.Absent:
 			h.ContradictingEvidence = append(h.ContradictingEvidence, Evidence{
-				Statement: fmt.Sprintf("§9.5 says this class can also be carried by locus %s, and that "+
+				Statement: fmt.Sprintf("the cause mapping says this class can also be carried by locus %s, and that "+
 					"locus was evaluated and does not hold: %s", other, g.Basis),
 				Source:    SourceRunTelemetry,
 				SourceRef: fmt.Sprintf("%s/%s", in.Report.SessionId, other),
 			})
 		case triage.NotEvaluable:
 			h.ContradictingEvidence = append(h.ContradictingEvidence, Evidence{
-				Statement: fmt.Sprintf("§9.5 says this class can also be carried by locus %s, and that "+
+				Statement: fmt.Sprintf("the cause mapping says this class can also be carried by locus %s, and that "+
 					"locus could not be evaluated at all, so the case for this class is bounded rather "+
 					"than complete: %s", other, g.Basis),
 				Source:    SourceRunTelemetry,
@@ -258,7 +258,7 @@ func (r Ranker) hypothesis(in *Input, byLocus map[string]*triage.Finding,
 				Statement: "locus per_record_failures_unreportable is present for this run: an operator " +
 					"that can report per-record errors is configured without an error channel, so its " +
 					"failures have nowhere to go and the absence of process_errors rows is not evidence " +
-					"of their absence (§9.4 row 8). " + g.Basis,
+					"of their absence (locus row 8). " + g.Basis,
 				Source:    SourceRunTelemetry,
 				SourceRef: fmt.Sprintf("%s/%s", in.Report.SessionId, triage.LocusPerRecordFailuresUnreportable),
 			})
@@ -348,7 +348,7 @@ func corroborators(in *Input, locus string, c CauseClass) []Evidence {
 			out = append(out, Evidence{
 				Statement: fmt.Sprintf("%d of %d process_errors rows carry a saved rete session, which is "+
 					"the jetrules family's own column and is the closest the table comes to saying a rule "+
-					"raised the error (F185)", ev.Errors.WithReteSession, ev.Errors.Rows),
+					"raised the error", ev.Errors.WithReteSession, ev.Errors.Rows),
 				Source:    SourceDqResult,
 				SourceRef: fmt.Sprintf("%s: jetsapi.process_errors", ev.SessionId),
 			})
@@ -357,8 +357,7 @@ func corroborators(in *Input, locus string, c CauseClass) []Evidence {
 		if ev.Errors != nil && ev.Errors.WithInputColumn > 0 {
 			out = append(out, Evidence{
 				Statement: fmt.Sprintf("%d of %d process_errors rows name an input_column, which is written "+
-					"by the inference operator family and is the only column-level signal the table carries "+
-					"(F185)", ev.Errors.WithInputColumn, ev.Errors.Rows),
+					"by the inference operator family and is the only column-level signal the table carries", ev.Errors.WithInputColumn, ev.Errors.Rows),
 				Source:    SourceDqResult,
 				SourceRef: fmt.Sprintf("%s: jetsapi.process_errors.input_column", ev.SessionId),
 			})
@@ -368,7 +367,7 @@ func corroborators(in *Input, locus string, c CauseClass) []Evidence {
 			out = append(out, Evidence{
 				Statement: fmt.Sprintf("the run header carries %d characters of failure_details, one of "+
 					"whose four undeclared shapes is the decoded ECS StoppedReason; which of the decoder's "+
-					"arms produced it is not recorded (F197, F198)", len(ev.Header.FailureDetails)),
+					"arms produced it is not recorded", len(ev.Header.FailureDetails)),
 				Source:    SourceRunTelemetry,
 				SourceRef: fmt.Sprintf("%s: pipeline_execution_status.failure_details", ev.SessionId),
 			})
@@ -406,7 +405,7 @@ func confidence(sup, con int) float64 {
 // characters and this stays well inside; it names the class and the position it
 // was inferred from, because a cause read without its locus reads as a diagnosis.
 func causeSentence(locus string, c CauseClass) string {
-	return fmt.Sprintf("%s, inferred from locus %s — §9.5 lists %s among the loci that can carry this "+
+	return fmt.Sprintf("%s, inferred from locus %s — the cause mapping lists %s among the loci that can carry this "+
 		"class", c.Name, locus, locus)
 }
 
@@ -443,20 +442,20 @@ func rankBasis(h *Hypothesis, total int) string {
 		"%d/%d = %.2f — the floor counts evidence rather than weighting it, so this number is a "+
 		"ratio of the two lists below and not a probability.",
 		h.Rank, total, sup, con, sup, sup+con, h.Confidence)
-	b += fmt.Sprintf(" Derived from locus %s, which §9.5 lists as carrying %s.", h.Locus, h.CauseCategory)
+	b += fmt.Sprintf(" Derived from locus %s, which the cause mapping lists as carrying %s.", h.Locus, h.CauseCategory)
 	if e := evidenceabilityOf(h.CauseCategory); e == None {
-		b += " §9.5 answers \"no\" to whether the record can evidence this class, so it is ranked below" +
+		b += " The cause mapping answers \"no\" to whether the record can evidence this class, so it is ranked below" +
 			" every class the record can speak to whatever its count; a class the substrate cannot" +
 			" evidence is not a weak candidate but one there is no instrument for."
 	} else {
-		b += fmt.Sprintf(" §9.5's evidenceability for this class is %q, which puts it above every class"+
+		b += fmt.Sprintf(" The cause mapping's evidenceability for this class is %q, which puts it above every class"+
 			" the record cannot evidence at all.", e)
 	}
 	if con == 0 {
-		b += " Nothing was found against it, which for this class means §9.5 records the record as able" +
+		b += " Nothing was found against it, which for this class means the cause mapping records the record as able" +
 			" to evidence it and no confounder was declared."
 	}
-	b += " Ties at equal confidence are broken by §9.4's locus order and then by §9.5's class order," +
+	b += " Ties at equal confidence are broken by the locus order and then by the cause mapping's class order," +
 		" which are positional and say nothing about this run."
 	return b
 }
@@ -473,10 +472,10 @@ func (r Ranker) rankingBasis(out *Ranking, present, unplacedSignals []string, an
 			"about the run rather than asserting that it was healthy. ")
 	} else {
 		fmt.Fprintf(&b, "%d locus/loci are present (%s), and each was mapped to the cause classes "+
-			"phase-4 plan §9.5 lists as able to carry it. ", len(present), strings.Join(present, ", "))
+			"the cause mapping lists as able to carry it. ", len(present), strings.Join(present, ", "))
 	}
 	if len(out.UnmappedLoci) > 0 {
-		fmt.Fprintf(&b, "%d present locus/loci map to no cause class in §9.5 and produced no hypothesis "+
+		fmt.Fprintf(&b, "%d present locus/loci map to no cause class in the cause mapping and produced no hypothesis "+
 			"(%s); that is a property of the gate's table rather than of this run. ",
 			len(out.UnmappedLoci), strings.Join(out.UnmappedLoci, ", "))
 	}
@@ -494,10 +493,10 @@ func (r Ranker) rankingBasis(out *Ranking, present, unplacedSignals []string, an
 			noEvidence = append(noEvidence, c.Name)
 		}
 	}
-	fmt.Fprintf(&b, "%d of the ten cause classes are attached to no locus at all in §9.5 (%s) and can "+
+	fmt.Fprintf(&b, "%d of the ten cause classes are attached to no locus at all in the cause mapping (%s) and can "+
 		"therefore never be emitted by this floor, whatever the run did. A further %d are attached to a "+
-		"locus and answered \"no\" in §9.5's evidenceability column (%s): those are emitted where their "+
-		"locus fires and carry §9.5's own reason as evidence against themselves, which is how a class the "+
+		"locus and answered \"no\" in the cause mapping's evidenceability column (%s): those are emitted where their "+
+		"locus fires and carry the cause mapping's own reason as evidence against themselves, which is how a class the "+
 		"record cannot support is put in front of a reader rather than hidden from one. ",
 		len(noLocus), strings.Join(noLocus, ", "),
 		len(noEvidence)-len(noLocus), strings.Join(without(noEvidence, noLocus), ", "))
@@ -509,7 +508,7 @@ func (r Ranker) rankingBasis(out *Ranking, present, unplacedSignals []string, an
 		fmt.Fprintf(&b, "%d anomaly row(s) were read. ", anomalies)
 	}
 	if len(unplacedSignals) > 0 {
-		fmt.Fprintf(&b, "%d anomaly/anomalies carry a signal type §9.4 has no locus for and contributed "+
+		fmt.Fprintf(&b, "%d anomaly/anomalies carry a signal type the locus table has no locus for and contributed "+
 			"to no hypothesis (%s): step_regression is a comparison across runs rather than a position "+
 			"in one run's record. ", len(unplacedSignals), strings.Join(unplacedSignals, ", "))
 	}

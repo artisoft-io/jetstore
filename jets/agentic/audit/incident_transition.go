@@ -141,7 +141,7 @@ func (t *IncidentTransition) validate() error {
 	case !KnownIncidentStatus(t.ToStatus):
 		return fmt.Errorf("transition %s names to_status %q, which is not an IncidentStatus", t.IncidentEventId, t.ToStatus)
 	case !IncidentTransitionAllowed(t.FromStatus, t.ToStatus):
-		return fmt.Errorf("incident %s is in %s, from which %q is not a permitted transition; permitted: %v (Appendix A.5)",
+		return fmt.Errorf("incident %s is in %s, from which %q is not a permitted transition; permitted: %v",
 			t.IncidentRef, t.FromStatus, t.ToStatus, IncidentTransitions(t.FromStatus))
 	}
 	// The attribution rule is shared with RecordTierTransition rather than

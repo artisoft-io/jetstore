@@ -123,7 +123,7 @@ func (c Classifier) runNotStarted(ev *Evidence) Finding {
 		return notEvaluable(locus,
 			fmt.Sprintf("no pipeline_execution_status row for session %q. The header is this locus's only "+
 				"evidence, and its absence is two things the record does not separate: a run that was "+
-				"never submitted, and a run whose header the six-month purge has taken (F54)", ev.SessionId))
+				"never submitted, and a run whose header the six-month purge has taken", ev.SessionId))
 	}
 	rows := ev.workerRows()
 	if !ev.Header.Terminal() {
@@ -142,7 +142,7 @@ func (c Classifier) runNotStarted(ev *Evidence) Finding {
 		return notEvaluable(locus, fmt.Sprintf(
 			"the run header of session %q is terminal at %q with no worker row, but the run started at %s "+
 				"and the oldest worker row anywhere on this database is %s. The worker record is purged "+
-				"against RETENTION_DAYS on a clock independent of the header's (F54), so a run older than "+
+				"against RETENTION_DAYS on a clock independent of the header's, so a run older than "+
 				"the worker record cannot be told from a run that never started. The deployment's regime "+
 				"is %q",
 			ev.SessionId, ev.Header.Status, ev.Header.StartTime.Format(timeFmt),
@@ -151,10 +151,10 @@ func (c Classifier) runNotStarted(ev *Evidence) Finding {
 	}
 	basis := fmt.Sprintf(
 		"the run header of session %q is terminal at %q and there is no pipeline_execution_details row for "+
-			"it at all, so no worker ever started (P3 F76). failure_details is the only evidence of why, "+
+			"it at all, so no worker ever started. failure_details is the only evidence of why, "+
 			"and it is one of four undeclared shapes: the state machine's six live catches all route to "+
-			"one error-status task (F197) and the machine-readable Error field is discarded before the "+
-			"database (F198)",
+			"one error-status task and the machine-readable Error field is discarded before the "+
+			"database",
 		ev.SessionId, ev.Header.Status)
 	var conf []string
 	if ev.Survey != nil && !ev.Survey.Read {
@@ -167,7 +167,7 @@ func (c Classifier) runNotStarted(ev *Evidence) Finding {
 		basis += fmt.Sprintf(". failure_details holds %d characters of text", len(ev.Header.FailureDetails))
 	} else {
 		basis += ". failure_details is empty, which the ErrorUpdate maps write literally when nothing " +
-			"was caught (F197)"
+			"was caught"
 	}
 	return Finding{Locus: locus, Verdict: Present, Basis: basis, Confounders: conf,
 		Subjects: []string{"header " + strconv.FormatInt(ev.Header.Key, 10)}}
@@ -203,7 +203,7 @@ func (c Classifier) stepNeverStarted(ev *Evidence) Finding {
 		return notEvaluable(locus, fmt.Sprintf(
 			"session %q has no run header, so it has no main_object_type and cannot be matched to a step "+
 				"baseline: the source identity is (client, process_name, main_object_type, cpipes_step_id) "+
-				"and three of the four are on the worker row while the fourth is only on the header (F98)",
+				"and three of the four are on the worker row while the fourth is only on the header",
 			ev.SessionId), observe.ConfounderHistoryTruncated)
 	}
 
@@ -264,10 +264,10 @@ func (c Classifier) stepNeverStarted(ev *Evidence) Finding {
 	}
 	basis := fmt.Sprintf(
 		"%d of the %d steps of %s/%s/%s with at least %d prior runs have no worker row in session %q: %s. "+
-			"The record cannot tell that from three other things (P3 F52): a conditional step whose `when` "+
+			"The record cannot tell that from three other things: a conditional step whose `when` "+
 			"did not fire, a step that is not in the configuration this run used, and a step whose label "+
 			"collides with another's. The second is not checkable at all, because no run is bound to a "+
-			"workspace version (F196), and the confounder vocabulary has no member for it",
+			"workspace version, and the confounder vocabulary has no member for it",
 		len(missing), considered, ev.Header.Client, ev.Header.ProcessName, ev.Header.MainObjectType,
 		c.MinPriorRuns, ev.SessionId, strings.Join(names, "; "))
 	if anyEmpty {
@@ -353,12 +353,12 @@ func (c Classifier) workerNotTerminated(ev *Evidence) Finding {
 		"%d of %d worker rows of session %q are still at 'in progress' under a header that reached %q. "+
 			"The record says nothing about why: this locus collapses a killed task, an out-of-memory kill, "+
 			"a lost node and a hung read into one observation. Their six counts are NULL rather than 0, "+
-			"because only UpdatePipelineExecutionStatus sets them (F99), so no arithmetic over this run's "+
+			"because only UpdatePipelineExecutionStatus sets them, so no arithmetic over this run's "+
 			"volumes includes them. **And none of them can say which step it is**: cpipes_step_id is set "+
 			"by that same update and the insert names eleven columns without it, so a worker that never "+
 			"terminated has an empty step label by construction, whatever its configuration said — %d of "+
 			"the %d carry one. The step aggregate then does not merely omit these rows: "+
-			"cpipes_execution_status_details is a GROUP BY filtered `status <> 'in progress'` (F193), so "+
+			"cpipes_execution_status_details is a GROUP BY filtered `status <> 'in progress'`, so "+
 			"the step's totals describe the workers that finished and read as a clean step",
 		len(stalled), len(rows), ev.SessionId, ev.Header.Status, labelled, len(stalled))
 	f := Finding{Locus: locus, Verdict: Present, Basis: basis, Subjects: subjects}
@@ -423,10 +423,10 @@ func (c Classifier) workerFailed(ev *Evidence) Finding {
 	}
 	basis := fmt.Sprintf(
 		"%d of %d worker rows of session %q are at 'failed'; %d carry an error_message. That column is "+
-			"strings.Join(processingErrors, \",\") with eight append sites feeding it and no escaping "+
-			"(F191), and the messages contain commas, so it cannot be split back into the errors that made "+
+			"strings.Join(processingErrors, \",\") with eight append sites feeding it and no escaping, "+
+			"and the messages contain commas, so it cannot be split back into the errors that made "+
 			"it: %d comma-separated segments is an upper bound on how many things went wrong and not a "+
-			"count of them. No column of the row carries a class (F199), and jets/compute_pipes constructs "+
+			"count of them. No column of the row carries a class, and jets/compute_pipes constructs "+
 			"984 distinct errors that all arrive here as text",
 		len(failed), len(rows), ev.SessionId, withMessage, segments)
 	f := Finding{Locus: locus, Verdict: Present, Basis: basis, Subjects: subjects}
@@ -470,7 +470,7 @@ func (c Classifier) sinkFailedUnderCompletedWorker(ev *Evidence) Finding {
 		return notEvaluable(locus,
 			"jetsapi.pipeline_execution_channel_details is not deployed on this database, so no DAG edge "+
 				"can be read. It arrives with `update_db -migrateDb` and was absent from all four "+
-				"production environments measured on 2026-08-25 (I-132), so this is the ordinary state "+
+				"production environments measured on 2026-08-25, so this is the ordinary state "+
 				"rather than the exception",
 			observe.ConfounderCrossStepJoinUnavailable)
 	}
@@ -562,7 +562,7 @@ func (c Classifier) rowsLostSilently(ev *Evidence) Finding {
 		return notEvaluable(locus, fmt.Sprintf(
 			"none of the %d worker rows of session %q reached 'completed'. The detector fires only on a "+
 				"completed worker: a failed one has already reported itself through its status, and one "+
-				"still in progress has NULL counts (F99)", len(ev.Workers.Rows), ev.SessionId))
+				"still in progress has NULL counts", len(ev.Workers.Rows), ev.SessionId))
 	}
 	if withCounts == 0 {
 		return notEvaluable(locus, fmt.Sprintf(
@@ -595,7 +595,7 @@ func (c Classifier) rowsLostSilently(ev *Evidence) Finding {
 	basis := fmt.Sprintf(
 		"%s found %d of the %d completed worker rows of session %q emitting materially fewer rows than "+
 			"they read. This is the one locus of the nine that carries a threshold, and both of its numbers "+
-			"are unsourced (R-21): nothing in this repository has measured what a normal output ratio is "+
+			"are unsourced: nothing in this repository has measured what a normal output ratio is "+
 			"for a JetStore step. The first anomaly's own basis: %s",
 		c.Volume.Ref(), len(anomalies), completed, ev.SessionId, anomalies[0].ExpectedBasis)
 	f := Finding{Locus: locus, Verdict: Present, Basis: basis, Confounders: conf, Subjects: subjects}
@@ -654,14 +654,14 @@ func (c Classifier) perRecordFailuresReported(ev *Evidence) Finding {
 	basis := fmt.Sprintf(
 		"jetsapi.process_errors holds %d rows for session %q over %d shards, between %s and %s. "+
 			"**Read the count as a lower bound**: reporting is capped per operator instance at 20 for "+
-			"jetrules and map_record and 50 for the inference operators (F187), and past the cap the "+
+			"jetrules and map_record and 50 for the inference operators, and past the cap the "+
 			"operator logs once and keeps counting silently, so the censoring point varies with the "+
 			"cluster size. The rows cannot be attributed to a step or an operator: the table carries no "+
-			"cpipes_step_id and no pipeline_execution_details_key (F190), six sites construct a row and no "+
-			"column says which (F186), and one configuration in the corpus routes two operators' error "+
-			"channels into this same table (F189). %d rows name an input_column and %d carry a saved rete "+
+			"cpipes_step_id and no pipeline_execution_details_key, six sites construct a row and no "+
+			"column says which, and one configuration in the corpus routes two operators' error "+
+			"channels into this same table. %d rows name an input_column and %d carry a saved rete "+
 			"session, which is as close as the table comes to saying which operator family wrote them; "+
-			"grouping_key is written by the jetrules operator only, and by nothing before 2026-10-13 (F185)",
+			"grouping_key is written by the jetrules operator only, and by nothing before 2026-10-13",
 		ev.Errors.Rows, ev.SessionId, ev.Errors.Shards,
 		ev.Errors.First.Format(timeFmt), ev.Errors.Last.Format(timeFmt),
 		ev.Errors.WithInputColumn, ev.Errors.WithReteSession)
@@ -732,7 +732,7 @@ func (c Classifier) perRecordFailuresUnreportable(ev *Evidence) Finding {
 			"no process_errors row, no count, nothing in the execution record — so **this locus is "+
 			"indistinguishable from a clean run by the record alone**, which is why it is answered from "+
 			"the configuration. Over the 47 live configurations the corpus is at its most extreme here: "+
-			"243 of 243 map_record instances declare none (F188). %s",
+			"243 of 243 map_record instances declare none. %s",
 		ops.Unreportable(), ops.Total(), ev.SessionId, strings.Join(parts, ", "), ev.Survey.Note)
 	return Finding{Locus: locus, Verdict: Present, Basis: basis, Subjects: subjects}
 }
@@ -759,8 +759,8 @@ func (c Classifier) writtenNotArrived(ev *Evidence) Finding {
 	if !ev.Extent.ChannelDetails {
 		return notEvaluable(locus,
 			"this locus needs an output_location to check, and it lives on "+
-				"jetsapi.pipeline_execution_channel_details, which is not deployed on this database "+
-				"(I-132). Even where it is, the check is against S3 or Postgres rather than a query over "+
+				"jetsapi.pipeline_execution_channel_details, which is not deployed on this database. "+
+				"Even where it is, the check is against S3 or Postgres rather than a query over "+
 				"jetsapi, so no predicate in this package can answer it",
 			append(conf, observe.ConfounderCrossStepJoinUnavailable, observe.ConfounderNoPhysicalLocation)...)
 	}

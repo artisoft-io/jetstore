@@ -486,7 +486,7 @@ class GraphOperatorEnv:
 
         raise OperatorNotImplemented(
             "OperatorEnv.column_evaluator is the authored column vocabulary and "
-            "is owed by P9-T06; a site operator reaching it today must compute "
+            "is owed by the expression and column evaluator work; a site operator reaching it today must compute "
             "its own columns. Refused rather than defaulted, because an "
             "evaluator that produced null would write a corpus with empty "
             "columns and no error."

@@ -268,7 +268,7 @@ def test_an_unsupported_operator_is_refused_by_name_and_names_its_owner():
         evaluate_when(binary(value("1"), "+", value("2")), {})
     message = str(exc.value)
     assert "'+'" in message
-    assert "P9-T06" in message
+    assert "the expression and column evaluator work" in message
     # And the message says what the subset *is*, so the author can tell a typo
     # from a token this node has not taken on.
     assert "IN_NO_CASE" in message
@@ -276,7 +276,7 @@ def test_an_unsupported_operator_is_refused_by_name_and_names_its_owner():
 
 def test_an_unsupported_leaf_type_is_refused_by_name():
     for leaf in ("expr_proxy", "function"):
-        with pytest.raises(ExpressionUnsupported, match="P9-T06"):
+        with pytest.raises(ExpressionUnsupported, match="the expression and column evaluator work"):
             evaluate_when(Node(type=leaf, expr="x"), {})
     with pytest.raises(ExpressionUnsupported, match="leaf node type"):
         evaluate_when(Node(type="not_a_leaf", expr="x"), {})

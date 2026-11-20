@@ -34,8 +34,8 @@ function stub(clients: (payload: Record<string, unknown>) => Response) {
       return new Response(
         JSON.stringify({
           token: "t0",
-          name: "Michel",
-          user_email: "michel@artisoft.io",
+          name: "Test User",
+          user_email: "user@example.com",
           is_admin: false,
           capabilities: [],
         }),
@@ -50,7 +50,7 @@ function stub(clients: (payload: Record<string, unknown>) => Response) {
 async function mount(clients: (payload: Record<string, unknown>) => Response) {
   const { fetchImpl, posts } = stub(clients);
   const api = new ApiClient("", fetchImpl);
-  await api.login("michel@artisoft.io", "pw");
+  await api.login("user@example.com", "pw");
   render(
     <MemoryRouter>
       {/* The client filter is a nav *entry*, not a fixed position
@@ -116,7 +116,7 @@ describe("the navigation surface that replaced the left panel", () => {
     // entry, so the array is the order and this asserts exactly that.
     const { fetchImpl } = stub(ok);
     const api = new ApiClient("", fetchImpl);
-    await api.login("michel@artisoft.io", "pw");
+    await api.login("user@example.com", "pw");
     render(
       <MemoryRouter>
         <AppShell
@@ -141,7 +141,7 @@ describe("the navigation surface that replaced the left panel", () => {
     // menu tree. The brand is where they came back.
     const { fetchImpl } = stub(ok);
     const api = new ApiClient("", fetchImpl);
-    await api.login("michel@artisoft.io", "pw");
+    await api.login("user@example.com", "pw");
     const { unmount } = render(
       <MemoryRouter>
         <AppShell
@@ -179,7 +179,7 @@ describe("the navigation surface that replaced the left panel", () => {
     // wherever they were started. `/ruleConfig` is a screen and reads nothing.
     const { fetchImpl } = stub(ok);
     const api = new ApiClient("", fetchImpl);
-    await api.login("michel@artisoft.io", "pw");
+    await api.login("user@example.com", "pw");
     render(
       <MemoryRouter initialEntries={["/workspaces"]}>
         <AppShell
@@ -212,7 +212,7 @@ describe("the navigation surface that replaced the left panel", () => {
   async function openMenu() {
     const { fetchImpl } = stub(ok);
     const api = new ApiClient("", fetchImpl);
-    await api.login("michel@artisoft.io", "pw");
+    await api.login("user@example.com", "pw");
     render(
       <MemoryRouter>
         <AppShell

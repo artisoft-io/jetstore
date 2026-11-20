@@ -363,7 +363,7 @@ func TestTheModelAgainstTheDeterministicLocus(t *testing.T) {
 		t.Logf("%-38s %8d %8d %14d", l, c[triage.Present], c[triage.Absent], c[triage.NotEvaluable])
 	}
 
-	tot.SessionId = "the AD.1 census"
+	tot.SessionId = "the census"
 	t.Logf("TOTAL over %d answered session(s): %s", tot.Sessions, tot.Describe())
 
 	// The instrument's own invariant, asserted even here so that a figure quoted

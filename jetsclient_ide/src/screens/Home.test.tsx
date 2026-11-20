@@ -175,8 +175,8 @@ function stubServer() {
       return new Response(
         JSON.stringify({
           token: "t0",
-          name: "Michel",
-          user_email: "michel@artisoft.io",
+          name: "Test User",
+          user_email: "user@example.com",
           is_admin: false,
           capabilities: loginCapabilities,
           ...(loginCustomButtons !== undefined ? { custom_buttons: loginCustomButtons } : {}),
@@ -272,7 +272,7 @@ function Banners() {
 async function mount(entry = "/home", marker = PIPELINES_MARKER) {
   const { fetchImpl, posts } = stubServer();
   const api = new ApiClient("", fetchImpl);
-  await api.login("michel@artisoft.io", "pw");
+  await api.login("user@example.com", "pw");
 
   render(
     <ApiProvider api={api}>
@@ -1027,8 +1027,8 @@ async function selectRow(text: string) {
  * 11 is structure, not boxes** — jsdom computes none — so these say which line a
  * button is on and in what order, and a browser says where the line lands.
  */
-describe("the third row (D04)", () => {
-  const CEDARGATE = [
+describe("the third row", () => {
+  const ORG1_BUTTONS = [
     {
       type: "fetch_stage_to_clipboard",
       key: "analysis_report_to_clipboard",
@@ -1085,7 +1085,7 @@ describe("the third row (D04)", () => {
 
   it("draws three action rows in the report's order, the custom buttons last on the third", async () => {
     // Criterion 11 (the layout half) and 14 (*rendered after the two built-ins*).
-    loginCustomButtons = CEDARGATE;
+    loginCustomButtons = ORG1_BUTTONS;
     await onSelectedRun();
     expect(lineOf("Clear Filters")).toBe(lineOf("Start Pipeline"));
     expect(lineOf("Resubmit")).toBe(lineOf("View Execution Details"));
@@ -1130,7 +1130,7 @@ describe("the third row (D04)", () => {
     expect(copied).toEqual([]);
   });
 
-  it("shows the manifest in a dialog when the browser refuses the clipboard (R-2)", async () => {
+  it("shows the manifest in a dialog when the browser refuses the clipboard", async () => {
     stageFiles = { [MANIFEST]: '{"run":"sess-1"}' };
     clipboardRefuses = true;
     await onSelectedRun();
@@ -1154,7 +1154,7 @@ describe("the third row (D04)", () => {
   });
 
   it("runs a custom button: substitutes the row, applies its replacement, copies", async () => {
-    loginCustomButtons = CEDARGATE;
+    loginCustomButtons = ORG1_BUTTONS;
     stageFiles = {
       "process_name=loader/session_id=sess-1/step_id=analysis_lookup/jets_partition=analysis_data/part0000-0000001.csv":
         "a|b\nc|d",
@@ -1166,7 +1166,7 @@ describe("the third row (D04)", () => {
   });
 
   it("draws the custom buttons on Pipeline Status only", async () => {
-    loginCustomButtons = CEDARGATE;
+    loginCustomButtons = ORG1_BUTTONS;
     await onSelectedRun();
     expect(button("Analysis Report")).toBeTruthy();
     await openTab("Data Registry", "claim_staging");
@@ -1189,7 +1189,7 @@ describe("the third row (D04)", () => {
  * where clause the tab posted, because a filter that reaches nothing renders a
  * correct-looking table of every row.
  */
-describe("Session Registry and Archived Pipelines (G.2)", () => {
+describe("Session Registry and Archived Pipelines", () => {
   const SESSION_MARKER = "2026-11-01 10:00";
   const ARCHIVE_MARKER = "00:02:00";
   const whereOf = (posts: Posted[], table: string) =>
@@ -1380,7 +1380,7 @@ describe("Session Registry and Archived Pipelines (G.2)", () => {
   });
 });
 
-describe("Session Registry's Delete (G.3)", () => {
+describe("Session Registry's Delete", () => {
   const SESSION_MARKER = "2026-11-01 10:00";
   const deletePosts = (posts: Posted[]) => posts.filter((p) => p.body["action"] === "delete_sessions");
   const previewPosts = (posts: Posted[]) =>
@@ -1468,7 +1468,7 @@ describe("Session Registry's Delete (G.3)", () => {
     expect(posts.filter((p) => p.body["action"] === "start_pending_tasks")).toHaveLength(0);
   });
 
-  it("keeps the sessions selected after Resubmit as Pending, ready for Delete (JM-188)", async () => {
+  it("keeps the sessions selected after Resubmit as Pending, ready for Delete", async () => {
     await openRegistry();
     await selectRow("1001");
     fireEvent.click(button("Resubmit as Pending"));
@@ -1481,7 +1481,7 @@ describe("Session Registry's Delete (G.3)", () => {
     expect((button("Delete") as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it("selects every session of the page with the heading's box, and acts on them all (JM-187)", async () => {
+  it("selects every session of the page with the heading's box, and acts on them all", async () => {
     const { posts } = await openRegistry();
     const all = screen.getByRole("checkbox", { name: "Select all rows on this page" }) as HTMLInputElement;
     fireEvent.click(all);

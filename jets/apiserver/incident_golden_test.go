@@ -120,7 +120,7 @@ func TestTheScreensFixtureIsAnIncidentTriageWrote(t *testing.T) {
 	}
 	if n := len(decoded["transitions"].([]any)); n < 2 {
 		t.Errorf("the payload carries %d transitions; a diagnosed incident has at least two, and "+
-			"the ranking's basis rides the second (criterion 45)", n)
+			"the ranking's basis rides the second", n)
 	}
 }
 

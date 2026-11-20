@@ -123,7 +123,7 @@ func (pf *FormatDatePF) String() string {
 	return fmt.Sprintf("FormatDatePF(inputPos=%d)", pf.inputPos)
 }
 
-// RemoveMiPF remove last 2 char if last-1 is a space, e.g. "michel f" becomes "michel"
+// RemoveMiPF remove last 2 char if last-1 is a space, e.g. "martin f" becomes "martin"
 type RemoveMiPF struct {
 	inputPos int
 	toUpper  bool

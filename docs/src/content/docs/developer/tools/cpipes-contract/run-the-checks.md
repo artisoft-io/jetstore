@@ -17,6 +17,34 @@ is the JetStore repository root (`--code`), and `../../..` is the folder holding
 python3 -m venv .venv && .venv/bin/pip install -e .
 ```
 
+## Name the corpus's workspaces
+
+The matrix, the fragment and repair libraries and the templates name the corpus's
+workspaces by neutral names, `org1_ws`, `org2_ws` and so on, and so do the class prefixes,
+environment variables and file names drawn from them. The workspaces on disk keep their own
+names. `CPIPES_CONTRACT_ALIASES` names a JSON file, kept outside this repository, that maps
+each real token to its neutral one:
+
+```json
+{"acme_ws": "org1_ws", "acme": "org1", "ACME": "ORG1"}
+```
+
+```bash
+export CPIPES_CONTRACT_ALIASES=/path/to/aliases.json
+```
+
+A token matches as a whole word only, so `_`, `:`, `-`, `.` and `/` separate it from its
+neighbours, and the longer of two tokens wins. Everything read out of the corpus and recorded
+or compared (fragments and their citations, repair cases, the configurations the template
+tests reproduce) is read under the neutral names, and a recorded path is opened under the
+real ones. Where two real tokens share a neutral one, the first listed is the one a path
+resolves to. A repair case's diagnosis is commit text, so a ticket number in it is a token
+like any other: list it before committing the case.
+
+Without the file nothing resolves to a workspace on disk: `check --code` sets those citations
+aside as it does for a workspace that is not checked out, `check --corpus` reports each
+exemplar it cannot open, and the tests that read a named workspace's configuration skip.
+
 ## Check the matrix
 
 ```bash

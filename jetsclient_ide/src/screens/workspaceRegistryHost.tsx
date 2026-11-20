@@ -6,7 +6,7 @@
  * (`WorkspaceToolbar.tsx`) draws only Refresh, against the open workspace's
  * registry row. Moved out of `WorkspaceRegistry.tsx` on 2026-10-11, when the IDE
  * took the workspace buttons; they went back to the registry on 2026-10-15
- * (Michel: a compile started from the IDE showed no progress, which is on the
+ * (a compile started from the IDE showed no progress, which is on the
  * registry's table), and the shared host stayed. The reasoning recorded in the
  * comments below was written for the registry.
  */

@@ -64,7 +64,7 @@ func TestStatsRefusesTheTimingFlags(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "-stats is an untimed run and refuses -sample_ms") {
 		t.Errorf("-stats -sample_ms: %v", err)
 	}
-	if f := flag.Lookup("stats"); f == nil || !strings.Contains(f.Usage, "I-231") || !strings.Contains(f.Usage, "when the rule set ends") {
-		t.Errorf("-stats must say when statistics are taken (I-231): %v", f)
+	if f := flag.Lookup("stats"); f == nil || !strings.Contains(f.Usage, "statistics are taken when the rule set ends") || !strings.Contains(f.Usage, "what the rule set itself inferred") {
+		t.Errorf("-stats must say when statistics are taken: %v", f)
 	}
 }

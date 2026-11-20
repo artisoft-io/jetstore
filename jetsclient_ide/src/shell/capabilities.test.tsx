@@ -22,8 +22,8 @@ async function signedIn(capabilities: string[], isAdmin = false): Promise<ApiCli
     new Response(
       JSON.stringify({
         token: "t0",
-        name: "Michel",
-        user_email: "michel@artisoft.io",
+        name: "Test User",
+        user_email: "user@example.com",
         is_admin: isAdmin,
         capabilities,
       }),
@@ -31,7 +31,7 @@ async function signedIn(capabilities: string[], isAdmin = false): Promise<ApiCli
     ),
   ) as unknown as typeof fetch;
   const api = new ApiClient("", fetchImpl);
-  await api.login("michel@artisoft.io", "pw");
+  await api.login("user@example.com", "pw");
   return api;
 }
 

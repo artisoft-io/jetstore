@@ -131,7 +131,7 @@ function harness(
       jump = s;
     },
     close: () => events.push("close"),
-    userEmail: () => "michel@artisoft.io",
+    userEmail: () => "user@example.com",
     now: () => 1_700_000_000_000,
   };
 
@@ -374,15 +374,15 @@ describe("load_config, end to end", () => {
 
   it("carries the selection to the confirmation page as its read-only twin", async () => {
     const h = setup();
-    h.formState.setValue(0, "wpClientList", ["ACME", "USI"]);
+    h.formState.setValue(0, "wpClientList", ["ACME", "ORG2"]);
     expect(await h.press("ufNext")).toBeNull();
     expect(h.at()).toBe("confirm");
-    expect(h.formState.getValue(0, "wpClientListRO")).toEqual(["ACME", "USI"]);
+    expect(h.formState.getValue(0, "wpClientListRO")).toEqual(["ACME", "ORG2"]);
   });
 
   it("posts the selection as a comma-joined updateDbClients", async () => {
     const h = setup();
-    h.formState.setValue(0, "wpClientList", ["ACME", "USI"]);
+    h.formState.setValue(0, "wpClientList", ["ACME", "ORG2"]);
     await h.press("ufNext");
     expect(await h.press("ufCompleted")).toBeNull();
     expect(h.posts).toHaveLength(1);
@@ -391,8 +391,8 @@ describe("load_config, end to end", () => {
     expect(body["fromClauses"]).toEqual([{ table: "load_workspace_config" }]);
     expect(body["workspaceName"]).toBe("jets_ws");
     const row = (body["data"] as Record<string, unknown>[])[0]!;
-    expect(row["updateDbClients"]).toBe("ACME,USI");
-    expect(row["user_email"]).toBe("michel@artisoft.io");
+    expect(row["updateDbClients"]).toBe("ACME,ORG2");
+    expect(row["user_email"]).toBe("user@example.com");
     expect(row["workspace_name"]).toBe("jets_ws");
   });
 
@@ -459,9 +459,9 @@ describe("pull_workspace, end to end", () => {
     const h = setup();
     h.formState.setValue(0, "otherWorkspaceActionOptions", ["wpLoadSelectedClientConfgOption"]);
     await h.press("ufNext");
-    h.formState.setValue(0, "wpClientList", ["ACME", "USI"]);
+    h.formState.setValue(0, "wpClientList", ["ACME", "ORG2"]);
     await h.press("ufNext");
-    expect(h.formState.getValue(0, "wpClientListRO")).toEqual(["ACME", "USI"]);
+    expect(h.formState.getValue(0, "wpClientListRO")).toEqual(["ACME", "ORG2"]);
 
     await h.press("ufPrevious");
     await h.press("ufPrevious");
@@ -494,7 +494,7 @@ describe("pull_workspace, end to end", () => {
     const h = setup();
     h.formState.setValue(0, "otherWorkspaceActionOptions", ["wpLoadSelectedClientConfgOption"]);
     await h.press("ufNext");
-    h.formState.setValue(0, "wpClientList", ["ACME", "USI"]);
+    h.formState.setValue(0, "wpClientList", ["ACME", "ORG2"]);
     await h.press("ufNext");
     expect(await h.press("ufCompleted")).toBeNull();
     const body = h.posts[0]!.body as Record<string, unknown>;
@@ -505,7 +505,7 @@ describe("pull_workspace, end to end", () => {
     const row = (body["data"] as Record<string, unknown>[])[0]!;
     expect(row["key"]).toBe("12");
     expect(row["workspace_uri"]).toBe("git@github.com:artisoft-io/jets_ws.git");
-    expect(row["updateDbClients"]).toBe("ACME,USI");
+    expect(row["updateDbClients"]).toBe("ACME,ORG2");
     expect(row["otherWorkspaceActionOptions"]).toEqual(["wpLoadSelectedClientConfgOption"]);
     expect(row["wpPullWorkspaceConfirmOptions"]).toEqual(["wpLoadSelectedClientConfgOption"]);
   });
@@ -671,7 +671,7 @@ describe("client_registry, end to end", () => {
         setBusy: () => undefined,
         goToState: () => undefined,
         close: () => undefined,
-        userEmail: () => "michel@artisoft.io",
+        userEmail: () => "user@example.com",
         now: () => 0,
       },
       formState,
@@ -846,7 +846,7 @@ describe("start_pipeline, end to end", () => {
     expect(row["process_name"]).toBe("claimsProcess");
     expect(row["source_period_key"]).toBe("101");
     expect(row["status"]).toBe("submitted");
-    expect(row["user_email"]).toBe("michel@artisoft.io");
+    expect(row["user_email"]).toBe("user@example.com");
     expect(row["session_id"]).toBe("1700000000000");
     // The four keys the Dart copies rather than reads: `object_type` and
     // `file_key` are the main input's, written beside the originals.
@@ -883,7 +883,7 @@ describe("start_pipeline, end to end", () => {
         setBusy: () => undefined,
         goToState: () => undefined,
         close: () => undefined,
-        userEmail: () => "michel@artisoft.io",
+        userEmail: () => "user@example.com",
         now: () => 0,
       },
       formState: new FormState(),
@@ -1403,7 +1403,7 @@ describe("pipeline_config, end to end", () => {
     // Postgres literal, not a JSON array.
     expect(inserted["merged_process_input_keys"]).toBe("{5,6}");
     expect(inserted["injected_process_input_keys"]).toBe("{}");
-    expect(inserted["user_email"]).toBe("michel@artisoft.io");
+    expect(inserted["user_email"]).toBe("user@example.com");
 
     const edit = setup();
     fill(edit);
@@ -1666,7 +1666,7 @@ describe("file_mapping, end to end", () => {
     // (`jets/datatable/data_table_action.go`, `InsertRawRows`).
     const data = h.posts[0]!.body["data"] as Record<string, unknown>[];
     expect(data).toHaveLength(1);
-    expect(data[0]!["user_email"]).toBe("michel@artisoft.io");
+    expect(data[0]!["user_email"]).toBe("user@example.com");
     expect(data[0]!["raw_rows"]).toBe("client,org\nACME,EAST\n");
     expect(h.events).toContain("close");
   });
@@ -1690,7 +1690,7 @@ describe("file_mapping, end to end", () => {
         setBusy: () => undefined,
         goToState: () => undefined,
         close: () => undefined,
-        userEmail: () => "michel@artisoft.io",
+        userEmail: () => "user@example.com",
         now: () => 0,
       },
       formState: h.formState,

@@ -78,7 +78,7 @@ def emit() -> str:
             f"tools/jets_agentic/jets_agentic/model.py (model version {M.MODEL_VERSION}).",
         )
     )
-    out.append("# The schema-first authoring surface of decision 7: new agentic entities are")
+    out.append("# The schema-first authoring surface: new agentic entities are")
     out.append("# authored in the Python source; existing data models and all rules stay in .jr.")
     out.append("")
     # Every entity derives from jets:Entity, which the platform base model
@@ -131,7 +131,7 @@ def emit() -> str:
         out.append("")
 
     if triples:
-        out.append("# Rule-visible property metadata (§3.5): data_classification markers as")
+        out.append("# Rule-visible property metadata: data_classification markers as")
         out.append("# triples, readable in working memory and at build time (workspace.db triples).")
         out.append(f'resource {M.PREFIX}:data_classification = "{M.PREFIX}:data_classification";')
         out.extend(triples)

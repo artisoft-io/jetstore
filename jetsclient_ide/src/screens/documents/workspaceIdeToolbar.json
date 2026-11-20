@@ -1,5 +1,5 @@
 {
-  "comment": "The Workspace IDE's toolbar: Refresh only, the widget action refreshTable, which the IDE answers by re-reading the toolbar's registry row, the file tree and the changes table (2026-10-12, Michel). From 2026-10-11 to 2026-10-15 the toolbar also carried the registry's workspace actions (Export and Load Client Config, Compile, Rules Unit Tests and the git buttons). They went back to workspaceRegistryTable.tc.json on 2026-10-15 at Michel's request, gated on a selected row as before, because a compile started from the IDE showed no progress: its status is on the registry's table.",
+  "comment": "The Workspace IDE's toolbar: Refresh only, the widget action refreshTable, which the IDE answers by re-reading the toolbar's registry row, the file tree and the changes table (2026-10-12). From 2026-10-11 to 2026-10-15 the toolbar also carried the registry's workspace actions (Export and Load Client Config, Compile, Rules Unit Tests and the git buttons). They went back to workspaceRegistryTable.tc.json on 2026-10-15, gated on a selected row as before, because a compile started from the IDE showed no progress: its status is on the registry's table.",
   "rows": [
     [
       {

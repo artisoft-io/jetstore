@@ -54,6 +54,18 @@ truth_of(ReteSession * rs, rdf::RdfAstType const& v, bool & ok)
 
 namespace {
 
+// Whether `t3` is a triple the search `pattern` finds: each position a star, or the
+// triple's value. As find_matching_triples searches the graph
+inline bool
+matches(rdf::SearchTriple const& pattern, rdf::Triple const& t3)
+{
+  auto at = [](rdf::AllOrRIndex const& u, rdf::r_index r) {
+    auto const* v = boost::get<rdf::r_index>(&u);
+    return v == nullptr or *v == r;
+  };
+  return at(pattern.subject, t3.subject) and at(pattern.predicate, t3.predicate) and at(pattern.object, t3.object);
+}
+
 // An integer literal of any width equal to 0
 bool
 is_integer_zero(rdf::r_index v)
@@ -330,12 +342,12 @@ is_integer_zero(rdf::r_index v)
           auto * beta_row = candidate.get();
           if(not is_inferring) {
             // Remove row from current beta relation (current_relation)
-            if(this->passes_filter(child_meta_node, beta_row)) current_relation->remove_candidate(this, *beta_row);
+            if(this->passes_filter(child_meta_node, beta_row)) current_relation->remove_candidate(this, *beta_row, parent_row);
           } else if(holding) {
-            if(this->passes_filter(child_meta_node, beta_row)) held.hold(*beta_row);
+            if(this->passes_filter(child_meta_node, beta_row)) held.hold(*beta_row, parent_row);
           } else if(this->keep_candidate(child_meta_node, beta_row, parent_beta_relation, parent_row, alpha_node, t3, mark)) {
             // Add row to current beta relation (current_relation)
-            current_relation->insert_candidate(this, *beta_row);
+            current_relation->insert_candidate(this, *beta_row, parent_row);
           }
         };
         auto process_parent_row = [&](BetaRow const* parent_row) {
@@ -374,6 +386,20 @@ is_integer_zero(rdf::r_index v)
               // row from current_relation based on is_inferring
               scan_candidate(candidate, parent_row, &triple);
               t3_itor.next();
+            }
+            // A retraction also withdraws the derivations joined on a triple being
+            // deleted, which the graph no longer holds (DeletedTriple)
+            if(not is_inferring and not this->deleted_triples_.empty()) {
+              auto const pattern = alpha_node->compute_find_triple(parent_row);
+              for(std::size_t i = 0; i < this->deleted_triples_.size(); ++i) {
+                rdf::Triple triple = this->deleted_triples_[i];
+                if(not matches(pattern, triple) or
+                   this->rdf_session_->contains(triple.subject, triple.predicate, triple.object)) continue;
+                CandidateRow candidate(this, child_meta_node, static_cast<int>(beta_row_initializer->get_size()));
+                candidate.get()->initialize(beta_row_initializer, parent_row, &triple);
+                VLOG(50)<<"  **  Parent Row "<<parent_row<<"  +  deleted "<<triple<<"  =>  Row "<<candidate.get();
+                scan_candidate(candidate, parent_row, &triple);
+              }
             }
           }
         };
@@ -584,6 +610,8 @@ is_integer_zero(rdf::r_index v)
   ReteSession::triple_updated(int vertex, rdf::r_index s, rdf::r_index p, rdf::r_index o, bool is_inserted)
   {
     ++this->reentries_;                  // see candidate_still_supported
+    std::optional<DeletedTriple> deleting;
+    if(not is_inserted) deleting.emplace(this, rdf::Triple(s, p, o));
     b_index cmeta_node = this->rule_ms_->get_node_vertex(vertex);
 
     // make sure this is not the rete head node
@@ -642,7 +670,7 @@ is_integer_zero(rdf::r_index v)
         if(is_inserted) {
           if(not cmeta_node->is_negation) {
             VLOG(50)<<"    Insert Row @ Vertex "<<beta_row->get_node_vertex()->vertex<<" T1.INSERTING ROW from t3 "<<rdf::Triple(s, p, o)<<", row "<<beta_row;
-            current_relation->insert_candidate(this, *beta_row);
+            current_relation->insert_candidate(this, *beta_row, parent_row);
             
             // Propagate down the rete network
             if(current_relation->has_pending_rows()) {
@@ -651,7 +679,7 @@ is_integer_zero(rdf::r_index v)
             }
           } else {
             VLOG(50)<<"    Insert Row @ Vertex "<<beta_row->get_node_vertex()->vertex<<" T2.REMOVING ROW from t3 "<<rdf::Triple(s, p, o)<<", row "<<beta_row;
-            current_relation->remove_candidate(this, *beta_row);
+            current_relation->remove_candidate(this, *beta_row, parent_row);
             
             // Propagate down the rete network
             if(current_relation->has_pending_rows()) {
@@ -662,7 +690,7 @@ is_integer_zero(rdf::r_index v)
         } else {
           if(not cmeta_node->is_negation) {
             VLOG(50)<<"    Insert Row @ Vertex "<<beta_row->get_node_vertex()->vertex<<" T3.REMOVING ROW from t3 "<<rdf::Triple(s, p, o)<<", row "<<beta_row;
-            current_relation->remove_candidate(this, *beta_row);
+            current_relation->remove_candidate(this, *beta_row, parent_row);
 
             // Propagate down the rete network
             if(current_relation->has_pending_rows()) {
@@ -671,7 +699,7 @@ is_integer_zero(rdf::r_index v)
             }
           } else {
             VLOG(50)<<"    Insert Row @ Vertex "<<beta_row->get_node_vertex()->vertex<<" T4.INSERTING ROW from t3 "<<rdf::Triple(s, p, o)<<", row "<<beta_row;
-            current_relation->insert_candidate(this, *beta_row);
+            current_relation->insert_candidate(this, *beta_row, parent_row);
             
             // Propagate down the rete network
             if(current_relation->has_pending_rows()) {
@@ -695,6 +723,8 @@ is_integer_zero(rdf::r_index v)
   ReteSession::triple_updated_for_filters(int vertex, rdf::r_index s, rdf::r_index p, rdf::r_index o, bool is_inserted)
   {
     ++this->reentries_;                  // see candidate_still_supported
+    std::optional<DeletedTriple> deleting;
+    if(not is_inserted) deleting.emplace(this, rdf::Triple(s, p, o));
     b_index cmeta_node = this->rule_ms_->get_node_vertex(vertex);
 
     // make sure this is not the rete head node
@@ -766,7 +796,7 @@ is_integer_zero(rdf::r_index v)
           // insert or remove the row from current_relation based on is_inferring
           if(keepit) {
             // Add row to current beta relation (current_relation)
-            current_relation->insert_candidate(this, *beta_row);
+            current_relation->insert_candidate(this, *beta_row, parent_row);
           }
         }
       } else {
@@ -783,7 +813,7 @@ is_integer_zero(rdf::r_index v)
             &triple, reentries);
           if(keepit) {
             // Add row to current beta relation (current_relation)
-            current_relation->insert_candidate(this, *beta_row);
+            current_relation->insert_candidate(this, *beta_row, parent_row);
           }
           t3_itor.next();
         }

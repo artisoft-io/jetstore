@@ -227,25 +227,25 @@ func (h *Hypothesis) Validate() error {
 		return fmt.Errorf("cause_category %q is not in the vocabulary", h.CauseCategory)
 	}
 	if h.Locus == "" {
-		return fmt.Errorf("locus is required: Q-27's answer needs a hypothesis to say which vocabulary its claim is in, and the cause category alone cannot say which evidence position it came from")
+		return fmt.Errorf("locus is required: a hypothesis has to say which vocabulary its claim is in, and the cause category alone cannot say which evidence position it came from")
 	}
 	if h.Confidence < 0 || h.Confidence > 1 {
 		return fmt.Errorf("confidence is %v, which is outside 0..1", h.Confidence)
 	}
 	if h.Rank < 1 {
-		return fmt.Errorf("rank is %d; §A.2.8's ranks are 1-based", h.Rank)
+		return fmt.Errorf("rank is %d; ranks are 1-based", h.Rank)
 	}
 	if h.Basis == "" {
-		return fmt.Errorf("basis is required: a ranking a human cannot read the basis of is criterion 45's last clause unmet")
+		return fmt.Errorf("basis is required: a human must be able to read the basis of a ranking")
 	}
 	if h.RankerRef == "" {
 		return fmt.Errorf("ranker_ref is required")
 	}
 	if len(h.SupportingEvidence) == 0 {
-		return fmt.Errorf("supporting_evidence is empty; §A.2.8 requires at least one item")
+		return fmt.Errorf("supporting_evidence is empty; at least one item is required")
 	}
 	if h.ContradictingEvidence == nil {
-		return fmt.Errorf("contradicting_evidence is nil rather than empty: §A.2.8 makes it required as a calibration control, and an empty list asserting that nothing was found against this hypothesis is a claim the ranker has to make deliberately")
+		return fmt.Errorf("contradicting_evidence is nil rather than empty: it is required as a calibration control, and an empty list asserting that nothing was found against this hypothesis is a claim the ranker has to make deliberately")
 	}
 	for i := range h.SupportingEvidence {
 		if err := h.SupportingEvidence[i].validate(); err != nil {

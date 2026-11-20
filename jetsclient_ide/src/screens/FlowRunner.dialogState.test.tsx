@@ -84,8 +84,8 @@ function stubServer() {
     if (path === "/login") {
       return ok({
         token: "t0",
-        name: "Michel",
-        user_email: "michel@artisoft.io",
+        name: "Test User",
+        user_email: "user@example.com",
         is_admin: false,
         capabilities: ["workspace_ide", "client_config", "run_pipelines"],
       });
@@ -135,7 +135,7 @@ function Banners() {
 async function mount(flowKey: string) {
   const server = stubServer();
   const api = new ApiClient("", server.fetchImpl);
-  await api.login("michel@artisoft.io", "pw");
+  await api.login("user@example.com", "pw");
   render(
     <ApiProvider api={api}>
       <NotificationsProvider>
@@ -288,7 +288,7 @@ describe("Pipeline Configuration: the process-input dialog decides insert or upd
       table_name: "TBL_NEW_R",
       source_type: "file",
       lookback_periods: "0",
-      user_email: "michel@artisoft.io",
+      user_email: "user@example.com",
     });
   });
 
@@ -366,14 +366,14 @@ describe("the other flow dialogs, on their own state", () => {
     expect(loaded.table).toBe("raw_rows/process_mapping");
     expect(loaded.row).toEqual({
       raw_rows: "client,object_type,data_property\nACME,claim,p1",
-      user_email: "michel@artisoft.io",
+      user_email: "user@example.com",
     });
   });
 });
 
 describe("Delete Client", () => {
   it("deletes the selected client and says so in the status banner", async () => {
-    // Michel, 2026-10-02: a successful delete showed nothing, so it read as
+    // 2026-10-02: a successful delete showed nothing, so it read as
     // the button not working. The banner comes after the post, which stops the
     // action on a failure, so it only ever reports a delete that happened.
     const { posts } = await mount("clientRegistryUF");

@@ -7,7 +7,7 @@ import (
 )
 
 // The multipart copy must encrypt with JETS_S3_KMS_KEY_ARN, as the single part
-// copy does. Without it s3 falls back to the destination bucket's default key (CPED-180).
+// copy does. Without it s3 falls back to the destination bucket's default key.
 func TestCreateMultipartUploadInputUsesKmsKey(t *testing.T) {
 	saved := kmsKeyArn
 	defer func() { kmsKeyArn = saved }()

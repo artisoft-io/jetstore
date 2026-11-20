@@ -60,8 +60,8 @@ function stubServer(options: { conflict?: boolean } = {}) {
       return new Response(
         JSON.stringify({
           token: "t0",
-          name: "Michel",
-          user_email: "michel@artisoft.io",
+          name: "Test User",
+          user_email: "user@example.com",
           is_admin: false,
           capabilities: ["client_config", "jetstore_read"],
         }),
@@ -112,7 +112,7 @@ function Banners() {
 async function mount(options: { conflict?: boolean } = {}) {
   const { fetchImpl, posts } = stubServer(options);
   const api = new ApiClient("", fetchImpl);
-  await api.login("michel@artisoft.io", "pw");
+  await api.login("user@example.com", "pw");
 
   render(
     <ApiProvider api={api}>
@@ -195,7 +195,7 @@ describe("the dialog", () => {
     // **The escape's whole output.** `32` is column 1 of the `processes` query's
     // row for `loadMembers` — a value that is in no form field and in no route.
     expect(row["process_config_key"]).toBe("32");
-    expect(row["user_email"]).toBe("michel@artisoft.io");
+    expect(row["user_email"]).toBe("user@example.com");
   });
 
   it("updates with update/rule_configv2 when a row was selected, and locks its identity", async () => {
@@ -261,7 +261,7 @@ describe("deleting a configuration", () => {
     await waitFor(() => expect(inserts(posts, "delete/rule_configv2")).toHaveLength(1));
     const row = (inserts(posts, "delete/rule_configv2")[0]!["data"] as Record<string, unknown>[])[0]!;
     expect(row["key"]).toBe("7");
-    expect(row["user_email"]).toBe("michel@artisoft.io");
+    expect(row["user_email"]).toBe("user@example.com");
   });
 
   it("sends nothing when the confirmation is refused", async () => {

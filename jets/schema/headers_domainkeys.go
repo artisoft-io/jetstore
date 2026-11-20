@@ -378,7 +378,7 @@ func applyPreprocessingFunction(fncName, value string) (string, error) {
 		formatedDate := fmt.Sprintf("%d%02d%02d", year, month, day)
 		return formatedDate, nil
 
-	case "remove_mi": // remove last 2 char if last-1 is a space, e.g. "michel f" becomes "michel"
+	case "remove_mi": // remove last 2 char if last-1 is a space, e.g. "martin f" becomes "martin"
 		l := len(value)
 		if l < 3 {
 			return value, nil

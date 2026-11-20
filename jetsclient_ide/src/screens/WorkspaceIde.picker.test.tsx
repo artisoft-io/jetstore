@@ -12,7 +12,7 @@
  *
  * And the registry's workspace actions were drawn under the picker, enabled from
  * the open workspace's registry row rather than from a selection. They went back
- * to the registry on 2026-10-15 at Michel's request, because a compile started
+ * to the registry on 2026-10-15, because a compile started
  * from the IDE showed no progress there (the compile's status is on the
  * registry's table); the toolbar keeps Refresh alone.
  */
@@ -46,8 +46,8 @@ function stubServer(active: string | null) {
       return new Response(
         JSON.stringify({
           token: "t0",
-          name: "Michel",
-          user_email: "michel@artisoft.io",
+          name: "Test User",
+          user_email: "user@example.com",
           is_admin: false,
           capabilities: [WORKSPACE_IDE],
         }),
@@ -89,7 +89,7 @@ function stubServer(active: string | null) {
 async function mount(active: string | null, at = "/workspace") {
   const { fetchImpl, posts } = stubServer(active);
   const api = new ApiClient("", fetchImpl);
-  await api.login("michel@artisoft.io", "pw");
+  await api.login("user@example.com", "pw");
   render(
     <MemoryRouter initialEntries={[at]}>
       <Routes>

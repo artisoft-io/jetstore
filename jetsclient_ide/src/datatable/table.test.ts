@@ -266,7 +266,7 @@ const AUTHORED_KEYS = ["wsLookupTableTable", "wsLookupColumnTable"] as const;
  * Documents that **were** translations and are edited by hand from now on.
  * `jetstore_maintenance_02` Phase 1, task `AD.2`, 2026-10-01.
  *
- * Michel's answer to that project's `Q-5` — *we need to move away from the big
+ * The decision — *we need to move away from the big
  * legacy file* — is that a document this repository edits leaves the emitted set
  * the first time it is touched, rather than being changed by editing a fixture
  * headed *do not edit by hand*. `ui_refresh`'s **I-299** asked which way; this is
@@ -307,17 +307,17 @@ const HAND_MAINTAINED_KEYS = [
   "client",
   "scSourceConfigKey",
   "pcPipelineConfigTable",
-  // Its label repeated the screen title above it (Michel, 2026-10-01).
+  // Its label repeated the screen title above it (2026-10-01).
   "workspaceRegistryTable",
-  // A plain Show/Hide Select Row, and org's + Add (Michel, 2026-10-02).
+  // A plain Show/Hide Select Row, and org's + Add (2026-10-02).
   "org",
   "pcViewInjectedProcessInputKeys",
   "pcViewMergedProcessInputKeys",
   // A Refresh, so a save in the Workspace IDE shows without reloading the page
-  // (Michel, 2026-10-11).
+  // (2026-10-11).
   "workspaceChangesTable",
   // 25 rows per page rather than 50, as the flow's first table has, so the
-  // Start Pipeline steps page alike (Michel, 2026-10-15).
+  // Start Pipeline steps page alike (2026-10-15).
   "main_input_registry_key",
   // Delete User declares user_admin rather than the Dart's user_profile, the
   // capability delete/users now requires server-side (2026-11-07). Its fixture
@@ -810,7 +810,7 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
    * The registry's actions wherever they are drawn. **From 2026-10-11 to
    * 2026-10-15 the ten that act on a workspace were the Workspace IDE's toolbar**
    * (`screens/documents/workspaceIdeToolbar.json`), in this table's action format.
-   * **They came back to this table on 2026-10-15**, at Michel's request: a compile
+   * **They came back to this table on 2026-10-15**, on request: a compile
    * started from the IDE showed no progress, because the compile's status is on
    * this table. The toolbar keeps only Refresh. The claims below are still
    * asserted over both documents, so a button that moves again is still counted,
@@ -875,7 +875,7 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
     // `AD.2`) takes `Open`'s gate. The Flutter corpus still has eight, which is
     // why `actionBar.test.tsx`, reading that corpus, still counts eight.
     // **Six since the same evening**: *Commit & Push*, *Push Only* and *Pull*
-    // lost their gates on the IDE's toolbar (Michel: always enabled), and kept
+    // lost their gates on the IDE's toolbar (always enabled), and kept
     // them off when they came back to this table on 2026-10-15. The table's two
     // rows in order, as on the Flutter screen; the toolbar adds none.
     expect(gated.map((a) => a.key)).toEqual([
@@ -963,7 +963,7 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
 
   it("draws the workspace actions in its two rows again, and leaves the IDE only Refresh", () => {
     if (doc.source !== "query") return;
-    // The pre-2026-10-11 layout, restored on 2026-10-15 (Michel). Each table
+    // The pre-2026-10-11 layout, restored on 2026-10-15. Each table
     // button is gated on a selected row; the toolbar's Refresh needs none.
     expect((doc.actions ?? []).map((a) => a.key)).toEqual([
       "addWorkspace",

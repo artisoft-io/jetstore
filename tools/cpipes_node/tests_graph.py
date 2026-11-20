@@ -599,7 +599,7 @@ def test_an_empty_name_or_spec_name_in_output_channels_is_refused(tmp_path: Path
 
 def test_declared_lookups_are_refused_naming_d_202(tmp_path: Path):
     doc = runtime_document([site_step(lookups=("a_table",))])
-    with pytest.raises(GraphNotBuilt, match="D-202"):
+    with pytest.raises(GraphNotBuilt, match="the corpus keeps its reference"):
         run_document(doc, {"hc_corpus": Recorder}, tmp_path=tmp_path)
 
 

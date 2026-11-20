@@ -182,7 +182,7 @@ type SessionResult struct {
 // the retraction this paragraph argues against.
 func (w *Writer) Run(ctx context.Context, db DB, sessionId string) (*SessionResult, error) {
 	if sessionId == "" {
-		return nil, errors.New("cannot classify without a session id: an incident cannot be keyed below the session (F202)")
+		return nil, errors.New("cannot classify without a session id: an incident cannot be keyed below the session")
 	}
 	if w.Actor == "" {
 		return nil, errors.New("Writer.Actor is empty: every incident_event carries an actor, and an unattributable transition is the one thing that record exists to prevent")
@@ -203,7 +203,7 @@ func (w *Writer) Run(ctx context.Context, db DB, sessionId string) (*SessionResu
 	if !w.DryRun && !targets.Ready() {
 		return nil, fmt.Errorf("shadow mode has nowhere to write: %v absent from this database. "+
 			"They are created by `update_db -migrateDb`, which calls audit.InstallSchema "+
-			"(jets/update_db/main.go:71) — the same run that installs jetsapi.anomaly (I-169)",
+			"(jets/update_db/main.go:71) — the same run that installs jetsapi.anomaly",
 			targets.Missing())
 	}
 

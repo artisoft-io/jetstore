@@ -33,6 +33,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from . import aliases
 from .corpus import config_files, is_production
 
 
@@ -230,12 +231,15 @@ def describe(part: Part, defs: dict) -> str:
 def extract(schema: dict, root: Path, model: Path | None = None) -> Extractor:
     live, _ = config_files(root)
     ex = Extractor(schema, tag_defaults(model) if model else {})
+    names = aliases.load()
     for path in live:
         # Cite as `workspaces/<ws>/...`, which is how every other document in this
         # project names a corpus file; the walk's own root is not part of the fact.
+        # The citation and the value are both recorded under neutral names.
         parts = path.parts
         rel = str(Path(*parts[parts.index("workspaces"):])) if "workspaces" in parts else str(path)
-        ex.walk(json.loads(path.read_text()), {"$ref": "#/$defs/ComputePipesConfig"}, rel, "")
+        value = names.anonymise_json(json.loads(path.read_text()))
+        ex.walk(value, {"$ref": "#/$defs/ComputePipesConfig"}, names.anonymise(rel), "")
     for part in ex.parts.values():
         part.description = describe(part, ex.defs)
     return ex
@@ -485,11 +489,12 @@ def recovered_parts(schema: dict, matrix: Path, corpus_root: Path, model: Path) 
     import jsonschema
 
     ex = Extractor(schema, tag_defaults(model))
+    names = aliases.load()
     rows = _read(matrix / "recovered_sources.csv")
     for row in rows:
-        repo = corpus_root / "workspaces" / row["workspace"]
+        repo = names.path(corpus_root / "workspaces", row["workspace"])
         blob = subprocess.run(
-            ["git", "-C", str(repo), "show", f"{row['commit']}:{row['path']}"],
+            ["git", "-C", str(repo), "show", f"{row['commit']}:{names.resolve(row['path'])}"],
             capture_output=True,
             text=True,
         )
@@ -499,7 +504,8 @@ def recovered_parts(schema: dict, matrix: Path, corpus_root: Path, model: Path) 
             )
             continue
         cite = f"workspaces/{row['workspace']}@{row['commit']}/{row['path']}"
-        ex.walk(json.loads(blob.stdout), {"$ref": "#/$defs/ComputePipesConfig"}, cite, "")
+        value = names.anonymise_json(json.loads(blob.stdout))
+        ex.walk(value, {"$ref": "#/$defs/ComputePipesConfig"}, cite, "")
 
     validators: dict[str, object] = {}
     kept: dict[tuple[str, str], Part] = {}

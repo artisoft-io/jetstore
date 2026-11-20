@@ -188,7 +188,7 @@ func (f *Finding) Fired() bool { return f.Verdict == Present }
 // arrangement.
 func (f *Finding) Validate() error {
 	if f.SessionId == "" {
-		return fmt.Errorf("session_id is required: an incident cannot be keyed below the session (F202)")
+		return fmt.Errorf("session_id is required: an incident cannot be keyed below the session")
 	}
 	if !slices.Contains(Loci, f.Locus) {
 		return fmt.Errorf("locus %q is not in the vocabulary", f.Locus)
@@ -212,7 +212,7 @@ func (f *Finding) Validate() error {
 	// named: cpipes_step_id is a stage location rather than a step identity, so
 	// any finding naming one inherits the ambiguity unconditionally.
 	if f.StepRef != "" && !slices.Contains(f.Confounders, observe.ConfounderStepLabelAmbiguous) {
-		return fmt.Errorf("step_ref is %q and step_label_ambiguous is not among the confounders: cpipes_step_id is a stage location rather than a step identity (F52), so any finding naming a step inherits the ambiguity",
+		return fmt.Errorf("step_ref is %q and step_label_ambiguous is not among the confounders: cpipes_step_id is a stage location rather than a step identity, so any finding naming a step inherits the ambiguity",
 			f.StepRef)
 	}
 	return nil

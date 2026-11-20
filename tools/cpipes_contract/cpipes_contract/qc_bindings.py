@@ -25,7 +25,7 @@ class QcShapeError(ValueError):
 def status_column(columns: list[dict]) -> dict:
     """The report pipe's `case` column that writes `status`, found by what it writes.
 
-    **Not `columns[9]`, which is what this read until PL-036.** The index was right
+    **Not `columns[9]`, which is what this read until 2026-11-08.** The index was right
     for all eight `qc_*` configs and agreed with them by a count nothing states: a
     config with one more or one fewer column before it would have read a different
     column, and the failure would have been a `KeyError` on `case_expr` or, worse, a

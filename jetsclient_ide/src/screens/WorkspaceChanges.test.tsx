@@ -23,7 +23,7 @@ interface Posted {
   body: Record<string, unknown>;
 }
 
-const rows = [["7", "ws1", "0", "jet_rules/main.jr", "jetrules", "", "michel@artisoft.io", "2026-09-05"]];
+const rows = [["7", "ws1", "0", "jet_rules/main.jr", "jetrules", "", "user@example.com", "2026-09-05"]];
 
 function stubServer(refusals: Record<string, string> = {}) {
   const posts: Posted[] = [];
@@ -35,8 +35,8 @@ function stubServer(refusals: Record<string, string> = {}) {
       return new Response(
         JSON.stringify({
           token: "t0",
-          name: "Michel",
-          user_email: "michel@artisoft.io",
+          name: "Test User",
+          user_email: "user@example.com",
           is_admin: false,
           capabilities: ["workspace_ide"],
         }),
@@ -59,7 +59,7 @@ function stubServer(refusals: Record<string, string> = {}) {
 async function mount(workspace = "ws1", refusals: Record<string, string> = {}) {
   const { fetchImpl, posts } = stubServer(refusals);
   const api = new ApiClient("", fetchImpl);
-  await api.login("michel@artisoft.io", "pw");
+  await api.login("user@example.com", "pw");
   render(
     <ApiProvider api={api}>
       <NotificationsProvider>
@@ -101,7 +101,7 @@ describe("the workspace home's changes table", () => {
   });
 
   it("has no Refresh of its own: the IDE toolbar's re-reads it", async () => {
-    // Michel, 2026-10-11: the table kept its first read until the page reloaded,
+    // 2026-10-11: the table kept its first read until the page reloaded,
     // and it gained a Refresh. 2026-10-12: that Refresh left the toolbar's
     // buttons on a stale status, so it moved to the toolbar, which re-reads the
     // registry row, the file tree and this table (WorkspaceIde.refresh.test.tsx).

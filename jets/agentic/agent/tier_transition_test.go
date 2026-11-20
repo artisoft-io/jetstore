@@ -59,7 +59,7 @@ func TestATierRaiseUnblocksAGatedRunWithoutRestartingIt(t *testing.T) {
 	// A person takes responsibility for the change.
 	if _, err := audit.RecordTierTransition(ctx, pool, &audit.TierTransition{
 		RunId: runId, FromTier: string(audit.TierT1), ToTier: string(audit.TierT3),
-		Actor: "michel@artisoft.io", ActorKind: audit.ActorHuman,
+		Actor: "user@example.com", ActorKind: audit.ActorHuman,
 		Rationale: "the proposed change was reviewed at the supervision screen",
 	}); err != nil {
 		t.Fatalf("recording the raise: %v", err)
@@ -110,7 +110,7 @@ func TestAFixedTierGateDoesNotSeeAGrant(t *testing.T) {
 
 	if _, err := audit.RecordTierTransition(ctx, pool, &audit.TierTransition{
 		RunId: runId, FromTier: string(audit.TierT1), ToTier: string(audit.TierT3),
-		Actor: "michel@artisoft.io", ActorKind: audit.ActorHuman,
+		Actor: "user@example.com", ActorKind: audit.ActorHuman,
 		Rationale: "granted at the screen",
 	}); err != nil {
 		t.Fatalf("recording the raise: %v", err)

@@ -377,36 +377,202 @@ def test_the_execution_status_update_is_behind_two_conditions_this_node_refuses(
         _file_keys(sharding, NodeArgs(id=0, pe=1))
 
 
-def test_the_go_error_path_records_a_failed_row_and_this_node_does_not():
-    """Go's `gotError:` label records a `failed` row; this node's startup does not.
+def test_a_refusal_at_the_start_records_a_failed_row_as_the_go_error_path_does(
+    tmp_path,
+):
+    """Go's `gotError:` label records a `failed` row, and so does this node.
 
-    The label used to log and return, carrying a TODO, and this test asserted
-    that. Since 2026-10-05 it calls `RegisterNodeError`, which inserts the
-    `in progress` row and updates it to `failed` with the error's text, so that
-    an error raised before the files are processed reaches the pipeline status
-    when the node runs as an ECS task.
+    The label used to log and return, carrying a TODO. Since 2026-10-05 it calls
+    `RegisterNodeError`, which inserts the `in progress` row and updates it to
+    `failed` with the error's text and six zero counts, so that an error raised
+    before the files are processed reaches the pipeline status.
 
-    This node does not mirror it: `coordinate` resolves its file keys before
-    `effects.begin()`, so a startup refusal leaves no row. That divergence is
-    asserted in both directions, so the day either side changes, this goes red
-    and says which.
+    This node resolves its file keys before `effects.begin()`, and until
+    2026-11-19 a refusal there left no row; this test asserted that divergence.
+    It now asserts agreement, in both directions: the Go side is read from its
+    source, and this node is run to a refusal at its start against a recording
+    connection. A sharding-mode generator is the refusal, raised by
+    `_file_keys`, the same point at which Go's `GetFileKeys` would fail.
     """
     import inspect
 
     from cpipes_node import node
+    from cpipes_node.config import FileConfigSource
+    from cpipes_node.errors import StartupError
+    from cpipes_node.node import coordinate
 
+    # The Go side: the label calls it, and it is the INSERT then the UPDATE to
+    # failed, with zero counts, the main input step id and the error's text.
     source = go_source("jets/compute_pipes/actions_coordinate_cp.go")
     tail = source[source.index("gotError:") :]
     assert "args.RegisterNodeError(" in tail
-    process = go_source("jets/compute_pipes/actions_process_file.go")
+    process = go_source(PROCESS_FILE_GO)
     register = process.split(
         "func (args *ComputePipesNodeArgs) RegisterNodeError(", 1
     )[1].split("\n}\n", 1)[0]
-    assert "InsertPipelineExecutionStatus(" in register
-    assert '"failed", nodeErr.Error()' in register
+    assert register.index("InsertPipelineExecutionStatus(") < register.index(
+        "UpdatePipelineExecutionStatus("
+    )
+    update_call = re.sub(
+        r"\s+", " ", register[register.index("UpdatePipelineExecutionStatus(") :]
+    )
+    assert (
+        "UpdatePipelineExecutionStatus(dbpool, key, 0, 0, 0, 0, 0, 0, "
+        'cpCtx.MainInputStepId, "failed", nodeErr.Error())'
+    ) in update_call
+    assert "InsertChannelExecutionDetails" not in register
 
-    coordinate = inspect.getsource(node.coordinate)
-    assert coordinate.index("_file_keys(") < coordinate.index("effects.begin()")
+    # The order is still Go's: the file keys are resolved before the row the
+    # run itself opens, so the refusal is recorded by the error path.
+    coordinate_source = inspect.getsource(node.coordinate)
+    assert coordinate_source.index("_file_keys(") < coordinate_source.index(
+        "effects.begin()"
+    )
+
+    # This node: run it to the refusal.
+    connection = FakeConnection(returning=[(42,)])
+    document = runtime_document([], mode="sharding")
+    document["common_runtime_args"].update(
+        {
+            "pipeline_config_key": 3,
+            "client": "acme",
+            "process_name": "corpus",
+            "input_session_id": "in1",
+            "source_period_key": 22,
+            "user_email": "a@b.c",
+            "read_step_id": "reducing01",
+        }
+    )
+    config = tmp_path / "pipeline.pc.json"
+    config.write_text(_json(document))
+    with pytest.raises(StartupError, match="generator input channel") as raised:
+        coordinate(
+            NodeArgs(id=4, pe=11, jp="0004P"),
+            FileConfigSource(config),
+            connection=connection,
+        )
+
+    statements = connection.statements()
+    assert len(statements) == 2, statements
+    assert "INSERT INTO jetsapi.pipeline_execution_details" in statements[0]
+    assert "UPDATE jetsapi.pipeline_execution_details" in statements[1]
+    assert connection.calls[0][1] == (
+        3, 11, "acme", "corpus", "in1", "s1", 22, 4, "0004P", "a@b.c"
+    )
+    assert connection.calls[1][1] == (
+        "reducing01", "failed", str(raised.value), 0, 0, 0, 0, 0, 0, 42
+    )
+    assert connection.commits == 2
+    assert "_register_node_error(" in coordinate_source
+
+
+def test_a_document_the_scope_gate_refuses_records_a_failed_row(tmp_path):
+    """The scope gate's refusal is a refusal at the start, and is recorded.
+
+    Until 2026-11-19 this test asserted the opposite: that a document the scope
+    gate refuses writes no row, because the run never started. The Go node
+    records a `failed` row for every error after its config is read, a document
+    defect such as a missing `main_input` provider included, so this node now
+    records one too, and the error reaches the pipeline status's node error
+    message.
+    """
+    from conftest import out_of_scope_step
+    from cpipes_node.config import FileConfigSource
+    from cpipes_node.errors import OperatorOutOfScope
+    from cpipes_node.node import coordinate
+
+    connection = FakeConnection()
+    config = tmp_path / "pipeline.pc.json"
+    config.write_text(_json(runtime_document([out_of_scope_step()])))
+    with pytest.raises(OperatorOutOfScope) as raised:
+        coordinate(
+            NodeArgs(id=0, pe=1),
+            FileConfigSource(config),
+            connection=connection,
+        )
+    assert len(connection.statements()) == 2
+    parameters = connection.parameters_for("UPDATE jetsapi")
+    assert parameters[1] == "failed"
+    assert parameters[2] == str(raised.value)
+    assert parameters[3:9] == (0, 0, 0, 0, 0, 0)
+
+
+def test_a_document_that_cannot_be_parsed_records_no_row(tmp_path):
+    """Go's rule: without the config there is no run identity to write against.
+
+    `gotError:` returns the error unrecorded when `cpConfig` or its
+    `CommonRuntimeArgs` is nil, and this node does the same for a document it
+    cannot parse and for one that carries no `common_runtime_args`.
+    """
+    from cpipes_node.config import FileConfigSource
+    from cpipes_node.errors import ConfigInvalid, StartupError
+    from cpipes_node.node import coordinate
+
+    source = go_source("jets/compute_pipes/actions_coordinate_cp.go")
+    tail = source[source.index("gotError:") :]
+    guard = tail.index("cpConfig == nil || cpConfig.CommonRuntimeArgs == nil")
+    assert guard < tail.index("args.RegisterNodeError(")
+
+    connection = FakeConnection()
+    config = tmp_path / "pipeline.pc.json"
+    config.write_text("{ not json")
+    with pytest.raises(ConfigInvalid):
+        coordinate(
+            NodeArgs(id=0, pe=1), FileConfigSource(config), connection=connection
+        )
+    assert connection.statements() == []
+
+    document = runtime_document([])
+    del document["common_runtime_args"]
+    config.write_text(_json(document))
+    with pytest.raises(StartupError, match="invalid cpipesMode"):
+        coordinate(
+            NodeArgs(id=0, pe=1), FileConfigSource(config), connection=connection
+        )
+    assert connection.statements() == []
+
+
+def test_a_failure_to_record_the_refusal_does_not_replace_it(tmp_path, caplog):
+    """`RegisterNodeError`'s own error is a warning; the node's error is returned.
+
+    So the reason the node failed is never replaced by the reason its record
+    could not be written.
+    """
+    from cpipes_node.config import FileConfigSource
+    from cpipes_node.errors import StartupError
+    from cpipes_node.node import coordinate
+
+    source = go_source("jets/compute_pipes/actions_coordinate_cp.go")
+    tail = source[source.index("gotError:") :]
+    assert '"WARNING", err)' in tail
+    assert tail.rstrip().endswith("return cpErr\n}")
+
+    class Unreachable(FakeConnection):
+        def cursor(self) -> Cursor:
+            raise RuntimeError("the database went away")
+
+    config = tmp_path / "pipeline.pc.json"
+    config.write_text(_json(runtime_document([], mode="sharding")))
+    with caplog.at_level("WARNING"):
+        with pytest.raises(StartupError, match="generator input channel"):
+            coordinate(
+                NodeArgs(id=0, pe=1), FileConfigSource(config), connection=Unreachable()
+            )
+    assert "while registering node error" in caplog.text
+    assert "the database went away" in caplog.text
+
+
+def test_a_run_with_no_database_records_a_refusal_nowhere(tmp_path):
+    """`NoSideEffects.register_node_error` writes nothing and raises nothing."""
+    from cpipes_node.config import FileConfigSource
+    from cpipes_node.errors import StartupError
+    from cpipes_node.node import coordinate
+
+    assert NoSideEffects().register_node_error(StartupError("x")) is None
+    config = tmp_path / "pipeline.pc.json"
+    config.write_text(_json(runtime_document([], mode="sharding")))
+    with pytest.raises(StartupError, match="generator input channel"):
+        coordinate(NodeArgs(id=0, pe=1), FileConfigSource(config))
 
 
 # --- the two rows -----------------------------------------------------------
@@ -998,30 +1164,6 @@ def test_a_crashed_node_closes_its_own_row_as_failed(tmp_path):
     parameters = connection.parameters_for("UPDATE jetsapi")
     assert parameters[1] == "failed"
     assert parameters[2], "the error message is empty on a failed row"
-
-
-def test_a_document_the_scope_gate_refuses_writes_no_row_at_all(tmp_path):
-    """A run that never started is not an `in progress` row.
-
-    Everything the scope rule refuses happens before the INSERT, deliberately: a
-    `pipeline_execution_details` row for a document this node will not run would
-    say a worker started.
-    """
-    from conftest import out_of_scope_step
-    from cpipes_node.config import FileConfigSource
-    from cpipes_node.errors import OperatorOutOfScope
-    from cpipes_node.node import coordinate
-
-    connection = FakeConnection()
-    config = tmp_path / "pipeline.pc.json"
-    config.write_text(_json(runtime_document([out_of_scope_step()])))
-    with pytest.raises(OperatorOutOfScope):
-        coordinate(
-            NodeArgs(id=0, pe=1),
-            FileConfigSource(config),
-            connection=connection,
-        )
-    assert connection.statements() == []
 
 
 def test_a_merge_reports_its_synthetic_edge_as_a_child_row(tmp_path):

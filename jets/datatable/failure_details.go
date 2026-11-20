@@ -53,7 +53,7 @@ const (
 	// put the error_message of the first failed node (pipeline_execution_details)
 	// ahead of the decoded text, which then follows in parentheses when it adds
 	// something. Set when a node running as an ecs task failed: the state machine
-	// only has the task's StoppedReason, not the error (ICPED-180).
+	// only has the task's StoppedReason, not the error.
 	FailureSourceNodeErrorMessage = "node_error_message"
 )
 

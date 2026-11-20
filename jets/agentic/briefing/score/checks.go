@@ -87,7 +87,7 @@ func maintenanceDrug(f *FactSet, p *reading, opt Options) Result {
 		Unit:      "drug",
 		Residue: "the containment is decidable and **the attribution is not**, which is why this is approximate where " +
 			"CatMaintenanceAbsent is decidable. A maintenance claim naming no drug - `maintenance opioids` - attributes to " +
-			"nothing and is missed; a coordination the attribution rules get wrong is counted. Measured against AT.5's hand " +
+			"nothing and is missed; a coordination the attribution rules get wrong is counted. Measured against a hand " +
 			"count it agrees exactly on M007, 7 of the 16 drugs named, and scores 0 over 66 template briefings",
 	}
 	res := Result{Category: cat, Denominator: len(f.Drugs)}
@@ -161,7 +161,7 @@ func maintenanceUnderCall(_ *FactSet, _ *reading, _ Options) Result {
 		Soundness: NotAutomatable,
 		Unit:      "drug",
 		Residue: "the whole category. It needs the scope of a negation over a noun phrase. " +
-			"F824 measured the model's error one-directional over three runs, so the true count over that corpus is " +
+			"The model's error was measured one-directional over three runs, so the true count over that corpus is " +
 			"believed to be zero - which is a fact about the model and not evidence from this check",
 	}}
 }
@@ -176,7 +176,7 @@ func adherenceSurfaced(f *FactSet, p *reading, _ Options) Result {
 		Soundness: Decidable,
 		Unit:      "briefing",
 		Residue: "a briefing that reports the number without naming it - `filled 0 of the days supplied` - " +
-			"is not seen. Q-98's design keeps the ratio on the entity for both arms, so the denominator is every briefing",
+			"is not seen. The design keeps the ratio on the entity for both arms, so the denominator is every briefing",
 	}
 	res := Result{Category: cat, Denominator: 1}
 	for _, w := range []string{"adherence", "adherent", "compliance", "compliant"} {
@@ -209,7 +209,7 @@ func adherenceEvaluated(f *FactSet, p *reading, _ Options) Result {
 		Direction: BothWays,
 		Unit:      "briefing",
 		Residue: "the boundary between reading the number out and grading it is a reader's line, drawn here where " +
-			"AT.5's hand count drew it: `an adherence value of 0` is not evaluation and `no reported adherence` is",
+			"a hand count drew it: `an adherence value of 0` is not evaluation and `no reported adherence` is",
 	}
 	res := Result{Category: cat, Denominator: 1}
 	anchors := anchorsFor(p, "adherence", "adherent", "compliance", "compliant")
@@ -226,7 +226,7 @@ func adherenceEvaluated(f *FactSet, p *reading, _ Options) Result {
 			res.Flagged = 1
 			res.Findings = append(res.Findings, Finding{
 				Category: cat.Name, Subject: "%",
-				Detail: "the ratio rendered as a percentage; the pipeline produces no such unit (F822)",
+				Detail: "the ratio rendered as a percentage; the pipeline produces no such unit",
 				Quote:  p.quote(a),
 			})
 			return res
@@ -240,7 +240,7 @@ func adherenceEvaluated(f *FactSet, p *reading, _ Options) Result {
 				res.Findings = append(res.Findings, Finding{
 					Category: cat.Name,
 					Subject:  phrase,
-					Detail:   "an evaluative reading of a ratio that takes two values on this pipeline (F822)",
+					Detail:   "an evaluative reading of a ratio that takes two values on this pipeline",
 					Quote:    p.quote(a),
 				})
 				return res
@@ -435,11 +435,11 @@ func advisoryLanguage(_ *FactSet, p *reading, _ Options) Result {
 	cat := Category{
 		Name:      CatAdvisory,
 		Question:  "does the briefing carry an imperative or a recommendation?",
-		Rule:      "AK.3's lexicon (briefing.AdvisoryMarker) over each clause, plus this package's prose supplement",
+		Rule:      "the advisory lexicon (briefing.AdvisoryMarker) over each clause, plus this package's prose supplement",
 		Soundness: Approximate,
 		Direction: BothWays,
 		Unit:      "briefing",
-		Residue: "a lexicon cannot see advice phrased as an observation. AK.3's own comment says it is blunt by design " +
+		Residue: "a lexicon cannot see advice phrased as an observation. The lexicon's own comment says it is blunt by design " +
 			"because its blast radius is a declared free-text field; over whole prose that argument does not hold, " +
 			"and this check is reported as approximate for that reason rather than inheriting the guardrail's confidence",
 	}
@@ -453,7 +453,7 @@ func advisoryLanguage(_ *FactSet, p *reading, _ Options) Result {
 			res.Flagged = 1
 			res.Findings = append(res.Findings, Finding{
 				Category: cat.Name, Subject: marker,
-				Detail: "AK.3 lexicon", Quote: strings.Join(strings.Fields(text), " "),
+				Detail: "advisory lexicon", Quote: strings.Join(strings.Fields(text), " "),
 			})
 			continue
 		}
@@ -461,7 +461,7 @@ func advisoryLanguage(_ *FactSet, p *reading, _ Options) Result {
 			res.Flagged = 1
 			res.Findings = append(res.Findings, Finding{
 				Category: cat.Name, Subject: marker,
-				Detail: "prose supplement; AK.3's lexicon does not see this form", Quote: strings.Join(strings.Fields(text), " "),
+				Detail: "prose supplement; the advisory lexicon does not see this form", Quote: strings.Join(strings.Fields(text), " "),
 			})
 		}
 	}
@@ -578,7 +578,7 @@ func echoesPrompt(f *FactSet, p *reading, opt Options) Result {
 		res.Flagged = 1
 		res.Findings = append(res.Findings, Finding{
 			Category: cat.Name, Subject: id,
-			Detail: "a property name from a Briefing_Data_Flags value, verbatim (I-578)", Quote: quoteAround(p, id),
+			Detail: "a property name from a Briefing_Data_Flags value, verbatim", Quote: quoteAround(p, id),
 		})
 	}
 	// (c) a contiguous run of a flag's own words. Contiguity is what separates
@@ -593,7 +593,7 @@ func echoesPrompt(f *FactSet, p *reading, opt Options) Result {
 			res.Flagged = 1
 			res.Findings = append(res.Findings, Finding{
 				Category: cat.Name, Subject: "Briefing_Data_Flags",
-				Detail: "a five-word run of a flag value, verbatim (I-578)", Quote: p.quote(i),
+				Detail: "a five-word run of a flag value, verbatim", Quote: p.quote(i),
 			})
 			break
 		}
@@ -785,7 +785,7 @@ func invention(_ *FactSet, _ *reading, _ Options) Result {
 		Rule:      "none; this reports zero and means unmeasured",
 		Soundness: NotAutomatable,
 		Unit:      "briefing",
-		Residue: "the whole category. F828's `oxycontin` for `oxyCODONE-Acetaminophen` is a drug name that is not " +
+		Residue: "the whole category. In a measured case, `oxycontin` for `oxyCODONE-Acetaminophen` is a drug name that is not " +
 			"this member's drug, and no containment test separates it from a legitimate short form - which is the same " +
 			"reason the drug surface forms above accept `metformin` for `metFORMIN HCl`",
 	}}
@@ -798,7 +798,7 @@ func mispairing(_ *FactSet, _ *reading, _ Options) Result {
 		Rule:      "none; this reports zero and means unmeasured",
 		Soundness: NotAutomatable,
 		Unit:      "briefing",
-		Residue: "the whole category. F829's `(J4540) ... and (J309) ..., both of which are uncomplicated` needs the " +
+		Residue: "the whole category. In a measured case, `(J4540) ... and (J309) ..., both of which are uncomplicated` needs the " +
 			"scope of a modifier over a coordination, which is a reader's judgement",
 	}}
 }
@@ -810,8 +810,8 @@ func implication(_ *FactSet, _ *reading, _ Options) Result {
 		Rule:      "none; this reports zero and means unmeasured",
 		Soundness: NotAutomatable,
 		Unit:      "briefing",
-		Residue: "the whole category, and section 1.7.4 says so in terms: implication is *the residue*, no check catches " +
-			"it and none is proposed. F834's `for diabetes management` is true of the world and absent from the fact set",
+		Residue: "the whole category, and the design says so in terms: implication is *the residue*, no check catches " +
+			"it and none is proposed. In a measured case, `for diabetes management` is true of the world and absent from the fact set",
 	}}
 }
 

@@ -202,7 +202,7 @@ def from_library(library: list[dict], matrix: Path | None = None) -> Fill:
         if part is None:
             raise ExpansionError(
                 f"hole {hole.name!r} needs a {hole.schema_ref} and the library has none; "
-                f"a library with holes is normal (Q-14), so this filler cannot serve "
+                f"a library with holes is normal, so this filler cannot serve "
                 f"every template and a model or an author must"
             )
         return copy.deepcopy(part["value"])

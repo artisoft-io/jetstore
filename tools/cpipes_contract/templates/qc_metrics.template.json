@@ -1,6 +1,6 @@
 {
   "name": "qc_metrics",
-  "description": "The qc_* family's metric stage: one map_record operator per metric family, each mapping a fixed set of input columns onto the metric's output channel. Reproduces the shape stage 2.2 of qc_biometric.pc.json has three times over, which is the case that failed round 1 of the phase 0 plan's 5.3.9 experiment.",
+  "description": "The qc_* family's metric stage: one map_record operator per metric family, each mapping a fixed set of input columns onto the metric's output channel. Reproduces the shape stage 2.2 of qc_biometric.pc.json has three times over, which is the case an earlier experiment failed on.",
   "holes": [
     {
       "name": "metric_operators",

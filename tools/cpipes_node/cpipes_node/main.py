@@ -18,7 +18,7 @@ settings, no state machine and so no proof that a Map step fans out to the
 partitions the pipeline declares, and **no side-effect row at all** — `run`
 passes no connection, so `side_effects.NONE` is what records the run and it
 records nothing. A local run is evidence about the *pipeline*; that criterion asks about the
-*integration*, and the reading is Michel's.
+*integration*.
 
 Four subcommands:
 
@@ -111,7 +111,7 @@ def render_declared_scope() -> str:
     lines.append("")
     lines.append(
         "Anything else aborts at startup naming the token. Whether the subset "
-        "is permanent is P9-I04 / D-206."
+        "is permanent is an open decision."
     )
     return "\n".join(lines)
 
@@ -269,7 +269,7 @@ def main(argv: list[str] | None = None) -> int:
         help=(
             "a directory standing in for an external bucket a document names "
             "in output_channel.bucket; repeatable. Without it such a document "
-            "is refused rather than written under --store (D-242)."
+            "is refused rather than written under --store."
         ),
     )
 

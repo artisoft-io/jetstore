@@ -290,7 +290,7 @@ func elementMedications(pharmacy []map[string]any, count int) (string, error) {
 			return "", fmt.Errorf(
 				"pharmacy event %d of the briefing carries no Drug_Name; the prose renderer reads the "+
 					"components of a medication and never the joined Medication value, so that the "+
-					"separator AT.6 writes lives in one place (I-544)", i)
+					"separator the template writes lives in one place", i)
 		}
 		var b strings.Builder
 		b.WriteString(name)

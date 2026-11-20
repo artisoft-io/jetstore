@@ -26,7 +26,7 @@
 // priority list withdraws the v4 row that inferred topMatch: an odd loop through
 // negation, which has no fixed point under correct truth maintenance.
 //
-// Until 2026-10 it terminated, because of two LEGACY defects kept by Michel's decision
+// Until 2026-10 it terminated, because of two LEGACY defects kept by a decision
 // of 2026-10-09: an aggregate consequent was recomputed on retraction (sorted_head over
 // the now empty list gave null, so the topMatch inferred was not retracted), and a
 // withdrawn row was never erased from its relation, so the v4 row was not re-admitted

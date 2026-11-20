@@ -92,14 +92,14 @@
       },
       {
         "type": "value",
-        "key": "$CGT_FILE_TYPE",
+        "key": "$ORG1_FILE_TYPE",
         "expr": {
           "$item": "file_type"
         }
       },
       {
         "type": "value",
-        "key": "$CGT_NOTIFICATION_TYPE",
+        "key": "$ORG1_NOTIFICATION_TYPE",
         "expr": "Test Harness"
       },
       {

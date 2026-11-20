@@ -146,8 +146,8 @@ type ErrWouldAct struct {
 
 func (e *ErrWouldAct) Error() string {
 	return fmt.Sprintf("refusing to move incident %s to %q: shadow mode writes only %v, and %q is on the "+
-		"acting side of Appendix A.5's machine — every status reachable from `detected` only through %q. "+
-		"Nothing in this phase executes a remediation (criterion 47)",
+		"acting side of the incident state machine — every status reachable from `detected` only through %q. "+
+		"Nothing executes a remediation yet",
 		e.IncidentRef, e.ToStatus, ShadowStatuses, e.ToStatus, ActingFrontier)
 }
 
@@ -192,7 +192,7 @@ type Targets struct {
 	Hypothesis    bool
 	IncidentEvent bool
 	// Remediation is read for the attestation rather than for the writer:
-	// **nothing writes that table** (criterion 47), and an attestation that
+	// **nothing writes that table**, and an attestation that
 	// reported *zero remediations* against a database where the table does not
 	// exist would be reporting the migration rather than the posture.
 	Remediation bool

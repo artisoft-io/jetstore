@@ -82,7 +82,7 @@ func TestRecordIncidentTransitionCarriesActorKindAndTimestamp(t *testing.T) {
 		IncidentRef:         id,
 		FromStatus:          IncidentTriaged,
 		ToStatus:            IncidentReclassified,
-		Actor:               "michel@artisoft.io",
+		Actor:               "user@example.com",
 		ActorKind:           ActorHuman,
 		ClassificationAfter: "source_content_change",
 		Rationale:           "the upstream feed changed its header row",
@@ -108,7 +108,7 @@ func TestRecordIncidentTransitionCarriesActorKindAndTimestamp(t *testing.T) {
 		t.Fatalf("read back %d transitions, want 1", len(got))
 	}
 	g := got[0]
-	if g.Actor != "michel@artisoft.io" || g.ActorKind != ActorHuman {
+	if g.Actor != "user@example.com" || g.ActorKind != ActorHuman {
 		t.Errorf("actor/kind read back as %q/%q", g.Actor, g.ActorKind)
 	}
 	if g.ClassificationBefore != "transformation_defect" || g.ClassificationAfter != "source_content_change" {
@@ -154,7 +154,7 @@ func TestASecondCorrectionDoesNotEraseTheFirst(t *testing.T) {
 			IncidentRef:         id,
 			FromStatus:          s.from,
 			ToStatus:            s.to,
-			Actor:               "michel@artisoft.io",
+			Actor:               "user@example.com",
 			ActorKind:           ActorHuman,
 			ClassificationAfter: s.after,
 			Rationale:           s.why,
@@ -198,7 +198,7 @@ func TestIncidentTransitionGuardsTheFromStatus(t *testing.T) {
 	first := &IncidentTransition{
 		IncidentEventId: "ie_a_" + id, IncidentRef: id,
 		FromStatus: IncidentTriaged, ToStatus: IncidentSuppressedAsBenign,
-		Actor: "michel@artisoft.io", ActorKind: ActorHuman,
+		Actor: "user@example.com", ActorKind: ActorHuman,
 	}
 	if _, err := RecordIncidentTransition(ctx, pool, first); err != nil {
 		t.Fatal(err)
@@ -259,7 +259,7 @@ func TestTheChainEventIsAppendedOnlyWhenTheTransitionNamesARun(t *testing.T) {
 	seq, err := RecordIncidentTransition(ctx, pool, &IncidentTransition{
 		IncidentEventId: "ie_norun_" + withoutRun, IncidentRef: withoutRun,
 		FromStatus: IncidentTriaged, ToStatus: IncidentDiagnosed,
-		Actor: "michel@artisoft.io", ActorKind: ActorHuman,
+		Actor: "user@example.com", ActorKind: ActorHuman,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -317,7 +317,7 @@ func TestReclassifiedRequiresAClassificationAndAReason(t *testing.T) {
 			_, err := RecordIncidentTransition(ctx, pool, &IncidentTransition{
 				IncidentEventId: "ie_rc_" + id, IncidentRef: id,
 				FromStatus: IncidentTriaged, ToStatus: IncidentReclassified,
-				Actor: "michel@artisoft.io", ActorKind: ActorHuman,
+				Actor: "user@example.com", ActorKind: ActorHuman,
 				ClassificationAfter: tc.after, Rationale: tc.why,
 			})
 			if err == nil || !strings.Contains(err.Error(), "incident_event_reclassified_ck") {
@@ -484,7 +484,7 @@ func TestHumanVerdictsReadsAdjudicationsAndNotProgress(t *testing.T) {
 	if _, err := RecordIncidentTransition(ctx, pool, &IncidentTransition{
 		IncidentEventId: "ie_hv_human_" + humanSide, IncidentRef: humanSide,
 		FromStatus: IncidentTriaged, ToStatus: IncidentSuppressedAsBenign,
-		Actor: "michel@artisoft.io", ActorKind: ActorHuman,
+		Actor: "user@example.com", ActorKind: ActorHuman,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -519,7 +519,7 @@ func TestATransitionInheritsTheIncidentsRun(t *testing.T) {
 	tr := &IncidentTransition{
 		IncidentEventId: "ie_inherit_" + id, IncidentRef: id,
 		FromStatus: IncidentTriaged, ToStatus: IncidentReclassified,
-		Actor: "michel@artisoft.io", ActorKind: ActorHuman,
+		Actor: "user@example.com", ActorKind: ActorHuman,
 		ClassificationAfter: "source_content_change",
 		Rationale:           "the upstream feed changed its header row",
 		// RunRef deliberately unset: this is the shape a screen writes.
@@ -552,7 +552,7 @@ func TestATransitionInheritsTheIncidentsRun(t *testing.T) {
 		runId, seq).Scan(&actor, &eventType); err != nil {
 		t.Fatal(err)
 	}
-	if actor != "michel@artisoft.io" || eventType != EventDecision {
+	if actor != "user@example.com" || eventType != EventDecision {
 		t.Errorf("the chain event is %s by %q", eventType, actor)
 	}
 }

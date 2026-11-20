@@ -267,6 +267,12 @@ export function useTableBinding(options: UseTableBindingOptions): TableBinding {
   //
   // Identity is the right key because it changes exactly once per fetch and is
   // stable across every re-render in between, which is what the guard is for.
+  //
+  // **A tick no longer refetches** (November 2026): `useDataTable` fetches only
+  // when the request's value changes, and the one table whose request read back
+  // a key its own selection writes, the workspace registry's `workspace_name`,
+  // no longer reads it (`makeQuery`). The restore still runs after every real
+  // fetch: a refresh, a page, a sort, a watched key.
   const restoredFor = useRef<JetsRow[] | null>(null);
   useEffect(() => {
     const fsc = config.formStateConfig;
