@@ -78,8 +78,9 @@ when you press Ctrl-C:
 The admin's password is generated for each run and given to the specs in the environment. It is
 written nowhere.
 
-A full run takes well under a minute once the binaries and the two web builds exist. At the end it
-says which images it wrote:
+A full run takes several minutes even when the binaries already exist: about five and a half when
+last measured, in November 2026, on a development workstation. At the end it says which images it
+wrote:
 
 ```text
 [shots] 0 new, 1 rewritten, 144 unchanged
