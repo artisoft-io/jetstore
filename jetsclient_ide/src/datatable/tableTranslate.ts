@@ -1,7 +1,7 @@
 /**
- * Corpus `TableConfig` → authored `.tc.json`. Task I.3.
+ * Corpus `TableConfig` → authored `.tc.json`.
  *
- * The same move S.1 made for the flows (`userflow/translate.ts`): translate the
+ * The same move the flows made (`userflow/translate.ts`): translate the
  * shipping configuration into the document, commit the result, and let Go
  * validate the real corpus rather than a hand-written sample. **A real config
  * that fails means the schema is wrong, not the config** — that rule is why this
@@ -18,8 +18,8 @@
  * | `fileKeyLabel` | shortens a file key for display — `WORKSPACE_FILE_KEY_LABEL_RE` if it matches, otherwise the segment after the last `/` (`start_pipeline/data_table_config.dart:86`) | 3 columns, all `file_key` |
  * | `hasDataRegistryFilters` | `JetsRouterDelegate().dataRegistryFilters` is non-empty (`:371`, `:428`, `:561`) | 3 `clearFilters` actions |
  *
- * **Two more names as of F.5, and the reason is a correction rather than a
- * widening.** `translateAction` mapped *any* `hasIsEnabledFnc` to
+ * **Two more names arrived with `pipelineExecStatusTable`, and the reason is a
+ * correction rather than a widening.** `translateAction` mapped *any* `hasIsEnabledFnc` to
  * `hasDataRegistryFilters`, which is true of the 37 flow tables and false of the
  * first non-flow one. `pipelineExecStatusTable` has three closures and none of
  * them is that predicate: `clearHomeFilters` gates on
@@ -41,8 +41,8 @@
  * exception for the one table it most wants to check. A name that says *this
  * closure was read and it was trivial* costs one registry entry.
  *
- * **A fifth name as of C.6, and it is the *cell filter* mapping repeating the
- * mistake F.5 corrected in the one above it.** `translateColumn` sent every
+ * **A fifth name arrived with the file loader status screen, and it is the
+ * *cell filter* mapping repeating the mistake corrected in the one above it.** `translateColumn` sent every
  * `hasCellFilter` to `fileKeyLabel`. Across both corpora there are **six**
  * `cellFilter` sites, not three: the three above, plus `inputLoaderStatusTable`'s
  * `file_key` and `pipelineExecStatusTable`'s `main_input_file_key`, which agree
@@ -59,14 +59,14 @@
  *
  * That the six collapse to two is the argument for naming them rather than
  * porting them: three identical copies of a predicate are three places to fix it.
- * **Registering the two is I.3b's**, and until it happens a document naming them
- * validates and does not load — which is the asymmetry `actions/escapes.ts`
- * describes and the failure mode the agentic project met from the other side.
+ * **Each name has to be registered as well**, and until it is a document naming
+ * it validates and does not load — which is the asymmetry `actions/escapes.ts`
+ * describes.
  *
- * ## What C.2 added, and the one thing it does not translate
+ * ## What the workspace registry added, and the one thing it does not translate
  *
  * `apiAction` and `enableWhen`. Both were named in `table.ts`'s table of cuts as
- * fields the non-flow corpus sets, so neither is a discovery — what C.2 supplies
+ * fields the non-flow corpus sets, so neither is a discovery — what was supplied
  * is the *shape*, and in one case that is more than a copy: a criterion names its
  * column **by name** here and by position in the Dart, so `translateCriterion`
  * resolves the index forward and `columnPosOf` resolves it back.
@@ -95,7 +95,7 @@ import type {
 } from "./table";
 
 /**
- * The server action a document that names none is issuing. Task C.2.
+ * The server action a document that names none is issuing.
  *
  * One definition, read by both directions of the translation: `toDocument` omits
  * the field when the configuration says this, and `fromDocument` restores it when
@@ -108,7 +108,7 @@ export const DEFAULT_API_ACTION = "read";
 const AUTHORABLE_API_ACTIONS: readonly string[] = ["workspace_read", "preview_file", "raw_query_tool"];
 
 /**
- * Page sizes this port sets differently from the Dart, and the whole list. D.11.
+ * Page sizes this port sets differently from the Dart, and the whole list.
  *
  * **A map here rather than an edit to the corpus fixture, because the fixture is
  * the record of what the Dart shipped** and staying able to say *the translation
@@ -128,25 +128,25 @@ export const ROWS_PER_PAGE: Readonly<Record<string, number>> = {
 
 /** The registry name for the file-key display filter. */
 export const FILE_KEY_LABEL_ESCAPE = "fileKeyLabel";
-/** The registry name for the load-error display filter. Task C.6. */
+/** The registry name for the load-error display filter. */
 export const ERROR_MESSAGE_LABEL_ESCAPE = "errorMessageLabel";
 /** The registry name for the `clearFilters` enablement predicate. */
 export const DATA_REGISTRY_FILTERS_ESCAPE = "hasDataRegistryFilters";
-/** The registry name for the home-filter enablement predicate. Task F.5. */
+/** The registry name for the home-filter enablement predicate. */
 export const HOME_FILTERS_ESCAPE = "hasHomeFilters";
-/** The registry name for a `(state) => true` closure. Task F.5. */
+/** The registry name for a `(state) => true` closure. */
 export const ALWAYS_ENABLED_ESCAPE = "alwaysEnabled";
-/** The Session Registry tab's filters are set. `session_registry` Phase 2. */
+/** The Session Registry tab's filters are set. */
 export const SESSION_REGISTRY_FILTERS_ESCAPE = "hasSessionRegistryFilters";
-/** No selected Session Registry row has a deletion queued or done. Phase 2. */
+/** No selected Session Registry row has a deletion queued or done. */
 export const NO_SESSION_DELETION_ESCAPE = "noSessionDeletionRequested";
 
 /**
- * Which display filter a `cellFilter`-bearing column names. Task C.6.
+ * Which display filter a `cellFilter`-bearing column names.
  *
  * **Keyed by table and column for exactly the reason `isEnabledEscapeFor` below
- * is, and it is the same defect found on a second field.** I-103 corrected the
- * `isEnabled` mapping from a constant to a lookup and said the lesson was that
+ * is, and it is the same defect found on a second field.** An earlier fix turned
+ * the `isEnabled` mapping from a constant into a lookup and said the lesson was that
  * *knowledge the corpus does not carry has to be data, keyed by what it is
  * knowledge about*. The `cellFilter` mapping was left a constant, and it was
  * right for as long as the only corpus was the flows'.
@@ -174,7 +174,7 @@ function cellFilterEscapeFor(tableKey: string, columnName: string): string {
  * Which predicate a closure-bearing action names.
  *
  * **Keyed by table and action rather than assumed**, which is the whole of the
- * F.5 correction: the corpus records only *that* a closure exists, so the
+ * correction `pipelineExecStatusTable` forced: the corpus records only *that* a closure exists, so the
  * mapping is knowledge about the Dart and has to be written down somewhere. It
  * was written as a constant, which read as a fact about closures and was a fact
  * about the 37.
@@ -186,18 +186,17 @@ function cellFilterEscapeFor(tableKey: string, columnName: string): string {
  * emitter writes its answer into the document as `isEnabled`; the action bar
  * (`actionBarModel.ts`, `availability`) asks it the same question at runtime,
  * because `fromDocument` keeps only the boolean `hasIsEnabledFnc` and so cannot
- * hand the authored name back (`ui_refresh`'s I-66). Until then the runtime asked
- * a second, partial copy keyed by action alone — `enabledPredicateFor`, one entry
- * — and Pipeline Status's *Clear Filters* was never gated, which is
- * `jetstore_maintenance_02`'s `D02`. One definition now answers both, and
+ * hand the authored name back. Until then the runtime asked a second, partial
+ * copy keyed by action alone — `enabledPredicateFor`, one entry — and Pipeline
+ * Status's *Clear Filters* was never gated. One definition now answers both, and
  * `clearFiltersGate.test.tsx` asserts that every committed document's
  * `isEnabled` is what this returns, so the two cannot drift for a document in
  * this repository.
  */
 export function isEnabledEscapeFor(tableKey: string, actionKey: string): string {
   /*
-    **Two tables since `session_registry` Phase 2 (2026-11-08), and the archive
-    is the first.** *Archived Pipelines* shares *Pipelines Status*'s filters
+    **Two tables since 2026-11-08, when the pipeline archive arrived, and the
+    archive is the first.** *Archived Pipelines* shares *Pipelines Status*'s filters
     (`datatable/query.ts`, `FILTERS_BY_FIELD`), so its *Clear Filters* is gated on
     them and its prompts on nothing, as Pipelines Status's are.
   */
@@ -231,7 +230,7 @@ function translateColumn(tableKey: string, column: ColumnConfig): Column {
     ...(omitFalse(column.isNumeric) ? { isNumeric: true as const } : {}),
     ...(column.hasCellFilter ? { cellFilter: cellFilterEscapeFor(tableKey, column.name) } : {}),
     ...(column.calculatedAs ? { calculatedAs: column.calculatedAs } : {}),
-    // Task C.7. Zero is the Dart's "unset" for both, so the document says it by
+    // Zero is the Dart's "unset" for both, so the document says it by
     // omission, as it does for every other boolean-ish default here.
     ...(column.maxLines ? { maxLines: column.maxLines } : {}),
     ...(column.columnWidth ? { columnWidth: column.columnWidth } : {}),
@@ -274,16 +273,16 @@ function translateWhere(where: WhereClause): WhereClauseDocument {
     ...(where.formStateKey ? { formStateKey: where.formStateKey } : {}),
     ...(where.defaultValue.length > 0 ? { defaultValue: where.defaultValue } : {}),
     ...(where.joinWith ? { joinWith: where.joinWith } : {}),
-    // The section prefix of the two Workspace IDE file lists. Task C.3b.
+    // The section prefix of the two Workspace IDE file lists.
     ...(where.like ? { like: where.like } : {}),
-    // `true` or absent, never `false` — see `WhereClauseSchema`. Task C.9.
+    // `true` or absent, never `false` — see `WhereClauseSchema`.
     ...(where.lookupColumnInFormState ? { lookupColumnInFormState: true as const } : {}),
     ...(where.orWith ? { orWith: translateWhere(where.orWith) } : {}),
   };
 }
 
 /**
- * A row gate, with its column index resolved to a column name. Task C.2.
+ * A row gate, with its column index resolved to a column name.
  *
  * `columns` is the table's, because the index is into that array. An index past
  * the end is refused rather than emitted as a dangling name: the Dart's
@@ -378,8 +377,8 @@ function translateBinding(config: TableConfig): { formStateBinding: FormStateBin
  *
  * **The correction is here rather than in the fixture, and that is the whole
  * point of the constant.** `screen_configs.json` is *dumped from the running
- * Flutter app* (`screens/fixtures/README.md`), and `jetsclient/` was deleted at
- * X.1 — so it can never be regenerated, and editing it would silently turn a
+ * Flutter app* (`screens/fixtures/README.md`), and `jetsclient/` was deleted
+ * with the Flutter app — so it can never be regenerated, and editing it would silently turn a
  * historical record of what the Dart said into a record of what we wish it had.
  * The checksum that used to guard exactly that is gone too, which makes the
  * fixture easier to edit and no safer.
@@ -401,13 +400,13 @@ export function toDocument(config: TableConfig): TableConfigDocument {
 
   if (config.sqlQuery) refuse("sqlQuery");
   // **`modelStateHandler` is still refused and `modelStateFormKey` is not, and
-  // the asymmetry is the boundary of I-102 decision 1. Task C.9.**
+  // the asymmetry is the boundary of what a corpus can carry.**
   //
   // A `modelStateFormKey` table is translatable because the corpus carries the
   // key. A handler table is not, because the corpus carries
   // `hasModelStateHandler: true` and the handler is a Dart closure that no
-  // corpus contains — the same shape as I-154, where a container nobody's
-  // traversal walked left a count that no regeneration could repair.
+  // corpus contains — the same shape as a container no traversal walked, which
+  // left a count that no regeneration could repair.
   //
   // So the two tables of `viewReteTriplesDialogV2` that name a handler are the
   // **first hand-authored table documents in this project**, and they are
@@ -420,7 +419,7 @@ export function toDocument(config: TableConfig): TableConfigDocument {
     refuse("a withClause with no name");
   }
   if (config.distinctOnClauses.length > 0) refuse("distinctOnClauses");
-  // `secondRowActions` is in the schema as of F.5; `fromConfigRowActions` is not
+  // `secondRowActions` is in the schema; `fromConfigRowActions` is not
   // and should not be — it is built from `BUTTON_CFG_JSON`, a compile-time
   // environment variable (`jetsclient/lib/button_config.dart`,
   // `getConfigurableActionConfig`), so it is deployment configuration rather than
@@ -428,23 +427,24 @@ export function toDocument(config: TableConfig): TableConfigDocument {
   if (config.fromConfigRowActions.length > 0) refuse("fromConfigRowActions");
   if (config.defaultToAllRows) refuse("defaultToAllRows");
   // `sortColumnTableName`, `dataRowMinHeight` and `dataRowMaxHeight` were all
-  // refused here until C.3, and `requestColumnDef` until C.4. One table sets the
+  // refused here until the Workspace IDE's compiled views, and `requestColumnDef`
+  // until the Query Tool. One table sets the
   // heights — `wsJetRulesTable`, 64 and 90 — and it is one of the eight the
   // Workspace IDE's compiled views need. They travel as one `rowHeight` object;
-  // see `table.ts` for why that is not the call C.7 made on the column pair.
+  // see `table.ts` for why that is not the call made on the column pair.
   if ((config.dataRowMinHeight === undefined) !== (config.dataRowMaxHeight === undefined)) {
     refuse("dataRowMinHeight/dataRowMaxHeight: one without the other");
   }
-  // `maxLines` and `columnWidth` were refused here until C.7 and are in the
+  // `maxLines` and `columnWidth` were refused here once and are in the
   // schema now: four non-flow columns set both, and `pipelineExecDetailsTable`'s
   // `error_message` is the first one a screen needs. The refusal did its job —
   // it named the field rather than emitting a document quietly missing it.
   const walkWhere = (where: WhereClause): void => {
-    // `lookupColumnInFormState` was refused here until C.9 and is in the schema
+    // `lookupColumnInFormState` was refused here once and is in the schema
     // now: one clause in either corpus sets it, and it is the only way
     // `inputRecordsFromProcessErrorTable` can name its key column at all.
-    // `like` was refused here until C.3b and is in the schema now: two clauses in
-    // either corpus set it, and both are the tabs that task draws.
+    // `like` was refused here once and is in the schema now: two clauses in
+    // either corpus set it, and both are Workspace IDE file-list tabs.
     if (where.predicate) refuse(`where ${where.column}: predicate`);
     if (where.ge || where.le) refuse(`where ${where.column}: ge/le`);
     if (where.orWith) walkWhere(where.orWith);
@@ -452,7 +452,7 @@ export function toDocument(config: TableConfig): TableConfigDocument {
   for (const where of config.whereClauses) walkWhere(where);
   // `thirdRowActions` is read as possibly absent: no Dart configuration has a third
   // row, so the corpus fixtures this function translates do not carry the field
-  // (`AE.1`, 2026-10-01).
+  // (2026-10-01).
   const thirdRow = config.thirdRowActions ?? [];
   for (const action of [...config.actions, ...config.secondRowActions, ...thirdRow]) {
     if (action.stateGroup !== 0) refuse(`action ${action.key}: stateGroup`);
@@ -473,7 +473,7 @@ export function toDocument(config: TableConfig): TableConfigDocument {
     // it, which is what lets the static arm restate it for the type checker
     // without moving it.
     columns: config.columns.map((column) => translateColumn(config.key, column)),
-    // **`sortColumn` is conditional as of C.4 and `sortColumnTable` as of C.3**,
+    // **`sortColumn` and `sortColumnTable` are both conditional**,
     // and the two reasons are different: four query tables declare no sort column
     // at all because the server describes the result, while `sortColumnTable` is
     // set by eight tables and all eight are the Workspace IDE's compiled views,
@@ -676,7 +676,7 @@ export function fromDocument(key: string, doc: TableConfigDocument): TableConfig
 
   const restoreAction = (action: TableAction): ActionConfig => restoreActions(doc, [action])[0]!;
 
-  // Every arm that has actions, not "the query arm". Task C.9 — a `formState`
+  // Every arm that has actions, not "the query arm" — a `formState`
   // table declares them too, and `doc.source === "query"` would have restored
   // `reteSessionEntityDetailsTable`'s *Visit Object Entity* button as absent.
   const actions: ActionConfig[] =
@@ -702,21 +702,21 @@ export function fromDocument(key: string, doc: TableConfigDocument): TableConfig
     label: doc.label ?? "",
     // `apiPath` is restored rather than authored — `/dataTable` on all 28 query
     // tables and empty on all nine static ones, which is the sentinel `source`
-    // replaced. `apiAction` is authored as of C.2, and a document that names none
+    // replaced. `apiAction` is authored, and a document that names none
     // means `read`; see the note in `table.ts`.
     // **`/dataTable` on every arm but `static`.** The three form-state tables
     // carry `apiPath: '/dataTable'` in the corpus although none of them ever
     // sends anything (`modules/data_table_config_impl.dart`,
     // `reteSessionRdfTypeTable`) — the Dart's sentinel for "static" is the *empty*
     // path and nothing else, so restoring `""` here would have made the round trip
-    // disagree with the corpus on a field the corpus does set. Task C.9.
+    // disagree with the corpus on a field the corpus does set.
     apiPath: doc.source === "static" ? "" : "/dataTable",
     apiAction: (doc.source === "query" ? doc.apiAction : undefined) ?? DEFAULT_API_ACTION,
     staticTableModel: doc.source === "static" ? doc.rows : undefined,
     // The document's `model` back as the two Dart fields it stands for. A `key`
     // model is `modelStateFormKey`; a `map` model is what the two Dart handlers
     // do, and `hasModelStateHandler` records that the corpus had a closure there.
-    // Task C.9 — see `ModelSourceSchema`.
+    // See `ModelSourceSchema`.
     modelStateFormKey:
       doc.source === "formState" && doc.model.from === "key" ? doc.model.key : undefined,
     modelSource: doc.source === "formState" ? doc.model : undefined,

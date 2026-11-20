@@ -114,6 +114,11 @@ def derive(config: dict) -> dict:
             "metric_columns": config["channels"][1]["columns"],
             "report": config["context"][1]["expr"],
             "file_type": config["context"][2]["expr"],
+            # The two context keys a deployment's notification template reads. They
+            # are the template's parameters rather than literals: a reproduction takes
+            # them from the config, and a projected flow offers neutral defaults.
+            "file_type_key": config["context"][2]["key"],
+            "notification_type_key": config["context"][3]["key"],
             "cluster_config": config["cluster_config"],
             "input_channel": stage0[0]["input_channel"],
             "partition_key": stage0[0]["apply"][0]["columns"][2]["hash_expr"],

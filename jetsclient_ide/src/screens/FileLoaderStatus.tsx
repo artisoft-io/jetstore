@@ -1,5 +1,5 @@
 /**
- * The file loader status screen. Task D.10, from **I-260**.
+ * The file loader status screen.
  *
  * ## It is a tab that became a route
  *
@@ -8,7 +8,8 @@
  * *Loader Status* button, which is a table action naming a `configScreenPath`,
  * and a `configScreenPath` needs a screen to name. So this file exists because a
  * button needs a destination, and the tab could not leave `Home` before it did —
- * which is why D.4 shipped the rest of I-260 and left the tab where it was.
+ * which is why the rest of that report shipped first and left the tab where it
+ * was.
  *
  * **The route has no Flutter predecessor**, which is the one thing worth knowing
  * before reading `screens/routes.ts`'s row for it: every other key in
@@ -28,8 +29,8 @@
  *
  * **The action handler is one case wide and says so for the rest.** The document
  * configures a `showScreen` and a `refreshTable`, and the second never reaches
- * here — `ActionBar` answers the widget's own two out of the binding (D.10,
- * `WidgetActions`). Anything else would be a document this screen does not have,
+ * here — `ActionBar` answers the widget's own two out of the binding
+ * (`WidgetActions`). Anything else would be a document this screen does not have,
  * and it reports rather than failing silently, which is the convention
  * `routes.ts` states for an unserved path and `escapes.ts` for an unresolved
  * name.
@@ -38,7 +39,7 @@
  *
  * `inputLoaderStatusTable` has a `client` column, so the shell's picker must
  * narrow it — it did while the table was a tab on `Home`. Nothing here passes
- * `selectedClient`, and that is D.3's decision rather than an omission:
+ * `selectedClient`, and that is a decision rather than an omission:
  * `useTableBinding` reads the store itself, because a forgotten context yields a
  * filter that is quietly *off* and returns **more** rows rather than an error.
  * `FileLoaderStatus.test.tsx` asserts the request rather than the rows, for the
@@ -70,7 +71,7 @@ export const LOADER_STATUS_TABLE = "inputLoaderStatusTable";
 const GROUP = 0;
 
 /**
- * Parsed once at module load, for C.2b's stated reason: a document that does not
+ * Parsed once at module load, for the workspace registry screen's stated reason: a document that does not
  * satisfy its schema fails in every test that imports this module rather than
  * when a user presses a button.
  */
@@ -95,7 +96,7 @@ const CONFIG = parsed.success ? fromDocument(LOADER_STATUS_TABLE, parsed.data) :
 
 export function FileLoaderStatus({ api }: { api: ApiClient }) {
   const navigate = useNavigate();
-  /** Where this screen was opened, so a flow it opens can come back here (D.8). */
+  /** Where this screen was opened, so a flow it opens can come back here. */
   const location = useLocation();
   const here = `${location.pathname}${location.search}`;
   const { setError } = useNotifications();
@@ -109,7 +110,7 @@ export function FileLoaderStatus({ api }: { api: ApiClient }) {
         const internal = inAppPath(action.configScreenPath, request.params);
         // `withReturnTo` is a no-op for a screen path and this table names only
         // one — it is here so that a flow added to this document later comes back
-        // rather than landing on the front door (D.8).
+        // rather than landing on the front door.
         if (internal !== null) void navigate(withReturnTo(internal, here));
         else setError(unservedScreenMessage(action.label, request.path));
         return;
@@ -147,8 +148,8 @@ export function FileLoaderStatus({ api }: { api: ApiClient }) {
       {/*
         **No heading, and the table's own label is the page's.** The document says
         *File Loader Status* and `DataTable` draws it, so an `<h1>` here would put
-        the same words on the page twice — the rule `TableScreen` states for C.7
-        and C.8, and the same one that decides the home screen's pipelines caption
+        the same words on the page twice — the rule `TableScreen` states for the
+        execution details screens, and the same one that decides the home screen's pipelines caption
         the other way: there the tab strip already names it, so the caption goes.
       */}
       <TableView

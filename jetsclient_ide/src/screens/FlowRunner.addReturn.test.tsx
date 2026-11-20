@@ -1,11 +1,11 @@
 /**
  * @vitest-environment jsdom
  *
- * **`D06` in the app: a flow that opens on its table, adds, and comes back to it.**
- * `jetstore_maintenance_02` Phase 1, task `AF.7`, 2026-10-01.
+ * **A flow that opens on its table, adds, and comes back to it, in the app.**
+ * 2026-10-01.
  *
- * Until this file no test rendered a flow that jumped and returned: the
- * assessment's `F29` found the proof-flow walks, the schema tests and the
+ * Until this file no test rendered a flow that jumped and returned: an
+ * assessment found the proof-flow walks, the schema tests and the
  * fidelity check all pinning structure, and nothing driving *add, then back to
  * the table* through the screen a user sees. `proofFlows.test.ts` drives the same
  * documents through `engine` + `interpret` in memory; what is checked here is the
@@ -277,7 +277,7 @@ describe("Clients & Vendors opens on the client table and adds from it", () => {
     expect(button("+ Add")).toBeTruthy();
     expect(button("Close")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Previous" })).toBeNull();
-    // The step `D06` removed is not there to be shown.
+    // The step removed from the flow is not there to be shown.
     expect(screen.queryByText("Create a client and add vendors")).toBeNull();
   });
 
@@ -292,7 +292,7 @@ describe("Clients & Vendors opens on the client table and adds from it", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Add" }));
 
     // The new client is on the table, which re-read after the insert — and the
-    // flow is still on screen: the dialog closed, not the flow (`AF.2`).
+    // flow is still on screen: the dialog closed, not the flow.
     expect(await screen.findByText("ACME")).toBeTruthy();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.queryByText("the home screen")).toBeNull();
@@ -305,7 +305,7 @@ describe("Clients & Vendors opens on the client table and adds from it", () => {
 
   it("refuses an Add Client with no name in the dialog, and posts nothing", async () => {
     // The dialog's own `required` rule, which `validate` checked on the page
-    // *under* the dialog until `AF.2`.
+    // *under* the dialog until 2026-10-01.
     const { posts } = await mount("clientRegistryUF");
     await screen.findByText("GLOBEX");
     fireEvent.click(button("+ Add"));
@@ -365,7 +365,7 @@ describe("Source Configuration opens on its table, adds and edits, and returns t
   });
 
   it("returns to the table after an Edit, and + Add after it inserts rather than updating", async () => {
-    // **`R-1`, criterion 17.** The edit path leaves `key` and fourteen other keys
+    // **The edit path must not leak into an add.** The edit path leaves `key` and fourteen other keys
     // in the flow's one form state; *+ Add* must clear them, or the save below
     // goes to `update/source_config` with key 42 and overwrites the record just
     // edited. Proved by mutation: take `key` out of `scGoToAddSourceConfig`'s
@@ -476,7 +476,7 @@ describe("Source Configuration opens on its table, adds and edits, and returns t
   });
 
   it("forgets a cancelled edit, so Edit needs a fresh selection and then shows the saved value", async () => {
-    // `jetstore_maintenance_02` Phase 2, 2026-10-01. *Cancel* returned to the
+    // Fixed 2026-10-01. *Cancel* returned to the
     // table with a bare `goToState`, leaving the record's selection and every key
     // the edit had changed in form state. When the table comes back it re-ticks
     // that record and re-publishes it from the row (`useTableBinding`, the restore
@@ -565,7 +565,7 @@ describe("Start Pipeline always ends on Home", () => {
 
 describe("opening the flow you are already in", () => {
   it("restarts it on its table, keeps where it came from, and Close leaves in one press", async () => {
-    // `jetstore_maintenance_02` Phase 2, 2026-10-01. The menu entry of the
+    // Fixed 2026-10-01. The menu entry of the
     // current flow did nothing — same element, same load effect — and set
     // `returnTo` to the flow itself. Now `withReturnTo` carries the flow's own
     // origin over, so the link is the url already showing, and `FlowRoute` keys

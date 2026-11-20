@@ -392,6 +392,42 @@ def test_the_qc_template_is_clean():
     assert findings == []
 
 
+def test_a_parameter_the_body_never_reads_is_a_finding():
+    """A declared parameter is a field whose value must land somewhere in the config.
+
+    `qc_report` declares the two notification context keys; dropping the body's read of
+    one leaves a declaration with nothing behind it, and a second declaration of the same
+    name is a duplicate. A read inside a hole's `$body` does not count: there `$item` is
+    the repetition's item, not the top-level record a parameter presents.
+    """
+    assert {p.name for p in QC_TEMPLATE.parameters} == {"file_type_key", "notification_type_key"}
+    assert {"file_type_key", "notification_type_key"} <= QC_TEMPLATE.item_reads()
+
+    raw = json.loads((HERE / "templates" / "qc_report.template.json").read_text())
+    raw["body"]["context"][3]["key"] = "$LITERAL"
+    raw["parameters"].append(dict(raw["parameters"][0]))
+    findings, _ = check(Template.model_validate(raw), SCHEMA, None, HERE / "matrix")
+    assert any("'notification_type_key' is declared but the body never reads" in f
+               for f in findings), findings
+    assert any("'file_type_key' is declared more than once" in f for f in findings), findings
+
+
+def test_the_reproduction_binds_the_notification_keys_from_the_config():
+    """The two context keys are parameters, so each config's own keys come back.
+
+    The projected flow offers neutral defaults; a reproduction must not inherit them.
+    `derive` reads the keys off the config, and the expansion carries them where the
+    config has them.
+    """
+    target = _corpus_config(f"{QC}/qc_participation.pc.json")
+    bindings = derive(target)["$item"]
+    assert bindings["file_type_key"] == target["context"][2]["key"]
+    assert bindings["notification_type_key"] == target["context"][3]["key"]
+    cfg, bad = expand(QC_TEMPLATE, derive(target), lambda h, c: {"$UNFILLED": h.name}, SCHEMA)
+    assert bad == [], bad
+    assert [c["key"] for c in cfg["context"]] == [c["key"] for c in target["context"]]
+
+
 def test_criterion_23_two_of_the_five_non_exact_reproduce_exactly():
     """An earlier experiment left five `qc_*` configs short of byte-for-byte. Two now are.
 
@@ -465,7 +501,8 @@ def test_the_three_that_do_not_reproduce_are_recorded_as_bounded():
         else:
             yield p, o
 
-    budget = {"qc_biometric": 9, "qc_pharmacyclaim": 33, "qc_medicalclaim": 10}
+    # qc_pharmacyclaim was 33 until 2026-11-19, when a change in the workspace it lives in took it to 37.
+    budget = {"qc_biometric": 9, "qc_pharmacyclaim": 37, "qc_medicalclaim": 10}
     for name in QC_NOT_EXACT:
         target, cfg, bad = _qc(name)
         assert bad == [], f"{name}: {bad}"
@@ -651,8 +688,20 @@ def test_the_fixtures_fill_two_of_the_twenty_five_empty_types():
     # **39 on 2026-10-18**, the one being jetstore#2296's `StageFileKey`: the
     # reducing starter writes it into the runtime config for the worker nodes, so
     # no authored document carries one and the library can never hold a part for it.
-    assert len(cov["empty"]) == 39
-    assert cov["filled_by_fixtures"] == ["DomainKeysSpec", "OllamaServerSpec"]
+    #
+    # **31 on 2026-11-19**, when the library was regenerated for the first time since
+    # those additions: every count above was taken against a library extracted before
+    # the types it counted had corpus instances. Ten left `empty` - the render
+    # operator's five and the infer operator's three, from the patient_profile pair,
+    # and the site operator's two. **The paragraph above saying a site operator can
+    # never have a library part was wrong**: its *shape* belongs to the deployment, but
+    # a corpus can still hold one, and jets_ws's healthcare_corpus pipeline does. Two
+    # joined: `OllamaSpec` and `TransformationSpecOllama`, whose one instance became an
+    # infer step when patient_profile stated its briefing step once for either backend.
+    # The fixtures hold an `OllamaSpec`, so they now fill three: the claim the pin
+    # protects - that the fixtures concentrate where the corpus is thin - gains one.
+    assert len(cov["empty"]) == 31
+    assert cov["filled_by_fixtures"] == ["DomainKeysSpec", "OllamaServerSpec", "OllamaSpec"]
 
 
 def test_nothing_here_writes_into_the_library():

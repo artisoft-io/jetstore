@@ -1,12 +1,12 @@
 /**
- * Tests for the table configuration document. Task I.3.
+ * Tests for the table configuration document.
  *
  * Four things, and they are not the same thing.
  *
  * 1. **The emitted JSON Schema matches the committed artifact**, which is what
  *    Go embeds and enforces at save time. Regenerate with `UPDATE_SCHEMA=1`.
- * 2. **All 37 shipping configurations translate and validate.** The rule S.1
- *    set: a real config that fails means the schema is wrong, not the config.
+ * 2. **All 37 shipping configurations translate and validate.** The rule the
+ *    flow translation set: a real config that fails means the schema is wrong, not the config.
  * 3. **The translation loses nothing.** Round-tripping every configuration back
  *    through `fromDocument` must reproduce it exactly. A forward-only check
  *    cannot see a dropped field — every document would validate and the
@@ -49,7 +49,7 @@ const tablesDir = fileURLToPath(new URL("./tables/", import.meta.url));
 
 /**
  * The other half of the corpus, since the eleven flows moved to workspace assets
- * (X.5, 2026-08-26).
+ * (2026-08-26).
  *
  * A table document a JetStore flow draws is installed into a workspace by
  * `install_workspace_assets` and read from there by `FlowStore.loadTables`; a
@@ -78,7 +78,7 @@ const committedIn = (dir: string): Set<string> =>
  * next regeneration, while this test still wrote the documents. A key in neither
  * directory is new, and was written where the screens' documents go.
  *
- * **Corrected 2026-10-01 (`jetstore_maintenance_02` `AD.2`): no key is committed
+ * **Corrected 2026-10-01: no key is committed
  * in both places any more.** Home stopped keeping its copy at 3dc322d5
  * (2026-08-26) and reads the installed document, and `sharedTableDocuments.test.ts`
  * now asserts the two directories share nothing. The reason for reading the
@@ -98,9 +98,9 @@ const tables = (corpus as { tables: Record<string, unknown> }).tables as Record<
 /**
  * The one non-flow configuration this directory carries, and why it is here.
  *
- * **F18, arriving as a file.** `pipelineExecStatusTable` is registered on the
- * non-flow side and *rendered* by `homeFiltersUF`'s last state, so F.5 cannot
- * author that flow without it — `FlowStore.load` reads a document for every table
+ * **A table shared across the flow and screen corpora, arriving as a file.**
+ * `pipelineExecStatusTable` is registered on the non-flow side and *rendered* by
+ * `homeFiltersUF`'s last state, so that flow cannot be authored without it — `FlowStore.load` reads a document for every table
  * a form names (`userflow/store.ts`, `loadTables`) and refuses the set when one is
  * missing. It is translated out of `screens/fixtures/screen_configs.json` rather
  * than hand-written, for the same reason the 37 are: a document written by hand is
@@ -108,12 +108,12 @@ const tables = (corpus as { tables: Record<string, unknown> }).tables as Record<
  * measurement of it.
  *
  * **The other 27 non-flow tables stay out of this directory until a screen needs
- * them**, which is C.6's decision to make and not this task's. What F.5 owes track
- * C is the *shape* — the schema fields this one needed and the escape names it
+ * them**, which is each screen's decision to make. What this table owes the
+ * screens is the *shape* — the schema fields this one needed and the escape names it
  * introduced — and that is what the assertions below pin down.
  *
- * **C.4 is the third, and it is the one that widened the schema rather than the
- * list.** `queryToolResultSetTable` is the only configuration in either corpus
+ * **The Query Tool's table is the third, and it is the one that widened the
+ * schema rather than the list.** `queryToolResultSetTable` is the only configuration in either corpus
  * that asks the server for a *statement* rather than for a structure, and
  * translating it cost three schema changes that no earlier reading of the corpus
  * predicted: a query table may declare no `columns` and no `sortColumn` (four of
@@ -123,18 +123,18 @@ const tables = (corpus as { tables: Record<string, unknown> }).tables as Record<
  * time and the schema moved for the second**, which is the honest summary: adding
  * the key is cheap and the document is only as cheap as the corpus is uniform.
  *
- * **C.2 is the first screen to widen this list, and it did exactly what F.5 said
- * widening it would be.** `workspaceRegistryTable` is the `/workspaces` screen's
+ * **The workspace registry is the first screen to widen this list, and it did
+ * exactly what widening it was said to be.** `workspaceRegistryTable` is the `/workspaces` screen's
  * only table; adding the key is the whole of adding the document, and what it
  * cost was two schema fields — `apiAction` and `enableWhen` — both of which
  * `table.ts` had already named as fields the non-flow corpus sets. The list is a
  * seam and it held.
  *
- * ## The last two, and the last predicted field. Task C.3b
+ * ## The last two, and the last predicted field
  *
  * `wsDataModelFilesTable` and `wsJetRulesFilesTable` cost **one** schema field,
- * `like`, and `table.ts` had named it — *"the last of the four that track C
- * brings back — two of its clauses use it"*. Both of those clauses are these two
+ * `like`, and `table.ts` had named it as the last of the four the screens bring
+ * back, used by two of their clauses. Both of those clauses are these two
  * tables'. So the seam held on the reading that is hardest for it: the field was
  * named, the count was named, and two entries plus one optional property were the
  * whole of the translation.
@@ -146,12 +146,13 @@ const tables = (corpus as { tables: Record<string, unknown> }).tables as Record<
  * members of `ServerActionSchema` and a third validation rule. **The seam is
  * about translating a configuration, and a configuration is not a screen.**
  *
- * ## Two more, and the seam behaved as advertised. Task C.7
+ * ## Two more, and the seam behaved as advertised
  *
  * `pipelineExecDetailsTable` and `cpipesExecDetailsTable` are the tables of
  * `/executionStatusDetails/:session_id` and `/executionStatsDetails/:session_id`
- * — one screen behind two routes (see `screens/TableScreen.tsx`). I-102 decision 1
- * said widening this list is the whole of adding a table, and for the second of
+ * — one screen behind two routes (see `screens/TableScreen.tsx`). The decision
+ * to translate non-flow tables said widening this list is the whole of adding a
+ * table, and for the second of
  * the two it was: one entry, and the document appeared. For the first it was one
  * entry plus two schema fields, because `error_message` sets `maxLines` and
  * `columnWidth` and the translation refused both.
@@ -165,8 +166,8 @@ const tables = (corpus as { tables: Record<string, unknown> }).tables as Record<
  * counters, and there are three.** This file's *40*, `jets/userflow`'s
  * `TestShippingTablesValidate` and `jets/datatable`'s
  * `TestShippingTablesPassTheSaveCheck` each hard-code the directory's size, and
- * all three fail on the next table.~~ **Two, and the third was collapsed by C.4 —
- * corrected 2026-08-26 at C.3b.** `TestShippingTablesPassTheSaveCheck` asserts a
+ * all three fail on the next table.~~ **Two, and the third was collapsed when the
+ * Query Tool table arrived — corrected 2026-08-26.** `TestShippingTablesPassTheSaveCheck` asserts a
  * *lower bound* now, because what it is really testing is `validatorFor`'s
  * dispatch and it had cost two branches a spurious failure. So the counters are
  * this file's two literals and `jets/userflow`'s one.
@@ -176,7 +177,7 @@ const tables = (corpus as { tables: Record<string, unknown> }).tables as Record<
  * a paragraph naming a number in another package ages the moment that package
  * changes, and nothing here reads it. The exact count still belongs in
  * `jets/userflow`, where the documents are *named*; the reason it belongs there
- * rather than in both is the one C.4 wrote into the test it collapsed.
+ * rather than in both is the one written into the test it collapsed.
  *
  * **That is deliberate and should stay**: the two sides emit and validate
  * independently, so a literal on each side is the only assertion that catches a
@@ -213,7 +214,7 @@ const NON_FLOW_KEYS = [
 ] as const;
 
 /**
- * The two documents in this directory that are **not** translations. Task C.9.
+ * The two documents in this directory that are **not** translations.
  *
  * `reteSessionEntityKeyTable` and `reteSessionEntityDetailsTable` name a
  * `modelStateHandler`, which the screen corpus records as
@@ -222,8 +223,8 @@ const NON_FLOW_KEYS = [
  * corpus contains a closure. So `toDocument` refuses them, deliberately, and
  * these two are written by hand.
  *
- * **They are the boundary of I-102 decision 1 rather than an exception to it.**
- * The decision says a non-flow table is *translated* because "a hand-written
+ * **They are the boundary of the decision to translate non-flow tables rather
+ * than an exception to it.** The decision says a non-flow table is *translated* because "a hand-written
  * document is a reading of the Dart where this is a measurement of it". That
  * holds wherever the corpus carries what the document needs; it stops holding
  * where the configuration's meaning is in code. Naming the boundary is more
@@ -238,17 +239,17 @@ const NON_FLOW_KEYS = [
  * every other field is compared against the Dart.
  */
 /**
- * **Two tasks reached this idea from opposite sides and they stay two lists — C.9
- * and C.3a, reconciled when they merged.** C.9's two name a Dart closure the
- * corpus records as a boolean, so `toDocument` refuses them and keeps refusing
- * them. C.3a's two have **no Dart original at all**, because the `lookups` view
+ * **Two pieces of work reached this idea from opposite sides and they stay two
+ * lists, reconciled when they merged.** The Rete session tables name a Dart
+ * closure the corpus records as a boolean, so `toDocument` refuses them and keeps
+ * refusing them. The lookup tables have **no Dart original at all**, because the `lookups` view
  * was never built in Flutter, so there is nothing for `toDocument` to be given.
  *
  * **The consequence is shared and the premise is not**, which is why this is two
  * constants rather than one: neither kind can be a *measurement* of the Dart — the
- * claim I-102 decision 1 actually makes about a translated document — but only
- * C.9's kind can be checked field-by-field against a corpus entry, and only
- * C.3a's needs `jets/workspace_schema.sql` instead. Collapsing them would put both
+ * claim the translation decision actually makes about a translated document —
+ * but only the first kind can be checked field-by-field against a corpus entry,
+ * and only the second needs `jets/workspace_schema.sql` instead. Collapsing them would put both
  * checks on a list where half the members fail each.
  *
  * **The checkable rule they share is `toDocument`'s: a non-flow table is
@@ -259,25 +260,25 @@ const NON_FLOW_KEYS = [
  */
 const HAND_AUTHORED_KEYS = ["reteSessionEntityKeyTable", "reteSessionEntityDetailsTable"] as const;
 
-/** C.3a's two: no Dart original, checked against `jets/workspace_schema.sql`. */
+/** The lookup view's two: no Dart original, checked against `jets/workspace_schema.sql`. */
 const AUTHORED_KEYS = ["wsLookupTableTable", "wsLookupColumnTable"] as const;
 
 /**
  * Documents that **were** translations and are edited by hand from now on.
- * `jetstore_maintenance_02` Phase 1, task `AD.2`, 2026-10-01.
+ * 2026-10-01.
  *
  * The decision — *we need to move away from the big
  * legacy file* — is that a document this repository edits leaves the emitted set
  * the first time it is touched, rather than being changed by editing a fixture
- * headed *do not edit by hand*. `ui_refresh`'s **I-299** asked which way; this is
- * the direction, taken one document at a time.
+ * headed *do not edit by hand*. Which way to go was an open question; this is the
+ * direction, taken one document at a time.
  *
  * **This is a third list rather than an entry in either of the two above, and the
  * reason is the comment on them.** `HAND_AUTHORED_KEYS` is checked field by field
  * against the Dart and asserts a model-state handler, so a document put there to be
  * *edited* would fail the one check that list exists for, the first time it
  * diverged — and `pipelineExecStatusTable` is about to gain a *Put Schema Event*
- * button (`D01`) and a third row (`D04`) that no Dart configuration ever had.
+ * button and a third row that no Dart configuration ever had.
  * `AUTHORED_KEYS` is checked against `jets/workspace_schema.sql`. **These are
  * checked against neither, deliberately**: they are no longer a measurement of
  * anything, and what guards them is the schema (`all validate against the
@@ -287,7 +288,7 @@ const AUTHORED_KEYS = ["wsLookupTableTable", "wsLookupColumnTable"] as const;
  * `pipelineExecStatusTable` was translated from `screens/fixtures/screen_configs.json`,
  * not from `fixtures/table_configs.json`; that file is a measurement of the deleted
  * Flutter app (its `tableCount`, and the counts in the README beside it) that other
- * tests read as such — `configOf(...).fromConfigRowActions` below is I-102's record
+ * tests read as such — `configOf(...).fromConfigRowActions` below is the record
  * of what the Dart held. Removing the entry would falsify the measurement without
  * un-pinning anything the move above has not already un-pinned.
  */
@@ -295,10 +296,10 @@ const AUTHORED_KEYS = ["wsLookupTableTable", "wsLookupColumnTable"] as const;
  * **Three more on 2026-10-01, and they came from the other fixture.** `client`,
  * `scSourceConfigKey` and `pcPipelineConfigTable` are the tables the *Clients &
  * Vendors*, *Source Configuration* and *Pipeline Configuration* flows now open on
- * (`jetstore_maintenance_02` `AF.1`, defect `D06`), and each is about to gain a
+ * (2026-10-01), and each is about to gain a
  * button no Dart configuration had. Unlike `pipelineExecStatusTable` they were
  * translated from `fixtures/table_configs.json`, which is this test's own source
- * and the authoring surface `I-299` names — so their entries there **are**
+ * and the authoring surface for a flow table — so their entries there **are**
  * deleted: leaving them would keep a second copy that nothing compares and that
  * says the opposite of the document the moment the document is edited.
  */
@@ -352,7 +353,7 @@ const HAND_MAINTAINED_KEYS = [
 
 /**
  * Documents written for a feature, with no Dart original and none to come.
- * `rules_unit_test_harness` Phase 1, `AD.4`, 2026-10-11.
+ * The rules unit test harness, 2026-10-11.
  *
  * **A fourth list, because none of the three above describes them.** They were
  * never translations, so `HAND_MAINTAINED_KEYS`' premise does not hold; nothing in
@@ -360,18 +361,18 @@ const HAND_MAINTAINED_KEYS = [
  * nothing to compare. What they are checked against instead is the schema of the
  * tables they read (`the rules unit test tables`, below), which is the contract
  * that can actually drift: the hub and the check table read `jetsapi` tables
- * track `AC` defined in `jets/jets_schema.json`.
+ * defined in `jets/jets_schema.json`.
  */
 const FEATURE_KEYS = [
   "rutExecutionTable",
   "rutTestCaseTable",
   "rutCheckTable",
   // **Five since 2026-11-08**: Home's *Session Registry* and *Archived
-  // Pipelines* tabs (`session_registry` Phase 2, JM-081), over
+  // Pipelines* tabs, over
   // `jetsapi.session_registry_view` and `pipeline_execution_status_archive`.
   "sessionRegistryTable",
   "pipelineArchiveTable",
-  // **Six since 2026-11-12**: the Session Registry filters' process list (JM-185),
+  // **Six since 2026-11-12**: the Session Registry filters' process list,
   // a table of the tab's Set Filters dialog over `jetsapi.process_config`.
   "srProcessTable",
 ] as const;
@@ -403,7 +404,7 @@ const configOf = (key: string): TableConfig => tables[key] ?? screenTables[key]!
 /**
  * A corpus configuration as the model restores it: with `thirdRowActions` empty.
  *
- * jetstore_maintenance_02 `AE.1` (2026-10-01) gave `TableConfig` a third authored
+ * On 2026-10-01 `TableConfig` gained a third authored
  * row that no Dart configuration had, so the corpus fixtures lack the field and
  * `fromDocument` restores it as `[]`. That is the same fact spelled two ways — no
  * third row — rather than a loss, so the comparisons below add it to the corpus
@@ -423,8 +424,8 @@ describe("the emitted JSON Schema", () => {
     expect(readFileSync(artifactPath, "utf8")).toBe(emitted);
   });
 
-  // **61 since 2026-10-01**: the three add-or-edit option tables `D06` removed
-  // were retired, not moved (`jetstore_maintenance_02` `AF.2`–`AF.4`). **64 since
+  // **61 since 2026-10-01**: the three add-or-edit option tables were retired,
+  // not moved, with the add-or-edit steps that used them. **64 since
   // 2026-10-11**, the three rules unit test tables (`FEATURE_KEYS`).
   // **61 since 2026-10-15 (Release 4.0.4)**: `startPipelineUF` stopped choosing
   // merged and historical sources, and its three tables were retired.
@@ -488,21 +489,24 @@ describe("the emitted JSON Schema", () => {
 
 describe("the 28 configurations still translated from the flow fixture", () => {
   it("all translate, and with the authored ones make 64", () => {
-    // 37 + F.5's one + C.2's one + C.4's one + C.7's two + C.6's three + C.9's
-    // five + C.13's two + C.10's one + C.3's six + C.3a's two + C.3b's two + the
-    // workspace home's one, of which four are authored rather than translated. The
+    // 37 flow tables, then the non-flow ones as each screen arrived — Pipeline
+    // Status one, the workspace registry one, the Query Tool one, the execution
+    // details two, the file loader screens three, the process errors and Rete
+    // session five, then two, one, the Workspace IDE's compiled views six, the
+    // lookup view two, its file lists two, and the workspace home's one — of which
+    // four are authored rather than translated. The
     // three counts are asserted separately because
     // "how many documents are there" and "how many were measured rather than
     // written" are different questions and only the second can regress quietly.
     // **59 translated since 2026-10-01**, when `pipelineExecStatusTable` left the
-    // emitted set for `HAND_MAINTAINED_KEYS` (`jetstore_maintenance_02` `AD.2`);
+    // emitted set for `HAND_MAINTAINED_KEYS`;
     // the total is unchanged because the document did not go anywhere.
     // **34 flow documents and 56 translated since the same day**, when `client`,
-    // `scSourceConfigKey` and `pcPipelineConfigTable` followed it (`AF.1`, `D06`);
+    // `scSourceConfigKey` and `pcPipelineConfigTable` followed it;
     // the total is unchanged again, for the same reason. **31, 53 and 61 later
-    // the same day**, when `AF.2`–`AF.4` retired `ufClientOrVendorOption`,
-    // `scAddOrEditSourceConfigOption` and `pcAddOrEditPipelineConfigOption` with
-    // the add-or-edit steps `D06` removed — the first documents to leave this set
+    // the same day**, when `ufClientOrVendorOption`,
+    // `scAddOrEditSourceConfigOption` and `pcAddOrEditPipelineConfigOption` were
+    // retired with the add-or-edit steps that were removed — the first documents to leave this set
     // by going nowhere. **52 and 5 the same evening**, when `workspaceRegistryTable`
     // left too, to drop a label that repeated its screen title. **51 on
     // 2026-10-11**, when `workspaceChangesTable` left to gain a Refresh.
@@ -518,7 +522,7 @@ describe("the 28 configurations still translated from the flow fixture", () => {
     // **8 since 2026-10-02**: `org` and the two `pcView*` tables, which keep
     // their fixture entry as the Flutter record other tests use as material —
     // the on-disk document overrides the translation in `documents`, so the total
-    // stays 61 (Phase 2, a plain Show/Hide Select Row and org's + Add).
+    // stays 61 (a plain Show/Hide Select Row and org's + Add).
     // **9 on 2026-10-11**, with `workspaceChangesTable`; the total is unchanged.
     // **10 on 2026-10-15**, with `main_input_registry_key` (25 rows per page).
     // **11 on 2026-11-07**, with `userTable` (Delete User on `user_admin`).
@@ -531,11 +535,10 @@ describe("the 28 configurations still translated from the flow fixture", () => {
     // **21 on 2026-11-14**, with `wsMainSupportFilesTable`; the total is unchanged.
     expect(Object.keys(handMaintained).length).toBe(21);
     // **64 since 2026-10-11**: the three rules unit test tables
-    // (`rules_unit_test_harness` `AD.4`), written rather than translated.
+    // of the rules unit test harness, written rather than translated.
     // **5 and 63 since 2026-11-08**: *Session Registry* and *Archived
-    // Pipelines*, Home's third and fourth tabs (`session_registry` Phase 2).
-    // **6 and 64 since 2026-11-12**: the Session Registry filters' process list
-    // (JM-185).
+    // Pipelines*, Home's third and fourth tabs.
+    // **6 and 64 since 2026-11-12**: the Session Registry filters' process list.
     expect(Object.keys(featureDocuments).length).toBe(6);
     expect(Object.keys(documents).length).toBe(64);
   });
@@ -558,7 +561,7 @@ describe("the 28 configurations still translated from the flow fixture", () => {
     const maintained: readonly string[] = HAND_MAINTAINED_KEYS;
     for (const key of Object.keys({ ...translated, ...handAuthored }).filter((k) => !maintained.includes(k))) {
       // **`modelSource` is dropped before comparing, and it is the one field in
-      // `TableConfig` with no corpus counterpart.** Task C.9. The Dart spells a
+      // `TableConfig` with no corpus counterpart.** The Dart spells a
       // form-state table's row source as two fields — `modelStateFormKey` and a
       // function pointer — and the document spells it as one construct; the
       // restore sets *both* the corpus field and this one, so the corpus half is
@@ -567,7 +570,7 @@ describe("the 28 configurations still translated from the flow fixture", () => {
       const { modelSource, ...restored } = fromDocument(key, documents[key]!);
       void modelSource;
       // **`rowsPerPage` is compared against the diverged value, not the Dart's**,
-      // for the two tables `ROWS_PER_PAGE` overrides. D.11. The claim this test
+      // for the two tables `ROWS_PER_PAGE` overrides. The claim this test
       // makes is that the *schema* loses nothing — every field the Dart sets has
       // somewhere to live and comes back — and a deliberate, listed, one-field
       // divergence is not a loss. Applying the same map here rather than
@@ -590,7 +593,7 @@ describe("the 28 configurations still translated from the flow fixture", () => {
   });
 
   /**
-   * The two hand-authored documents, checked against the Dart. Task C.9.
+   * The two hand-authored documents, checked against the Dart.
    *
    * **This is what keeps `HAND_AUTHORED_KEYS` from being an escape hatch.** The
    * case above proves the *translated* documents lose nothing by restoring them
@@ -615,9 +618,9 @@ describe("the 28 configurations still translated from the flow fixture", () => {
     }
   });
 
-  // **28 query until 2026-10-01**: the three tables `AF.1` moved out are all query
-  // tables.
-  // **Nine static until the same day's `AF.2`–`AF.4`**, which retired three.
+  // **28 query until 2026-10-01**: the three tables moved out that day are all
+  // query tables.
+  // **Nine static until the same day's retirement of three option tables.**
   // **22 query since 2026-10-15**: the three tables Release 4.0.4 retired all query.
   it("split six static and 22 query, as the corpus does", () => {
     // Derived from the documents; checked against a count taken from the corpus
@@ -634,12 +637,12 @@ describe("the 28 configurations still translated from the flow fixture", () => {
 
   it("carry the corpus's 203 columns, 22 actions and 37 where clauses", () => {
     /*
-      **25 until D.10, and the two it gained are the first configuration in this
+      **25 once, and the two gained since are the first configuration in this
       corpus with no Dart original** — `fmInputSourceMappingUF`'s *Load Data* and
-      *Loader Status* (**I-260**). The count is still a measurement of the
-      fixture; what changed is that the fixture stopped being only a measurement
-      of the Flutter app, because track X deleted the generator that produced it.
-      See `fixtures/README.md`, and **I-299** for the question that leaves open.
+      *Loader Status*. The count is still a measurement of the fixture; what
+      changed is that the fixture stopped being only a measurement of the Flutter
+      app, because the generator that produced it was deleted with the app.
+      See `fixtures/README.md`.
     */
     const count = (f: (d: TableConfigDocument) => number) =>
       Object.values(flowDocuments).reduce((n, d) => n + f(d), 0);
@@ -647,10 +650,10 @@ describe("the 28 configurations still translated from the flow fixture", () => {
       columns: count((d) => d.columns.length),
       actions: count((d) => (d.source === "query" ? (d.actions ?? []).length : 0)),
       where: count((d) => (d.source === "query" ? (d.where ?? []).length : 0)),
-      // **275, 27 and 49 until 2026-10-01**, when `AF.1` took `client` (3
+      // **275, 27 and 49 until 2026-10-01**, when `client` (3
       // columns, 1 action), `scSourceConfigKey` (15, 2) and `pcPipelineConfigTable`
-      // (16, 1, and the one where clause, its join) out of the fixture; 232 after
-      // `AF.2`–`AF.4` retired three static option tables of three columns each.
+      // (16, 1, and the one where clause, its join) moved out of the fixture; 232
+      // after three static option tables of three columns each were retired.
       // **203, 22 and 37 since 2026-10-15**, when Release 4.0.4 retired
       // `mergeProcessInputTable` (10 columns, 1 where clause),
       // `merged_input_registry_keys` (14, its *Clear Filters*, 9) and
@@ -669,7 +672,7 @@ describe("the 28 configurations still translated from the flow fixture", () => {
 
   // **Eleven until 2026-10-01**: `deleteClientAction`, `dropTable`,
   // `deleteSourceConfig` and `deletePipelineConfig` are named by the three tables
-  // `AF.1` moved out of the fixture.
+  // moved out of the fixture that day.
   it("name seven action-document entries", () => {
     const names = new Set(Object.values(flowDocuments).flatMap((d) => actionNamesOf(d)));
     expect(names.size).toBe(7);
@@ -681,14 +684,14 @@ describe("the 28 configurations still translated from the flow fixture", () => {
 });
 
 /**
- * The decisions C.6 inherits. Task F.5.
+ * The decisions the home screen inherits from the home-filters flow.
  *
- * **F.5 and C.6 both want `pipelineExecStatusTable` and F.5 ran first**, so these
- * are set here rather than read from track C (plan §3, F18). They are asserted
+ * **The flow and the screen both want `pipelineExecStatusTable` and the flow came
+ * first**, so these are set here rather than read from the screen. They are asserted
  * rather than described because a decision recorded only in prose is a decision
  * the next task can contradict without anything failing.
  */
-describe("pipelineExecStatusTable, the table track C and track F share", () => {
+describe("pipelineExecStatusTable, the table a flow and a screen share", () => {
   const doc = documents["pipelineExecStatusTable"]!;
 
   it("is a query table with two from clauses and the source_period join", () => {
@@ -705,10 +708,10 @@ describe("pipelineExecStatusTable, the table track C and track F share", () => {
     if (doc.source !== "query") return;
     // **Seven since 2026-10-01**: `putSchemaEvent` is appended after
     // `clearHomeFilters`, which is "right of Clear Filters" in the report's words
-    // (`jetstore_maintenance_02` `D01`, task `AD.3`). The document is
-    // hand-maintained since `AD.2`, so this is an edit rather than a translation.
+    // (2026-10-01). The document is hand-maintained since the same day, so this is
+    // an edit rather than a translation.
     // **Eight since 2026-11-05**: *Check Pending* follows *Put Schema Event*
-    // (jetstore_maintenance JM-062).
+    // (2026-11-05).
     expect((doc.actions ?? []).map((a) => [a.key, a.action])).toEqual([
       ["startPipeline", "showScreen"],
       ["refreshTable", "refreshTable"],
@@ -729,7 +732,7 @@ describe("pipelineExecStatusTable, the table track C and track F share", () => {
   });
 
   it("names the three closures apart, which the blanket mapping did not", () => {
-    // The F.5 correction. `translateAction` sent every `hasIsEnabledFnc` to
+    // The correction this table forced. `translateAction` sent every `hasIsEnabledFnc` to
     // `hasDataRegistryFilters`, which is true of the 37 and false of all three
     // here — `clearHomeFilters` reads `homeFilters` and the two prompt buttons
     // are `(state) => true`.
@@ -742,18 +745,18 @@ describe("pipelineExecStatusTable, the table track C and track F share", () => {
     expect(escapeNamesOf(doc)).toEqual(["alwaysEnabled", "fileKeyLabel", "hasHomeFilters"]);
   });
 
-  it("carries the second row's cross-document references, so I-88's check sees them", () => {
+  it("carries the second row's cross-document references, so validateTableActions sees them", () => {
     // `resubmitPipeline` is the flow's only table-run action and
     // `showFailureDetailsDialog` its only table-opened form, and **both are on the
-    // second row**. Before F.5 `actionNamesOf` and `validateTableActions` walked
+    // second row**. Before this table `actionNamesOf` and `validateTableActions` walked
     // the first row alone, so this table would have reported no references at all.
     //
     // **Three since 2026-10-01**: the third row's *Get Run Manifest* and *Get
-    // Schema Event* (`jetstore_maintenance_02` `D04`, `AE.4`, `AE.5`) run actions
-    // too, and `actionNamesOf` reads them through `actionRowsOf` (`AE.1`).
+    // Schema Event* run actions too, and `actionNamesOf` reads them through
+    // `actionRowsOf`.
     //
     // **Four since 2026-11-05**, and the fourth is the first on the *first* row:
-    // *Check Pending* runs `checkPendingTasks` (jetstore_maintenance JM-062).
+    // *Check Pending* runs `checkPendingTasks`.
     expect(actionNamesOf(doc)).toEqual(["checkPendingTasks", "getRunManifest", "getSchemaEvent", "resubmitPipeline"]);
     if (doc.source !== "query") return;
     expect((doc.secondRowActions ?? []).find((a) => a.action === "showDialog")?.configForm).toBe(
@@ -778,13 +781,13 @@ describe("pipelineExecStatusTable, the table track C and track F share", () => {
     // configuration, so they must not become authorable content — a workspace file
     // naming one would be a second way to configure a deployment. The corpus
     // records the list empty because the corpus was generated without the variable
-    // set, which is the same reason it cannot be measured from here (**I-102**).
+    // set, which is the same reason it cannot be measured from here.
     //
-    // **Reworded 2026-10-01 (jetstore_maintenance_02 `D04`), not reversed.** The
+    // **Reworded 2026-10-01, not reversed.** The
     // buttons are back, and still not here: `JETS_CUSTOM_BUTTONS_CONFIG_JSON` is
     // a deployment variable the CDK puts in the apiserver's environment and the
     // apiserver serves at login, and the React app fills `fromConfigRowActions` at
-    // run time (`AE.6` to `AE.8`). What this pins is the half of I-102 that
+    // run time. What this pins is the half of the original objection that
     // survives — the *document* never names them, and the schema refuses a
     // document that tries (`the schema rejects`, below). The *model's* field is
     // empty after translation because translation reads only the document.
@@ -795,9 +798,10 @@ describe("pipelineExecStatusTable, the table track C and track F share", () => {
 });
 
 /**
- * The two fields `workspaceRegistryTable` brought back. Task C.2.
+ * The two fields `workspaceRegistryTable` brought back.
  *
- * Asserted here for F.5's reason and one more of its own: **`enableWhen` is the
+ * Asserted here for the reason the Pipeline Status table's decisions are, and one
+ * more of its own: **`enableWhen` is the
  * first field in this document whose spelling differs from the corpus's in a way
  * a round trip alone cannot check.** The round trip proves index → name → index
  * is exact; it cannot prove the *name* is the right one, because it reads the
@@ -822,7 +826,7 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
 
   it("accounts for every apiAction either corpus holds, which is what makes the enum closed", () => {
     // **The membership argument, asserted rather than described.** `table.ts`
-    // carried these counts in a comment for about four hours; C.0a's fixture
+    // carried these counts in a comment for about four hours; a fixture
     // regeneration then took `read` from 17 to 14 by removing three dead
     // configurations. The argument for a three-member enum is unaffected by that
     // and the sentence would have been wrong anyway, which is the case for putting
@@ -846,11 +850,12 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
     ).toEqual(["preview_file", "raw_query_tool", "read", "workspace_read"]);
     // The three exceptions are counted and `read` is not: the enum is about which
     // authorities exist, and how many tables take the default is not a fact it
-    // rests on — it is the fact C.0a moved.
+    // rests on — it is the fact the regeneration moved.
     expect(byAction["workspace_read"]).toBe(9);
     expect(byAction["preview_file"]).toBe(1);
     expect(byAction["raw_query_tool"]).toBe(1);
-    // All 37 flow tables read, which is why I.3 could answer S.7 with no field.
+    // All 37 flow tables read, which is why the document could first answer the
+    // confused-deputy question with no field at all.
     expect([...new Set(Object.values(tables).map((t) => t.apiAction))]).toEqual(["read"]);
   });
 
@@ -858,7 +863,7 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
     if (doc.source !== "query") return;
     expect(doc.apiAction).toBe("workspace_read");
     // The round trip's own claim, stated separately because it is the one that
-    // would have failed before C.2: `fromDocument` restored a constant `read`.
+    // would have failed before this table: `fromDocument` restored a constant `read`.
     expect(fromDocument("workspaceRegistryTable", doc).apiAction).toBe("workspace_read");
   });
 
@@ -871,8 +876,7 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
   it("gates six buttons on the selected row's status, by column name", () => {
     if (doc.source !== "query") return;
     const gated = allActions.filter((a) => a.enableWhen !== undefined);
-    // **Nine since 2026-10-11**: *Rules Unit Tests* (`rules_unit_test_harness`
-    // `AD.2`) takes `Open`'s gate. The Flutter corpus still has eight, which is
+    // **Nine since 2026-10-11**: *Rules Unit Tests* takes `Open`'s gate. The Flutter corpus still has eight, which is
     // why `actionBar.test.tsx`, reading that corpus, still counts eight.
     // **Six since the same evening**: *Commit & Push*, *Push Only* and *Pull*
     // lost their gates on the IDE's toolbar (always enabled), and kept
@@ -894,7 +898,7 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
   });
 
   it("enables Rules Unit Tests exactly as it enables Open, and sends it to the flow", () => {
-    // `rules_unit_test_harness` `AD.2`, 2026-10-11, criterion 19's first half.
+    // 2026-10-11, with the rules unit test harness.
     // **Asserted on behaviour as well as on the three fields**: equal JSON would
     // pass with a gate the model reads differently on a `showScreen` than on a
     // `doAction`, and the claim is about what the user sees enabled.
@@ -933,7 +937,7 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
     }
 
     // The row's `workspace_name` is column 1, as `loadWorkspaceConfig` reads it,
-    // and the template resolves to the flow through `FLOW_ROUTES` (`AD.3`).
+    // and the template resolves to the flow through `FLOW_ROUTES`.
     expect(tests.actionType).toBe("showScreen");
     expect(tests.navigationParams).toEqual({ workspace_name: 1 });
     expect(inAppPath(tests.configScreenPath, { workspace_name: "jets_ws" })).toBe(
@@ -1028,7 +1032,7 @@ describe("workspaceRegistryTable, the /workspaces screen's table", () => {
 });
 
 /**
- * The two execution-detail tables. Task C.7.
+ * The two execution-detail tables.
  *
  * They are asserted together because the interesting claim is about the *pair*:
  * two routes, one screen, and the only differences between the documents are the
@@ -1050,7 +1054,7 @@ describe("the two execution-detail tables, which are one screen behind two route
 
   it("neither offers an action or a dialog, on either row", () => {
     // What makes the screen a table and nothing else: no action bar, so no
-    // `actionDispatch`, no escape registry and no dialog host (I-68).
+    // `actionDispatch`, no escape registry and no dialog host.
     for (const doc of [status, stats]) {
       if (doc.source !== "query") throw new Error("both are query tables");
       expect(doc.actions).toBeUndefined();
@@ -1073,8 +1077,8 @@ describe("the two execution-detail tables, which are one screen behind two route
   });
 
   it("carries the second and last calculatedAs in the corpus, which stays a fragment", () => {
-    // **I-105 said C.6 would bring this in and it is C.7's**: the home screen's
-    // three tables are `inputLoaderStatusTable`, `inputRegistryTable` and
+    // **The home screen was expected to bring this in and it is this screen's**:
+    // the home screen's three tables are `inputLoaderStatusTable`, `inputRegistryTable` and
     // `pipelineExecStatusTable`, and `pipelineExecDetailsTable` is named by
     // `/executionStatusDetails/:session_id` and by nothing else
     // (`screens/fixtures/screen_reachability.json`).
@@ -1084,7 +1088,7 @@ describe("the two execution-detail tables, which are one screen behind two route
     //
     // **Sorted since 2026-10-01**: the order was `documents`' insertion order, which
     // is which list a key is on rather than anything this case asserts, and it
-    // moved when `pipelineExecStatusTable` became hand-maintained (`AD.2`).
+    // moved when `pipelineExecStatusTable` became hand-maintained.
     const sites = Object.entries(documents)
       .flatMap(([key, doc]) =>
         doc.columns.filter((c) => c.calculatedAs).map((c) => [key, c.name, c.calculatedAs]),
@@ -1092,7 +1096,7 @@ describe("the two execution-detail tables, which are one screen behind two route
       .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
     // **Three since 2026-11-08**, and the third is a copy rather than a new
     // site: *Archived Pipelines* shows *Pipelines Status*'s columns over the
-    // archive, which has the same two columns (`session_registry` Phase 2).
+    // archive, which has the same two columns.
     // **Four since 2026-11-13**, and the fourth is the first new expression and
     // the first over `workspace.db`: the Jet Rules tab's *File*, the name of the
     // file each rule is written in, as a scalar subquery so that a rule with no
@@ -1122,7 +1126,7 @@ describe("the two execution-detail tables, which are one screen behind two route
   });
 
   it("is what the non-flow corpus sets that the flow corpus does not — the whole list", () => {
-    // **F66.** `table.ts` predicted nine fields track C would restore and the
+    // `table.ts` predicted nine fields the screens would restore and the
     // list is short by four; this derives it rather than restating it, so a
     // fifth one cannot hide the way these two did. Fields already in the schema
     // are excluded: what is left is what a screen still has to pay for.
@@ -1180,11 +1184,11 @@ describe("queryToolResultSetTable, the /queryTool screen's result table", () => 
     if (doc.source !== "query") return;
     expect(doc.columns).toEqual([]);
     expect(doc.sortColumn).toBeUndefined();
-    // **Four of the non-flow corpus, not one.** The other three are C.9's, C.11's
-    // and C.12's, and they get their columns by the other mechanism — a `read`
+    // **Four of the non-flow corpus, not one.** The other three are the process
+    // errors' input records, the input table and the file viewer, and they get their columns by the other mechanism — a `read`
     // request that names none is already the request for a `columnDef`
     // (`jets/datatable/data_table_action.go`, `DoReadAction`). Asserted here
-    // rather than described in `table.ts`, for the reason C.2's enum count is.
+    // rather than described in `table.ts`, for the reason the enum count is.
     const columnless = Object.entries(screenTables)
       .filter(([, t]) => t.columns.length === 0)
       .map(([key]) => key)
@@ -1244,10 +1248,10 @@ describe("queryToolResultSetTable, the /queryTool screen's result table", () => 
 });
 
 /**
- * The two authored documents. Task C.3a.
+ * The two authored documents.
  *
- * **A hand-transcribed document that is wrong is still well formed**, which is
- * C.2b's finding on a dialog whose *Close* button is keyed `dialogCancel` and
+ * **A hand-transcribed document that is wrong is still well formed**, which was
+ * found on a dialog whose *Close* button is keyed `dialogCancel` and
  * styled `dialogOk`. These two have no Dart to be wrong about — the `lookups`
  * view was never built — so the risk is not transcription but *invention*: a
  * column that is not a column, a join that does not join. The schema cannot see
@@ -1340,7 +1344,7 @@ describe("the schema rejects", () => {
 
   it("a static table with no columns", () => {
     // **This case read "a table with no columns" and used a query table until
-    // C.4**, which is the whole of what changed: a query table may declare none
+    // the Query Tool table**, which is the whole of what changed: a query table may declare none
     // and the server describes the result, and a static table's rows are compiled
     // in with nothing to describe them.
     rejects({ ...staticBase(), columns: [] });
@@ -1354,7 +1358,7 @@ describe("the schema rejects", () => {
 
   it("a requestColumnDef of false, rather than absent", () => {
     // `z.literal(true)`: the field is a request, and "do not request" is said by
-    // omission. Two spellings for one meaning is I-14 again, and it is the same
+    // omission. Two spellings for one meaning again, and it is the same
     // shape `apiAction`'s absent `read` takes one field over.
     rejects({ ...base(), requestColumnDef: false });
   });
@@ -1370,7 +1374,7 @@ describe("the schema rejects", () => {
   });
 
   it("an apiAction outside the three-member enum", () => {
-    // **The security cut, narrowed rather than relaxed — C.2.** This case read
+    // **The security cut, narrowed rather than relaxed.** This case read
     // "an apiAction, which this document deliberately has no field for" until the
     // first screen needed `workspace_read`. The property it protects is unchanged:
     // `apiAction` reaches `DataTableAction.Action` and dispatches over the whole
@@ -1420,8 +1424,8 @@ describe("the schema rejects", () => {
   });
 
   it("fromConfigRowActions on any arm, so no document can name a deployment's buttons", () => {
-    // Criterion 15 of jetstore_maintenance_02 Phase 1, and `ui_refresh` I-102's
-    // objection made a property of the schema rather than of a convention: the
+    // The objection to authored deployment buttons, made a property of the
+    // schema rather than of a convention: the
     // custom buttons come from `JETS_CUSTOM_BUTTONS_CONFIG_JSON` at run time.
     // `jets/userflow/table_schema_test.go` asserts the same of the Go copy.
     const button = { key: "k", label: "L", action: "doAction", actionName: "a", style: "secondary" };
@@ -1446,7 +1450,7 @@ describe("the schema rejects", () => {
 });
 
 /**
- * The third action row. jetstore_maintenance_02, `D04`, task `AE.1` (2026-10-01).
+ * The third action row (2026-10-01).
  *
  * No Dart configuration had one, so nothing in the round trip above exercises it;
  * these build one on `pipelineExecStatusTable`, the table that gets it, and follow
@@ -1508,10 +1512,10 @@ describe("thirdRowActions", () => {
 });
 
 /**
- * The rules unit test tables. `rules_unit_test_harness` Phase 1, `AD.4`, 2026-10-11.
+ * The rules unit test tables (2026-10-11).
  *
  * **They are read against the schema of what they read**, because that is the
- * contract between two tracks: `AC.1` defined the two `jetsapi` tables in
+ * contract between two pieces of work: the server side defined the two `jetsapi` tables in
  * `jets/jets_schema.json`, and a column named here that the table does not have
  * is a query the server refuses, which nothing else in this suite would see.
  */
@@ -1556,7 +1560,7 @@ describe("the rules unit test tables", () => {
   });
 
   it("reads the test cases from the unit_tests table the compile writes", () => {
-    // `AD.1` records each `.tst.json` in `workspace.db` at compile, and
+    // The compile records each `.tst.json` in `workspace.db`, and
     // `jets/workspace_schema.sql` is the only thing that knows its columns.
     const sql = readFileSync(fileURLToPath(new URL("../../../jets/workspace_schema.sql", import.meta.url)), "utf8");
     const body = /CREATE TABLE IF NOT EXISTS unit_tests \(([\s\S]*?)\n\);/.exec(sql)?.[1] ?? "";
@@ -1569,8 +1573,8 @@ describe("the rules unit test tables", () => {
     if (doc.source !== "query") throw new Error("rutTestCaseTable is not a query table");
     expect(doc.from).toEqual([{ schema: "$SCHEMA", table: "unit_tests" }]);
     expect(doc.columns.map((c) => c.name)).toEqual(declared);
-    // Multi-select, and what the fanOut posts is the path, which `AC.2` reads as
-    // `test_path`.
+    // Multi-select, and what the fanOut posts is the path, which the server reads
+    // as `test_path`.
     expect(doc.isCheckboxSingleSelect).toBeUndefined();
     expect(doc.formStateBinding?.otherColumns).toEqual([{ stateKey: "test_path", columnIdx: 0 }]);
   });
@@ -1579,7 +1583,7 @@ describe("the rules unit test tables", () => {
     // `resolveSortColumn` (`model.ts`) resolves the configured sort column among
     // the *visible* columns and sends an empty one otherwise, so a query table
     // sorted on a hidden column is not sorted at all. `rutExecutionTable` was, on
-    // its hidden `key`, until `AD.7`'s FlowRunner test read the request it sent
+    // its hidden `key`, until a FlowRunner test read the request it sent
     // (2026-10-11). Asserted over every query document rather than the three,
     // because nothing else checks it: on that day the only tables sorting on a
     // hidden column were six static option tables, whose rows the server never
@@ -1592,7 +1596,7 @@ describe("the rules unit test tables", () => {
   });
 
   it("qualify a numeric sort column with its table, so PostgreSQL sorts it as a number", () => {
-    // Found by the browser pass (`AG.1`, 2026-10-11): `rutCheckTable` listed
+    // Found by a browser pass (2026-10-11): `rutCheckTable` listed
     // checks 10, 11, 12, 8, 9 under "#" ascending. `buildQuery` selects every
     // column as `"col"::text` and orders by the bare sort column when the request
     // names no table, which PostgreSQL resolves to the *text output* column
@@ -1606,7 +1610,7 @@ describe("the rules unit test tables", () => {
     //
     // Over every query document. Two shipped tables sort on an unqualified
     // numeric column today and are listed rather than fixed here, because they
-    // are not this project's (`rules_unit_test_harness` reports them); a third
+    // are not the rules unit test harness's (it reports them); a third
     // appearing fails. Timestamps are not checked: their text form sorts in time
     // order, so the cast is harmless for them.
     const KNOWN_UNQUALIFIED = ["cpipesExecDetailsTable", "pipelineExecDetailsTable"];
@@ -1630,7 +1634,7 @@ describe("the rules unit test tables", () => {
     // `DoReadAction` requires `jetstore_read`, which three roles hold;
     // `DoWorkspaceReadAction` requires `workspace_ide`, which only the knowledge
     // engineer holds. The flow is protected exactly as well as its reads are
-    // (definition F49), so all three take the second path — the two `jetsapi`
+    // so all three take the second path — the two `jetsapi`
     // tables included, which that handler reads from PostgreSQL.
     // The three of `FEATURE_KEYS` that are this harness's: the Home tabs added to
     // the list on 2026-11-08 read through `read`, gated on `jetstore_read`, as

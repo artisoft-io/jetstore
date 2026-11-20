@@ -44,6 +44,8 @@ temp.h
 build/
 # The sanitizer build tree, configured beside build/.
 build-san/
+# A build tree of one's own, as utils/libjets_env.sh -B bld makes for the Go tests.
+bld/
 vscode_build/
 bin
 pkg
@@ -99,12 +101,10 @@ jets/datatable/test/do_notify/server/server
 jets/copytest/scratchpad/test/test
 jets/compute_pipes/local_test_driver/local_test_driver
 jets/serverv2/serverv2
-cdk/jetstore_one/lambdas/sqs_listener/cgt_sqs_listener.go
 jets/jetrules/test_ws/reports.tgz
 jets/jetrules/test_ws/workspace.db
 jets/jetrules/test_ws/lookup.db
 jets/jetrules/test_ws/workspace.tgz
-cdk/jetstore_one/lambdas/sqs_listener/cgt_sqs_listerner.go
 jets/copytest/parquettest/output.parquet
 jets/copytest/parquetschema/parquetschema
 jets/copytest/scratchpad/outputFile.txt
@@ -116,7 +116,6 @@ jets/copytest/unsnappy/unsnappy
 jets/copytest/generate_cert/generate_cert
 jets/apiserver/cert.pem
 jets/apiserver/key.pem
-cdk/jetstore_one/lambdas/sqs_listener/cgt_sqs_listener_test.go
 jets/copytest/upload-copy/upload-copy
 jets/awsi/s3_copy_file.go.bak
 jets/run_reports/delegate/run_commands copy.go.bak
@@ -127,43 +126,39 @@ jets/copytest/parquet_reader/main.go
 jets/jsontest/pqarrow_json_test/pqarrow_json_test
 jets/jsontest/pqarrow_decimal_test/pqarrow_decimal_test
 jets/jsontest/pqarrow_decimal_test/sample_decimals_v17.parquet
-cdk/jetstore_one/lambdas/cpipes_run_reports/cgt_run_reports.go
-cdk/jetstore_one/lambdas/cpipes_run_reports/cgt_reports_func.go
-cdk/jetstore_one/lambdas/api_gateway_cgt/cgt_api_lambda.go
 cdk/sample_projects/private-api-stack/.env
 jets/cbooter/cbooter
 jets/copytest/run_user_cmd/run_user_cmd
 cdk/sample_projects/private-api-stack/lambda/lambda-deployment-package.zip
-cdk/jetstore_one/lambdas/api_gateway_cgt/cgt_api_lambda.go
 cdk/sample_projects/private-api-stack/.env
-cdk/jetstore_one/lambdas/sqs_listener/cgt_fm_api.go
-cdk/jetstore_one/lambdas/api_gateway_cgt/cgt_fm_api.go
 jets/compilerv2/compiler/testdata/workspaceV2.db
 jets/jsontest/compilerv2_test/compilerv2_test
 cdk.context.json
-jets/rete/test_data/usi_lookup_v1.db
-jets/rete/test_data/usi_workspace_v1.db
-jets/rete/test_data/usi_lookup_v2.db
-jets/rete/test_data/usi_workspace_v2.db
+# A workspace's compiled rules and lookups, copied here to run the engine tests
+# against a real workspace: never JetStore's to commit.
+jets/rete/test_data/*_lookup_v[0-9]*.db
+jets/rete/test_data/*_workspace_v[0-9]*.db
 jets/compilerv2/compiler/testdata/workspace.db
 # Compiler output written by the tests that pass saveJson=true; nothing reads it
 jets/compilerv2/compiler/testdata/*.jr.json
 jets/compute_pipes/local_test_driver/env.sh
 jets/compute_pipes/local_test_driver/run_test.sh
-cdk/jetstore_one/lambdas/api_gateway_cgt/cgt_deid_handler.go
-cdk/jetstore_one/lambdas/api_gateway_cgt/cgt_lmm_handler.go
-cdk/jetstore_one/lambdas/api_gateway_cgt/parser
 jets/cmds/cbooter/cbooter
 jets/cmds/compile_workspace/compile_workspace
 jets/cmds/cpipes_native_server/cpipes_native_server
+# A workspace's own Lambda sources, which a workspace build may copy into this
+# tree beside JetStore's to build them: never JetStore's to commit. Whole
+# directories JetStore does not track, an API gateway handler directory named
+# api_gateway_<suffix> (JetStore's own is api_gateway/, tracked), and extra
+# handler files beside the stock reports Lambda's main.go.
 cdk/jetstore_one/lambdas/sqs_listener
-cdk/jetstore_one/lambdas/run_reports/cgt_reports_func.go
-cdk/jetstore_one/lambdas/run_reports/cgt_run_reports.go
+cdk/jetstore_one/lambdas/api_gateway_*/
+cdk/jetstore_one/lambdas/run_reports/*_run_reports.go
+cdk/jetstore_one/lambdas/run_reports/*_reports_func.go
 cdk/jetstore_one/lambdas/cpipes_run_reports
 cdk/jetstore_one/lambdas/sqs_listerner
 jets/compilerv2/compiler/testdata/workspaceV2.db
 jets/jsontest/compilerv2_test/compilerv2_test
-cdk/jetstore_one/lambdas/api_gateway_cgt/parser/test_driver/test_driver
 jets/cmds/cbooter/cbooter
 jets/cmds/compile_workspace/compile_workspace
 jets/cmds/cpipes_native_server/cpipes_native_server

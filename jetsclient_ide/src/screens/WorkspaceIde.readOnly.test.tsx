@@ -1,8 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * **A workspace's README opens read-only.** jetstore_maintenance_02 `AL.1`,
- * 2026-10-27.
+ * **A workspace's README opens read-only.** 2026-10-27.
  *
  * The server lists a workspace's `.md` files and marks each node `read_only`
  * (`wsfile.ReadOnlySuffixes`), and refuses a save of one. This pins the

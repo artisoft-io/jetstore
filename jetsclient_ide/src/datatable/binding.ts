@@ -1,7 +1,7 @@
 /**
  * The two-way binding between a data table's selection and the enclosing form.
  *
- * Task A.4c, and the piece the sizing called the subtle one. Ported from
+ * The subtle piece of the table port. Ported from
  * `JetsDataTableSource` — `resetSecondaryKeys` (`data_table_source.dart:62`),
  * `_updateFormState` (`:109`), `updateTableFromFormState` (`:169`) — and from
  * `checkRebuildTableOnFormStateChange` (`data_table.dart:487`) and the blocking

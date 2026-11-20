@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * **C.6's exit condition: the front door runs in the app, filtered.**
+ * **The claim: the front door runs in the app, filtered.**
  *
  * On `WorkspaceRegistry.test.tsx`'s shape, which is on `FlowRunner.test.tsx`'s.
  * Everything below the api client is real and the only stub is `fetch`.
@@ -11,13 +11,13 @@
  * **The request, not the rows.** Three separate filters reach this screen's
  * tables — `homeFilters`, `dataRegistryFilters` and `selectedClient` — and none
  * of them is visible on screen. A screen that dropped all three renders three
- * perfectly correct tables of every client's rows, which is C.7's measured
- * hazard (deleting `routeParams` failed 3 of 8 cases and passed 5) and I-104's
- * original one.
+ * perfectly correct tables of every client's rows, which is the hazard measured
+ * on the execution details screens (deleting `routeParams` failed 3 of 8 cases
+ * and passed 5) and the original one of a test that checks only the rows.
  *
  * So the cases below assert the `whereClauses` the table actually posted, and
  * the two mutations that would silence each filter are run and their numbers
- * recorded in the handoff rather than asserted to be caught.
+ * recorded in the change's description rather than asserted to be caught.
  *
  * ## The harness renders the banners
  *
@@ -111,8 +111,8 @@ const archiveRows: (string | null)[][] = [
 
 /**
  * What `preview_session_deletion` answers: the selected file session, and the
- * mapping session reading it, whose run is active. The shape the plan agreed
- * (§3.3); `sessionDeletion.ts`'s `previewRowOf` is the one reader of it.
+ * mapping session reading it, whose run is active. The shape the design agreed;
+ * `sessionDeletion.ts`'s `previewRowOf` is the one reader of it.
  */
 const previewRows = [
   {
@@ -148,13 +148,13 @@ let startPendingResponse: { status: number; body: unknown } = { status: 200, bod
 /** The signed-in user's capabilities; one case removes `run_pipelines`. */
 let loginCapabilities = ["run_pipelines"];
 
-/** The login response's `custom_buttons` (`D04`, `AE.8`); absent unless a case sets it. */
+/** The login response's `custom_buttons`; absent unless a case sets it. */
 let loginCustomButtons: unknown = undefined;
 
 /**
  * The S3 stage as `fetch_file_from_stage` sees it, by path under the stage
  * prefix. A path not here is answered 404, which is what the handler says for a
- * missing object since `I-23`.
+ * missing object.
  */
 let stageFiles: Record<string, string> = {};
 
@@ -199,7 +199,7 @@ function stubServer() {
         );
       case "read": {
         const from = (body["fromClauses"] as { table: string }[])[0]!.table;
-        // Two tables since D.10 — the loader table moved to `/fileLoaderStatus`,
+        // Two tables since the loader table moved to `/fileLoaderStatus`,
         // and its rows and its assertions went with it.
         const rows =
           from === "pipeline_execution_status"
@@ -214,7 +214,7 @@ function stubServer() {
         return new Response(JSON.stringify({ rows, totalRowCount: rows.length }), { status: 200 });
       }
       case "raw_query": {
-        // *Get Schema Event*'s read (`AE.5`), told apart from the client picker's
+        // *Get Schema Event*'s read, told apart from the client picker's
         // by the column it selects.
         const query = String(body["query"]);
         if (query.includes("schema_provider_json")) {
@@ -291,11 +291,11 @@ async function mount(entry = "/home", marker = PIPELINES_MARKER) {
   );
   // **A row value rather than the table's label**, and a *visible* one. A static
   // table's rows arrive one tick after its caption, so awaiting the label and
-  // then querying a row is racy — I-104's flake, recorded rather than
+  // then querying a row is racy — a known flake, recorded rather than
   // rediscovered.
   //
-  // **The marker is the pipelines table's since D.4**, because that tab is now
-  // first and default (**I-260**). It was `acme_org`, a loader-table row, and the
+  // **The marker is the pipelines table's now**, because that tab is now
+  // first and default. It was `acme_org`, a loader-table row, and the
   // loader table is no longer what mounts. `acme_org` would not do for both: the
   // pipelines table hides `main_object_type`, and a hidden cell is not in the DOM
   // at all — which is the same trap the previous comment recorded, one column over.
@@ -326,7 +326,7 @@ const PIPELINES_MARKER = "00:01:12";
 /**
  * Opens a tab and waits for one of its rows.
  *
- * **Tolerant of the tab already being open since D.4.** The pipelines tab is the
+ * **Tolerant of the tab already being open.** The pipelines tab is the
  * default now, so the calls that used to click their way to it are asking for a
  * tab that is already active; clicking an active tab is harmless and the wait is
  * the part that matters. Left as calls rather than deleted, because each one
@@ -411,16 +411,16 @@ describe("the screen", () => {
     await mount();
     /*
       ~~The order is the document's and it is the order a user's muscle memory is
-      in.~~ **Changed at D.4, from I-260**, which is the reporter's decision and
+      in.~~ **Changed on a user's request**, which is the reporter's decision and
       the first time this order has been chosen rather than inherited: *Pipeline
       Execution Status* becomes first and default, relabelled *Pipelines Status*.
 
-      ~~**`File Loader Status` is still here and is leaving.**~~ **Gone at D.10**,
+      ~~**`File Loader Status` is still here and is leaving.**~~ **Gone**,
       to `/fileLoaderStatus`, reached from `fileMappingUF`'s *Loader Status*
-      button. Three tabs to two, which is the whole of I-260's first line.
+      button. Three tabs to two, which is the whole of the request's first line.
     */
-    // **Four since `session_registry` Phase 2 (2026-11-08)**: *Session
-    // Registry* third and *Archived Pipelines* fourth, the plan's order (§3.6).
+    // **Four since the Session Registry (2026-11-08)**: *Session
+    // Registry* third and *Archived Pipelines* fourth, the design's order.
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
       "Pipelines Status",
       "Data Registry",
@@ -432,8 +432,8 @@ describe("the screen", () => {
 
   it("draws no caption on the pipelines table, because the tab strip names it", async () => {
     /*
-      **The last line of I-260, and it is at this render site rather than in the
-      document.** D.4 tried emptying `label` in `pipelineExecStatusTable.tc.json`
+      **The last line of that request, and it is at this render site rather than
+      in the document.** An earlier change tried emptying `label` in `pipelineExecStatusTable.tc.json`
       and backed out: `homeFiltersUF` renders the same document out of the
       workspace, where nothing else names the table, and eight tests said so.
 
@@ -457,8 +457,8 @@ describe("the screen", () => {
   it("queries a tab's table only once it is opened", async () => {
     /*
       **The tab this asserts about has changed twice and the property has not.**
-      D.4 made pipelines first and default, so the *other* tab is the one that
-      must wait; D.10 removed the loader tab, so the other tab is the registry.
+      Pipelines became first and default, so the *other* tab is the one that
+      must wait; then the loader tab was removed, so the other tab is the registry.
       Rewritten each time rather than deleted, because what is under test is
       laziness rather than any particular table.
     */
@@ -487,10 +487,10 @@ describe("the three filters, none of which is visible on the screen", () => {
   it("reaches both tables, because both declare a client column", async () => {
     // **Two tables, two chances to have supplied the context to one of them.**
     // The single-table assertion above passes on a screen that wired the picker
-    // into the first tab and forgot the other — which is the shape of every I-104
-    // failure: correct where it was checked, absent where it was not.
+    // into the first tab and forgot the other — which is the shape of every
+    // failure of a test that checks only the rows: correct where it was checked, absent where it was not.
     //
-    // **Three until D.10 moved the loader table off this screen**, where the same
+    // **Three until the loader table moved off this screen**, where the same
     // claim is `FileLoaderStatus.test.tsx`'s. It is asserted there rather than
     // dropped, because a table that leaves a screen with the filter is a table
     // that can arrive on the next one without it.
@@ -512,7 +512,7 @@ describe("the three filters, none of which is visible on the screen", () => {
     // is false — and `inputRegistryTable` alone then gets the `Any` exclusion
     // (`data_table_source.dart`, `_makeQuery`).
     const { posts } = await mount();
-    // The pipelines table since D.10; it was the loader table, which has moved to
+    // The pipelines table now; it was the loader table, which has moved to
     // a screen of its own. Either serves — what is under test is that no client
     // clause is sent at all, on a table that has the column.
     const pipelines = lastRead(posts, "pipeline_execution_status")!["whereClauses"] as
@@ -552,7 +552,7 @@ describe("the three filters, none of which is visible on the screen", () => {
   it("splices dataRegistryFilters into inputRegistryTable and into nothing else", async () => {
     seedHomeFilters();
     const { posts } = await mount();
-    // **The "nothing else" table is the pipelines one since D.10.** It was the
+    // **The "nothing else" table is the pipelines one now.** It was the
     // loader table; that one has moved, and this screen's remaining pair is what
     // the claim can be made against here.
     const pipelines = (lastRead(posts, "pipeline_execution_status")!["whereClauses"] ?? []) as Record<
@@ -573,7 +573,7 @@ describe("the three filters, none of which is visible on the screen", () => {
 
 describe("the table's buttons", () => {
   it("draws both action rows — eight above and five below", async () => {
-    // I-104's other half: `secondRowActions` was authored and nothing drew it.
+    // The other half: `secondRowActions` was authored and nothing drew it.
     // `TableView` draws both bars, and this table is the reason it has to.
     await mount();
     await openTab("Pipelines Status", "00:01:12");
@@ -598,13 +598,13 @@ describe("the table's buttons", () => {
 
   it("puts each action row on a line of its own, the label sharing the first", async () => {
     /*
-      `jetstore_maintenance_02`, `D03`, 2026-10-01. Until then both bars were
+      2026-10-01. Until then both bars were
       flex items of one header row, so the "second row" sat on the first row's
       line. **This asserts the structure, not the layout** — jsdom computes no
       boxes — so it catches the rows being merged again and says nothing about
-      where they land on screen; criterion 3 is a browser's. The Data Registry
+      where they land on screen; that check is a browser's. The Data Registry
       table is used for the label half because Pipeline Status draws no caption
-      on this screen (I-260).
+      on this screen.
     */
     await mount();
     await openTab("Pipelines Status", "00:01:12");
@@ -621,14 +621,13 @@ describe("the table's buttons", () => {
 
   /*
     **The first assertions anywhere on Clear Filters' enabled state** — the case
-    above checks only that the button exists. `jetstore_maintenance_02`, `D02`,
-    2026-10-01. Pipeline Status's button tests the *home* filters and Data
+    above checks only that the button exists. 2026-10-01. Pipeline Status's button tests the *home* filters and Data
     Registry's tests the *data-registry* filters; a status filter sets only the
     first, which is what tells a gate wired to the wrong store from the right one.
     The pickers' half is `datatable/clearFiltersGate.test.tsx`.
   */
   it("disables Pipeline Status's Clear Filters when no home filter is set", async () => {
-    // **Reverting AA.1 turns this red**: the by-key lookup had no entry for
+    // **Reverting the fix turns this red**: the by-key lookup had no entry for
     // `clearHomeFilters`, so the button was never gated.
     await mount();
     await openTab("Pipelines Status", "00:01:12");
@@ -652,7 +651,7 @@ describe("the table's buttons", () => {
   });
 
   it("enables Data Registry's Clear Filters once a data-registry filter is set", async () => {
-    // **Reverting AA.2 turns this red**: `hasDataRegistryFilters` as `false`.
+    // **Reverting the fix turns this red**: `hasDataRegistryFilters` as `false`.
     seedHomeFilters();
     await mount();
     await openTab("Data Registry", "claim_staging");
@@ -664,10 +663,10 @@ describe("the table's buttons", () => {
     await openTab("Pipelines Status", "00:01:12");
     await selectRow("00:01:12");
 
-    // `/executionStatusDetails/:session_id` is C.7's and is served here, so this
+    // `/executionStatusDetails/:session_id` is served here, so this
     // is a router navigation and the stub route renders.
     //
-    // **The title said "and to Flutter for one it does not" until X.1**, and the
+    // **The title said "and to Flutter for one it does not" until Flutter was retired**, and the
     // body never asserted that half — which is why it kept passing when the
     // fallback was replaced. A test name is not a test, and this one was
     // describing behaviour nothing checked.
@@ -676,9 +675,9 @@ describe("the table's buttons", () => {
   });
 
   it("asks for a session id list with a prompt, and filters on the answer", async () => {
-    // I-102 decision 4: a request kind, not a dialog, and never blocked on the
+    // A design decision: a request kind, not a dialog, and never blocked on the
     // dialog host. `showGetInputDialog` is one `TextField` with CANCEL and OK.
-    // Since I-39 (2026-10-02) the app's own prompt rather than `window.prompt`,
+    // Since 2026-10-02 the app's own prompt rather than `window.prompt`,
     // which the embedded browser pane never shows: it typed nothing and the
     // filter never moved. Typed into here, and Enter is *OK*.
     const { posts } = await mount();
@@ -708,7 +707,7 @@ describe("the table's buttons", () => {
   });
 
   it("opens the failure-details dialog over the screen, seeded from the selected row", async () => {
-    // **I-68's consumer on a second screen.** The dialog is a viewer: one field
+    // **The dialog host's consumer on a second screen.** The dialog is a viewer: one field
     // and one Close button, seeded from column 13 of the selected row through
     // `navigationParams`.
     await mount();
@@ -732,7 +731,7 @@ describe("the table's buttons", () => {
     await waitFor(() => {
       const post = posts.map((p) => p.body).find((b) => b["action"] === "resubmit_pipeline");
       expect(post).toBeTruthy();
-      // I-100: the `set` step is the Dart's `unpack`, and it reads as a no-op —
+      // The `set` step is the Dart's `unpack`, and it reads as a no-op —
       // without it the selection reaches the server as a one-element list and
       // every press is a 400.
       const rows = post!["data"] as Record<string, unknown>[];
@@ -751,14 +750,13 @@ describe("the table's buttons", () => {
 });
 
 /**
- * *Put Schema Event*. `jetstore_maintenance_02` `D01`, tasks `AD.3` and `AD.6`,
- * 2026-10-01.
+ * *Put Schema Event*, 2026-10-01.
  *
  * The button opens a dialog with one text box; Save posts `put_schema_event_to_s3`
  * to `/registerFileKey` with **no** `file_key`, because the server names the
- * object (`AD.1`; a unique `SchemaEventFileKeyStem` name since Phase 2), and the outcome reaches the status
- * banner (`Q-2`). What a browser has to show — the dialog's width, and the banner
- * where a user sees it — is criterion 8's other half and is not asserted here.
+ * object (a unique `SchemaEventFileKeyStem` name), and the outcome reaches the status
+ * banner. What a browser has to show — the dialog's width, and the banner
+ * where a user sees it — is a browser check's half and is not asserted here.
  */
 describe("Put Schema Event", () => {
   const EVENT = '{"client":"acme","object_type":"claim","file_key":"client=acme/x.csv"}';
@@ -792,8 +790,8 @@ describe("Put Schema Event", () => {
 
   it("is disabled for a user without run_pipelines, which is what the endpoint requires", async () => {
     // `RegisterFileKeyCapability` (`jets/apiserver/api_filekey.go`) is
-    // `run_pipelines`; the retired flow declared `client_config` (I-2). A.2's
-    // model disables rather than hides.
+    // `run_pipelines`; the retired flow declared `client_config`. The action
+    // bar's model disables rather than hides.
     loginCapabilities = [];
     await mount();
     await openTab("Pipelines Status", "00:01:12");
@@ -869,7 +867,7 @@ describe("Put Schema Event", () => {
   });
 
   /**
-   * JM-061 (2026-11-05): the dialog kept its text after it closed, because its
+   * 2026-11-05: the dialog kept its text after it closed, because its
    * field lived in the group the tables share and nothing cleared it. Opening it
    * again offered the last event, and Save put it a second time.
    */
@@ -924,7 +922,7 @@ describe("Put Schema Event", () => {
 });
 
 /**
- * *Check Pending* (jetstore_maintenance JM-062, 2026-11-05). A row inserted into
+ * *Check Pending* (2026-11-05). A row inserted into
  * `pipeline_execution_status` as `pending` by SQL waits for the next status update
  * or the apiserver's hourly sweep; this button posts `start_pending_tasks`, whose arm calls `StartPendingTasks` behind
  * `run_pipelines` (`jets/apiserver/api_tables.go`). That a pipeline then starts
@@ -993,7 +991,7 @@ describe("Check Pending", () => {
  * **Not by assigning the store**, which is the point: `updateHomeFilters` is what
  * `homeFiltersUF` runs, and driving it here means this screen is tested against
  * the values that flow actually produces, including the `now()-interval` string
- * I-105 carries as debt.
+ * recorded as debt.
  */
 function seedHomeFilters() {
   const formState = new FormState();
@@ -1018,9 +1016,8 @@ async function selectRow(text: string) {
 }
 
 /**
- * `D04`'s third row: *Get Run Manifest*, *Get Schema Event*, and the deployment's
- * custom buttons after them. jetstore_maintenance_02 tasks `AE.4`, `AE.5`, `AE.8`
- * and `AE.9`, 2026-10-01.
+ * The third row: *Get Run Manifest*, *Get Schema Event*, and the deployment's
+ * custom buttons after them, 2026-10-01.
  *
  * The clipboard is the browser's, so it is stubbed on `navigator`; everything
  * else is the real screen over a stubbed `fetch`. **The layout half of criterion
@@ -1084,7 +1081,7 @@ describe("the third row", () => {
       .map((b) => b.textContent);
 
   it("draws three action rows in the report's order, the custom buttons last on the third", async () => {
-    // Criterion 11 (the layout half) and 14 (*rendered after the two built-ins*).
+    // The layout, and the custom buttons *rendered after the two built-ins*.
     loginCustomButtons = ORG1_BUTTONS;
     await onSelectedRun();
     expect(lineOf("Clear Filters")).toBe(lineOf("Start Pipeline"));
@@ -1100,16 +1097,16 @@ describe("the third row", () => {
   });
 
   it("offers Get Run Manifest on a completed run only", async () => {
-    // A manifest is written for completed cpipes runs only (F20), so the row's
-    // status gates the button (F51); a completed run that was not cpipes is the
+    // A manifest is written for completed cpipes runs only, so the row's
+    // status gates the button; a completed run that was not cpipes is the
     // next case.
     await onSelectedRun("failed");
     expect((button("Get Run Manifest") as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("copies a completed run's manifest and says so in the banner", async () => {
-    // Criterion 12, first half. The path is built from the selected row's
-    // process_name and session_id, which the binding publishes as lists (F19).
+    // The path is built from the selected row's process_name and session_id,
+    // which the binding publishes as lists.
     stageFiles = { [MANIFEST]: '{"run":"sess-1"}' };
     const { posts } = await onSelectedRun();
     fireEvent.click(button("Get Run Manifest"));
@@ -1120,7 +1117,7 @@ describe("the third row", () => {
   });
 
   it("says plainly when a completed run has no manifest, rather than reporting an error", async () => {
-    // Criterion 12, second half: the handler's 404 (I-23) is an answer here.
+    // The handler's 404 is an answer here.
     await onSelectedRun();
     fireEvent.click(button("Get Run Manifest"));
     await screen.findByText(
@@ -1142,8 +1139,8 @@ describe("the third row", () => {
   });
 
   it("copies the schema event of the registry row main_input_registry_key names", async () => {
-    // Criterion 13. Column 14 of the row is 42; the lookup is by that key, not by
-    // `input_session_id`, which can name several rows (F17, R8).
+    // Column 14 of the row is 42; the lookup is by that key, not by
+    // `input_session_id`, which can name several rows.
     schemaEvents = { "42": '{"event":"from registry 42"}' };
     const { posts } = await onSelectedRun("failed");
     fireEvent.click(button("Get Schema Event"));
@@ -1182,8 +1179,8 @@ describe("the third row", () => {
 });
 
 /**
- * *Session Registry* and *Archived Pipelines*, Home's third and fourth tabs.
- * `session_registry` Phase 2 (JM-081), tasks G.2 and G.3, 2026-11-08.
+ * *Session Registry* and *Archived Pipelines*, Home's third and fourth tabs,
+ * 2026-11-08.
  *
  * As above, **the request rather than the rows**: each filter is asserted as the
  * where clause the tab posted, because a filter that reaches nothing renders a
@@ -1320,7 +1317,7 @@ describe("Session Registry and Archived Pipelines", () => {
     await openTab("Session Registry", SESSION_MARKER);
     fireEvent.click(button("Set Filters"));
     const dialog = await screen.findByRole("dialog");
-    // The process list is the dialog's own table, over process_config (JM-185).
+    // The process list is the dialog's own table, over process_config.
     await within(dialog).findByText("Map_MedicalClaim");
     await selectRow("Map_MedicalClaim");
     expect(within(dialog).queryByLabelText(/Month Period/)).toBeNull();

@@ -99,6 +99,40 @@ CGO_CFLAGS="-I$PWD/jets" CGO_LDFLAGS="-L$LIB" LD_LIBRARY_PATH=$LIB \
 The rule tests in that package compile a copy of `jets/jetrules/test_ws` and run it in a child process,
 so they need no workspace of yours.
 
+`utils/libjets_env.sh` does both steps: it builds `libjets.so` from the checkout it is in and prints
+the three variables, ready to `eval`. Give it `-B <dir>` to build somewhere other than `build/`, and
+`--no-build` to print the variables for a build you already have:
+
+```bash
+eval "$(utils/libjets_env.sh -B bld)"     # bld/ is ignored, like build/
+go test -count=1 ./jets/bridge/ ./jets/compute_pipes/
+```
+
+#### When the link fails with `undefined reference`
+
+A failure like this one means the test linked a `libjets.so` older than the code that calls it:
+
+```text
+/tmp/go-build/bridge.cgo2.c:1357:(.text+0xf3a): undefined reference to `get_vertex_observations'
+collect2: error: ld returned 1 exit status
+FAIL    github.com/artisoft-io/jetstore/jets/bridge [build failed]
+```
+
+The `#cgo` directives in `jets/bridge/bridge.go` look for the library in `build/jets` of the
+checkout, then in `/usr/local/go/build/jets` and `/app/jets` (the second is where the builder image
+puts it, `dockerfiles/Dockerfile.cpipes_builder`), and then the
+linker looks in its default path (`ldconfig -p | grep libjets` shows what is there). **A checkout with
+no `build/jets` of its own, such as a git worktree, falls through to the last of these**, and links
+whatever `libjets.so` another checkout left there. The failure names the first function the old
+library lacks, not the library, so it reads like a bug in the code. Build the library in this
+checkout and set the variables above, or run `utils/libjets_env.sh`.
+
+**The run needs `LD_LIBRARY_PATH` as well, even when the link succeeds.** The test binary loads
+`libjets.so` at run time from the loader's path, not from the directory it was linked against, so
+with `CGO_LDFLAGS` alone it can link the new library and load the old one. That fails at the first
+call the old library lacks, as `symbol lookup error: … undefined symbol: …`, or, worse, runs the old
+engine. `ldd` on a test binary built with `go test -c` shows which `libjets.so` it will load.
+
 ### Tests that read a workspace
 
 Some tests check a claim against a workspace's own files, which are in a separate repository and not

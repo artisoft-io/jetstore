@@ -67,10 +67,16 @@ is generated from it. Why it has three tables, and why every reachable struct ge
   (workspace Lambdas) lives in the workspaces beside the JetStore checkout, not inside it.
   `check --code` follows both, and sets a `workspaces/` citation aside, counted, where that
   workspace is not in the checkout.
-- **The corpus is every `.pc.json` under a `pipes_config` directory in `workspaces/`**, with nothing
-  subtracted (`config_files`, `cpipes_contract/corpus.py`). The `.pc.json` files under
-  `workspaces/*/data/` are developer notes and reference material that JetStore never loads; they
-  are not counted, and `check --corpus` refuses one as an exemplar.
+- **The corpus is every `.pc.json` under a `pipes_config` directory in `workspaces/`**, less one
+  thing (`config_files`, `cpipes_contract/corpus.py`): the installed copies of the configurations
+  JetStore owns (`jets/workspace_assets/pipes_config/`). A workspace ignores those copies rather
+  than committing them, so whether a checkout holds one depends on whether the asset installer has
+  run there, and counting them would make every measured number depend on it too. The `.pc.json`
+  files under `workspaces/*/data/` are developer notes and reference material that JetStore never
+  loads; they are not counted, and `check --corpus` refuses one as an exemplar.
+- **Corpus paths are recorded under the workspaces' neutral names**, as everything else in this
+  package is: `corpus --apply` writes an exemplar's file through the same alias file
+  (`CPIPES_CONTRACT_ALIASES`) that `check --corpus` and `fragments` read.
 - **The corpus is authored documents.** The root type also serialises a *runtime* shape that
   JetStore writes for itself, and the schema describes only the authored one.
 - **`test/` is a tier, not an exclusion.** Configs under `workspaces/*/pipes_config/*/test/` are real

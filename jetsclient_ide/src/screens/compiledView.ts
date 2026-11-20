@@ -1,6 +1,6 @@
 /**
  * A compiled view: the tabbed strip of tables a Workspace IDE section heading
- * shows. Task C.3.
+ * shows.
  *
  * ## What a compiled view is
  *
@@ -8,7 +8,7 @@
  * nodes below a section heading are the *source* files that go into `compilerv2`;
  * the heading itself is a view of `workspace.db`, the *compiled* artifact, which
  * is why Data Model opens on Domain Classes and Data Properties rather than on a
- * file list. C.1 made that duality explicit on the wire: a section declares its
+ * file list. The section contract made that duality explicit on the wire: a section declares its
  * `CompiledView` (`jets/datatable/wsfile/sections.go`, `WorkspaceSections`) and
  * `WorkspaceNode.compiled_view` carries it (`api/workspace.ts`, `WorkspaceNode`).
  *
@@ -25,14 +25,13 @@
  * a dead end, because nothing advances the state machine — and `jets/userflow`
  * enforces that schema on every `.form.json` saved into a workspace. Relaxing it
  * would make that document valid at save time and strand a user at run time, and
- * it would do so in a schema the agentic_ai project's generator writes to
- * (repository `CLAUDE.md`, *Where the two projects actually collide*).
+ * it would do so in a schema the agentic template generator also writes to.
  *
  * **The Dart conflates a form and a screen layout because `FormConfig` was the
  * only container it had.** Reproducing that in a schema written from scratch
  * would be inheriting a limitation rather than porting a design. So: a form is a
  * thing with fields and buttons that submits, and stays `FormDocumentSchema`;
- * arranging tables is this. Ruled 2026-08-25 (**I-177**).
+ * arranging tables is this. Ruled 2026-08-25.
  *
  * ## Why there is no entry for a screen with one table
  *
@@ -59,7 +58,7 @@ import { Identifier } from "../userflow/schema";
  * Properties*, *Domain Tables*, *Jet Rules*, *Rule Terms* and *Files
  * Relationship* appear in nothing generated. `compiledView.test.ts` therefore
  * checks the table keys and their order against the corpus and cannot check the
- * labels; each document cites its Dart line instead (**I-205**).
+ * labels; each document cites its Dart line instead.
  */
 export const CompiledViewTabSchema = z
   .strictObject({
@@ -98,7 +97,7 @@ export type CompiledViewDocument = z.infer<typeof CompiledViewDocumentSchema>;
  * These documents are **bundled, never workspace files** — there is one Data
  * Model view per deployment, not one per workspace — so nothing on the Go side
  * validates them and there is no `.schema.json` artifact beside this file. That
- * is the same argument I-170 makes for a screen's table documents, and it is why
+ * is the same argument made for bundling a screen's table documents, and it is why
  * this construct costs one schema rather than a schema plus a validator row.
  */
 export function parseCompiledView(doc: unknown): CompiledViewDocument {

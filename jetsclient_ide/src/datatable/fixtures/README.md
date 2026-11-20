@@ -7,9 +7,9 @@ Two files here, and only one of them had a section until 2026-08-25:
 
 ~~Generated from the running Flutter app. **Do not edit it by hand.**~~
 **Both halves of that stopped being true and they stopped at different times —
-corrected 2026-08-27 at D.10.**
+corrected 2026-08-27.**
 
-**It cannot be regenerated.** Track X deleted `jetsclient/`, and with it
+**It cannot be regenerated.** Retiring the Flutter app deleted `jetsclient/`, and with it
 `test/table_config_corpus_test.dart` and `jetsclient_ide/src/corpusFixtures.test.ts`
 — the generator and the drift check named in the two sections below. Those
 sections are kept because they say what this file *is*, and they should be read
@@ -26,15 +26,15 @@ still compares each document nobody has edited with its translation from this
 file, so a table edited by hand is listed in `HAND_MAINTAINED_KEYS` in the same
 change; editing this file changes no document. The other tests read it as
 material: the configurations of a real app, to test the query builder and the
-model against. D.10 wrote the first
-configuration in here that has no Dart original: `fmInputSourceMappingUF`'s
-*Load Data* and *Loader Status* buttons (**I-260**). Everything else is still the
+model against. The first configuration in here that has no Dart original was
+written on 2026-08-27: `fmInputSourceMappingUF`'s *Load Data* and *Loader Status*
+buttons. Everything else is still the
 measurement.
 
 **What that leaves open is not settled here** — whether the emitter should be
 retired and `jets/workspace_assets/table_configs/` promoted to the source, now
-that there is nothing left to measure against. It is **I-299**, and D.10
-deliberately did not decide it: two buttons is a bad reason to retire the one
+that there is nothing left to measure against. The change that added those
+buttons deliberately did not decide it: two buttons is a bad reason to retire the one
 guard that keeps 63 documents agreeing with one another.
 
 **An edit here must say it is one.** The corpus `comment` field names the
@@ -43,12 +43,11 @@ ours has a fixture that measures nothing.
 
 **Three tables left on 2026-10-01**: `client`, `scSourceConfigKey` and
 `pcPipelineConfigTable`, which the *Clients & Vendors*, *Source Configuration* and
-*Pipeline Configuration* flows now open on (`jetstore_maintenance_02` `AF.1`,
-defect `D06`). They are maintained by hand in `jets/workspace_assets/table_configs/`
+*Pipeline Configuration* flows now open on. They are maintained by hand in `jets/workspace_assets/table_configs/`
 and listed in `../table.test.ts` as `HAND_MAINTAINED_KEYS`; `tableCount` was
 recomputed. **The figures in the paragraph below are the Flutter measurement and
 are kept as such** — the file held 34 after that, and **31 later the same day**, when
-`AF.2`–`AF.4` deleted the option tables of the three add-or-edit steps `D06` removed
+the option tables of the three removed add-or-edit steps were deleted
 (`ufClientOrVendorOption`, `scAddOrEditSourceConfigOption`,
 `pcAddOrEditPipelineConfigOption`). Those three were retired rather than moved; their
 installed copies are on `RetiredAssets` in `jets/workspace_assets/install.go`.
@@ -62,7 +61,7 @@ sounds: the configurations run to roughly 2,700 lines of Dart, and the counting
 mistakes made while sizing this task all came from reading those files with
 `grep` instead of from the constructed objects.
 
-## Regenerating — **not possible since track X; see above**
+## Regenerating — **not possible since the Flutter app was retired; see above**
 
 ```bash
 cd jetsclient
@@ -79,7 +78,7 @@ that test. **Both, together.**
 corrected 2026-08-25.** The Dart assertion compares the app's configuration
 against the Dart constant, and the fixture is in neither operand; bumping the
 constant while leaving the fixture alone was green on both sides, which is what
-C.0 did to the two screen fixtures. It is enforced now, by
+happened to the two screen fixtures. It is enforced now, by
 `jetsclient_ide/src/corpusFixtures.test.ts`, which hashes each of the five
 fixtures and asserts it against the `expectedChecksum` its corpus test declares.
 
@@ -106,7 +105,7 @@ columns set a `cellFilter` (all of them `file_key`) and three actions set an
 `isEnabledFnc`; no table sets `modelStateHandler` and no action sets
 `actionDelegate`.
 
-That is the UI assessment's §3.2 — configuration is not data, it embeds Dart
+That is the port's central finding — configuration is not data, it embeds Dart
 closures — reduced to a checklist of six.
 
 ---
@@ -172,7 +171,7 @@ no traversal.
 **Item 3 was argued rather than assumed, and the argument is worth keeping.** A
 corpus answering *which widgets must the port support* is entitled to drop
 layout, and on that reasoning item 3 could have been left. What settled it was
-that a consumer had arrived: C.5 is porting `inferServerAdminForm`, whose own doc
+that a consumer had arrived: the infer server admin screen ports `inferServerAdminForm`, whose own doc
 comment says it uses V2 *specifically* so its rows can carry their own flex.
 **The rule against building for no consumer is not a rule for declining one that
 turned up.** The next traversal question will not have a consumer standing there;

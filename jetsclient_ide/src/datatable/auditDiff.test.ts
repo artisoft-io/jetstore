@@ -1,7 +1,7 @@
 /**
- * Diffs the Flutter app's `/dataTable` requests against the ones A.4a builds.
+ * Diffs the Flutter app's `/dataTable` requests against the ones `makeQuery` builds.
  *
- * **This closes the second half of I-4.** The live suite established that our
+ * **This closes the second half of the payload question.** The live suite established that our
  * payloads are *valid* — the server accepts all 28 and answers coherently. It
  * could not establish that they are *identical* to the Dart's, and that gap is
  * not cosmetic: a dropped filter returns more rows rather than an error, so a
@@ -16,7 +16,7 @@
  * **A capture is bundled, so this runs by default.**
  * `fixtures/load_files_flutter_audit.log` is the apiserver's stdout from driving
  * `load_files` in the Flutter app on 2026-08-18, against synthetic data. It makes
- * the comparison a standing regression guard on A.4a rather than an exercise
+ * the comparison a standing regression guard on `makeQuery` rather than an exercise
  * someone has to remember to repeat: change `makeQuery` in a way the Dart would
  * not have, and this fails.
  *
@@ -221,7 +221,7 @@ describe("the audit-log parser", () => {
   });
 });
 
-describe("captured Flutter requests match what A.4a builds", () => {
+describe("captured Flutter requests match what makeQuery builds", () => {
   const log = readFileSync(logPath, "utf8");
   const observed = extractDataTableRequests(log);
 

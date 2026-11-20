@@ -30,6 +30,8 @@
     ],
     "report": "qc_participation",
     "file_type": "Participation",
+    "file_type_key": "$NOTIFICATION_FILE_TYPE",
+    "notification_type_key": "$NOTIFICATION_TYPE",
     "cluster_config": {
       "default_max_concurrency": 40,
       "s3_worker_pool_size": 40,

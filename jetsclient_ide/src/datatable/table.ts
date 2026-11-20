@@ -1,13 +1,13 @@
 /**
- * The table configuration document. Task I.3, and the last piece of R2 that
- * Phase 2 left referenced rather than authored.
+ * The table configuration document, and the last piece of the authored user
+ * flow that was referenced rather than authored.
  *
  * ## What was missing
  *
- * S.5 gave a form a `dataTable` field carrying `table: Identifier` — "the table
- * configuration key; A.4's widget resolves it" (`userflow/form.ts`). Nothing
- * resolved it. The 37 configurations the flows use existed only as
- * `fixtures/table_configs.json`, generated out of the running Flutter app for
+ * The form document gave a form a `dataTable` field carrying `table: Identifier`,
+ * the table configuration key for the data table widget to resolve
+ * (`userflow/form.ts`). Nothing resolved it. The 37 configurations the flows
+ * use existed only as `fixtures/table_configs.json`, generated out of the running Flutter app for
  * the query builder's tests, and `types.ts` mirrors the Dart class rather than
  * describing a document anyone could write. So a flow was authorable, its forms
  * were authorable, and the tables those forms render were still Dart.
@@ -21,15 +21,15 @@
  * follows the flow rather than the other two, and the corpus is why: **a table
  * configuration is shared and a form is not.** The form document could be a
  * record keyed inside its flow's file because 46 states have 46 distinct forms,
- * none shared (I-15). Tables are not like that — `wpClientList` and
+ * none shared. Tables are not like that — `wpClientList` and
  * `wpClientListRO` are each named by *two* flows, `loadConfigUF` and
  * `workspacePullUF`, and `pipelineExecStatusTable` is registered on the non-flow
- * side and rendered by `homeFiltersUF` (F18). A per-flow container would force
+ * side and rendered by `homeFiltersUF`. A per-flow container would force
  * either a duplicated configuration or an ownership decision the configuration
  * does not support.
  *
- * So the file name is the key, which is S.3's rule for the flow document applied
- * to the same problem: two names for one thing is one name too many (I-14).
+ * So the file name is the key, which is the flow document's rule applied to the
+ * same problem: two names for one thing is one name too many.
  *
  * ## Measured against the 37, not transcribed from the Dart
  *
@@ -41,10 +41,10 @@
  * |---|---|
  * | `apiPath`, `apiAction` | `/dataTable` and `read` on all 37. See the note below — this is the security decision, not a tidy-up. |
  * | `index` on a column | equals the array position on all 275. A field that can only ever be wrong. |
- * | ~~`maxLines`, `columnWidth`~~ | `0` on all 275 columns — **and set by four non-flow ones; back as of C.7.** |
+ * | ~~`maxLines`, `columnWidth`~~ | `0` on all 275 columns — **and set by four non-flow ones, so back.** |
  * | `calculatedAs` | never set in the flows. |
- * | `defaultToAllRows`, ~~`requestColumnDef`~~ | `false` on all 37 — `requestColumnDef` back as of C.4. |
- * | ~~`sortColumnTableName`~~ | `""` on all 37 — **and set by eight non-flow ones, all the Workspace IDE's; back as of C.3.** |
+ * | `defaultToAllRows`, ~~`requestColumnDef`~~ | `false` on all 37 — `requestColumnDef` back for the Query Tool. |
+ * | ~~`sortColumnTableName`~~ | `""` on all 37 — **and set by eight non-flow ones, all the Workspace IDE's, so back.** |
  * | `lookupColumnInFormState` | `false` on all 49 where clauses. |
  * | `stateGroup` on an action | `0` on all 25. |
  * | `withClauses`, `distinctOnClauses`, `secondRowActions`, `fromConfigRowActions` | empty on all 37. |
@@ -56,13 +56,13 @@
  * `withClauses` (1 table), `secondRowActions` (2), `modelStateFormKey` (2),
  * `hasModelStateHandler` (2), `actionEnableCriterias` (8 actions), `like` (2
  * clauses), `calculatedAs` (2 columns), `dataRowMin/MaxHeight` (1), and three
- * more `apiAction` values. Track C adds them as a screen needs them, which is
- * the discipline S.5 set for the form document and I.2a followed. ~~**The shape
+ * more `apiAction` values. They are added as a screen needs them, which is the
+ * discipline the form document set. ~~**The shape
  * here is chosen to admit them**: every one is an added optional property or an
  * added enum member, none needs a different union.~~
  *
- * **That last sentence is false and C.9 is where it broke.** `modelStateFormKey`
- * and `hasModelStateHandler` are named above as two of the fields that would come
+ * **That last sentence is false, and the form-state tables are where it
+ * broke.** `modelStateFormKey` and `hasModelStateHandler` are named above as two of the fields that would come
  * back, and they need **a third arm on the union**: the three tables of
  * `viewReteTriplesDialogV2` carry `fromClauses: []` and no rows, and are fed from
  * form state rather than from a server or from the document
@@ -72,8 +72,8 @@
  * kind vaguer so a different kind fits inside it. `source: "formState"` is below.
  *
  * **This header has now been wrong twice in one day about the same kind of claim**
- * — C.7 found its list of nine returning fields short by four and replaced the
- * list with a derivation (**F66**, **I-173**); this is the sentence underneath that
+ * — its list of nine returning fields was found short by four and replaced
+ * with a derivation; this is the sentence underneath that
  * list, and it fails the same way. Both are **predictions about the shape of future
  * work, written by the party who had not done it**, and neither was careless: the
  * fields were read off a corpus and the shape was reasoned from the fields. What a
@@ -81,19 +81,18 @@
  * table or a *kind* of table, and `modelStateFormKey` reads like the first.
  *
  * **~~none needs a different union~~ — that clause has now failed three times and
- * should be read as a hope rather than a property.** C.2's `enableWhen` needed a
- * new object schema; C.3's `rowHeight` needed a second one; and C.3's
- * `SchemaNameSchema` needed exactly the thing the clause says none of them would,
- * a union, because `$SCHEMA` is not a bare identifier. **The prediction was about
+ * should be read as a hope rather than a property.** `enableWhen` needed a new
+ * object schema; `rowHeight` needed a second one; and `SchemaNameSchema`
+ * needed exactly the thing the clause says none of them would, a union, because `$SCHEMA` is not a bare identifier. **The prediction was about
  * the shape of work its author had not done**, which is the same failure the
  * table below records about the *list* — and both halves were wrong for the same
  * reason, that they were derived from what the flow corpus does not set rather
  * than measured against the corpus that does. Left standing and corrected here
- * rather than edited away, per the register's convention.
+ * rather than edited away.
  *
- * **F.5 brought back three and C.2 brings back two more, and that prediction is
- * worth scoring rather than quietly consuming.** `secondRowActions`,
- * `calculatedAs` and two enum members arrived with `pipelineExecStatusTable`;
+ * **`pipelineExecStatusTable` brought back three and `workspaceRegistryTable`
+ * two more, and that prediction is worth scoring rather than quietly
+ * consuming.** `secondRowActions`, `calculatedAs` and two enum members arrived with `pipelineExecStatusTable`;
  * `apiAction` and `actionEnableCriterias` — spelled `enableWhen` — arrive with
  * `workspaceRegistryTable`. The counts held exactly: the 8 criteria-bearing
  * actions are all on this one table, and the 2 tables with a second action row
@@ -101,7 +100,7 @@
  * for four of the five**; `enableWhen` needed a new object schema as well, which
  * is not a different union and is more than the sentence promised.
  *
- * **C.4 brings back two the prediction did not name at all**, and that is the more
+ * **The Query Tool brings back two the prediction did not name at all**, and that is the more
  * interesting score. `requestColumnDef` and an *absent* `columns` list are both on
  * `queryToolResultSetTable`, and neither is in the list above — the list was built
  * by asking which dropped fields the non-flow corpus *sets*, and a field it sets to
@@ -109,33 +108,34 @@
  * the whole of a screen**, and the empty column list was invisible to the question
  * entirely, because "the corpus sets this field" cannot notice a field the corpus
  * leaves empty on purpose. So: a prediction built from what the corpus *declares*
- * misses what it *omits*, which is I-20's limit arriving on the schema rather than
- * on a count.
+ * misses what it *omits*, which is the limit of any count of a corpus, arriving
+ * on the schema rather than on a count.
  *
  * ~~What is left outstanding for the remaining 25 tables: `withClauses` (1 table),
  * `modelStateFormKey` and `hasModelStateHandler` (2), `like` (2 clauses),
- * `dataRowMin/MaxHeight` (1).~~ **C.9 takes the first three**, leaving `like`
+ * `dataRowMin/MaxHeight` (1).~~ **The form-state tables take the first three**, leaving `like`
  * (2 clauses), `dataRowMin/MaxHeight` (1) and `sortColumnTableName` (8 tables).
  * The derivation in `table.test.ts` is the list to trust; this one is prose.
  *
- * **That list is short by four, and C.7 found out by being refused.** Translating
+ * **That list is short by four, and translating a screen found out by being
+ * refused.** Translating
  * `pipelineExecDetailsTable` threw on `maxLines` and `columnWidth`, neither of
  * which is named above. Re-measuring every dropped field against
  * `screens/fixtures/screen_configs.json` rather than against the nine remembered
  * ones gives the whole set:
  *
- * | Also set outside the flows | Sites | Whose screen |
- * |---|---|---|
- * | `maxLines`, `columnWidth` | 4 columns in 4 tables | C.6, C.7, C.9, C.3 |
- * | `sortColumnTableName` | 8 tables | C.3 (done), all Workspace IDE |
- * | `lookupColumnInFormState` | 1 clause | C.9 |
- * | `requestColumnDef` | 1 table | C.4 |
+ * | Also set outside the flows | Sites |
+ * |---|---|
+ * | `maxLines`, `columnWidth` | 4 columns in 4 tables |
+ * | `sortColumnTableName` | 8 tables, all the Workspace IDE's |
+ * | `lookupColumnInFormState` | 1 clause |
+ * | `requestColumnDef` | 1 table |
  *
  * The prediction was not careless — it was derived from what the *flow* corpus
  * leaves unset, and a field the flows set to a falsy default reads the same as a
  * field nothing uses. The lesson is that **a list of what will come back has to
  * be generated from the other corpus, not recalled from the reasons for the
- * cuts**, and the generated version is **F66**.
+ * cuts**, and the generated version is the derivation in `table.test.ts`.
  *
  * ## `apiAction` is dropped rather than enumerated, and that is the security call
  *
@@ -143,30 +143,30 @@
  * and dispatches over the whole switch in `jets/apiserver/api_tables.go:42` —
  * thirty-odd names including `exec_ddl`, `drop_table`, `insert_rows` and
  * `save_workspace_file_content`. An authored table naming one of those is the
- * confused-deputy problem S.7 described for the action grammar, arriving through
+ * confused-deputy problem the action grammar already faced, arriving through
  * a second door: the person writing the file needs only `workspace_ide`.
  *
- * S.7 answered its version with an enum (`actions/schema.ts`, `ServerActionSchema`)
- * because flows genuinely use six actions. **All 37 tables use one**, so the
+ * The action grammar answered its version with an enum (`actions/schema.ts`,
+ * `ServerActionSchema`) because flows genuinely use six actions. **All 37 tables use one**, so the
  * stronger answer is available here: the field does not exist, and a query table
- * issues `read`. Track C needs `workspace_read`, `preview_file` and
- * `raw_query_tool` for nine, one and one of its 28 — at which point this becomes
+ * issues `read`. The screens need `workspace_read`, `preview_file` and
+ * `raw_query_tool` for nine, one and one of their 28 — at which point this becomes
  * ~~a four-member enum~~ **a three-member enum whose absence means `read`**, with
- * the same reasoning S.7 wrote down, and never a bare identifier.
+ * the action grammar's reasoning, and never a bare identifier.
  *
- * **C.2 is that point, and the enum has three members rather than the four
+ * **The workspace registry is that point, and the enum has three members rather than the four
  * predicted above.** The prediction is left standing and corrected here rather
  * than edited away. The two corpora hold **four** values between them —
  * `read`, `workspace_read`, `preview_file` and `raw_query_tool` — and the first
  * is the default. Admitting it as a member would give one meaning two spellings,
- * which is I-14's rule, and would rewrite all 37 committed documents to say the
+ * which is the two-names rule above, and would rewrite all 37 committed documents to say the
  * thing they already say by saying nothing. So `ApiActionSchema` carries the
  * three exceptions and `fromDocument` restores `read` for a document that names
  * none.
  *
  * **The counts are asserted in `table.test.ts` rather than written here**, and
  * that is deliberate: an earlier draft of this paragraph carried them, and they
- * were four hours from being wrong — C.0a's fixture regeneration removes three
+ * were four hours from being wrong — a fixture regeneration removes three
  * dead configurations and takes `read` from 17 to 14 without touching either
  * argument this enum rests on. A count in a comment is a claim nobody re-derives;
  * the same count in an assertion fails the moment the corpus moves. This is the
@@ -223,7 +223,7 @@ import { Identifier, toJSONSchemaInlineRoot } from "../userflow/schema";
  *
  * **No `index`.** All 275 columns in the corpus have `index` equal to their
  * position in the list, which makes it a field that can only ever disagree with
- * the array holding it. This is S.1's reasoning about `nextState` on a nested
+ * the array holding it. This is the flow document's reasoning about `nextState` on a nested
  * choice, on a second surface: a value that is always derivable is a value that
  * can be wrong.
  *
@@ -255,11 +255,11 @@ const columnCommon = {
    * Three columns in the corpus have one and all three are `file_key`
    * (`types.ts`), on `inputRegistryTable`, `main_input_registry_key` and
    * `merged_input_registry_keys`. A closure cannot be data; a name for one
-   * can, which is what S.2a built the registry for.
+   * can, which is what the escape registry is for.
    */
   cellFilter: Identifier.optional(),
   /**
-   * A SQL expression the server selects in place of the column. Task F.5.
+   * A SQL expression the server selects in place of the column.
    *
    * **Never set by a flow's 37 tables and set by exactly one column of the first
    * non-flow table this project authored** — `run_duration` on
@@ -267,22 +267,21 @@ const columnCommon = {
    * column behind it (`modules/data_table_config_impl.dart`, `run_duration`). The
    * query builder has always emitted it (`datatable/query.ts`, `makeQuery` sends
    * `calculatedAs` per selected column); what was missing was a way to author it,
-   * which is the same one-sided gap I-62 described for `isReadOnly`.
+   * which is the same one-sided gap `isReadOnly` once had.
    *
    * **It is a string the server splices into the select list, and that is worth
    * naming rather than leaving to the reader.** `apiAction` was dropped from this
-   * document because an authored value reaches a switch in the apiserver (S.7's
+   * document because an authored value reaches a switch in the apiserver (the
    * confused deputy); this one reaches SQL. The two differ in that a table
    * configuration is workspace content edited by a user who already holds
    * `workspace_ide`, and that `calculatedAs` cannot name an action — but it is
    * the widest field in the document and the next person to widen this schema
-   * should know it is here. Recorded as **I-105** — this comment said I-104 until
-   * C.7, which is the entry about a rendering seam rather than about SQL.
+   * should know it is here.
    *
-   * **C.7 settled whether it stays a fragment, and the answer is yes.** I-105
-   * framed the second site as an argument for *naming* it, on I-54's analogy.
-   * The analogy does not hold: I-54 collapsed six closures to two names because a
-   * closure cannot be data at all, and `AGE(last_update, start_time)` already is.
+   * **It stays a fragment.** A second site was once read as an argument for
+   * *naming* it, by analogy with the cell filters, where six closures became two
+   * names. The analogy does not hold: those became names because a closure
+   * cannot be data at all, and `AGE(last_update, start_time)` already is.
    * What settles it is the server. `makeSelectColumns`
    * (`jets/datatable/data_table_action.go`, `makeSelectColumns`) writes
    * `CalculatedAs` into the select list verbatim while sanitising the plain
@@ -291,12 +290,11 @@ const columnCommon = {
    * `read_data` can already post any expression here. A registry would move the
    * string into the bundle and leave the trust boundary exactly where it is,
    * at the cost of a third escape namespace. The gate that would matter is
-   * server-side and is filed as **I-172**.
-   * should know it is here. Recorded as **I-105**.
+   * server-side.
    */
   calculatedAs: z.string().min(1).optional(),
   /**
-   * Truncate the cell to this many lines. Task C.7.
+   * Truncate the cell to this many lines.
    *
    * **Zero on all 275 flow columns and set on four of the 151 non-flow ones** —
    * `error_message` on `inputLoaderStatusTable`, `pipelineExecDetailsTable` and
@@ -307,11 +305,12 @@ const columnCommon = {
    * the finding rather than the field: the header's table of nine was derived
    * from what the *flow* corpus does not set, and four more are set by the
    * non-flow one — this, `columnWidth`, `sortColumnTableName` (8 tables) and
-   * `lookupColumnInFormState` (1 clause). **F66** carries the re-measurement.
+   * `lookupColumnInFormState` (1 clause). The derivation in `table.test.ts`
+   * carries the re-measurement.
    */
   maxLines: z.number().int().positive().optional(),
   /**
-   * The cell's width in pixels. Task C.7.
+   * The cell's width in pixels.
    *
    * The same four columns, and in the Dart the two are not independent: the
    * width is a `SizedBox` *inside* the `maxLines > 0` branch
@@ -338,7 +337,7 @@ export const ColumnSchema = z
  * so a document cannot say it by accident.
  *
  * **`schemaName` may be empty too, and it is the same kind of absence with a
- * different meaning — found at C.9 by being refused.** One clause in either
+ * different meaning — found by being refused when `with` arrived.** One clause in either
  * corpus has one: `inputRecordsFromProcessErrorTable`'s second from clause is
  * `FromClause(schemaName: '', tableName: 'sessions')`, and `sessions` is the
  * table's *own* `WITH` — a common table expression is not in a schema and naming
@@ -356,7 +355,7 @@ export const ColumnSchema = z
 /**
  * The schema a `FROM` entry names, or the sentinel for the compiled workspace.
  *
- * Task C.3. **`$SCHEMA` is not a variable the client substitutes and not a
+ * **`$SCHEMA` is not a variable the client substitutes and not a
  * schema name; it is a statement that this query reads `workspace.db` rather
  * than Postgres.** `DoWorkspaceReadAction`
  * (`jets/datatable/workspace_data_table_action.go`, `DoWorkspaceReadAction`)
@@ -386,7 +385,7 @@ export const FromClauseSchema = z
     /**
      * Absent means "unqualified" — the Dart's empty `schemaName`.
      *
-     * **`SchemaNameSchema` rather than `Identifier` as of C.3**, because eight
+     * **`SchemaNameSchema` rather than `Identifier`**, because eight
      * configurations name `$SCHEMA` and it is not a bare identifier. Still
      * optional: the two facts are independent, and collapsing them would make an
      * unqualified `FROM` unexpressible to serve a placeholder.
@@ -399,7 +398,7 @@ export const FromClauseSchema = z
   .meta({ id: "FromClause" });
 
 /**
- * A `WITH` entry. Task C.9.
+ * A `WITH` entry.
  *
  * **One table in either corpus declares one**, and it is the reason
  * `inputRecordsFromProcessErrorTable` can show a domain key's input records at
@@ -410,7 +409,7 @@ export const FromClauseSchema = z
  *
  * ## This is authored SQL in a document, and the question was asked before
  *
- * The same question `FormQuerySchema.sql` answered (I-71) and the same answer:
+ * The same question `FormQuerySchema.sql` answered, and the same answer:
  * saving a workspace file requires `workspace_ide`
  * (`jets/datatable/workspace_data_table_action.go`, `SaveWorkspaceFileContent`)
  * and `workspace_ide` **is** `CapabilityQueryTool`
@@ -438,7 +437,7 @@ export const WithClauseSchema = z
   .meta({ id: "WithClause" });
 
 /**
- * Where a form-state-backed table's rows come from. Task C.9.
+ * Where a form-state-backed table's rows come from.
  *
  * **Two shapes, and the second is two of the Dart's closures rather than a
  * language invented for them.** `modelStateFormKey` is the first: the rows *are*
@@ -450,9 +449,9 @@ export const WithClauseSchema = z
  *
  * So the second shape is that lookup, stated as data. **The alternative was a
  * sixth escape namespace holding two functions**, and what decides against it is
- * I-54's own rule read the right way round: a closure has to become a name
- * *because a closure cannot be data*. These two already are — a key and an index
- * key — the way `AGE(last_update, start_time)` already was (**I-171**).
+ * the escape registry's own rule read the right way round: a closure has to
+ * become a name *because a closure cannot be data*. These two already are — a key
+ * and an index key — the way `AGE(last_update, start_time)` already was.
  *
  * **The reversal condition, because two sites is a thin base for a construct.** A
  * third handler that is not this lookup should be a named escape rather than a
@@ -483,11 +482,11 @@ export const ModelSourceSchema = z
  * explicit type annotation for a recursive object, and `z.toJSONSchema` emits it
  * as a `$ref` to the same definition.
  *
- * ~~**`lookupColumnInFormState` is not here**: `false` on all 49.~~ It is here as
- * of C.9 — one clause in either corpus sets it. **`predicate`, `ge` and `le` are
+ * ~~**`lookupColumnInFormState` is not here**: `false` on all 49.~~ It is here
+ * now — one clause in either corpus sets it. **`predicate`, `ge` and `le` are
  * not here**: never set by a flow. ~~`like` is not here either, and is the last of
- * the four that track C brings back — two of its clauses use it.~~ **It is here as of
- * C.3b**, and the two clauses are that task's own — `wsDataModelFilesTable` and
+ * the four the screens bring back — two of their clauses use it.~~ **It is here
+ * now**, and the two clauses are the Workspace IDE's — `wsDataModelFilesTable` and
  * `wsJetRulesFilesTable` are the tabs whose rows are the section's files, and a
  * prefix match is how each one selects its section out of one `workspace_control`
  * table.
@@ -506,7 +505,7 @@ export interface WhereClauseDocument {
 export const WhereClauseSchema: z.ZodType<WhereClauseDocument> = z
   .strictObject({
     /**
-     * The column the clause filters on. Task C.4.
+     * The column the clause filters on.
      *
      * **Optional, because one clause of the corpus's fifty names none**, and it
      * is not an omission: `queryToolResultSetTable`'s only clause is
@@ -533,9 +532,9 @@ export const WhereClauseSchema: z.ZodType<WhereClauseDocument> = z
     /** `source_period.key` and seven others — a qualified column, not a key. */
     joinWith: z.string().min(1).optional(),
     /**
-     * A `LIKE` pattern, matched against `column`. Task C.3b.
+     * A `LIKE` pattern, matched against `column`.
      *
-     * **Two clauses in either corpus and both are one task's**, which is why this
+     * **Two clauses in either corpus and both are the Workspace IDE's**, which is why this
      * was the last of the four the header above predicted: `wsDataModelFilesTable`
      * and `wsJetRulesFilesTable` are the file lists of the Data Model and Jets
      * Rules sections, and both read the *same* `workspace_control` table. The
@@ -553,7 +552,7 @@ export const WhereClauseSchema: z.ZodType<WhereClauseDocument> = z
      */
     like: z.string().min(1).optional(),
     /**
-     * `column` is not a column name: it is a form-state key holding one. Task C.9.
+     * `column` is not a column name: it is a form-state key holding one.
      *
      * **One clause in either corpus, and it is the only way its table can be
      * written at all.** `inputRecordsFromProcessErrorTable` reads a *domain* table
@@ -591,13 +590,13 @@ export const WhereClauseSchema: z.ZodType<WhereClauseDocument> = z
  * `refreshTable` (1), `toggleCheckboxVisible` (3), `clearHomeFilters` (3),
  * `showScreen` (3), `showDialog` (2), `doActionShowDialog` (3), `doAction` (10).
  *
- * **Nine as of F.5, and the two extra arrived from track F rather than track C.**
- * This comment said *track C's 28 add `setSessionIdFilter` and `setRequestIdFilter`,
- * one each* — true about where they are counted and wrong about who meets them
- * first. Both are on `pipelineExecStatusTable`, the one configuration registered
- * on the non-flow side and rendered by a flow (**F18**), so `homeFiltersUF` could
- * not be authored without them. The prediction was right about the number and
- * wrong about the schedule, which is what F18 is for.
+ * **Nine now, and the two extra arrived with a flow rather than with a screen.**
+ * This comment said *the non-flow 28 add `setSessionIdFilter` and
+ * `setRequestIdFilter`, one each* — true about where they are counted and wrong
+ * about who meets them first. Both are on `pipelineExecStatusTable`, the one
+ * configuration registered on the non-flow side and rendered by a flow, so
+ * `homeFiltersUF` could not be authored without them. The prediction was right
+ * about the number and wrong about the schedule.
  */
 export const ActionTypeSchema = z
   .enum([
@@ -614,7 +613,7 @@ export const ActionTypeSchema = z
   .meta({ id: "TableActionType" });
 
 /**
- * The server action a query table issues. Task C.2.
+ * The server action a query table issues.
  *
  * **Three members, and the absent fourth is `read`** — see the `apiAction` note
  * in this file's header for why the field exists at all, why it is an enum, and
@@ -627,10 +626,9 @@ export const ActionTypeSchema = z
  * `raw_query_tool` requires `CapabilityQueryTool` and `preview_file` requires
  * `CapabilityReadData`. **The enum is not the authorisation** — it decides what
  * an authored document may *ask for*, and the server decides who may have it.
- * That is S.7's division and this field does not move it.
+ * That is the action grammar's division and this field does not move it.
  *
- * **`raw_query_tool` is the member that shows what the enum is for**, and this
- * paragraph is C.4's, contributed by the task that owns the one table naming it.
+ * **`raw_query_tool` is the member that shows what the enum is for.**
  * The other three name a handler that composes its own SQL from the request's
  * structured parts; this one names the handler that executes the request's
  * `query` string verbatim — `ExecRawQuery` passes `dataTableAction.RawQuery`
@@ -644,15 +642,15 @@ export const ActionTypeSchema = z
  * again. **So this is not a tidy-up of a free string; it is the list of
  * authorities an authored table may reach**, and `raw_query_tool` is the one
  * where the authority is "run this SQL". One table has it —
- * `queryToolResultSetTable` — and C.4 is the only screen that will ever author
- * it.
+ * `queryToolResultSetTable` — and the Query Tool is the only screen that will
+ * ever author it.
  */
 export const ApiActionSchema = z
   .enum(["workspace_read", "preview_file", "raw_query_tool"])
   .meta({ id: "TableApiAction", description: "The server action a query table issues" });
 
 /**
- * One conjunct of a button's row gate. Task C.2.
+ * One conjunct of a button's row gate.
  *
  * `ActionEnableCriteria` (`jetsclient/lib/models/data_table_config.dart`,
  * `ActionEnableCriteria`), with one change: **the Dart names a column by
@@ -695,8 +693,8 @@ export const EnableCriterionSchema = z
  * That is worth stating rather than leaving as an omission — `types.ts` declares
  * `hasActionDelegate` and a reader would reasonably expect it to be the way out.
  *
- * `capability` is presentation only, as it is everywhere in this app
- * (assessment §3.5): 9 of 25 declare one, `client_config` or `run_pipelines`.
+ * `capability` is presentation only, as it is everywhere in this app:
+ * 9 of 25 declare one, `client_config` or `run_pipelines`.
  * The server gates the write it performs, not the button that starts it.
  */
 export const TableActionSchema = z
@@ -717,7 +715,7 @@ export const TableActionSchema = z
     isEnabledWhenWhereClauseSatisfied: z.boolean().optional(),
     isEnabledWhenStateHasKeys: z.array(Identifier).min(1).optional(),
     /**
-     * Tests on the selected row that must pass. Task C.2.
+     * Tests on the selected row that must pass.
      *
      * **A disjunction of conjunctions, which is the Dart's own description of
      * it** — *"the outer list is 'or' and the inner list is 'and'"*
@@ -732,8 +730,8 @@ export const TableActionSchema = z
      * one of them tests the `status` column.
      *
      * It is not decoration. On that table it is what refuses *Delete* on an
-     * active workspace and *Open* on one mid-compile — see **I-181** for what it
-     * cost that nothing read it.
+     * active workspace and *Open* on one mid-compile, and while nothing read it,
+     * neither was refused.
      */
     enableWhen: z.array(z.array(EnableCriterionSchema).min(1)).min(1).optional(),
     /** Route parameters, taken literally. */
@@ -758,7 +756,7 @@ export const TableActionSchema = z
  * column 0 and 7 at column 1. `otherColumns` copies further columns out under
  * their own keys — 22 tables copy none, and one copies fifteen.
  *
- * **Bounded below and not above**, for the reason I.2a's `defaultItemPos` is: an
+ * **Bounded below and not above**, for the reason a dropdown's `defaultItemPos` is: an
  * index into a sibling array is a cross-field rule, this file may only use
  * constructs that emit, and a `.refine()` would be enforced in the browser and
  * silently absent in Go.
@@ -791,7 +789,7 @@ const commonFields = {
    */
   label: z.string().min(1).optional(),
   /**
-   * Which `FROM` entry `sortColumn` belongs to. Task C.3.
+   * Which `FROM` entry `sortColumn` belongs to.
    *
    * **Empty on all 37 flow tables and set on eight non-flow ones, every one of
    * them a Workspace IDE compiled view** — `wsDomainClassTable` sorts on
@@ -814,7 +812,7 @@ const commonFields = {
    */
   sortColumnTable: Identifier.optional(),
   /**
-   * The band a data row is drawn in, in pixels. Task C.3.
+   * The band a data row is drawn in, in pixels.
    *
    * **One configuration in either corpus sets either half, and it sets both** —
    * `wsJetRulesTable` at 64 and 90 (`screens/fixtures/screen_configs.json`), the
@@ -824,7 +822,7 @@ const commonFields = {
    * is as tall as the longest rule on it.
    *
    * **The two are one object rather than two fields, which is the opposite of the
-   * call C.7 made on `maxLines` and `columnWidth`, and the difference is real.**
+   * call made on `maxLines` and `columnWidth`, and the difference is real.**
    * Those two are independent properties of a column that happen to co-occur;
    * these two are the ends of one range, and a document declaring a minimum with
    * no maximum would be describing a state no configuration has and nothing
@@ -865,14 +863,14 @@ export const TableConfigDocumentSchema = z
       ...commonFields,
       source: z.literal("query"),
       /**
-       * What this table asks the server to do. Absent means `read`. Task C.2.
+       * What this table asks the server to do. Absent means `read`.
        *
        * On the query arm only: a static table issues nothing, so a static
        * document naming one would be asking for something it never sends.
        */
       apiAction: ApiActionSchema.optional(),
       /**
-       * The columns, when the table knows them. Task C.4.
+       * The columns, when the table knows them.
        *
        * **A query table may declare none, and four of the non-flow 25 do.** The
        * server supplies them in that case, and it does so by two mechanisms that
@@ -881,7 +879,7 @@ export const TableConfigDocumentSchema = z
        * `DoReadAction`), `DoPreviewFileAction` always sends one, and `execQuery`
        * sends one when the request sets `requestColumnDef` below. The client
        * replaces its columns with what comes back — `columnsFromResponse`
-       * (`datatable/useDataTable.ts`), which has done this since A.4b.
+       * (`datatable/useDataTable.ts`), which has always done this.
        *
        * So `min(1)` moved off `commonFields` and on to the static arm rather than
        * being deleted: a table whose rows are compiled into it and whose columns
@@ -889,9 +887,9 @@ export const TableConfigDocumentSchema = z
        * union earns its keep for a second reason** — the first was that a static
        * table cannot name a schema.
        *
-       * The four are `queryToolResultSetTable` (C.4), `inputFileViewerTable`
-       * (C.12), `inputRecordsFromProcessErrorTable` (C.9) and `inputTable` (C.11),
-       * and they are the same four with no `sortColumn`.
+       * The four are `queryToolResultSetTable`, `inputFileViewerTable`,
+       * `inputRecordsFromProcessErrorTable` and `inputTable`, and they are the
+       * same four with no `sortColumn`.
        */
       columns: z.array(ColumnSchema),
       /**
@@ -906,7 +904,7 @@ export const TableConfigDocumentSchema = z
        */
       sortColumn: Identifier.optional(),
       /**
-       * Ask the server to describe the result's columns. Task C.4.
+       * Ask the server to describe the result's columns.
        *
        * **One configuration in either corpus sets it, and it is only read on the
        * raw-statement path**: `execQuery` builds a `columnDef` out of the pgx
@@ -921,13 +919,13 @@ export const TableConfigDocumentSchema = z
        * `raw_query_tool` — two actions, of which a table may name one.
        */
       requestColumnDef: z.literal(true).optional(),
-      /** Common table expressions, prepended to the read. Task C.9 — one table. */
+      /** Common table expressions, prepended to the read. One table has them. */
       with: z.array(WithClauseSchema).min(1).optional(),
       from: z.array(FromClauseSchema).min(1),
       where: z.array(WhereClauseSchema).optional(),
       actions: z.array(TableActionSchema).optional(),
       /**
-       * A second row of buttons, enabled by a selected row. Task F.5.
+       * A second row of buttons, enabled by a selected row.
        *
        * **Empty on all 37 flow tables and five entries long on the first non-flow
        * one**, which is why it was cut and why it is back: `pipelineExecStatusTable`
@@ -942,28 +940,26 @@ export const TableConfigDocumentSchema = z
        * four of the five set `isEnabledWhenHavingSelectedRows`, because a row
        * action without a row has nothing to act on.
        *
-       * **`validateTableActions` reads both** (`userflow/documentSet.ts`) — I-88's
-       * check would otherwise have been blind to the two entries here that name a
+       * **`validateTableActions` reads both** (`userflow/documentSet.ts`) — the
+       * cross-document check would otherwise have been blind to the two entries here that name a
        * form and an action, which is every cross-document reference this table has.
        */
       secondRowActions: z.array(TableActionSchema).min(1).optional(),
       /**
-       * A third row of buttons. jetstore_maintenance_02, `D04`, task `AE.1`
-       * (2026-10-01).
+       * A third row of buttons (2026-10-01).
        *
        * **The first row no Dart configuration had.** `pipelineExecStatusTable`
        * puts *Get Run Manifest* and *Get Schema Event* here, under the report's
        * three-line layout, and the deployment's custom buttons are appended to it
        * at run time — which is Flutter's `fromConfigRowActions` row, filled from the
        * apiserver rather than from this document. **That field stays out of the
-       * schema** (`ui_refresh` `I-102`): a strict object refuses it, so no
+       * schema**: a strict object refuses it, so no
        * `.tc.json` can name a deployment's buttons, and the authored row beside it
        * is this one.
        *
        * Same element type as the other two rows, for `secondRowActions`' reason,
-       * and a third row rather than a per-action `row` field (the assessment's
-       * `R5`): a field on every action would make a button's position a property
-       * of two places. Every walk over a table's buttons reads the rows through
+       * and a third row rather than a per-action `row` field: a field on every
+       * action would make a button's position a property of two places. Every walk over a table's buttons reads the rows through
        * `actionRowsOf` below, so this row needed no walk of its own.
        */
       thirdRowActions: z.array(TableActionSchema).min(1).optional(),
@@ -981,14 +977,14 @@ export const TableConfigDocumentSchema = z
        *
        * All nine static tables in the corpus are option lists: three columns —
        * a description, a value and an `option_order` — and two to nine rows.
-       * They are the same shape as I.2a's dropdown items rendered as a table,
+       * They are the same shape as a form's dropdown items rendered as a table,
        * which is an observation about the Flutter UI rather than a licence to
        * change one into the other here.
        */
       rows: z.array(z.array(z.string().nullable())).min(1),
     }),
     /**
-     * A table whose rows are in form state. Task C.9, and the third kind.
+     * A table whose rows are in form state: the third kind.
      *
      * Three tables, all of `viewReteTriplesDialogV2`. The Rete Session Explorer
      * fetches one JSON blob out of `process_errors.rete_session_triples` and then
@@ -997,8 +993,8 @@ export const TableConfigDocumentSchema = z
      * ever issues a request (`modules/actions/process_errors_delegates.dart`, the
      * `setupShowReteTriplesV2` case).
      *
-     * **`where` is here and it is a gate rather than a predicate**, which is F82's
-     * observation arriving on a whole arm rather than on one clause. Two of the
+     * **`where` is here and it is a gate rather than a predicate**, which is the
+     * column-less where clause arriving on a whole arm rather than on one clause. Two of the
      * three carry a clause naming a form-state key and no server ever sees it: its
      * only effect is `hasBlockingFilter` (`datatable/binding.ts`,
      * `hasBlockingFilter`), which is what makes *pick a class first* different from
@@ -1057,7 +1053,7 @@ export const tablePath = (key: string): string => `${TABLE_DIR}/${key}.tc.json`;
  * document's shape and cannot do this one.
  */
 /**
- * Every action a table declares, on whichever rows its kind has. Task C.9.
+ * Every action a table declares, on whichever rows its kind has.
  *
  * **Written because a third arm is a breaking change for anything that reads
  * one.** The three walks below each opened with `if (table.source === "query")`,
@@ -1082,7 +1078,7 @@ export type ActionRowName = (typeof ACTION_ROWS)[number];
 
 /**
  * Every action row a table declares, named, top to bottom — empty rows included.
- * jetstore_maintenance_02 `AE.1`, 2026-10-01.
+ * 2026-10-01.
  *
  * **Written when the third row arrived, because six walks each spelled out two
  * rows.** `actionsOf` and `tableEscapeReferences` here, `validateTableActions`
@@ -1094,7 +1090,7 @@ export type ActionRowName = (typeof ACTION_ROWS)[number];
  * fourth row, if there is one, is an entry in `ACTION_ROWS`.
  *
  * A static table has no rows; a `formState` table has the first only, which is
- * the union's own rule (C.9).
+ * the union's own rule.
  */
 export function actionRowsOf(table: TableConfigDocument): [ActionRowName, TableAction[]][] {
   if (table.source === "static") return [];
@@ -1105,14 +1101,14 @@ export function actionRowsOf(table: TableConfigDocument): [ActionRowName, TableA
 export function escapeNamesOf(table: TableConfigDocument): string[] {
   const names = new Set<string>();
   for (const column of table.columns) if (column.cellFilter) names.add(column.cellFilter);
-  // Both rows, since F.5 — an `isEnabled` on a second-row button resolves out of
+  // Every row — an `isEnabled` on a second-row button resolves out of
   // the same registry and an unresolved one must fail the load the same way.
   for (const action of actionsOf(table)) if (action.isEnabled) names.add(action.isEnabled);
   return [...names].sort();
 }
 
 /**
- * The same references, carrying which namespace each belongs to. Task I.3b.
+ * The same references, carrying which namespace each belongs to.
  *
  * `escapeNamesOf` flattens both kinds into one sorted list, which is what a
  * *count* wants and not what resolution wants: a `cellFilter` and an `isEnabled`
@@ -1132,14 +1128,14 @@ export function tableEscapeReferences(table: TableConfigDocument): EscapeReferen
       references.push({ kind: "cellFilters", name: column.cellFilter, at: `/columns/${index}/cellFilter` });
     }
   });
-  // **Both rows and every arm, as of C.9 — this walked `actions` only.** The two
-  // functions above and below have covered `secondRowActions` since F.5 and this
-  // one did not, so an `isEnabled` on a second-row button was counted by
+  // **Every row and every arm — this once walked `actions` only.** The two
+  // functions above and below covered `secondRowActions` first and this one
+  // did not, so an `isEnabled` on a second-row button was counted by
   // `escapeNamesOf` and never *resolved*. No configuration exercises it today —
   // `workspaceRegistryTable` puts eight of thirteen buttons on the second row and
   // gates all eight on criteria rather than on a predicate — which is why it went
   // unnoticed rather than why it was harmless.
-  // **Every row through `actionRowsOf` as of `AE.1`** (2026-10-01), which is the
+  // **Every row through `actionRowsOf` since 2026-10-01**, which is the
   // same fix this paragraph records one row earlier.
   for (const [row, actions] of actionRowsOf(table)) {
     actions.forEach((action, index) => {
@@ -1162,9 +1158,9 @@ export function tableEscapeReferences(table: TableConfigDocument): EscapeReferen
  */
 export function actionNamesOf(table: TableConfigDocument): string[] {
   const names = new Set<string>();
-  // Both rows since F.5: `resubmitPipeline` is `pipelineExecStatusTable`'s only
+  // Every row: `resubmitPipeline` is `pipelineExecStatusTable`'s only
   // `doAction` and it is a second-row button, so a first-row-only walk would have
-  // reported this table as naming no action at all. Every arm since C.9: see
+  // reported this table as naming no action at all. Every arm: see
   // `actionsOf`.
   for (const action of actionsOf(table)) if (action.actionName) names.add(action.actionName);
   return [...names].sort();

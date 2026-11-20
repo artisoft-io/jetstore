@@ -183,6 +183,13 @@ def from_library(library: list[dict], matrix: Path | None = None) -> Fill:
     lookup resolves through bundle membership - the same resolution `template.check`
     does for coverage, and for the same reason: the two artefacts key on different
     things and the bundle layer is what joins them.
+
+    **The value spliced carries no free text.** It once carried the `comment` its
+    workspace's author had written, copied into the expanded config verbatim; the
+    library now strips every property the schema declares as free text
+    (`fragments.Extractor.strip`), so an expansion holds configuration only. Nothing
+    here replaces the comment: an expanded config is valid without one, and prose
+    written for one workspace's readers says nothing true about another's config.
     """
     best: dict[str, dict] = {}
     for part in library:

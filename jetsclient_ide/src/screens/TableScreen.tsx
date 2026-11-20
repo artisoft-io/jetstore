@@ -1,5 +1,5 @@
 /**
- * A screen that is one table, filtered by its route. Tasks C.7 and C.8.
+ * A screen that is one table, filtered by its route.
  *
  * ## Two routes, one screen, and that is a measurement rather than a shortcut
  *
@@ -13,9 +13,9 @@
  * tables differ, and nothing else does.
  *
  * **`ScreenOne` is four of the twenty-six routed screens**, and this component is
- * all four: C.7, C.8, C.11 (`/domainTableViewer/:table_name/:session_id`) and
- * C.12 (`/filePreviewPath/:file_key`). It is not the shape of track C generally —
- * C.9's `/processErrors/:session_id` is `ScreenWithForm` with four tables and two
+ * all four: the two above, `/domainTableViewer/:table_name/:session_id` and
+ * `/filePreviewPath/:file_key`. It is not the shape of the migrated screens
+ * generally — `/processErrors/:session_id` is `ScreenWithForm` with four tables and two
  * dialogs — and saying "four of twenty-six" rather than "the simple ones" is what
  * keeps that checkable.
  *
@@ -31,7 +31,7 @@
  * screen's one job beyond rendering is to put `useParams()` there.
  *
  * **Without it both screens show every session's rows and look entirely correct**,
- * which is I-104's failure with a different field. `TableScreen.test.tsx`
+ * which is a contract tested from the end that cannot fail, with a different field. `TableScreen.test.tsx`
  * therefore asserts the request the table sent, not the rows it drew.
  *
  * ## What a screen does *not* take from `FlowRunner`'s context, measured
@@ -40,9 +40,10 @@
  *   inside `if (field && …)`, and a table that is not a form field has no
  *   `formField`. A screen table can never be filtered by them.
  * - `selectedClient` only adds the implicit client filter when the table has a
- *   column named `client`, and neither of these two does. **There is no
- *   `selectedClient` store in this app at all**; C.6 is where that has to exist,
- *   because `inputRegistryTable` does have the column.
+ *   column named `client`, and neither of these two does. **When this screen was
+ *   built there was no `selectedClient` store in this app at all**; the home
+ *   screen is where it came to exist, because `inputRegistryTable` does have the
+ *   column.
  *
  * ## The document comes from the bundle, not the workspace
  *
@@ -56,7 +57,7 @@
  * rather than a default they are departing from.
  *
  * The same rule covers a screen's **form** documents, at
- * `src/screens/documents/<screenKey>.form.json`; that half is C.2's, reached
+ * `src/screens/documents/<screenKey>.form.json`; that half was reached
  * independently and stated here once rather than twice.
  */
 
@@ -75,7 +76,7 @@ export interface TableScreenProps {
   tableKey: string;
   /** The committed `.tc.json`, imported by the route. */
   document: TableConfigDocument;
-  /** The screen's heading. Both of C.7 and C.8 have none — see below. */
+  /** The screen's heading. Both execution details screens have none — see below. */
   title?: string;
 }
 
@@ -116,8 +117,8 @@ function TableScreenBody({ api, tableKey, document, title }: TableScreenProps) {
   return (
     <main className="screen">
       {/*
-        **No heading unless a route asks for one, and both of C.7 and C.8 do
-        not.** Their `ScreenConfig`s carry `title:` commented out, so `ScreenOne`
+        **No heading unless a route asks for one, and both execution details
+        screens do not.** Their `ScreenConfig`s carry `title:` commented out, so `ScreenOne`
         renders no title row and the table's own label is the only heading —
         "Pipeline Execution Details" and "CPIPES Execution Details", which come
         off the document and are drawn by `DataTable`. Adding one here would put

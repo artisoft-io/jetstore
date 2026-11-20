@@ -1,5 +1,5 @@
 /**
- * The Query Tool. Task C.4.
+ * The Query Tool.
  *
  * The one screen in the corpus where a user types SQL and the client sends it.
  * Flutter serves it at `/queryTool` with `ScreenWithMultiForms` over
@@ -22,8 +22,8 @@
  * not in what is permitted, and **neither is a privilege boundary over the
  * other**: `ExecRawQuery` passes the string to `dbpool.Query`, which executes a
  * `DROP TABLE` as willingly as a `SELECT`. The split is a client convenience.
- * Recorded as **F84**, because it is the kind of thing a later reader will assume
- * the opposite of.
+ * Stated here because it is the kind of thing a later reader will assume the
+ * opposite of.
  *
  * **The buttons also differ in how long a statement may run.** Submit Query runs
  * under a statement timeout of 110 s, ten seconds inside the apiserver's 120 s
@@ -34,8 +34,8 @@
  * the database after the response has timed out. Neither button is read only
  * or a transaction, so `VACUUM` runs through either.
  *
- * `raw_query` and `raw_query_tool` were one case requiring nothing until I-2 split
- * them, and `TestRawQueryToolIsGatedMoreTightlyThanRawQuery`
+ * `raw_query` and `raw_query_tool` were one case requiring nothing until they
+ * were split, and `TestRawQueryToolIsGatedMoreTightlyThanRawQuery`
  * (`jets/apiserver/read_dispatch_test.go`) refuses to let them share one again.
  *
  * **One divergence from the Flutter client, and it is in the safe direction.**
@@ -43,7 +43,7 @@
  * declares none (`jetsclient/lib/modules/form_config_impl.dart`,
  * `FormKeys.queryToolInputForm`) — so the SELECT button is disabled for a user the
  * DDL button is offered to. The server refuses both either way, so it is
- * presentation and not a hole; both buttons here name the capability. **I-166.**
+ * presentation and not a hole; both buttons here name the capability.
  *
  * ## Two forms, one form state
  *
@@ -65,8 +65,8 @@
  * leave the document describing a textarea. The input side is a textarea and two
  * buttons; the result side is one `dataTable` field.
  *
- * **The table configuration is a document either way** — task I-102's decision 1
- * — translated out of the Flutter corpus rather than written, and imported here.
+ * **The table configuration is a document either way**, as every table's is —
+ * translated out of the Flutter corpus rather than written, and imported here.
  */
 
 import { useCallback, useMemo, useState } from "react";

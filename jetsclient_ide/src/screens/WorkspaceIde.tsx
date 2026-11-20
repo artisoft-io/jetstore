@@ -1,11 +1,11 @@
 /**
  * The Workspace IDE, as a screen.
  *
- * This is Phase 1's `App.tsx` with three things lifted out into the shell — the
+ * This is the original editor app's `App.tsx` with three things lifted out into the shell — the
  * session gate, the theme toggle and the banner region — and nothing else
  * changed. The editor, the tab model, the dirty tracking and the save path are
- * the code that has been deployed since Phase 1; A.1 moved it, it did not
- * rewrite it.
+ * the code that has been deployed since the editor was first ported; moving it
+ * here did not rewrite it.
  *
  * **Screens own their own toolbar.** The shell's top bar carries what is true of
  * the whole application — who is signed in, where they can go, the theme. The
@@ -92,13 +92,13 @@ export function defaultWorkspace(
 }
 
 /**
- * An open tab. Task C.3 made this a union of two.
+ * An open tab: a union of two kinds.
  *
  * **The Flutter screen has had two kinds since it was written** — its
  * `TabBarView` renders a `JetsForm` for a file and a `JetsFormWithTabs` for a
  * compiled view (`jetsclient/lib/screens/screen_tab_form.dart`,
- * `ScreenWithTabsWithForm`) — and this app carried only the first, because Phase
- * 1 ported the editor and nothing had ported the view. The discriminant is
+ * `ScreenWithTabsWithForm`) — and this app carried only the first, because the
+ * editor was ported first and nothing had ported the view. The discriminant is
  * explicit rather than inferred from which fields are present: a file tab is
  * identified by its escaped path and a view tab by the compiled view it shows,
  * and neither key can be mistaken for the other.
@@ -140,9 +140,9 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
   const { setError, setStatus } = useNotifications();
   const prompts = usePrompts();
   /**
-   * The workspace named by the route, when there is one. Task C.3.
+   * The workspace named by the route, when there is one.
    *
-   * **Two routes, one screen**: `/workspace` is Phase 1's, where the picker
+   * **Two routes, one screen**: `/workspace` is the original editor's, where the picker
    * chooses; `/workspaces/:workspace_name/home` is the Flutter path, where the
    * url chooses and the picker follows. The parameter is the source of truth when
    * it is present, so a back button and a bookmark both work — which is the
@@ -158,7 +158,7 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  /** The shell's footer text, drawn in this screen's status bar instead (D05). */
+  /** The shell's footer text, drawn in this screen's status bar instead. */
   const buildInfo = useBuildInfoInScreenBar();
   /**
    * The installation's workspace guide, when its image was built with one. The
@@ -250,7 +250,7 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
   }, [workspace]);
 
   /**
-   * Re-read the tree without touching the tabs. Task C.3b.
+   * Re-read the tree without touching the tabs.
    *
    * **The effect above cannot serve this and the difference is the two lines it
    * opens with.** Changing workspace closes every tab, because the open ones
@@ -313,7 +313,7 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
   );
 
   /**
-   * Open a section's compiled view. Task C.3.
+   * Open a section's compiled view.
    *
    * **No fetch here, which is the difference from `openFile`.** A file tab has
    * to read the file before it can be drawn; a compiled view is a bundled
@@ -334,7 +334,7 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
   );
 
   /**
-   * Change workspace, closing every tab in the same update. Task C.3.
+   * Change workspace, closing every tab in the same update.
    *
    * **The effect below already does this and doing it here as well is not
    * redundant**, which is worth a sentence because it looks it. An effect runs
@@ -371,8 +371,7 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
     async (key: string) => {
       const tab = tabs.find((t) => tabKey(t) === key);
       if (tab && isDirty(tab)) {
-        // The app's own confirmation (jetstore_maintenance_02 `I-39`,
-        // 2026-10-02): the browser's is never shown in the embedded pane.
+        // The app's own confirmation (2026-10-02): the browser's is never shown in the embedded pane.
         const ok = await prompts.confirm(`${tab.label} has unsaved changes. Close it anyway?`);
         if (!ok) return;
       }
@@ -564,7 +563,7 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
           ) : activeTab ? (
             /*
               `content` is the tab's current text, not its saved text: the editor
-              makes a fresh state for each file it is shown (`I-65`, 2026-10-27),
+              makes a fresh state for each file it is shown (2026-10-27),
               so switching back to a tab must show the edits it still holds.
               Until then it was `saved`, and the switch's replace transaction
               reset `current` to it through `onChange`, so unsaved edits were
@@ -605,7 +604,7 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
           )}
 
           {/*
-            The status bar, and since D05 (jetstore_maintenance_02 AC.3) the
+            The status bar, and since 2026-10-01 the
             build information as its last entry: this screen claims the shell's
             footer, so it has one bottom bar rather than two. **It is drawn
             whatever the tab**, where it used to follow the editor only, because

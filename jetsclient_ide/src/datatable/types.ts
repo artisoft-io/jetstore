@@ -11,7 +11,7 @@
  * `cellFilter`, `isEnabledFnc`, `modelStateHandler` and `actionDelegate` are
  * Dart closures. The corpus emits `has…` booleans in their place, and each one
  * marks a spot where the React port needs an answer this file cannot carry. That
- * is the assessment's §3.2 — configuration is not data, it embeds closures —
+ * is the port's central finding — configuration is not data, it embeds closures —
  * reduced to a checklist.
  */
 
@@ -108,7 +108,7 @@ export interface TableConfig {
   apiAction: string;
   modelStateFormKey?: string;
   /**
-   * Where a form-state table's rows come from, when the document says. Task C.9.
+   * Where a form-state table's rows come from, when the document says.
    *
    * **Not in the corpus and not a mirror of a Dart field**, which is why it sits
    * beside `modelStateFormKey` rather than replacing it: the Dart has two fields,
@@ -126,8 +126,7 @@ export interface TableConfig {
   actions: ActionConfig[];
   secondRowActions: ActionConfig[];
   /**
-   * The third authored row (`table.ts`, `thirdRowActions`). jetstore_maintenance_02
-   * `AE.1`, 2026-10-01. No Dart configuration has one, so the corpus fixtures do
+   * The third authored row (`table.ts`, `thirdRowActions`), 2026-10-01. No Dart configuration has one, so the corpus fixtures do
    * not carry the field and the translator reads it as possibly absent.
    */
   thirdRowActions: ActionConfig[];
@@ -162,7 +161,7 @@ export type FormStateValue = string | (string | null)[] | null | undefined;
 /**
  * The reader the query builder needs from the enclosing form.
  *
- * Kept to two members on purpose: A.4a is meant to be callable without a form,
+ * Kept to two members on purpose: the query builder is meant to be callable without a form,
  * a DOM or a React tree, and widening this is how that property gets lost.
  */
 export interface FormStateReader {
@@ -194,7 +193,7 @@ export interface QueryContext {
   dataRegistryFilters?: WhereClause[] | null;
   /**
    * The Session Registry tab's filters, applied to `sessionRegistryTable` alone.
-   * No Dart original: `session_registry` Phase 2, 2026-11-08 (`homeFilters.ts`).
+   * No Dart original: added with the Session Registry tab, 2026-11-08 (`homeFilters.ts`).
    */
   sessionRegistryFilters?: WhereClause[] | null;
   /** Paging and sorting live in widget state, not in the configuration. */

@@ -1,10 +1,10 @@
 /**
- * A Workspace IDE section's compiled view, rendered. Tasks C.3 and C.3b.
+ * A Workspace IDE section's compiled view, rendered.
  *
  * The heading of a section whose files compile into `workspace.db` opens one of
  * these instead of an editor: a strip of tabs, one data table each, querying the
  * compiled artifact rather than listing the sources beneath it. It is the second
- * half of the duality C.1 made explicit on the wire, and the half the React app
+ * half of the duality the workspace tree made explicit on the wire, and the half the React app
  * had none of — `FileTree` treated a `section` node as a plain directory and
  * `WorkspaceNode.compiled_view` was read by nothing.
  *
@@ -14,15 +14,15 @@
  * `secondRowActions: []` on every one — and none is a field of a form. So there
  * is no selection to publish, no button to gate and no form state to read, which
  * is exactly the case `useDataTable`'s own header says it was written for and the
- * same call `TableScreen.tsx` makes for C.7 and C.8.
+ * same call `TableScreen.tsx` makes for the execution details screens.
  *
- * **The other two are C.3b's**, and they are the last tabs of the Data Model and
+ * **The other two carry actions**, and they are the last tabs of the Data Model and
  * Jets Rules views: `wsDataModelFilesTable` and `wsJetRulesFilesTable` list the
  * *source files* of their section out of the same `workspace_control` table,
  * separated only by a `LIKE` prefix, and each carries *Add File* (a dialog) and
  * *Delete* (gated on a selected row). Those need a selection published into form
  * state, a dialog host and an action document — the whole of what `TableView`
- * and C.2b's `FormDialog` provide — so they render through a different component.
+ * and the workspace registry's `FormDialog` provide — so they render through a different component.
  *
  * **The branch is on the document, not on a list of keys.** `hasActionBar` asks
  * whether the table document declares any action; a table that grows one is drawn
@@ -38,7 +38,7 @@
  * (`jets/datatable/workspace_data_table_action.go`, `DoWorkspaceReadAction`)
  * opens that workspace's SQLite file. **Drop it and the request still succeeds
  * against whatever workspace the server falls back to, and the screen renders
- * perfectly.** That is I-104's shape with a third field, so `CompiledView.test.tsx`
+ * perfectly.** A test of the rows could not fail on that, so `CompiledView.test.tsx`
  * asserts the request rather than the rows.
  *
  * In the Flutter app the name arrives through form state —
@@ -49,7 +49,7 @@
  * parameter, so it is supplied through `QueryContext.routeParams`, which is the
  * branch `makeQuery` already takes when there is no form.
  *
- * **C.3b puts it in form state as well, and that is not the same thing twice.**
+ * **The two tabs with actions put it in form state as well, and that is not the same thing twice.**
  * The two writes serve different readers: `routeParams` is what the *query* is
  * built from, and `workspace_name` in group 0 is what the *action document* reads
  * for its `workspaceName` envelope extra. Both server actions demand it —
@@ -135,7 +135,7 @@ import wsRuleTermsTable from "../datatable/tables/wsRuleTermsTable.tc.json";
 /**
  * The committed table documents a compiled view may name.
  *
- * Bundled rather than read from the workspace, per **I-170**: there is one Data
+ * Bundled rather than read from the workspace: there is one Data
  * Model view per deployment, not one per workspace, and the Flutter equivalent is
  * `getTableConfig(DTKeys.wsDomainClassTable)` compiled into the app.
  */
@@ -146,23 +146,23 @@ export const COMPILED_VIEW_TABLES: Record<string, TableConfigDocument> = {
   wsJetRulesTable: wsJetRulesTable as TableConfigDocument,
   wsRuleTermsTable: wsRuleTermsTable as TableConfigDocument,
   wsMainSupportFilesTable: wsMainSupportFilesTable as TableConfigDocument,
-  // C.3a's two, authored rather than translated — the `lookups` view the Flutter
+  // Two authored rather than translated — the `lookups` view the Flutter
   // app never had. See `table.test.ts`'s authored-documents block for what checks
   // them in place of the round trip.
   wsLookupTableTable: wsLookupTableTable as TableConfigDocument,
   wsLookupColumnTable: wsLookupColumnTable as TableConfigDocument,
-  // C.3b's two: the only tables of the eight that carry an action bar.
+  // The only two tables of the eight that carry an action bar.
   wsDataModelFilesTable: wsDataModelFilesTable as TableConfigDocument,
   wsJetRulesFilesTable: wsJetRulesFilesTable as TableConfigDocument,
 };
 
-/** The capability both of C.3b's actions need; `admin` bypasses it, as the server does. */
+/** The capability both actions of the two bound tabs need; `admin` bypasses it, as the server does. */
 export const WORKSPACE_IDE = "workspace_ide";
 
 /**
  * One group, shared by the view and its dialog.
  *
- * C.2b's reasoning unchanged: a dialog's fields are seeded from what the table
+ * The workspace registry's reasoning unchanged: a dialog's fields are seeded from what the table
  * published, and a second group would mean copying the selection across before
  * every dialog and back after.
  */
@@ -180,12 +180,12 @@ const WORKSPACE_NAME_KEY = "workspace_name";
 /** Whether a table document declares an action, which is what decides how a tab is drawn. */
 export function hasActionBar(document: TableConfigDocument): boolean {
   if (document.source !== "query") return false;
-  // Any row, the third included (`AE.1`, 2026-10-01).
+  // Any row, the third included (2026-10-01).
   return actionRowsOf(document).some(([, actions]) => actions.length > 0);
 }
 
 /**
- * The two documents C.3b's tabs need, parsed once at module load.
+ * The two documents the bound tabs need, parsed once at module load.
  *
  * **Parsed rather than cast**, on `WorkspaceRegistry`'s terms: a document that
  * does not satisfy its schema fails here, in every test that imports this module,
@@ -206,8 +206,8 @@ export function documentFindings(): string[] {
       }
     }
   }
-  // Every bundled table document is parsed too, which the C.3 half of this file
-  // did not do: those six were only ever cast. A table whose document stopped
+  // Every bundled table document is parsed too, which the first version of this
+  // file did not do: those six were only ever cast. A table whose document stopped
   // fitting its schema would have rendered an empty strip.
   for (const [key, document] of Object.entries(COMPILED_VIEW_TABLES)) {
     const result = TableConfigDocumentSchema.safeParse(document);
@@ -244,7 +244,7 @@ export interface CompiledViewProps {
   /** The workspace whose `workspace.db` every tab reads. */
   workspaceName: string;
   /**
-   * Called after an action that adds or removes a workspace file. Task C.3b.
+   * Called after an action that adds or removes a workspace file.
    *
    * Optional because the six action-less views never fire it, and a caller that
    * renders only those owes nothing. See the header for why the screen re-reads
@@ -253,7 +253,7 @@ export interface CompiledViewProps {
   onFilesChanged?: () => void;
 }
 
-/** A tab whose table has no action bar: C.3's six, unchanged. */
+/** A tab whose table has no action bar: the six action-less views, unchanged. */
 function ReadOnlyTabPanel({
   api,
   tableKey,
@@ -289,7 +289,7 @@ function ReadOnlyTabPanel({
   );
 }
 
-/** A tab whose table has an action bar: C.3b's two. */
+/** A tab whose table has an action bar: the two file lists. */
 function BoundTabPanel({
   api,
   tableKey,
@@ -312,7 +312,7 @@ function BoundTabPanel({
   tabId: string;
 }) {
   const config = useMemo(() => fromDocument(tableKey, document), [tableKey, document]);
-  // **Keyed on the workspace name and nothing else — I-184.** `useTableBinding`
+  // **Keyed on the workspace name and nothing else.** `useTableBinding`
   // takes `context` as a dependency of the query it builds, so a new object
   // identity is a refetch; rebuilding it on every form-state change would refetch
   // on every *selection* and then discard the selection, because the restore is
@@ -350,7 +350,7 @@ export function CompiledView({ api, document, workspaceName, onFilesChanged }: C
   const [, setStateVersion] = useState(0);
 
   const formState = useMemo(() => new FormState(), []);
-  /** Whether the last action stopped because the user stopped it — **I-186**. */
+  /** Whether the last action stopped because the user stopped it. */
   const haltedByUser = useRef(false);
   const dialog = useFormDialog();
   /**
@@ -433,7 +433,7 @@ export function CompiledView({ api, document, workspaceName, onFilesChanged }: C
       notify: (level, message) => (level === "error" ? setError(message) : setStatus(message)),
       setBusy,
       // A view has no states and no screen to leave; `close` dismisses the open
-      // dialog, which is the nearest thing. C.2b's reasoning, unchanged.
+      // dialog, which is the nearest thing. The workspace registry's reasoning, unchanged.
       goToState: () => {},
       close: () => dialog.close("ok"),
       navigate: () => {
@@ -479,7 +479,7 @@ export function CompiledView({ api, document, workspaceName, onFilesChanged }: C
     onFilesChanged?.();
   }, [formState, onFilesChanged]);
 
-  /** Opens a dialog and waits for it **without holding `busy`** — a modal is not work (C.2b). */
+  /** Opens a dialog and waits for it **without holding `busy`** — a modal is not work. */
   const openAndRefresh = useCallback(
     async (form: string, params: Record<string, string>) => {
       // The params are seeded into this open's state, where the dialog's fields
@@ -523,7 +523,7 @@ export function CompiledView({ api, document, workspaceName, onFilesChanged }: C
             case "promptFilter":
               // None of the eight table documents configures any of these, and
               // `documentFindings` cannot see an action type — so this reports
-              // rather than being silently absent, which is C.2b's rule.
+              // rather than being silently absent, which is the workspace registry's rule.
               setError(`"${action.label}" asks for ${request.kind}, which a compiled view does not serve`);
               return;
           }

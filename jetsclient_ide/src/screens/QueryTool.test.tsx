@@ -1,12 +1,12 @@
 /**
  * @vitest-environment jsdom
  *
- * The Query Tool. Task C.4.
+ * The Query Tool.
  *
  * **Driven through a stubbed `fetch` with everything below `ApiClient` real**, so
  * these assert the request that leaves the browser rather than the payload a
- * builder returns. That is I-104's rule, and this screen is the case it was
- * written for: `columnDef` — the mechanism the whole screen rests on — appears in
+ * builder returns. A document-level check passes on a field nothing draws, and
+ * this screen is the case that rule was written for: `columnDef` — the mechanism the whole screen rests on — appears in
  * `model.test.ts` and in `live.test.ts` and in **no test that renders**, so the
  * table's ability to draw columns it learned from a response has never been
  * observed on a screen.
@@ -100,7 +100,7 @@ describe("the query tool", () => {
     // The blocking clause: `query.ready` is unset, so the table has nothing to
     // ask. Typing is not submitting, and the Dart's `WhereClause(column: '',
     // formStateKey: FSK.queryReady)` is what says so.
-    // D.11: the Query Tool blocks on an unsubmitted statement, not a selection.
+    // The Query Tool blocks on an unsubmitted statement, not a selection.
     await waitFor(() => expect(screen.getByText("Submit a query above to see rows.")).toBeTruthy());
     expect(sent).toEqual([]);
   });
@@ -235,7 +235,7 @@ describe("the query tool", () => {
     fireEvent.click(screen.getByRole("button", { name: "Submit Query" }));
     await waitFor(() => expect(sent).toHaveLength(1));
 
-    // **The regression guard for I-165.** `useFormField` notifies on every
+    // **The regression guard for re-querying on every keystroke.** `useFormField` notifies on every
     // keystroke, and `useTableBinding` used to ask `FormState.isKeyUpdated`,
     // which latches: nothing clears the set once a watched key has changed. So
     // every character typed here re-executed the previous statement against the
@@ -278,7 +278,7 @@ describe("the query tool", () => {
       // **Both, which is the divergence from the Flutter form.** There
       // `queryToolOk` declares the capability and `queryToolDdlOk` declares none,
       // so the SELECT button is disabled for a user the DDL button is offered to.
-      // The server refuses either way; this does not offer the wrong one. I-166.
+      // The server refuses either way; this does not offer the wrong one.
       expect(button.disabled, name).toBe(true);
       expect(button.getAttribute("title"), name).toContain("workspace_ide");
     }

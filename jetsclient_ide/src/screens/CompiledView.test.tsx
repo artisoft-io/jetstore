@@ -1,8 +1,8 @@
 /**
  * @vitest-environment jsdom
  *
- * **C.3's exit condition: a section heading opens the compiled view of the
- * workspace the picker names.** Task C.3.
+ * **The claim: a section heading opens the compiled view of the workspace the
+ * picker names.**
  *
  * The claim is one clause long and **none of it is observable from the rows.**
  * The workspace name appears in no `WHERE`; it rides on the request envelope as
@@ -10,8 +10,8 @@
  * (`jets/datatable/workspace_data_table_action.go`, `DoWorkspaceReadAction`)
  * opens that workspace's SQLite file. Drop it and the request still succeeds
  * against whatever the server falls back to, the tables render, the columns are
- * right, and the screen is showing another workspace's compiled model. That is
- * I-104's failure with a third field, so **the assertions here are about the
+ * right, and the screen is showing another workspace's compiled model. A test of
+ * the rows cannot fail on that, so **the assertions here are about the
  * requests the tabs sent**, and the mutation at the bottom of this comment is the
  * measurement of why.
  *
@@ -20,11 +20,12 @@
  * then on `fromClauses[0].table` the way the apiserver dispatches on the
  * statement it composes.
  *
- * **The shell is rendered rather than the screen alone**, which is C.14's lesson:
+ * **The shell is rendered rather than the screen alone**, a lesson from an earlier
+ * screen's tests:
  * a harness that omits `AppShell` has no banner region, so a test asserting on a
  * failure finds a field-level message instead and passes for the wrong reason.
  *
- * **Rows are awaited, never labels** (I-104's flake): a table's rows arrive from
+ * **Rows are awaited, never labels** (a known flake): a table's rows arrive from
  * an effect one tick after its label.
  */
 
@@ -65,13 +66,13 @@ const ROWS: Record<string, JetsRow[]> = {
   jet_rules: [["4", "RuleRow", "100", "[a] -> [b];", "jet_rules/rules.jr"]],
   rule_terms: [["TermRule", "2", "1", "TermRow", "0"]],
   main_support_files: [["MainFileRow", "SupportFileRow"]],
-  // C.3a's two, authored rather than translated.
+  // Two authored rather than translated.
   lookup_tables: [
     ["9", "LookupRow", "lk_claim", "lookups/claim.csv", "LookupKeyCol", "LookupResCol", "lookups/claim.jr"],
   ],
   lookup_columns: [["LookupColParent", "LookupColRow", "text", "0"]],
   /**
-   * C.3b's two, and they are the one entry two tables share.
+   * The two file lists, and they are the one entry two tables share.
    *
    * `wsDataModelFilesTable` and `wsJetRulesFilesTable` read the *same*
    * `workspace_control` table and are separated only by a `LIKE` prefix, so a
@@ -79,7 +80,7 @@ const ROWS: Record<string, JetsRow[]> = {
    * uniqueness property above would be broken by any two rows it returned to
    * both. **So the stub applies the prefix**, which makes it the one place in
    * this harness that reproduces a `WHERE` rather than ignoring it. That is not
-   * harness convenience: `like` is the schema field C.3b added, and a document
+   * harness convenience: `like` is the schema field added for these tabs, and a document
    * that failed to carry it would return both files to both tabs here.
    */
   workspace_control: [
@@ -243,8 +244,8 @@ const reads = (posts: Posted[]) =>
  * How many reads opening one view issues: one per tab, because every tab is
  * mounted and only the inactive ones are `hidden`.
  *
- * **Derived from the document rather than written down**, which C.3b is the
- * reason for: these were four literal `3`s and a `6`, and adding the fourth tab
+ * **Derived from the document rather than written down**, which the two file
+ * lists are the reason for: these were four literal `3`s and a `6`, and adding the fourth tab
  * to two views failed eight cases that had nothing to say about the change. A
  * count that is a property of a document belongs in the document.
  */
@@ -256,7 +257,7 @@ describe("a section heading opens its compiled view", () => {
     // A section this app renders a view for gets a clickable heading; one it does
     // not gets a heading that only expands. The five are the sections whose files
     // compile into nothing, so there is no view for them ever — as distinct from
-    // one that is merely not built, which after C.3a is none of them.
+    // one that is merely not built, which since the lookups view is none of them.
     for (const dir of ["data_model", "jet_rules", "lookups"]) {
       expect(screen.getByTitle(`Open the compiled view of ${dir}`)).toBeTruthy();
     }
@@ -292,7 +293,7 @@ describe("a section heading opens its compiled view", () => {
       "jet_rules",
       "rule_terms",
       "main_support_files",
-      // C.3b's tab, and the only one of the four that reads `workspace_control`
+      // The file list's tab, and the only one of the four that reads `workspace_control`
       // on its own rather than joined to a compiled table.
       "workspace_control",
     ]);
@@ -410,7 +411,7 @@ describe("a section heading opens its compiled view", () => {
 
     // `wsDataPropertyTable` selects `domain_classes.name` and
     // `data_properties.name` in one query. `DataTable` keyed its cells by
-    // `column.name` until C.3, so React was handed the same key twice and either
+    // `column.name` until this screen was ported, so React was handed the same key twice and either
     // cell could be dropped — a defect no single-table `FROM` can reach, which is
     // all 37 flow tables.
     await screen.findByText("PropRow");
@@ -420,7 +421,7 @@ describe("a section heading opens its compiled view", () => {
   });
 
   /**
-   * **The entry point, which is a decision rather than a port — C.3, I-206.**
+   * **The entry point, which is a decision rather than a port.**
    *
    * The Flutter screen's section list is `workspaceMenuState`, written by the
    * *Open* delegate and read by `base_screen.dart`, so it is reachable by that
@@ -441,10 +442,11 @@ describe("a section heading opens its compiled view", () => {
   });
 
   /**
-   * **C.3a: the view neither client had.** `lookups` compiles into
+   * **The view neither client had.** `lookups` compiles into
    * `lookup_tables` and `lookup_columns`, so the server has declared
-   * `compiled_view: lookups` since C.1; the Flutter app declared two constants
-   * for it and never registered them, and C.1 deleted them. Its two table
+   * `compiled_view: lookups` since the workspace tree carried compiled views; the
+   * Flutter app declared two constants for it and never registered them, and
+   * that change deleted them. Its two table
    * documents are authored rather than translated — there is no Dart to measure —
    * and what checks them in place of the round trip is
    * `jets/workspace_schema.sql`, in `table.test.ts`.
@@ -492,8 +494,8 @@ describe("a section heading opens its compiled view", () => {
 });
 
 /**
- * **C.3b's exit condition, and it is a different claim from C.3's.** C.3's cases
- * above are about a *request*: the workspace name rides on the envelope and
+ * **The file lists' claim, and it is a different claim from the views'.** The
+ * cases above are about a *request*: the workspace name rides on the envelope and
  * nothing in the rows can tell you whether it was sent. These are about a
  * *write*, so what they assert is the body of the post and the state of the
  * screen after it.
@@ -506,7 +508,7 @@ describe("a section heading opens its compiled view", () => {
  *    is visible as rows rather than as a missing property.
  * 2. **Delete fans out one row per selected file.** `fromKey` unpacks a list to
  *    its *first* element, so the wrong spelling posts N copies of one file name
- *    and deletes one of the N. That is a defect this task found in C.13's
+ *    and deletes one of the N. That is a defect found in the user admin screen's
  *    `deleteUser` while writing the same document, and the shape is invisible
  *    with one row selected.
  * 3. **The tree is re-read and the tabs are not closed.** The two are one
@@ -574,7 +576,7 @@ describe("the two tabs that write workspace files", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
     const deletes = () => posts.filter((p) => p.action === "delete_workspace_files");
-    // Asked in the app's own dialog (I-39), and nothing is sent until it is answered.
+    // Asked in the app's own dialog, and nothing is sent until it is answered.
     await screen.findByRole("dialog");
     expect(deletes()).toEqual([]);
     expect(await answerConfirm("OK")).toBe("Are you sure you want to delete the selected file(s)?");
@@ -695,7 +697,7 @@ describe("the two tabs that write workspace files", () => {
     // created in a section this tab cannot show.
     await screen.findByText("File name must be entered, preserving the directory prefix.");
     expect(posts.filter((p) => p.action === "add_workspace_file")).toEqual([]);
-    // The dialog is still there to be corrected — I-186's `haltedByUser`.
+    // The dialog is still there to be corrected — `haltedByUser`.
     expect(screen.getByLabelText("File Name")).toBeTruthy();
   });
 

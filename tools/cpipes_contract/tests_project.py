@@ -142,7 +142,7 @@ def test_a_refusal_is_visible():
 
 
 def test_the_bindings_walk_agrees_with_the_M1_census():
-    """1/3/~~21~~ 22 scalar sites and 0/0/8 object sites, counted by hand.
+    """1/3/~~21~~ ~~22~~ 24 scalar sites and 0/0/8 object sites, counted by hand.
 
     **A traversal is worth what a second count says it is.** The first corpus walk
     handled one level of list nesting, silently skipped `reducing_pipes_config`, and
@@ -156,6 +156,8 @@ def test_the_bindings_walk_agrees_with_the_M1_census():
     So the three sites that were already empty lists here (`stage1_map_pipes`,
     `sum_metrics`, `map_reduce_metrics`) are its precedent rather than a discrepancy, and
     the count of a *binding site* is what this asserts, not a count of anything authored.
+    **And to 24 on 2026-11-19**, when the two notification context keys became
+    parameters of the template rather than literals in its body.
     `sizing` is what keeps a repeat binding out of the offered fields, which the sibling
     test below holds.
     """
@@ -167,7 +169,7 @@ def test_the_bindings_walk_agrees_with_the_M1_census():
     expected = {
         "map_claim_load_stages": (1, 0),
         "qc_metrics": (3, 0),
-        "qc_report": (22, 8),
+        "qc_report": (24, 8),
     }
     for name, (n_scalar, n_object) in expected.items():
         context = json.loads((HERE / "templates" / f"{name}.bindings.json").read_text())
@@ -359,6 +361,69 @@ def test_the_walk_is_shorter_than_the_document():
     p = projection("qc_metrics")
     assert p.state_count > 100
     assert p.longest_walk() < p.state_count / 3
+
+
+def test_a_parameter_is_offered_with_its_default_label_and_help():
+    """`qc_report`'s two notification context keys: a default to see and change, and why.
+
+    The keys are what a deployment's notification template reads, so the right value
+    depends on the deployment rather than on the pipeline. The flow offers the neutral
+    default from the bindings, under the parameter's label, with its help in the row
+    below; the skeleton puts the collected value where the config's context key goes.
+    """
+    p = projection("qc_report")
+    rows = p.forms["bindings"]["rows"]
+    want = {
+        "bindings._item.file_type_key": "$NOTIFICATION_FILE_TYPE",
+        "bindings._item.notification_type_key": "$NOTIFICATION_TYPE",
+    }
+    for key, default in want.items():
+        at = next(i for i, row in enumerate(rows) if row[0].get("key") == key)
+        field = rows[at][0]
+        assert field["defaultValue"] == default
+        assert field["label"].startswith("Notification key for the")
+        assert any(r["rule"] == "required" for r in field["rules"])
+        help_row = rows[at + 1][0]
+        assert help_row["field"] == "label" and "{{NAME}}" in help_row["text"]
+
+    from cpipes_contract.project import BINDING_MARKER
+
+    context = p.plan["skeleton"]["context"]
+    assert [c["key"] for c in context[2:4]] == [BINDING_MARKER + k for k in want]
+    # Every other binding field stays as it was: no default, labelled by its path.
+    others = [row[0] for row in rows if row[0].get("field") == "text" and row[0]["key"] not in want]
+    assert others and all("defaultValue" not in f for f in others)
+
+
+def test_a_parameter_with_no_value_in_the_bindings_is_refused():
+    """The default comes from the bindings, so a parameter they do not bind is a defect."""
+    from cpipes_contract.project import ProjectionError
+
+    tpl = tmod.load(HERE / "templates" / "qc_report.template.json")
+    context = json.loads((HERE / "templates" / "qc_report.bindings.json").read_text())
+    del context["$item"]["notification_type_key"]
+    try:
+        project(tpl, context, SCHEMA)
+    except ProjectionError as err:
+        assert "notification_type_key" in str(err), err
+    else:
+        raise AssertionError("projected a parameter the bindings do not bind")
+
+
+def test_the_installed_qc_documents_are_the_projection():
+    """What `install_workspace_assets` ships for the two `qc_*` templates is what they project to.
+
+    Nothing else asserts it, and a hand edit to an installed document is overwritten by
+    the next regeneration without anyone seeing it go. `map_claim_load_stages` is left
+    out: its installed set lags its template, which is a separate change.
+    """
+    import tempfile
+
+    installed = HERE.parent.parent / "jets" / "workspace_assets" / "user_flows"
+    for name in ("qc_metrics", "qc_report"):
+        with tempfile.TemporaryDirectory() as out:
+            for path in projection(name).write(Path(out)):
+                assert path.read_bytes() == (installed / path.name).read_bytes(), path.name
 
 
 if __name__ == "__main__":

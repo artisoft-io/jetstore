@@ -1,7 +1,8 @@
 /**
  * @vitest-environment jsdom
  *
- * C.11 and C.12 — the two viewer screens, which are C.7's component again.
+ * The two viewer screens, domain table and file preview, which are
+ * `TableScreen` again.
  *
  * **A separate file from `TableScreen.test.tsx` because the property is
  * different, not because the component is.** That file asserts what a screen
@@ -9,13 +10,14 @@
  * is what a screen *receives* — the `columnDef` the server supplies in place of a
  * configured column list.
  *
- * F81 records that four of the non-flow 25 declare none and that
- * `columnsFromResponse` has consumed the reply since A.4b, so the schema
- * relaxation C.4 made was the whole gap. **That is a claim about a code path no
- * screen had ever taken**, which is exactly I-104's shape — a half of a contract
- * tested from the end that cannot fail — so it is taken here rather than trusted.
+ * Four of the 25 non-flow configurations declare none, and
+ * `columnsFromResponse` has consumed the reply since the data table was first
+ * built, so relaxing the schema to allow an empty column list was the whole gap.
+ * **That is a claim about a code path no screen had ever taken** — a half of a
+ * contract tested from the end that cannot fail — so it is taken here rather
+ * than trusted.
  *
- * C.12 also names `preview_file`, the one `apiAction` in either corpus that no
+ * The file preview also names `preview_file`, the one `apiAction` in either corpus that no
  * other configuration uses, and the stub answers on the arm name.
  */
 
@@ -60,8 +62,8 @@ function stubServer() {
         { status: 200 },
       );
     }
-    // **The arm name is an assertion.** `read` for C.11 and `preview_file` for
-    // C.12; a document that lost its `apiAction` would arrive here as `read` and
+    // **The arm name is an assertion.** `read` for the domain table viewer and
+    // `preview_file` for the file preview; a document that lost its `apiAction` would arrive here as `read` and
     // the preview case would see the wrong rows rather than an error, so the two
     // answer different data.
     if (body["action"] === "read") {
@@ -136,7 +138,7 @@ describe("the domain and staging table viewer", () => {
     // **The `from` clause is empty in the document** — `{schema: "public"}` with
     // no table — and `makeQuery` fills it from `table_name`. So this screen puts
     // a route parameter into the FROM as well as into the WHERE, which is one
-    // more than C.7's does and is the reason it is the viewer.
+    // more than the execution status screen's does and is the reason it is the viewer.
     const { posts } = await mount("domain");
     await screen.findByText("c-1");
     const read = reads(posts).find((b) => b["action"] === "read")!;
@@ -213,7 +215,7 @@ describe("what both screens do not do", () => {
   it("sends no implicit client filter, because neither table has a client column", async () => {
     // The column list is empty in the document, so `hasClientColumn` is false
     // whatever the shell's picker holds — asserted rather than assumed, because
-    // C.6 made the picker exist and these two screens sit under the same shell.
+    // the picker exists and these two screens sit under the same shell.
     const { posts } = await mount("domain");
     await screen.findByText("c-1");
     const where = reads(posts).find((b) => b["action"] === "read")!["whereClauses"] as Record<

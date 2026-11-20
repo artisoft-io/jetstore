@@ -1,12 +1,11 @@
 /**
- * The table's action bar. Task S.2b.
+ * The table's action bar.
  *
- * A.4b left `DataTable`'s `actions` prop with the comment *"where S.2's action
- * buttons go"*. This is what goes there — the rendering is small, because the
+ * `DataTable`'s `actions` prop is *"where the action bar's buttons go"*. This is what goes there — the rendering is small, because the
  * two parts that can be wrong live in `actionBarModel.ts` and
  * `actionDispatch.ts` and are tested without a DOM.
  *
- * Buttons obey A.2's capability model through `ActionButton`, which disables
+ * Buttons obey the capability model through `ActionButton`, which disables
  * rather than hides and explains itself. Nine of the 25 actions name a
  * capability — `client_config` on six, `run_pipelines` on three.
  */
@@ -19,9 +18,9 @@ import { requestFor, type ActionRequest } from "./actionDispatch";
 import type { ActionConfig } from "./types";
 
 /**
- * The two actions the widget owns, and what pressing one does. Task D.10.
+ * The two actions the widget owns, and what pressing one does.
  *
- * **A.5 established that `refreshTable` and `toggleCheckboxVisible` act on the
+ * **`modes.ts` established that `refreshTable` and `toggleCheckboxVisible` act on the
  * table rather than on the flow, and `useTableBinding`'s header says the bar
  * "only has to find it here". It never did.** `requestFor` throws
  * `UnsupportedActionType` for both — deliberately, and correctly, since a
@@ -30,9 +29,9 @@ import type { ActionConfig } from "./types";
  * error out of an event handler and the button appeared inert. `refreshTable`
  * sits on `pipelineExecStatusTable`, which is this app's front door.
  *
- * Found at D.10 while moving `inputLoaderStatusTable` to a screen of its own,
+ * Found while moving `inputLoaderStatusTable` to a screen of its own,
  * which is a screen whose *Refresh* button would otherwise have shipped broken.
- * Fixed here rather than filed, on I-270's argument: a three-line handler beats
+ * Fixed here rather than filed: a three-line handler beats
  * an entry saying somebody should look at it.
  */
 export interface WidgetActions {
@@ -51,7 +50,7 @@ export interface ActionBarProps {
    */
   widget?: WidgetActions;
   /**
-   * The row a `navigationParams` column index reads from — and, since C.2, the
+   * The row a `navigationParams` column index reads from — and, since the row gate, the
    * row `enableWhen` tests.
    */
   selectedRow?: (string | null)[];
@@ -66,7 +65,7 @@ export function ActionBar({
   onAction,
 }: ActionBarProps): ReactNode {
   // **Folded in here rather than asked of every caller.** The bar already holds
-  // the selected row for `requestFor`, and C.2 gave `availability` a second use
+  // the selected row for `requestFor`, and the row gate gave `availability` a second use
   // for the same value; making each caller put it in the context as well would
   // be two sources for one fact, and the one a screen forgot would be the one
   // that silently enabled a gated button. Every existing caller is correct
@@ -89,7 +88,7 @@ export function ActionBar({
           // which matched no rule, so **every configured action rendered as a
           // plain `.btn` and each document's declared `style` was inert** — 49
           // buttons across 24 table documents, of which 4 are `danger` Deletes.
-          // D.4, from **I-264**, which reported the visible half: *Start
+          // Fixed from a report of the visible half: *Start
           // Pipeline* is declared `primary` and did not look it.
           className={`btn btn-${action.style}`}
           disabled={!state.enabled}

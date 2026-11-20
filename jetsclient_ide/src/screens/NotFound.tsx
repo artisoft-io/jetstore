@@ -1,31 +1,30 @@
 /**
- * The 404. Task C.16, `/404` in the Flutter app.
+ * The 404, `/404` in the Flutter app.
  *
- * `sizing_screen_migration.md` §7 calls this "a four-line widget", and as a
- * *widget* it is: the Flutter side is a `MessageScreen` saying `"Opps 404!"`
- * (`jets_routes_app.dart`, `pageNotFoundPath`). The work in this task is not the
+ * As a *widget* it is small: the Flutter side is a `MessageScreen` saying `"Opps 404!"`
+ * (`jets_routes_app.dart`, `pageNotFoundPath`). The work here is not the
  * widget. It is that **the React app already answered every unmatched path, by
- * redirecting**, and deciding whether to keep doing that is the whole of C.16.
+ * redirecting**, and deciding whether to keep doing that is the whole of it.
  *
  * ## The decision: report, do not redirect
  *
  * `App.tsx` carried `<Route path="*" element={<Navigate to="/workspace" replace />} />`
- * since A.1. That is not the Flutter behaviour — `jetsRoutesParser` falls through
+ * since it was first written. That is not the Flutter behaviour — `jetsRoutesParser` falls through
  * to `pageNotFoundPath` when no route template matches
  * (`jets_route_information_parser.dart`) — and the difference is a decision
  * rather than a gap: **a redirect hides a bad link and a 404 reports it.**
  *
  * **The evidence against the redirect is this repository's own, and it is not an
- * argument from taste.** I-50: the Flutter app had been handing users to
- * `/ide/flow/<key>` since S.8, nothing registered that route, and the catch-all
+ * argument from taste.** The Flutter app had been handing users to
+ * `/ide/flow/<key>` for some time, nothing registered that route, and the catch-all
  * silently landed them in the editor. The failure did not look like a missing
  * route — it looked like a working application on the wrong screen — and it
- * survived long enough that the Phase 3 plan was written assuming a flow runner
+ * survived long enough that later planning was written assuming a flow runner
  * existed. **The redirect was the mechanism by which a missing route stayed
  * invisible**, not merely an unlucky bystander.
  *
- * **And the exposure is about to grow rather than shrink.** Track C is a list of
- * handoff points: every screen it ports adds a url the Flutter app may send a
+ * **And the exposure is about to grow rather than shrink.** The screen migration
+ * is a list of handoff points: every screen it ports adds a url the Flutter app may send a
  * user to, and every one of those is a chance to name it wrong on one side. With
  * the redirect, each such mistake renders the editor and looks fine. This route
  * is also the *only* thing that can report it — the apiserver's `/ide/` handler
@@ -33,15 +32,14 @@
  * (`jets/apiserver/static_ide.go`), so a mistyped deep link never reaches a
  * server 404 and this app is the only party that knows.
  *
- * **What would have to be true to go back to the redirect**, since the prompt
- * asked and a decision without a reversal condition is a preference: that a real
+ * **What would have to be true to go back to the redirect**, since a decision without a reversal condition is a preference: that a real
  * user, rather than a developer or another app, routinely arrives at an unmatched
  * path through no error of anyone's — a stale bookmark from a url space this app
- * has renamed, most plausibly. Decision 4 defers exactly such a rename (`/ide/`
- * → something else), so **if that rename happens, redirect the old prefix
+ * has renamed, most plausibly. A rename of the `/ide/` prefix has been deferred, so **if that rename happens, redirect the old prefix
  * explicitly and keep this screen for everything else.** A catch-all is the wrong
  * tool for a known rename either way: it cannot tell the two cases apart, which
- * is the same reason it could not tell I-50 apart from a working app.
+ * is the same reason it could not tell the missing flow route apart from a
+ * working app.
  *
  * ## What it shows, and one divergence
  *
