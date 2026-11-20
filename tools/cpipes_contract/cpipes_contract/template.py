@@ -38,6 +38,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 HOLE_KEY = "$hole"
 BODY_KEY = "$body"
+ITEM_KEY = "$item"
 
 
 class Hole(BaseModel):
@@ -62,6 +63,25 @@ class Hole(BaseModel):
     )
 
 
+class Parameter(BaseModel):
+    """A top-level binding the template is parameterised by, presented to a person.
+
+    **A binding with a label, a help text and a default, and nothing more.** The body
+    reads it as any other binding, `{"$item": "<name>"}`, so expansion is unchanged: a
+    reproduction binds it from the config it reproduces, and the bindings file beside
+    the template gives the value a projected flow starts with. What the declaration adds
+    is presentation, for a value whose right answer depends on the deployment rather
+    than on the pipeline - a context key a notification template reads, say - so a flow
+    offers it as a default the person can see and change, and says why.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(description="The field of the top-level `$item` binding record it presents.")
+    label: str = Field(description="The form field's label.")
+    help: str = Field(description="Shown beside the field: what the value is for and when to change it.")
+
+
 class Template(BaseModel):
     """A `ComputePipesConfig` with selected nodes replaced by typed holes."""
 
@@ -70,7 +90,35 @@ class Template(BaseModel):
     name: str
     description: str = Field(description="What configs this template produces, and when to reach for it.")
     holes: list[Hole]
+    parameters: list[Parameter] = Field(
+        default_factory=list,
+        description="Top-level bindings a projected flow offers with a label, help and default.",
+    )
     body: dict = Field(description="A ComputePipesConfig shape carrying `{\"$hole\": \"<name>\"}` markers.")
+
+    def item_reads(self) -> set[str]:
+        """The fields of the top-level `$item` the body reads outside every hole.
+
+        A read inside a hole's `$body` names a field of that repetition's item, not of
+        the top-level record, so it is not one a `Parameter` can declare.
+        """
+        found: set[str] = set()
+
+        def walk(node: object) -> None:
+            if isinstance(node, dict):
+                if HOLE_KEY in node:
+                    return
+                if ITEM_KEY in node and len(node) == 1:
+                    found.add(str(node[ITEM_KEY]))
+                    return
+                for value in node.values():
+                    walk(value)
+            elif isinstance(node, list):
+                for item in node:
+                    walk(item)
+
+        walk(self.body)
+        return found
 
     def markers(self) -> list[tuple[str, str]]:
         """Every `$hole` marker in the body, as (name, path).
@@ -147,7 +195,8 @@ def check(
     """Return (findings, notes).
 
     Findings are defects: a marker with no declaration, a declaration with no marker, a
-    duplicate name, a `schema_ref` that is not an addressable type. Notes are the
+    duplicate name, a `schema_ref` that is not an addressable type, a parameter the body
+    never reads. Notes are the
     coverage report that was asked for rather than an error - a hole whose type the library
     cannot illustrate is authorable, and the author is told so.
     """
@@ -173,6 +222,20 @@ def check(
     for hole in template.holes:
         if hole.name not in used:
             findings.append(f"hole {hole.name!r} is declared but never placed in the body")
+
+    # A parameter presents a top-level binding, so the body must read that binding;
+    # one it never reads would be a field whose value goes nowhere.
+    reads = template.item_reads()
+    declared: set[str] = set()
+    for param in template.parameters:
+        if param.name in declared:
+            findings.append(f"parameter {param.name!r} is declared more than once")
+        declared.add(param.name)
+        if param.name not in reads:
+            findings.append(
+                f"parameter {param.name!r} is declared but the body never reads "
+                f'{{"$item": {param.name!r}}} outside a hole'
+            )
 
     # A repeating hole must sit inside a list: that is where its expansion goes.
     positions = dict((name, path) for name, path in marked)

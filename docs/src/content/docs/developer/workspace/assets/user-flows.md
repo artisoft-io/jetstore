@@ -107,8 +107,9 @@ the whole of the guard's evidence, as it is for `pipes_config`.
 ## No `--check`
 
 `jets-agentic generate --check` asserts that `data_model` holds what the generator would emit;
-nothing asserts that of this directory. Such a check is owed to `cpipes-contract` rather than to the
-installer. How to regenerate the projections is in
+there is no such command for this directory. `tools/cpipes_contract/tests_project.py` asserts it for
+the `qc_metrics` and `qc_report` sets, and nothing asserts it for `map_claim_load_stages`. A full
+check is owed to `cpipes-contract` rather than to the installer. How to regenerate the projections is in
 [Regenerate the generated assets](/docs/developer/workspace/assets/regenerate-assets/).
 
 ## `qc_metrics.demonstrated.pc.json` is not here

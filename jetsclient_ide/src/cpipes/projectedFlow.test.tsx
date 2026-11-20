@@ -218,10 +218,14 @@ describe("a projected document set, where the installer puts it", () => {
   });
 });
 
-/** Fills every value field of a form, the way a careful author would. */
-function fillEveryField(form: Form): void {
+/**
+ * Fills every value field of a form, the way a careful author would. With `keepDefaults`
+ * a field that carries a `defaultValue` is left as the form seeded it.
+ */
+function fillEveryField(form: Form, keepDefaults = false): void {
   for (const field of valueFieldsOf(form)) {
     if (field.field !== "text") continue;
+    if (keepDefaults && field.defaultValue !== undefined) continue;
     const json = (field.rules ?? []).some((r) => r.rule === "json");
     // **The value is the field's key**, as `templateApply.test.ts` does and for the
     // same reason: a config whose every value names the step that produced it reads
@@ -296,6 +300,59 @@ describe("the runner drives one, in a DOM, against the real client", () => {
     // runner is gone and the app is where a completed flow leaves a user — the
     // index, since this url carries no `returnTo`.
     await waitFor(() => expect(screen.getByText("Home")).toBeTruthy());
+  });
+
+  /**
+   * **The notification context keys start at their neutral defaults and are saved as
+   * such.** They are the keys a deployment's notification template reads, so the flow
+   * offers a default the author can see and change rather than a name fixed in the
+   * shipped documents; left alone, the default is what the config carries.
+   */
+  it("saves the notification keys the form seeded when the author leaves them", async () => {
+    const { api, saved } = await client();
+
+    render(
+      <ApiProvider api={api}>
+        <NotificationsProvider>
+          <PromptsProvider>
+            <MemoryRouter initialEntries={["/flow/qc_report"]}>
+              <Routes>
+                <Route path="/flow/:key" element={<FlowRunner api={api} />} />
+                <Route path="/home" element={<p>Home</p>} />
+              </Routes>
+            </MemoryRouter>
+          </PromptsProvider>
+        </NotificationsProvider>
+      </ApiProvider>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText("The values this template is parameterised by")).toBeTruthy(),
+    );
+    expect(
+      (screen.getByLabelText("Notification key for the file type") as HTMLInputElement).value,
+    ).toBe("$NOTIFICATION_FILE_TYPE");
+
+    const form = (JSON.parse(files["user_flows/qc_report.form.json"]!) as {
+      forms: Record<string, Form>;
+    }).forms["bindings"]!;
+    fillEveryField(form, true);
+    await waitFor(() =>
+      expect(
+        (screen.getByRole("button", { name: "Save configuration" }) as HTMLButtonElement).disabled,
+      ).toBe(false),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save configuration" }));
+    await waitFor(() => expect(saved.length).toBe(1));
+
+    const config = JSON.parse(saved[0]!.content) as { context: { key: string }[] };
+    expect(config.context.map((c) => c.key)).toEqual([
+      "$PROCESSING_TICKET",
+      "$REPORT",
+      "$NOTIFICATION_FILE_TYPE",
+      "$NOTIFICATION_TYPE",
+      "layout_name",
+    ]);
   });
 
   /**
