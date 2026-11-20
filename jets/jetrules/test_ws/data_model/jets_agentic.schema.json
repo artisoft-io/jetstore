@@ -4,9 +4,17 @@
   "$comment": "jetstore-owned-asset: data_model/jets_agentic.schema.json \u2014 DO NOT EDIT. Source: `jets-agentic generate`, from tools/jets_agentic/jets_agentic/model.py. Installed into this workspace at image build time and overwritten on every build; a local edit is lost, and the build fails rather than clobbering it silently. Extend the model from your own file that imports this one.",
   "description": "The jets_agentic domain model, version 0.1.0. Decode against `jets-agentic schema` projections, not whole entities.",
   "$defs": {
+    "ActorKind": {
+      "description": "**Ours entirely** (2 values). Not in the proposal at any level.\n\n**Who made a transition, as a column rather than as a spelling\nconvention.** `ApprovalEvent.actor` and `jetsapi.agent_audit.actor` both\ncarry *\"a user_email or an agent identity\"* and leave the two apart by the\nshape of the string. That is adequate for attribution \u2014 the question those\ncolumns were built to answer is *which* actor \u2014 and it is not adequate for\nthe question a labelled population asks, which is *which kind*.\n\n**A label the measured system may have written is not a label**: the\nlabel-bearing metrics score an agent's classification against a human's\ncorrection, so a query that cannot partition the corrections by kind has no\ndenominator. Deciding that by pattern-matching an email address would make\nthe population a property of a regular expression.\n\nTwo members and no more. `agent` covers a deterministic classifier as well\nas a model-driven one: the distinction that matters to a metric is whether\nthe transition came from **outside** the system under test, and the triage\nclassifier being deterministic does not put it outside.",
+      "enum": [
+        "human",
+        "agent"
+      ],
+      "type": "string"
+    },
     "AgentRun": {
       "additionalProperties": false,
-      "description": "One execution of one agent: the unit the audit store correlates on\n(\u00a77.2's run_id) and the carrier of the reproducibility fields the\nproposal's generated_by block names (\u00a7A.2.7).",
+      "description": "One execution of one agent: the unit the audit store correlates on\n(its run_id) and the carrier of the reproducibility fields the proposal's\ngenerated_by block names.",
       "properties": {
         "run_id": {
           "description": "The run identity; agent_audit.run_id correlates to it.",
@@ -17,7 +25,7 @@
           "type": "string"
         },
         "agent_version": {
-          "description": "The agent's version, for reproducibility (\u00a7A.2.7 generated_by).",
+          "description": "The agent's version, for reproducibility (the proposal's generated_by).",
           "type": "string"
         },
         "model_id": {
@@ -30,7 +38,7 @@
         },
         "tier": {
           "$ref": "#/$defs/AutonomyTier",
-          "description": "The autonomy tier the run executed under, recorded not enforced (\u00a79.1)."
+          "description": "The autonomy tier the run executed under, recorded not enforced."
         },
         "started_at": {
           "description": "When the run started.",
@@ -44,15 +52,27 @@
         },
         "run_status": {
           "type": "string",
-          "description": "The run outcome: succeeded, failed, interrupted; unset while running (scoped per F7: status is \u00a7A.2.7's name on Incident)."
+          "description": "The run outcome: succeeded, exhausted, interrupted or failed; unset while running (class-scoped: status is the proposal's name on Incident). The budget running out is 'exhausted' rather than a failure - it is the compile-pass rate's denominator - and 'interrupted' is the wall-clock cap, distinguished from a caller's cancellation."
         },
         "triggered_by": {
           "type": "string",
-          "description": "What started the run: a schedule, an anomaly, a user (scoped per F7: trigger_ref is \u00a7A.2.10's name on ChangeProposal)."
+          "description": "What started the run: a schedule, an anomaly, a user (class-scoped: trigger_ref is the proposal's name on ChangeProposal)."
         },
         "domain_model_version": {
-          "description": "The domain model version the run reasoned against (\u00a75.3).",
+          "description": "The domain model version the run reasoned against.",
           "type": "string"
+        },
+        "iteration_cap": {
+          "description": "Maximum propose-verify-repair iterations before the run ends as exhausted.",
+          "type": "integer"
+        },
+        "wall_clock_cap_seconds": {
+          "description": "Maximum wall-clock seconds for the whole run, carried on the run's context; the only cap that bounds a call the request timeout missed.",
+          "type": "integer"
+        },
+        "token_spend": {
+          "type": "integer",
+          "description": "Total tokens consumed by the run, accumulated from the inference responses; unset while running. Recorded rather than capped - it is what lets the eval harness compare sampling policies at equal spend."
         }
       },
       "required": [
@@ -63,40 +83,131 @@
         "prompt_version",
         "tier",
         "started_at",
-        "domain_model_version"
+        "domain_model_version",
+        "iteration_cap",
+        "wall_clock_cap_seconds"
       ],
       "type": "object"
     },
     "Anomaly": {
       "additionalProperties": false,
-      "description": "A deterministic detector's observation (\u00a7A.2.6). Skeleton: identity and\ndetection time; the signal fields arrive with the Observer agent.",
+      "description": "A deterministic detector's observation (the proposal's Anomaly), a table.\n\nWidened from the skeleton to what the anomaly design says the execution\nrecord can actually populate.\n\n**The field list is derived from the detectors' six derivable rows, not\nfrom readability.** Every property below is populated by at least one of\nthem; two of the proposal's optional properties are left out because none of\nthe six can populate them:\n\n- `confidence` \u2014 the proposal has it optional. All six rows are predicates\n  or windowed aggregates over a relational table, so a detector emits a fact\n  and has no calibrated confidence to report. Adding it would invite a\n  constant. **Its consumer is the Observer agent, not a detector.**\n- `correlation_group_id` \u2014 the proposal says *\"Assigned by Observer Agent\"*,\n  so by construction no deterministic detector writes it. Clustering\n  anomalies into an Incident is `Incident.hypotheses`' side of the model.\n\nBoth are recorded here rather than silently dropped.\n\n**Three of the proposal's required properties are optional here**, because\nthe detector rows fix which rows carry a number: `expected_min`,\n`expected_max` and `deviation_magnitude` exist for rows 1 and 3, which\ncompare against a history window, and do not exist for rows 2, 4, 5 and 10,\nwhich are within-run predicates with no range and no magnitude. Requiring\nthem would force a detector to invent one.\n\n**Names are class-scoped, named against the namespace rather than for\nreadability.** `subject_ref` is a hard collision \u2014 it is ApprovalEvent's,\ndeclared there first \u2014 and `signal_type`, `observed_value`, `detector_ref`\nand `session_id` are exactly the generic names a client workspace would want\nfor something else. Each carries its proposal name in its description, per\nthe model's documented-against rule.",
       "properties": {
         "anomaly_id": {
-          "description": "The anomaly identity (\u00a7A.2.6: ^anom_[a-z0-9]+$).",
+          "description": "The anomaly identity (the proposal's pattern: ^anom_[a-z0-9]+$).",
           "type": "string"
         },
         "detected_at": {
           "description": "When the detector emitted it.",
           "format": "date-time",
           "type": "string"
+        },
+        "anomaly_session_id": {
+          "description": "The pipeline run the observation is drawn from - `session_id` on every table of the execution record, and the key `purge_database` deletes by. Class-scoped, and deliberately not named run_ref: that is ApprovalEvent's and means an AgentRun, which this is not.",
+          "type": "string"
+        },
+        "anomaly_subject_type": {
+          "$ref": "#/$defs/AnomalySubject",
+          "description": "What the observation is about (the proposal names it subject_ref.entity_type). The detectors' grain: worker for rows 1-4, edge for rows 2, 5 and 10."
+        },
+        "anomaly_subject_ref": {
+          "description": "The subject's identity (the proposal names it subject_ref.entity_id; class-scoped against ApprovalEvent's subject_ref, which is a Remediation or ChangeProposal). For a worker, the step label, shard and jets_partition that key the row; for an edge, those plus the input and output channel.",
+          "type": "string"
+        },
+        "anomaly_signal_type": {
+          "$ref": "#/$defs/SignalType",
+          "description": "Which failure mode was observed (the proposal names it signal_type). Maps to a detector row: rejection_rate is row 1, volume is rows 2 and 5, step_regression row 3, worker_stall row 4, arrival row 10."
+        },
+        "anomaly_observed_value": {
+          "description": "What was measured (the proposal names it observed_value). **Text because the proposal types it [number, string] and JetRules has no union**, and because the detector rows genuinely differ: a ratio for row 1, a count for rows 2 and 5, a status for rows 3 and 4, a destination URI for row 10. The trigger property on ChangeProposal is carried as text for the same reason.",
+          "type": "string"
+        },
+        "anomaly_expected_min": {
+          "type": "string",
+          "description": "The low end of what was expected (the proposal names it expected_range.min; text on the same reasoning as observed_value). Optional rather than required as the proposal has it: only rows 1 and 3 compare against a range at all."
+        },
+        "anomaly_expected_max": {
+          "type": "string",
+          "description": "The high end of what was expected (the proposal names it expected_range.max). Optional, same reasoning as expected_min."
+        },
+        "anomaly_expected_basis": {
+          "description": "**What the observation was compared against** (the proposal names it expected_range.basis) - the history window and grouping for rows 1 and 3, the within-run invariant for rows 2, 4 and 5, the claim being checked for row 10. Required, and it is half of what an actionable anomaly must be able to say.",
+          "type": "string"
+        },
+        "anomaly_deviation_magnitude": {
+          "type": "number",
+          "description": "How far out, in standard deviations or as a ratio per signal type (the proposal names it deviation_magnitude). Optional rather than required as the proposal has it: rows 4, 5 and 10 are boolean predicates with no magnitude to report."
+        },
+        "anomaly_confounders": {
+          "description": "**What the detector could not rule out** - the other half of what an actionable anomaly must say, and the per-observation form of what each detector row *cannot see*. Required; an empty list asserts that none of the fourteen applies, which is the contradicting_evidence discipline on Hypothesis reused. Has no counterpart in the proposal, which was written against a warehouse rather than against this execution record.",
+          "items": {
+            "$ref": "#/$defs/AnomalyConfounder"
+          },
+          "type": "array"
+        },
+        "anomaly_detector_ref": {
+          "description": "The deterministic detector that emitted this (the proposal names it detector_ref, optional; required here because the detector rows differ in what they can see and an anomaly whose detector is unknown cannot be read against the right row).",
+          "type": "string"
         }
       },
       "required": [
         "anomaly_id",
-        "detected_at"
+        "detected_at",
+        "anomaly_session_id",
+        "anomaly_subject_type",
+        "anomaly_subject_ref",
+        "anomaly_signal_type",
+        "anomaly_observed_value",
+        "anomaly_expected_basis",
+        "anomaly_confounders",
+        "anomaly_detector_ref"
       ],
       "type": "object"
     },
+    "AnomalyConfounder": {
+      "description": "**Ours entirely, and it is the vocabulary form of what each detector row\n*cannot see*** (14 values). Not in the proposal at any level.\n\nThe anomaly design is the reason it exists: every derivable row needs at\nleast one qualifier carried with the anomaly, or it is not actionable \u2014 an\n`Anomaly` that cannot say what it compared against and what it could not\nrule out reproduces the signal an operator learns to ignore. `basis`\ncarries the first half; this carries the second.\n\n**A member is an alternative explanation the detector could not exclude, or\na bound on the comparison it made** \u2014 not a defect, and not a reason to\nsuppress the anomaly. Each is traceable to one detector row, named in the\ncomment beside it; **the list is appended to, never renumbered**.\n\nIt is deliberately *not* free text. A named `text` literal makes a mistyped\nvalue a compile error rather than a comparison that silently never matches\n(the .jr emitter's own argument), and free text would make two detectors'\nqualifiers incomparable, which defeats the purpose.",
+      "enum": [
+        "parse_errors_only",
+        "parquet_input",
+        "on_error_drop",
+        "max_input_count",
+        "sampling_cap",
+        "device_writer_output",
+        "merge_row_count_unknown",
+        "step_label_ambiguous",
+        "stall_cause_unknown",
+        "cross_step_join_unavailable",
+        "history_truncated",
+        "no_physical_location",
+        "stage_prefix_reused",
+        "location_aimed_not_reached"
+      ],
+      "type": "string"
+    },
+    "AnomalySubject": {
+      "description": "The proposal's Anomaly `subject_ref.entity_type` \u2014 what an anomaly is\n*about*.\n\n**The first six are the proposal's; the last two are the detectors' two\ngrains.** The execution record's rows are per *worker* (run \u00d7 step label \u00d7\nshard \u00d7 `jets_partition`) and per *edge* (worker \u00d7 input channel \u00d7 output\nchannel), and neither is one of the six. `stage` is the near miss and is not\nthe same thing: `cpipes_step_id` is a stage location, but a worker is finer\nthan a stage by shard and partition, and an edge is finer again.\n\nAdded with the SignalType additions above, on the same terms.",
+      "enum": [
+        "feed",
+        "pipeline",
+        "stage",
+        "run",
+        "table",
+        "column",
+        "worker",
+        "edge"
+      ],
+      "type": "string"
+    },
     "ApprovalEvent": {
       "additionalProperties": false,
-      "description": "One human or agent decision on a supervised subject: the supervision\nseam. Outcomes are appended, never updated \u2014 a decision is a new event\nreferencing the same subject (\u00a77.2).",
+      "description": "One human or agent decision on a supervised subject: the supervision\nseam. Outcomes are appended, never updated \u2014 a decision is a new event\nreferencing the same subject.",
       "properties": {
         "approval_event_id": {
           "description": "The event identity.",
           "type": "string"
         },
         "run_ref": {
-          "description": "The AgentRun this event belongs to (scoped per F7: run_id names the run's own identity).",
+          "description": "The AgentRun this event belongs to (class-scoped: run_id names the run's own identity).",
           "type": "string"
         },
         "subject_ref": {
@@ -117,7 +228,7 @@
         },
         "tier_at_event": {
           "$ref": "#/$defs/AutonomyTier",
-          "description": "The autonomy tier at the time of the event (\u00a77.2; scoped per F7)."
+          "description": "The autonomy tier at the time of the event (class-scoped)."
         },
         "decided_at": {
           "description": "When the decision was made.",
@@ -126,7 +237,7 @@
         },
         "decision_rationale": {
           "type": "string",
-          "description": "Why, in the actor's words (scoped per F7: rationale is \u00a7A.2.10's name on ChangeProposal)."
+          "description": "Why, in the actor's words (class-scoped: rationale is the proposal's name on ChangeProposal)."
         }
       },
       "required": [
@@ -142,7 +253,7 @@
       "type": "object"
     },
     "ApprovalState": {
-      "description": "\u00a7A.4 \u2014 the approval lifecycle (9 values).",
+      "description": "The proposal's approval lifecycle (9 values).",
       "enum": [
         "draft",
         "validated",
@@ -157,7 +268,7 @@
       "type": "string"
     },
     "AutonomyTier": {
-      "description": "\u00a7A.4. Lexicographic order is tier order \u2014 the ceiling comparisons of\ngap 7 work on the text directly, so do not relabel to the \u00a79.2 names and\ndo not exceed T9 (\u00a74).",
+      "description": "The proposal's tier vocabulary. Lexicographic order is tier order \u2014 the\ntier-ceiling comparisons work on the text directly, so do not relabel the\ntiers with descriptive names and do not exceed T9.",
       "enum": [
         "T0",
         "T1",
@@ -169,14 +280,14 @@
     },
     "ChangeProposal": {
       "additionalProperties": false,
-      "description": "A proposed code or configuration change (\u00a7A.2.10), flattened to scalar\nand array properties: code_diff, ci_result and impact_analysis are nested\nobjects in the schema and JetRules has no anonymous nested object.",
+      "description": "A proposed code or configuration change (the proposal's ChangeProposal), flattened to scalar\nand array properties: code_diff, ci_result and impact_analysis are nested\nobjects in the schema and JetRules has no anonymous nested object.",
       "properties": {
         "proposal_id": {
-          "description": "The proposal identity (\u00a7A.2.10: ^chg_[a-z0-9]+$).",
+          "description": "The proposal identity (the proposal's pattern: ^chg_[a-z0-9]+$).",
           "type": "string"
         },
         "trigger": {
-          "description": "What prompted the proposal (\u00a7A.4 ChangeTrigger vocabulary; carried as text in Phase 0 \u2014 the vocabulary ships with its consumer).",
+          "description": "What prompted the proposal (the proposal's ChangeTrigger vocabulary; carried as text \u2014 the vocabulary ships with its consumer).",
           "type": "string"
         },
         "trigger_ref": {
@@ -192,37 +303,37 @@
         },
         "code_diff_repository": {
           "type": "string",
-          "description": "code_diff.repository of \u00a7A.2.10."
+          "description": "code_diff.repository of the proposal's ChangeProposal."
         },
         "code_diff_branch": {
           "type": "string",
-          "description": "code_diff.branch of \u00a7A.2.10."
+          "description": "code_diff.branch of the proposal's ChangeProposal."
         },
         "code_diff_files_changed": {
-          "description": "code_diff.files_changed of \u00a7A.2.10.",
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": "array",
+          "description": "code_diff.files_changed of the proposal's ChangeProposal. Optional: it was once declared list[str] with default=None, which Pydantic does not validate and which the DDL emitter read as required-and-defaulted-to-null - two claims that cannot both hold. The default says the intent was optional."
         },
         "code_diff_lines_added": {
           "type": "integer",
-          "description": "code_diff.lines_added of \u00a7A.2.10."
+          "description": "code_diff.lines_added of the proposal's ChangeProposal."
         },
         "code_diff_lines_removed": {
           "type": "integer",
-          "description": "code_diff.lines_removed of \u00a7A.2.10."
+          "description": "code_diff.lines_removed of the proposal's ChangeProposal."
         },
         "rationale": {
           "type": "string",
           "description": "Why the change is proposed."
         },
         "assumptions_made": {
-          "description": "The assumptions the proposal rests on.",
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": "array",
+          "description": "The assumptions the proposal rests on. Optional, for the same reason as code_diff_files_changed."
         },
         "generated_tests": {
           "description": "The tests generated with the change (min 1).",
@@ -251,7 +362,7 @@
           "type": "array"
         },
         "impact_clinical_relevance_touched": {
-          "description": "impact_analysis.clinical_relevance_touched \u2014 the flag \u00a710 escalates on.",
+          "description": "impact_analysis.clinical_relevance_touched \u2014 the flag escalation keys on.",
           "type": "boolean"
         },
         "approval_state": {
@@ -259,7 +370,7 @@
           "description": "Where the proposal sits in the approval lifecycle."
         },
         "proposal_model_version": {
-          "description": "The domain model version the proposal was generated against (scoped per F7; domain_model_version stays on AgentRun).",
+          "description": "The domain model version the proposal was generated against (class-scoped; domain_model_version stays on AgentRun).",
           "type": "string"
         }
       },
@@ -277,7 +388,7 @@
     },
     "DomainModelVersion": {
       "additionalProperties": false,
-      "description": "A released version of the domain model itself (proposal \u00a75.3: identity\nand intent given, fields ours). Skeleton: the version and when it took\neffect.",
+      "description": "A released version of the domain model itself (the proposal gives its\nidentity and intent; the fields are ours). Skeleton: the version and when it took\neffect.",
       "properties": {
         "version": {
           "description": "The semantic version of the model release.",
@@ -295,23 +406,9 @@
       ],
       "type": "object"
     },
-    "EvalCase": {
-      "additionalProperties": false,
-      "description": "One evaluation case of the assurance suite (ours; \u00a711's consumer\narrives in a later phase). Skeleton: identity only.",
-      "properties": {
-        "eval_case_id": {
-          "description": "The evaluation case identity.",
-          "type": "string"
-        }
-      },
-      "required": [
-        "eval_case_id"
-      ],
-      "type": "object"
-    },
     "Evidence": {
       "additionalProperties": false,
-      "description": "One evidence item of a Hypothesis (\u00a7A.2.8 `$defs`): a value object in\nworking memory, so \u00a7B.3's escalation trigger \u2014 contradictory evidence\nexceeding supporting \u2014 is a rule-countable fact rather than a JSON blob.",
+      "description": "One evidence item of a Hypothesis (the proposal's evidence `$defs`): a\nvalue object in working memory, so the RCA escalation trigger \u2014 contradictory\nevidence exceeding supporting \u2014 is a rule-countable fact rather than a JSON\nblob.",
       "properties": {
         "statement": {
           "description": "The evidence, in words.",
@@ -333,7 +430,7 @@
       "type": "object"
     },
     "EvidenceSource": {
-      "description": "\u00a7A.2.8's `$defs` \u2014 scoped to Evidence and deliberately NOT in \u00a7A.4,\nwhich is why the emitters discover vocabularies by reachability (9 values).",
+      "description": "The proposal's Hypothesis evidence `$defs` \u2014 scoped to Evidence and\ndeliberately NOT in the proposal's vocabulary list, which is why the\nemitters discover vocabularies by reachability (10 values, 9 of them the\nproposal's).\n\n**The first nine are the proposal's; the tenth is ours.** Read against what\nJetStore actually has, two are unconditional, four are conditional or\npartial, and **three had no substrate at all** \u2014 `commit_history` (no run\nnames a commit), `infrastructure_log` (what the record holds is a decoded\n`StoppedReason` string, not a log) and `prior_incident`, the last of which\nstops being substrate-less once `jetsapi.incident` exists. That vocabulary\nis therefore **too wide** for the record, the mirror of SignalType, which\nwas too narrow; the honest response is to say so rather than to prune an\nimported model unilaterally, so nothing is removed here.\n\n**What is added is a member for evidence that already exists and had nowhere\nto be filed.** `AnomalyConfounder`'s fourteen members are the record's own\nstatement of what a detector could not rule out, they are a closed\nvocabulary, and every anomaly the detectors write already carries them.\nThat is contradicting evidence in the record's own words, and the\nproposal's nine sources have no member for it \u2014 so the ranker's hardest\nrequirement, the contradicting side of a ranked hypothesis, had a populated\nsubstrate and no way to name it. `detector_confounder` is that name, and it\nis an **addition** rather than a re-derivation.",
       "enum": [
         "run_telemetry",
         "lineage",
@@ -343,20 +440,36 @@
         "source_delivery_history",
         "dq_result",
         "code_inspection",
-        "profile"
+        "profile",
+        "detector_confounder"
+      ],
+      "type": "string"
+    },
+    "Evidenceability": {
+      "description": "**Ours entirely** (5 values): the triage design's evidenceability reading\nreduced to a vocabulary. Not in the proposal at any level.\n\nThe triage design asked, per imported cause class, *can the record evidence\nthis class*, and answered in prose per cell. The ranker reduced those answers\nto five tiers and **sorts on them as its primary key** \u2014 a class the\nsubstrate cannot speak to is not a weak candidate, which is the finding that\ninverted its first ranking. The tier is therefore an input to a rank rather\nthan a gloss on one, and it is persisted for that reason.\n\nThe order below is the sort order: better-evidenced first.",
+      "enum": [
+        "evidenced",
+        "conditional",
+        "coarse",
+        "asymmetric",
+        "none"
       ],
       "type": "string"
     },
     "Hypothesis": {
       "additionalProperties": false,
-      "description": "A causal hypothesis for an Incident (\u00a7A.2.8): the RCA agent's output\ncontract (\u00a7B.3). contradicting_evidence is required \u2014 a calibration\ncontrol, not a documentation nicety (\u00a7A.2.8's own note).",
+      "description": "A causal hypothesis for an Incident (the proposal's Hypothesis): the RCA\nagent's output contract. contradicting_evidence is required \u2014 a calibration\ncontrol, not a documentation nicety (the proposal's own note).\n\n**Made a table, and it gained exactly one property to be one.** The\nproposal nests a hypothesis inside its incident, so nothing in the imported\nschema names the incident it belongs to \u2014 which is adequate for a JSON\ndocument and is not adequate for a row. `hypothesis_incident_ref` is that\nname and it is **required**: a hypothesis whose incident is unknown cannot be\nranked against its siblings, which is what `rank` is for. The departure from\nthe proposal is stated rather than applied silently, on Anomaly's precedent.\n\n**The parent keeps its object property and the child gains a reference, and\nboth are correct.** `Incident.hypotheses` is what a rule traverses in working\nmemory; `hypothesis_incident_ref` is what a query joins on. The DDL emitter\nresolves the redundancy in the direction relational modelling already\nsettles \u2014 see `_table_columns`, which omits a column for an object property\nwhose target is itself a table.",
       "properties": {
         "hypothesis_id": {
           "description": "The hypothesis identity.",
           "type": "string"
         },
+        "hypothesis_incident_ref": {
+          "description": "The Incident this hypothesis is about. Has no counterpart in the proposal, which nests a hypothesis inside its incident rather than keying it; required here because a table needs the join its parent's array gave it for free. Class-scoped against Remediation's incident_ref.",
+          "type": "string"
+        },
         "cause": {
-          "description": "The hypothesised cause (max 500 chars in \u00a7A.2.8).",
+          "description": "The hypothesised cause (max 500 chars in the proposal).",
           "type": "string"
         },
         "cause_category": {
@@ -379,34 +492,86 @@
           "type": "array"
         },
         "contradicting_evidence": {
-          "description": "The evidence against \u2014 required; empty only where the agent explicitly asserts none exists (\u00a7A.2.8).",
+          "description": "The evidence against \u2014 required; empty only where the agent explicitly asserts none exists (the proposal's rule).",
           "items": {
             "$ref": "#/$defs/Evidence"
           },
           "type": "array"
+        },
+        "hypothesis_locus": {
+          "$ref": "#/$defs/IncidentLocus",
+          "description": "**The triage classifier's verdict this hypothesis was derived from** - the same nine-value vocabulary Incident.incident_locus is constrained by, deliberately not a second list. Added before the first row was written rather than after. Required: the ranker's headline finding is that 20 of 29 model-generated hypotheses sat at loci triage did not find present, and without this column a hypothesis raised at an absent locus is indistinguishable in stored data from a sound one - which would persist exactly that failure mode, in a form that hides it."
+        },
+        "basis": {
+          "$ref": "#/$defs/HypothesisBasis",
+          "description": "**How the rank was arrived at, as counts.** The requirement that a human can read a ranking's basis was met by what the ranker emits and did not survive the write; this is the column that carries it. Required, because a hypothesis whose basis is absent is one nobody can check and the whole argument for the deterministic floor is that its arithmetic is checkable."
         }
       },
       "required": [
         "hypothesis_id",
+        "hypothesis_incident_ref",
         "cause",
         "confidence",
         "rank",
         "supporting_evidence",
-        "contradicting_evidence"
+        "contradicting_evidence",
+        "hypothesis_locus",
+        "basis"
+      ],
+      "type": "object"
+    },
+    "HypothesisBasis": {
+      "additionalProperties": false,
+      "description": "How a hypothesis was ranked, as numbers (decided 2026-09-04).\n\n**Numbers rather than prose, and that is the whole of the shape.** The\nranker emits a sentence per hypothesis and a sentence per ranking; a sentence cannot\nbe checked against anything, and a count can. `supporting_count` and\n`contradicting_count` are the lengths of the two evidence arrays on the same\nrow, so a reader \u2014 or a test \u2014 can confirm that the stored confidence is the\nratio it claims to be, months after the run and without the run.\n\n**Why it is persisted at all, which the question had to settle rather than\nassume.** *Reconstructable by re-running* is false for the model arm: it\nwas measured at 16 hypotheses on one run and 13 on the next from identical\ninput. And the evidence expires while the row persists, on two independent\nclocks \u2014 `RETENTION_DAYS` with no default and a hard-coded six months on the\nrun header \u2014 so even the deterministic floor's basis is\nreconstructable only inside a window nobody has set.",
+      "properties": {
+        "supporting_count": {
+          "description": "How many evidence items were for the hypothesis. The length of supporting_evidence on the same row, stored so that the ratio confidence claims can be checked without the run.",
+          "type": "integer"
+        },
+        "contradicting_count": {
+          "description": "How many were against. Zero is a claim the ranker made, not a question it was never asked - contradicting_evidence is required and nil fails validation.",
+          "type": "integer"
+        },
+        "evidenceability": {
+          "$ref": "#/$defs/Evidenceability",
+          "description": "What the triage design says the record can do for this hypothesis's cause class. It is the ranker's primary sort key rather than a gloss: a class the substrate cannot speak to outranks nothing, whatever its counts."
+        }
+      },
+      "required": [
+        "supporting_count",
+        "contradicting_count",
+        "evidenceability"
       ],
       "type": "object"
     },
     "Incident": {
       "additionalProperties": false,
-      "description": "A triaged cluster of anomalies (\u00a7A.2.7). Skeleton: identity, lifecycle\nand the classification trio; the impact and generated_by fields arrive\nwith their consumer.",
+      "description": "A triaged cluster of anomalies (the proposal's Incident), keyed on a session.\n\nWidened from the skeleton to what the triage design's reading of the\nexecution record says an incident can be *about*, and made a table. The\nfirst line above is deliberately a complete sentence: the `.jr` emitter\ntakes an entity's class comment from the docstring's first **physical**\nline, so a sentence that wraps is published half-written.\n\n**The widening is a grain and a locus, and both come from the record rather\nthan from the proposal.**\n\n**The grain.** As first declared this entity had six properties \u2014\nidentity, classification, severity, status, model version and its\nhypotheses \u2014 and **none of them was a session, a run, a pipeline or a\ntime**, so an incident could not say what it was about. Does an incident\naggregate anomalies or is it one per anomaly? The record answers that it\naggregates and that the key is `session_id`, because seven tables can carry\nevidence for an incident and `session_id` is the only key all seven share.\n`incident_session_id` is therefore required. **The step and\nshard references are optional and that is the finding, not a hedge**:\nlocalisation is a property of an incident and not its identity, evidenced\nwhere the locus supplies it and absent where it does not.\n\n**The boundary of that answer is worth keeping in view.** *One incident per\nsession* is the grain the record can **evidence**; it is not a claim that a\nrun produces at most one incident. Two anomalies in one session with disjoint\nloci are arguably two incidents and nothing in the record forbids it. What is\nsettled is that an incident cannot be keyed *below* the session. The triage\nclassifier decides whether to split within one.\n\n**The locus.** `incident_locus` is required and is typed against\n`IncidentLocus`, which is what the record actually decides; `classification`\nstays, typed against the imported `IncidentClassification`, which is what a\ndiagnosis claims. Carrying both is the triage design's recommendation and it\nis followed here rather than resolved \u2014 see `IncidentLocus`'s docstring for\nwhy pruning the imported taxonomy is not this model's call to make.\n\n**The one thing the design did not settle is which of the two is required,\nand the answer follows from its own finding.** `classification` is\n**optional**. The record supplies a locus and never a cause, and the step\nbetween them belongs to the ranker; a required classification would make a\ndeterministic triage step unable to write an incident without inventing a\ncause, which is the locus-read-as-diagnosis risk compiled into the schema.\nOptional is not pruning: the property and its ten values both survive, and\n`Anomaly` has the precedent \u2014 three of the proposal's required properties\nare optional there because requiring them would force a detector to invent\na number.\n\n**`incident_confounders` reuses `AnomalyConfounder` deliberately.** An\nincident that names a step must inherit `step_label_ambiguous`, because\n`cpipes_step_id` is a stage location rather than a step identity. A second\nvocabulary saying the same thing one entity over would\nmake a detector's qualifier and a triage step's qualifier incomparable, which\nis the failure the closed vocabulary was authored to prevent. Required, with\nan empty list asserting that none of the fourteen applies \u2014 Anomaly's own\ndiscipline.\n\n**The run reference, added 2026-09-04, is a governance property rather than\na localisation one.** Every other reference on this\nentity says where in the *execution record* the incident sits;\n`incident_run_ref` says which *agent run* raised it, and it exists because\n`jetsapi.agent_audit` is keyed on an `AgentRun` by construction. Without it a\ntransition on an incident reached the hash chain only when its own caller\nnamed a run, which put the human corrections a labelled population needs on\nthe unchained side of the line \u2014 the record of the system's own\nreclassifications tamper-evident and the record of a person's corrections to\nthem not. It was settled on that argument; the alternatives, a chain that\naccepts a null run and a separate human record, are refused rather than\nunconsidered.\n\n**What it does not do is make the chain unconditional**, and the residue is\nnarrower than what it replaces rather than gone. The condition moves from\n*the transition names a run* to *the incident names one*, so an incident\nraised by a deterministic triage step is still outside the chain \u2014 but it is\noutside it for **every** actor rather than for humans alone, which is the\nproperty a governance record needs.\n\n**What is still not here.** The proposal's impact and generated_by blocks,\nwhich still have no consumer, and `correlation_group_id`, whose counterpart\nwas left off Anomaly for the same reason. The rule is unchanged: a skeleton\nwidens when something can say what its fields are for.",
       "properties": {
         "incident_id": {
-          "description": "The incident identity (\u00a7A.2.7: ^inc_[a-z0-9]+$).",
+          "description": "The incident identity (the proposal's pattern: ^inc_[a-z0-9]+$).",
           "type": "string"
+        },
+        "incident_session_id": {
+          "description": "The pipeline run the incident is about - `session_id` on every table of the execution record, the only key all seven evidence-bearing tables share, and the key `purge_database` deletes by. Required: an incident aggregates anomalies and cannot be keyed below the session. Class-scoped against Anomaly's anomaly_session_id.",
+          "type": "string"
+        },
+        "incident_run_ref": {
+          "type": "string",
+          "description": "The AgentRun that raised the incident, when one did. **This is what makes a classification transition chainable** - jetsapi.agent_audit is keyed on an AgentRun by construction, so before this property a transition could reach the hash chain only if its own caller named a run, and the callers least able to name one are the human ones the labelling instrument depends on. RecordIncidentTransition reads this off the row and uses it when the caller supplies none. **Optional, and optional is not a hedge**: the triage classifier is deterministic by design and a deterministic triage step is not an AgentRun, so an incident it raises names none and there is no honest value to invent. Class-scoped against ApprovalEvent's run_ref, AgentRun's run_id and IncidentEvent's event_run_ref; it is not incident_session_id, which is a *pipeline* session and names no agent (the naming hazard that kept the name run_ref off this entity)."
+        },
+        "incident_detected_at": {
+          "description": "When the incident was raised. Class-scoped against Anomaly's detected_at, which is when a detector emitted an observation rather than when triage clustered them.",
+          "format": "date-time",
+          "type": "string"
+        },
+        "incident_locus": {
+          "$ref": "#/$defs/IncidentLocus",
+          "description": "**Where in the execution record the evidence sits** - the nine loci, the taxonomy the record can evidence and the one the triage classifier classifies deterministically. Required, and carried beside classification rather than instead of it: the locus is evidence, the classification is a claim."
         },
         "classification": {
           "$ref": "#/$defs/IncidentClassification",
-          "description": "The causal classification."
+          "description": "The causal classification (the proposal's ten), kept and unpruned on the triage design's recommendation. **Optional rather than required as the proposal has it**: the record supplies a locus and never a cause, and the step from one to the other belongs to the ranker rather than the triage classifier - so a required classification would force a deterministic triage step to invent one, which is the locus-read-as-diagnosis risk written into the schema. Three of the ten have no substrate in JetStore's record at all and four are evidenced only at a grain coarser than the class name implies."
         },
         "severity": {
           "$ref": "#/$defs/Severity",
@@ -414,31 +579,49 @@
         },
         "status": {
           "$ref": "#/$defs/IncidentStatus",
-          "description": "Where the incident sits in \u00a7A.5's state machine."
+          "description": "Where the incident sits in the proposal's incident state machine."
         },
-        "hypotheses": {
-          "description": "The ranked causal hypotheses.",
+        "incident_step_ref": {
+          "type": "string",
+          "description": "The `cpipes_step_id` the incident localises to, where the locus supplies one. Optional by construction - four of the nine loci have no step. An incident that sets it should carry step_label_ambiguous in incident_confounders."
+        },
+        "incident_shard_ref": {
+          "type": "integer",
+          "description": "The shard the incident localises to, where the locus supplies one. Optional for the same reason as incident_step_ref, and narrower: `shard_id` is on three of the seven evidence-bearing tables and the edge table reaches it only through its parent."
+        },
+        "incident_confounders": {
+          "description": "**What the incident's evidence could not rule out**, in the same closed vocabulary a detector writes. Required; an empty list asserts that none of the fourteen applies. step_label_ambiguous is required whenever incident_step_ref is set.",
           "items": {
-            "$ref": "#/$defs/Hypothesis"
+            "$ref": "#/$defs/AnomalyConfounder"
           },
           "type": "array"
         },
+        "hypotheses": {
+          "items": {
+            "$ref": "#/$defs/Hypothesis"
+          },
+          "type": "array",
+          "description": "The ranked causal hypotheses. Optional: this was once declared list[Hypothesis] with default=None, which Pydantic does not validate and which the sidecar reported as optional while the DDL emitter would have read as required - the same defect fixed twice on ChangeProposal, found here because tabling the entity is what made a column depend on the answer."
+        },
         "incident_model_version": {
-          "description": "\u00a7A.2.7's domain_model_version, scoped per F7: the model version the incident was raised against.",
+          "description": "The proposal's domain_model_version, class-scoped: the model version the incident was raised against.",
           "type": "string"
         }
       },
       "required": [
         "incident_id",
-        "classification",
+        "incident_session_id",
+        "incident_detected_at",
+        "incident_locus",
         "severity",
         "status",
+        "incident_confounders",
         "incident_model_version"
       ],
       "type": "object"
     },
     "IncidentClassification": {
-      "description": "\u00a7A.4 \u2014 the causal taxonomy of an incident (10 values).",
+      "description": "The proposal's causal taxonomy of an incident (10 values).",
       "enum": [
         "source_delivery_failure",
         "source_content_change",
@@ -453,8 +636,84 @@
       ],
       "type": "string"
     },
+    "IncidentEvent": {
+      "additionalProperties": false,
+      "description": "One transition of one Incident: who moved it, when, and from what to what.\n\nThe first line above is deliberately one physical line.\n\n**Ours entirely; the proposal has no counterpart, and its state machines are\nwhy it is owed.** Their preamble says *\"Every transition records actor, agent\nversion where applicable, and timestamp\"* and then draws four machines and no\nentity to record any of them. `ApprovalEvent` is that entity for\n`ChangeProposal`; nothing was it for `Incident`, so a transition on an\nincident was a mutable `status` column and nothing else.\n\n**What that cost is a population rather than an audit trail.** Three of\n`IncidentStatus`'s eleven values are adjudications rather than progress \u2014\n`reclassified`, `verified` and `suppressed_as_benign` \u2014 so an incident's\nlifecycle already carried the verdicts the four label-bearing metrics need.\nWhat it did not carry is who reached them, and **a label the measured system\nmay have written is not a label**. There is no labelled population yet; this\nis the instrument that lets one accumulate.\n\n**It is a second use of the approval pattern, not a new mechanism.**\n`jetsapi.agent_audit` already carries an actor; `RecordApproval` already\nguards a transition on its expected `from_state` and writes the typed row,\nthe chain event and the subject's new state in one transaction;\n`audit/lifecycle.go` already holds a transition table the server enforces and\na screen reads. `audit/incident.go` and `audit/incident_lifecycle.go` are\nthose three things again over this entity.\n\n**Three departures from `ApprovalEvent`, each with a reason.**\n\n- **`event_actor_kind` is a column, where `ApprovalEvent` leaves human and\n  agent apart by the shape of `actor`.** See `ActorKind`: the\n  metric partitions on kind, and a partition decided by a regular expression\n  over an email address is not a partition.\n- **`classification_before` and `classification_after` travel on the event.**\n  The incident row is mutable, so a second correction overwrites the first\n  and the pairing the metrics score is gone. `classification_before` is\n  **read from the row inside the write** rather than accepted from the\n  caller (`RecordIncidentTransition`), which is the handler's *\"checked\n  against the row, not trusted as it\"* rule moved down to where every caller\n  gets it: the party being measured does not get to state what it is being\n  measured against.\n- **There is no `tier_at_event`.** An approval is an authority-bearing act\n  and an incident transition is not; the tier a *corrective action* requires\n  is `Remediation.autonomy_tier_required`, one entity over. Stated here\n  rather than left as an omission.\n\n**`event_run_ref` is optional, and half of the weakness that implied is\ngone.** `agent_audit.run_id` is `AgentRun`'s key, and neither a human\nworking a screen nor a deterministic triage step is an `AgentRun`. While\n`Incident` had no run reference, a transition with no run was durable,\nattributable and not tamper-evident.\n\n**`Incident` now carries `incident_run_ref`** (decided 2026-09-04), and\n`RecordIncidentTransition` reads it off the row when the caller names no\nrun. So this column stays optional and is now **filled from\nthe incident for the transitions that could not fill it themselves** \u2014 a\nhuman's correction of an agent-raised incident is chained, which is the row\nthe labelling instrument is for. What survives is that an incident raised by\nsomething that is not an `AgentRun` chains nothing, and that residue is\nuniform across actors rather than aimed at humans.",
+      "properties": {
+        "incident_event_id": {
+          "description": "The event identity.",
+          "type": "string"
+        },
+        "event_incident_ref": {
+          "description": "The Incident this transition moved. Class-scoped against Remediation's incident_ref and Hypothesis's hypothesis_incident_ref; the mechanical <class>_incident_ref form would stutter here, this class name already beginning with incident.",
+          "type": "string"
+        },
+        "from_status": {
+          "$ref": "#/$defs/IncidentStatus",
+          "description": "The status the incident was in. Class-scoped against ApprovalEvent's from_state, and named status rather than state because it is IncidentStatus's vocabulary and not ApprovalState's - the two machines share neither members nor shape."
+        },
+        "to_status": {
+          "$ref": "#/$defs/IncidentStatus",
+          "description": "The status it moved to."
+        },
+        "event_actor": {
+          "description": "Who moved it: a user_email or an agent identity, as jetsapi.agent_audit.actor and ApprovalEvent.actor carry it (class-scoped against the latter).",
+          "type": "string"
+        },
+        "event_actor_kind": {
+          "$ref": "#/$defs/ActorKind",
+          "description": "**Whether that actor was a person or the system** - the column a labelled population needs, and the one a label-bearing metric partitions on. Required: a transition whose kind is unknown counts for nothing, so there is no honest default."
+        },
+        "transitioned_at": {
+          "description": "When the transition was made. Class-scoped against ApprovalEvent's decided_at and Incident's incident_detected_at, which is when the incident was raised rather than when it last moved.",
+          "format": "date-time",
+          "type": "string"
+        },
+        "event_run_ref": {
+          "type": "string",
+          "description": "The AgentRun this transition belongs to, when it has one; the chain event is appended to that run and is omitted when this is unset. **Filled from the caller when it names a run and from Incident.incident_run_ref otherwise**, so a human at a screen chains onto the run that raised the incident rather than onto nothing. Still optional, because an incident raised by something that is not an AgentRun supplies none either. Class-scoped against ApprovalEvent's run_ref."
+        },
+        "classification_before": {
+          "$ref": "#/$defs/IncidentClassification",
+          "description": "The incident's classification before the transition, read from the row by RecordIncidentTransition rather than supplied by the caller. Null where the incident carried none - which is the ordinary case out of the triage classifier, since classification is optional and a locus is not a cause."
+        },
+        "classification_after": {
+          "$ref": "#/$defs/IncidentClassification",
+          "description": "The classification the transition set, null where it changed none. Required in effect for a reclassification, by incident_event_reclassified_ck rather than by this annotation: the proposal says reclassified returns to triaged *with a new classification and a recorded reason*, and that is a cross-column rule."
+        },
+        "transition_rationale": {
+          "type": "string",
+          "description": "Why, in the actor's words. Optional in general and required for a reclassification by the same CHECK. Class-scoped against ApprovalEvent's decision_rationale."
+        }
+      },
+      "required": [
+        "incident_event_id",
+        "event_incident_ref",
+        "from_status",
+        "to_status",
+        "event_actor",
+        "event_actor_kind",
+        "transitioned_at"
+      ],
+      "type": "object"
+    },
+    "IncidentLocus": {
+      "description": "**Ours entirely, and it is the taxonomy the triage design derived from\nthe execution record** (9 values). Not in the proposal at any level.\n\n**A locus is where in the record a cause would have to have left its\nevidence; it is not a cause.** The triage design's finding is that the\nrecord supports triage and does not support root-cause attribution below the\nlevel of a hypothesis. The nine below are mutually distinguishable by\npredicates over `jetsapi` with no free-text parsing and no join outside it,\nand eight of the nine are computable in SQL.\n\n**Both vocabularies are carried, on the triage design's recommendation.**\n`IncidentClassification` above says what *produced* the failure and three of\nits ten members have no substrate in JetStore at all; pruning an imported\nmodel unilaterally is not this model's call. So `classification` stays typed\nagainst the proposal's ten and `incident_locus` is added beside it. **The\nlocus is evidence and the classification is a claim**, which is the\ndistinction the anomaly design drew between an anomaly's observation and its\nbasis.\n\n**The risk this vocabulary creates** is that a nine-member locus taxonomy\nsitting beside a ten-member cause taxonomy will be read as a second cause\ntaxonomy, and *classified* will be read as *diagnosed*. The member names are\nwritten as observations rather than as diagnoses for that reason \u2014\n`worker_not_terminated` and not `worker_hung`, `rows_lost_silently` and not\n`data_dropped`.\n\nOrdered by how early the failure occurs, which is also roughly the order of\nhow little the record retains. Appended to, never renumbered.",
+      "enum": [
+        "run_not_started",
+        "step_never_started",
+        "worker_not_terminated",
+        "worker_failed",
+        "sink_failed_under_completed_worker",
+        "rows_lost_silently",
+        "per_record_failures_reported",
+        "per_record_failures_unreportable",
+        "written_not_arrived"
+      ],
+      "type": "string"
+    },
     "IncidentStatus": {
-      "description": "\u00a7A.4 \u2014 the incident lifecycle (11 values); the state machine is \u00a7A.5's.",
+      "description": "The proposal's incident lifecycle (11 values), and its state machine.",
       "enum": [
         "detected",
         "triaged",
@@ -472,41 +731,74 @@
     },
     "Remediation": {
       "additionalProperties": false,
-      "description": "A proposed corrective action (\u00a7A.2.9). Skeleton: identity, the incident\nit corrects, and the two governing states.",
+      "description": "A proposed corrective action (the proposal's Remediation), a table with no executor.\n\nThe first line above is deliberately one physical line: the `.jr` emitter\ntakes an entity's class comment from the docstring's first line.\n\n**It is a table before it is a writer, and that is deliberate rather than a\nshortcut.** Nothing yet proposes a remediation, and nothing executes one.\nWhat the table buys is that an autonomy gate has a subject: autonomy tiers\nare *recorded, trustworthy, and gate nothing*, and `autonomy_tier_required`\nis the one property in the model that names the authority an action needs\nrather than the authority a run had. A tier with nowhere to be written\ncannot gate anything.\n\n**The one field added to the skeleton is `reversibility`, and its consumer\nis a constraint installed with it rather than a future caller that might\nwant it.** The model's rule is that a skeleton widens when something can say\nwhat its fields are for; the proposal's validator rule says what this one is\nfor, and `remediation_reversibility_ck` is where it is enforced. **That is\nthe only property of a remediation that can be acted on without an\nexecutor** \u2014 every other gate reads what the action *does*, and what it does\nis the executor's to say.\n\n**Four of the proposal's nine required properties are deliberately absent,\nand naming them is cheaper than rediscovering them**:\n\n- `action_type` (the proposal's ten-member `RemediationActionType`) \u2014 the\n  dispatch key. Nothing dispatches, and a tier rule keyed on it (*T2 may\n  rerun a load and may not rotate a credential*) would be inventing the\n  autonomy gate here. It is the first widening an executor owes.\n- `proposed_by` \u2014 `$ref Incident#/properties/generated_by`, the block\n  `Incident` also does not carry, for the same reason.\n- `rationale` and `blast_radius` \u2014 both are read by a supervision screen\n  deciding whether to approve, and that screen is read-only today.\n\n**`approver` and `approved_at` are absent for a different reason and it is\nnot deferral.** `ApprovalEvent.subject_ref` is documented as *\"the\nRemediation or ChangeProposal being decided\"*, so who approved and when are\nalready a row in `jetsapi.approval_event`. Inlining them here would be two\nwritable statements of one fact, which is the rule `_table_columns` already\napplies to `Incident.hypotheses`.\n\n**The proposal's Remediation state machine and its ApprovalState do not\nagree, and this entity cannot fix it.** The proposal types `approval_state`\nagainst `ApprovalState`; its state machine is drawn over `proposed`,\n`awaiting_approval`, `executing`, `succeeded`, `failed`, `rolled_back`,\n`partial` and `escalated`, of which ApprovalState contains **two**. That is\nthe divergence `lifecycle.go` recorded for ChangeProposal, where four states\nwere missing, arriving an order of magnitude larger. **The schema is\nfollowed and the diagram is recorded**, because six of the eight missing\nstates describe an execution nothing performs yet, and widening a\ncontrolled vocabulary for an executor that does not exist is how a model\nacquires fields nobody uses.",
       "properties": {
         "remediation_id": {
-          "description": "The remediation identity (\u00a7A.2.9: ^rem_[a-z0-9]+$).",
+          "description": "The remediation identity (the proposal's pattern: ^rem_[a-z0-9]+$).",
           "type": "string"
         },
         "incident_ref": {
-          "description": "The Incident this remediates (\u00a7A.2.9 names it incident_id; scoped per F7 against Incident's identity).",
+          "description": "The Incident this remediates (the proposal names it incident_id; class-scoped against Incident's identity).",
           "type": "string"
         },
         "autonomy_tier_required": {
           "$ref": "#/$defs/AutonomyTier",
-          "description": "The tier the action requires (recorded; enforcement is by privilege, \u00a79.1)."
+          "description": "The tier the action requires (recorded; enforcement is by privilege)."
+        },
+        "reversibility": {
+          "$ref": "#/$defs/Reversibility",
+          "description": "Whether the action can be undone (the proposal's enum, all three values). Required, and the one field added to this skeleton: the proposal's validator rule - no irreversible remediation may be persisted at any tier - is checkable, and remediation_reversibility_ck is where it is checked. The vocabulary keeps the third member because the rule is about it."
         },
         "remediation_approval_state": {
           "$ref": "#/$defs/ApprovalState",
-          "description": "Where the remediation sits in the approval lifecycle (\u00a7A.2.9 names it approval_state; scoped per F7 against ChangeProposal's)."
+          "description": "Where the remediation sits in the approval lifecycle (the proposal names it approval_state; class-scoped against ChangeProposal's)."
         }
       },
       "required": [
         "remediation_id",
         "incident_ref",
         "autonomy_tier_required",
+        "reversibility",
         "remediation_approval_state"
       ],
       "type": "object"
     },
+    "Reversibility": {
+      "description": "The proposal's Remediation `reversibility` enum (3 values), verbatim and\nin its order.\n\n**The DDL accepts two of the three, and that is the proposal's own validator\nrule rather than a pruning.** The appendix states it in terms: *\"`reversibility:\nirreversible` is rejected at schema level. No irreversible remediation may be\npersisted at any tier (Section 4.3).\"* The vocabulary keeps all three \u2014 the\nthird is what the rule is *about*, and a vocabulary that omitted it could not\nexpress the rule \u2014 and `remediation_reversibility_ck` is where the refusal\nhappens.\n\nA stated invariant that is checkable and left in prose is one that goes\nquiet the first time nobody re-reads the appendix. The excluded member is\nread off this enum rather than spelled into the SQL, so a rename moves the\nrule instead of silently stopping it from firing.",
+      "enum": [
+        "fully_reversible",
+        "reversible_with_backfill",
+        "irreversible"
+      ],
+      "type": "string"
+    },
     "Severity": {
-      "description": "\u00a7A.4 (5 values).",
+      "description": "The proposal's severity vocabulary (5 values).",
       "enum": [
         "info",
         "low",
         "medium",
         "high",
         "critical"
+      ],
+      "type": "string"
+    },
+    "SignalType": {
+      "description": "The proposal's Anomaly `$defs` \u2014 scoped to Anomaly and, like\nEvidenceSource, not in the proposal's vocabulary list.\n\n**The first ten are the proposal's, verbatim and in its order. The last\nthree are ours**, added because the ten do not name three of the six\nfailure modes the anomaly design found derivable from JetStore's execution\nrecord, and `signal_type` is required by the proposal \u2014 so without them an\nanomaly for those rows is unrepresentable rather than merely unlabelled.\n\nThe ten were written for a warehouse's data-quality signals (volume,\nfreshness, distribution, cardinality); the detector rows are *execution*\nsignals, which is a different substrate rather than a gap in the proposal.\nOf the ten, the detectors populate exactly two today: `rejection_rate` is\nrow 1 and `volume` is rows 2 and 5.\n\n**The anomaly detectors confirm or overturn the three additions** \u2014 they are\nthe first caller that has to choose a value.",
+      "enum": [
+        "volume",
+        "freshness",
+        "schema",
+        "distribution",
+        "rule_breach",
+        "cost",
+        "duration",
+        "rejection_rate",
+        "cardinality",
+        "referential",
+        "step_regression",
+        "worker_stall",
+        "arrival"
       ],
       "type": "string"
     }
