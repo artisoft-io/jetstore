@@ -96,6 +96,46 @@
         [
           {
             "field": "text",
+            "key": "bindings._item.file_type_key",
+            "label": "Notification key for the file type",
+            "defaultValue": "$NOTIFICATION_FILE_TYPE",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Notification key for the file type is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "label",
+            "text": "The context key that carries the file type to the deployment's notification templates (CPIPES_*_NOTIFICATION_JSON). A key $NAME fills the placeholder {{NAME}}, and a placeholder nothing fills is removed without a warning, so change the default to the key your deployment's templates read."
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings._item.notification_type_key",
+            "label": "Notification key for the notification type",
+            "defaultValue": "$NOTIFICATION_TYPE",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Notification key for the notification type is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "label",
+            "text": "The context key that carries the notification type, 'Test Harness', to the deployment's notification templates (CPIPES_*_NOTIFICATION_JSON). A key $NAME fills the placeholder {{NAME}}, and a placeholder nothing fills is removed without a warning, so change the default to the key your deployment's templates read."
+          }
+        ],
+        [
+          {
+            "field": "text",
             "key": "bindings._item.data_writer",
             "label": "$item.data_writer",
             "rules": [

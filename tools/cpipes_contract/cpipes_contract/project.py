@@ -770,6 +770,18 @@ def project(template: Template, context: dict, schema: dict) -> Projection:
     scalars, objects = _walk_bindings(context)
     binding_keys = {path: _identifier("bindings", path) for path, _ in scalars}
     sizing = {h.repeat_over for h in template.holes if h.repeat_over}
+    # A declared parameter is a binding offered with its bound value as the field's
+    # default, its own label, and its help beside it. The value has to be in the
+    # bindings: expansion reads it there like any other, so a missing one is a defect
+    # in the bindings file rather than a field to leave empty.
+    parameters = {f"$item.{p.name}": p for p in template.parameters}
+    bound = dict(scalars)
+    for path, param in parameters.items():
+        if not isinstance(bound.get(path), str):
+            raise ProjectionError(
+                f"{template.name}: parameter {param.name!r} needs a string value at "
+                f"{path} in the bindings, which is the default the flow offers")
+
     skeleton, _ = expand(
         template, _marker_context(context, scalars, binding_keys, sizing), fills, None)
 
@@ -803,6 +815,20 @@ def project(template: Template, context: dict, schema: dict) -> Projection:
                 True,
             )
             field["label"] = path
+            param = parameters.get(path)
+            if param is not None:
+                rules = field.pop("rules", None)
+                field["label"] = param.label
+                field["defaultValue"] = value
+                if rules:
+                    field["rules"] = [
+                        {**r, "message": f"{param.label} is required"}
+                        if r.get("rule") == "required" else r
+                        for r in rules
+                    ]
+                rows.append([field])
+                rows.append([_note_field(param.help)])
+                continue
             rows.append([field])
         blocks.append(_Block(
             projector.add("bindings", "The values this template is parameterised by", rows),

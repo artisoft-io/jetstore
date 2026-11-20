@@ -29,12 +29,12 @@
       },
       {
         "type": "value",
-        "key": "$CGT_FILE_TYPE",
+        "key": "$cpipesBinding:bindings._item.file_type_key",
         "expr": "$cpipesBinding:bindings._item.file_type"
       },
       {
         "type": "value",
-        "key": "$CGT_NOTIFICATION_TYPE",
+        "key": "$cpipesBinding:bindings._item.notification_type_key",
         "expr": "Test Harness"
       },
       {

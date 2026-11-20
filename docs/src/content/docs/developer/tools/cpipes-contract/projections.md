@@ -40,6 +40,32 @@ one the installer read.
 author *could* pick; the walk counts what they *must*. `ColumnMapping` has eight variants, so nine
 fills of it produce nine choosers and seventy-two branch states, of which an author visits nine.
 
+## A parameter: a binding offered with a default
+
+Every scalar binding becomes a required text field on the binding step, labelled by its path and
+empty. A template may instead declare a binding as a **parameter**, in its `parameters` list:
+
+```json
+{"name": "file_type_key", "label": "Notification key for the file type", "help": "…"}
+```
+
+The body reads it like any other binding, `{"$item": "file_type_key"}`, so expansion is unchanged:
+a reproduction binds it from the configuration it reproduces. The projection gives the field the
+parameter's label, starts it at the value in the template's `.bindings.json`, and shows the help
+text on the row below. `check` reports a parameter the body never reads outside a hole, and the
+projection refuses one the bindings do not give a string value.
+
+**`qc_report` declares two**: the context keys that carry the file type and the notification type
+(`Test Harness`) to a deployment's notification templates (`CPIPES_*_NOTIFICATION_JSON`). A
+context key `$NAME` fills the placeholder `{{NAME}}`, and a placeholder nothing fills is removed
+without a warning, so the right key depends on the deployment, not on the pipeline. The flow starts
+them at `$NOTIFICATION_FILE_TYPE` and `$NOTIFICATION_TYPE`. A deployment whose templates read other
+placeholders changes the two fields before saving, or edits the two `key` values in the saved
+`pipes_config/qc_report.pc.json`.
+
+`tests_project.py` checks that the installed `qc_metrics` and `qc_report` documents are what their
+templates project to.
+
 ## What stays here: `qc_metrics.demonstrated.pc.json`
 
 **Not a projection: the config one came out of.** It is what
