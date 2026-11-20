@@ -651,8 +651,20 @@ def test_the_fixtures_fill_two_of_the_twenty_five_empty_types():
     # **39 on 2026-10-18**, the one being jetstore#2296's `StageFileKey`: the
     # reducing starter writes it into the runtime config for the worker nodes, so
     # no authored document carries one and the library can never hold a part for it.
-    assert len(cov["empty"]) == 39
-    assert cov["filled_by_fixtures"] == ["DomainKeysSpec", "OllamaServerSpec"]
+    #
+    # **31 on 2026-11-19**, when the library was regenerated for the first time since
+    # those additions: every count above was taken against a library extracted before
+    # the types it counted had corpus instances. Ten left `empty` - the render
+    # operator's five and the infer operator's three, from the patient_profile pair,
+    # and the site operator's two. **The paragraph above saying a site operator can
+    # never have a library part was wrong**: its *shape* belongs to the deployment, but
+    # a corpus can still hold one, and jets_ws's healthcare_corpus pipeline does. Two
+    # joined: `OllamaSpec` and `TransformationSpecOllama`, whose one instance became an
+    # infer step when patient_profile stated its briefing step once for either backend.
+    # The fixtures hold an `OllamaSpec`, so they now fill three: the claim the pin
+    # protects - that the fixtures concentrate where the corpus is thin - gains one.
+    assert len(cov["empty"]) == 31
+    assert cov["filled_by_fixtures"] == ["DomainKeysSpec", "OllamaServerSpec", "OllamaSpec"]
 
 
 def test_nothing_here_writes_into_the_library():
