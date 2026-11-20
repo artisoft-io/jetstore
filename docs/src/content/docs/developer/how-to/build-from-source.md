@@ -83,6 +83,8 @@ packages that link it (`jets/cmds/rules_bench`, `jets/cmds/rules_unit_test`,
 older checkout. With
 `CGO_LDFLAGS` pointing at the new build, every package built. Check which library a binary will load
 with `ldd`, and run it with `LD_LIBRARY_PATH` set to the directory you linked against.
+`utils/libjets_env.sh` builds the library and prints both variables
+([Run the Go and C++ tests](/docs/developer/testing/go-and-cpp/#tests-that-link-the-c-engine)).
 
 To build one binary, name its package:
 
