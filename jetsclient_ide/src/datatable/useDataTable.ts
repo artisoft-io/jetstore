@@ -160,7 +160,20 @@ export function useDataTable(options: UseDataTableOptions): DataTableState {
   const [currentDataPage, setCurrentDataPage] = useState(0);
   const [rowsPerPage, setRowsPerPageState] = useState(config.rowsPerPage);
   const [sortAscending, setSortAscending] = useState(config.sortAscending);
-  const [selection, setSelection] = useState<Selection>(emptySelection(0));
+  const [selection, setSelectionState] = useState<Selection>(emptySelection(0));
+  // The selection as last written, ahead of the render that shows it. A tick
+  // computes its next selection from this rather than inside a `setState`
+  // updater, so that it can tell the caller after the write and outside render:
+  // an updater runs while React renders, a caller's publish into form state
+  // updates other components, and React warns about that and, under StrictMode,
+  // runs the updater twice. Every write goes through `setSelection` below, so
+  // two ticks before one render (the restore from form state ticks each restored
+  // row in one effect) still build on each other.
+  const selectionRef = useRef<Selection>(selection);
+  const setSelection = useCallback((next: Selection) => {
+    selectionRef.current = next;
+    setSelectionState(next);
+  }, []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
@@ -308,62 +321,59 @@ export function useDataTable(options: UseDataTableOptions): DataTableState {
       // A server-sorted table refetches, which clears the selection; a raw
       // statement is re-ordered here, so a selection by position would now name
       // other rows.
-      if (isRaw) setSelection((current) => emptySelection(current.length));
+      if (isRaw) setSelection(emptySelection(selectionRef.current.length));
     },
-    [columns, config.sortColumnName, sort.sortColumnIndex, isRaw],
+    [columns, config.sortColumnName, sort.sortColumnIndex, isRaw, setSelection],
   );
 
   const setRowSelected = useCallback(
     (index: number, value: boolean) => {
       if (config.isReadOnly) return;
-      setSelection((current) => {
-        const result = toggleSelection(
-          current,
-          index,
-          value,
-          config.isCheckboxSingleSelect,
-        );
-        onSelectionChangeRef.current?.({
-          selection: result.selection,
-          rows,
-          deselected: result.deselected,
-          changedIndex: index,
-          selected: value,
-        });
-        return result.selection;
+      const result = toggleSelection(
+        selectionRef.current,
+        index,
+        value,
+        config.isCheckboxSingleSelect,
+      );
+      setSelection(result.selection);
+      onSelectionChangeRef.current?.({
+        selection: result.selection,
+        rows,
+        deselected: result.deselected,
+        changedIndex: index,
+        selected: value,
       });
     },
-    [config.isCheckboxSingleSelect, config.isReadOnly, rows],
+    [config.isCheckboxSingleSelect, config.isReadOnly, rows, setSelection],
   );
 
   const setAllSelected = useCallback(
     (value: boolean) => {
       if (config.isReadOnly || config.isCheckboxSingleSelect) return;
-      setSelection((current) => {
-        const changed: number[] = [];
-        const next = rows.map((_, i) => {
-          if ((current[i] === true) !== value) changed.push(i);
-          return value;
-        });
-        if (changed.length > 0) {
-          onSelectionChangeRef.current?.({
-            selection: next,
-            rows,
-            deselected: [],
-            changedIndex: changed[0]!,
-            selected: value,
-            changed,
-          });
-        }
-        return next;
+      const current = selectionRef.current;
+      const changed: number[] = [];
+      const next = rows.map((_, i) => {
+        if ((current[i] === true) !== value) changed.push(i);
+        return value;
       });
+      setSelection(next);
+      if (changed.length > 0) {
+        onSelectionChangeRef.current?.({
+          selection: next,
+          rows,
+          deselected: [],
+          changedIndex: changed[0]!,
+          selected: value,
+          changed,
+        });
+      }
     },
-    [config.isCheckboxSingleSelect, config.isReadOnly, rows],
+    [config.isCheckboxSingleSelect, config.isReadOnly, rows, setSelection],
   );
 
   const clearSelection = useCallback(() => {
-    setSelection((current) => emptySelection(current.length));
-  }, []);
+    setSelection(emptySelection(selectionRef.current.length));
+  }, [setSelection]);
 
   return {
     rows,
