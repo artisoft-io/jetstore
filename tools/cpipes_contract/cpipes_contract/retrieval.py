@@ -65,6 +65,11 @@ def document_for(part: dict) -> str:
     3,909 library parts carry the matrix's **type** description, so within a type the
     description is identical text and carries no discriminating signal at all. Matching
     on it would rank every candidate equally and call that a method.
+
+    **The value carries no comment.** A part's `comment`, a workspace author's English,
+    was prose a value could match an English query on; the library strips every
+    free-text property, so the lexical and semantic arms match what a part configures
+    and not what its author wrote about it.
     """
     return f"{part.get('name', '')} {json.dumps(part.get('value', {}))}"
 

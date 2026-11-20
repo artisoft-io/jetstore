@@ -363,6 +363,14 @@ def instruction_for(
     instruction's structure, the TypeScript declarations, the token list and the
     ordering of the regions are identical across arms, so a difference in compile-pass
     is attributable to the examples rather than to the prompt.
+
+    **An example is its value and the line naming its type, and no workspace prose.**
+    Each example used to carry its workspace author's `comment` inside the value, and
+    that text went to the model server verbatim. The library now strips every property
+    the schema declares as free text, so the line above each example (the type's schema
+    description and the fields that tell the part apart) is the explanation an example
+    has. The TypeScript declarations still offer `comment` as an optional field, so a
+    model may write one; it cannot copy one.
     """
     if fmt is None:
         fmt = subschema(schema, hole.schema_ref)

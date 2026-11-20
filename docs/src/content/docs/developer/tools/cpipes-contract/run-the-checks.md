@@ -96,6 +96,26 @@ with `stamp --restamp`.
 `corpus` without `--apply` is the drift check and exits non-zero, so a corpus that moves under the
 matrix is caught rather than assumed.
 
+## Regenerate the fragment library
+
+```bash
+.venv/bin/cpipes-contract fragments --corpus ../../..
+```
+
+`fragments` writes `fragments/library.jsonl`, every distinct part of the live corpus keyed by its
+`$defs` entry with its citations, and `fragments/library.curated.jsonl`, the selection that
+authoring prompts and template expansion read. It exits non-zero when a union cannot be resolved,
+when a type's count disagrees with `types.csv`, when the curation drops a part of a type with four
+or fewer corpus instances, or when a historical source named in `recovered_sources.csv` cannot be
+read.
+
+**The library carries configuration and no free text.** Every property the schema describes as
+free text for the reader (`comment`, which JetStore ignores) is removed from a configuration before
+its parts are recorded, at every depth, so a workspace author's prose reaches neither the library,
+nor the examples an authoring prompt shows, nor a configuration expanded from the library. Two parts
+that differed only by a comment are one part. A key named `comment` inside data the schema does not
+describe, such as a site operator's own `config`, is that data and is kept.
+
 ## Run the harness
 
 ```bash

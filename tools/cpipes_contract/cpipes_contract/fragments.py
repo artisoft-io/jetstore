@@ -22,6 +22,14 @@ one part with forty citations, because the library is a catalogue of *distinct*
 material. The count is what curation works on - the rule is that every operator
 with four or fewer instances contributes all of them - so losing it would remove the
 only property that made the approach worth taking.
+
+**Free text for a human reader does not enter the library.** A property the schema
+declares as free text (`comment`, "Free text for the reader; ignored by JetStore") is
+removed from every value before the walk, so no part carries it at any depth. Such a
+value is prose a workspace's author wrote for colleagues, not configuration: JetStore
+ignores it, and the library is published with the tooling while the corpus is not. It is
+stripped *before* parts are keyed, so two parts that differed only by a comment are one
+part, which is what they are to the engine.
 """
 
 from __future__ import annotations
@@ -194,6 +202,32 @@ def _pick_by_keys(node: dict, value: object, defs: dict) -> tuple[dict, str | No
     return defs.get(fits[0], {}), fits[0]
 
 
+# How the schema marks a property as prose for a human reader. The description is the
+# matrix's own (`fields.csv`), carried into the model and the schema unchanged.
+FREE_TEXT = "Free text for the reader"
+
+ROOT = {"$ref": "#/$defs/ComputePipesConfig"}
+
+
+def is_free_text(prop: object) -> bool:
+    """Does this property schema declare free text for a human reader?"""
+    if not isinstance(prop, dict):
+        return False
+    return str(prop.get("description", "")).startswith(FREE_TEXT)
+
+
+def free_text_properties(schema: dict) -> dict[str, list[str]]:
+    """`defs_name` -> the properties of that entry the schema declares as free text."""
+    out: dict[str, list[str]] = {}
+    for name, entry in schema["$defs"].items():
+        props = entry.get("properties") if isinstance(entry, dict) else None
+        if isinstance(props, dict):
+            found = sorted(k for k, v in props.items() if is_free_text(v))
+            if found:
+                out[name] = found
+    return out
+
+
 class Extractor:
     """Walks a config against the schema, emitting one part per bound node."""
 
@@ -203,6 +237,60 @@ class Extractor:
         self.parts: dict[tuple[str, str], Part] = {}
         self.unresolved: list[str] = []
         self.stale: list[str] = []
+        # Free-text values removed, by property name. Counted so a regeneration can
+        # say what the strip took, rather than leave it to a diff.
+        self.stripped: dict[str, int] = defaultdict(int)
+
+    def _resolve(self, value: object, node: dict, bound: str | None) -> tuple[dict, str | None, bool]:
+        """The schema node a value sits at, the `$defs` entry it binds to, and whether
+        a union at this node was resolved. Shared by `walk` and `strip` so the two can
+        never disagree about where a value is."""
+        node = _unwrap_nullable(node)
+        node, name = _deref(node, self.defs)
+        if name:
+            bound = name
+        node2, variant = _pick_variant(node, value, self.defs, bound, self.defaults)
+        if not variant:
+            node2, variant = _pick_by_keys(node, value, self.defs)
+        if variant:
+            return node2, variant, True
+        return node, bound, False
+
+    def strip(self, value: object, node: dict) -> object:
+        """`value` with every property the schema declares as free text removed.
+
+        Schema-guided like `walk`, so a key is removed only where the schema says that
+        key, at that position, is prose for a human reader; a `comment` key inside a
+        map of scalars or a site operator's own config is data and is left alone. A
+        free-text property is optional everywhere today, so it is removed; were one
+        ever required, it would be kept as an empty string so the part still validates.
+        Returns a new value and leaves the argument as it was.
+        """
+        node, _, _ = self._resolve(value, node, None)
+        if isinstance(value, dict):
+            props = node.get("properties")
+            if not isinstance(props, dict):
+                return value
+            required = set(node.get("required", []))
+            out: dict = {}
+            for key, sub in value.items():
+                child = props.get(key)
+                if is_free_text(child):
+                    self.stripped[key] += 1
+                    if key in required:
+                        out[key] = ""
+                    continue
+                out[key] = self.strip(sub, child) if isinstance(child, dict) else sub
+            return out
+        if isinstance(value, list):
+            items = _unwrap_nullable(node).get("items")
+            if isinstance(items, dict):
+                return [self.strip(item, items) for item in value]
+        return value
+
+    def add(self, config: object, file: str) -> None:
+        """Strip a whole configuration's free text, then walk it from the root."""
+        self.walk(self.strip(config, ROOT), ROOT, file, "")
 
     def _record(self, name: str, value: object, file: str, path: str) -> None:
         key = (name, json.dumps(value, sort_keys=True, separators=(",", ":")))
@@ -213,16 +301,8 @@ class Extractor:
         part.citations.append(Citation(file=file, path=path, production=is_production(Path(file))))
 
     def walk(self, value: object, node: dict, file: str, path: str, bound: str | None = None) -> None:
-        node = _unwrap_nullable(node)
-        node, name = _deref(node, self.defs)
-        if name:
-            bound = name
-        node2, variant = _pick_variant(node, value, self.defs, bound, self.defaults)
-        if not variant:
-            node2, variant = _pick_by_keys(node, value, self.defs)
-        if variant:
-            node, bound = node2, variant
-        elif node.get("discriminator") and isinstance(value, dict):
+        node, bound, resolved = self._resolve(value, node, bound)
+        if not resolved and node.get("discriminator") and isinstance(value, dict):
             # A union we could not resolve is a defect, not a shape without a part.
             self.unresolved.append(f"{file}:{path or '<root>'}")
 
@@ -285,7 +365,7 @@ def extract(schema: dict, root: Path, model: Path | None = None) -> Extractor:
         parts = path.parts
         rel = str(Path(*parts[parts.index("workspaces"):])) if "workspaces" in parts else str(path)
         value = names.anonymise_json(json.loads(path.read_text()))
-        ex.walk(value, {"$ref": "#/$defs/ComputePipesConfig"}, names.anonymise(rel), "")
+        ex.add(value, names.anonymise(rel))
     for part in ex.parts.values():
         part.description = describe(part, ex.defs)
     return ex
@@ -551,7 +631,7 @@ def recovered_parts(schema: dict, matrix: Path, corpus_root: Path, model: Path) 
             continue
         cite = f"workspaces/{row['workspace']}@{row['commit']}/{row['path']}"
         value = names.anonymise_json(json.loads(blob.stdout))
-        ex.walk(value, {"$ref": "#/$defs/ComputePipesConfig"}, cite, "")
+        ex.add(value, cite)
 
     validators: dict[str, object] = {}
     kept: dict[tuple[str, str], Part] = {}
