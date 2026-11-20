@@ -12,7 +12,8 @@ the corpus contain, and what belongs in front of a model.
 `$defs` entry it binds to, and nothing in a `.pc.json` says which that is: the same
 object shape means different things in different positions, and a discriminated union
 is resolved by a sibling field. So the walk descends the schema and the value together,
-resolving `$ref`, nullable `anyOf`, and `oneOf` + `discriminator` as it goes. A
+resolving `$ref`, nullable `anyOf`, `oneOf` + `discriminator` (its complement branch
+included), and an untagged `anyOf` whose members differ by their keys as it goes. A
 structural walk would have to guess, and two earlier wrong walks record what guessing
 at corpus structure costs.
 
@@ -147,7 +148,50 @@ def _pick_variant(
     if isinstance(target, str) and target.startswith("#/$defs/"):
         name = target.split("/")[-1]
         return defs.get(name, {}), name
+    if isinstance(tag, str) and tag:
+        # A complement branch (`unlisted(type)`, the site operator) has no literal to
+        # be keyed by, so it is in the union's `oneOf` and not in its mapping. The
+        # schema states it as a discriminator property that is `not` one of the listed
+        # tokens (`schema.splice_complement_branches`); a tag outside the mapping
+        # binds to the member that says so, and to nothing else.
+        for member in node.get("oneOf", []):
+            ref = member.get("$ref") if isinstance(member, dict) else None
+            if not (isinstance(ref, str) and ref.startswith("#/$defs/")):
+                continue
+            name = ref.split("/")[-1]
+            prop = defs.get(name, {}).get("properties", {}).get(key, {})
+            excluded = prop.get("not", {}).get("enum") if isinstance(prop, dict) else None
+            if isinstance(excluded, list) and tag not in excluded:
+                return defs.get(name, {}), name
     return node, None
+
+
+def _pick_by_keys(node: dict, value: object, defs: dict) -> tuple[dict, str | None]:
+    """Resolve an untagged `anyOf` of `$ref`s by which member the value's keys fit.
+
+    `Element` is the case: a paragraph and a group differ by which key is present
+    (`present(text)`, `present(elements)` in the matrix) and carry no tag, so the
+    schema states them as an `anyOf` whose members differ by `required`. A member
+    binds when the value has all its required keys and no key it does not declare;
+    the value binds only when exactly one member fits, and is otherwise left as the
+    walk found it.
+    """
+    branches = node.get("anyOf")
+    if not isinstance(branches, list) or not isinstance(value, dict):
+        return node, None
+    fits: list[str] = []
+    for member in branches:
+        ref = member.get("$ref") if isinstance(member, dict) else None
+        if not (isinstance(ref, str) and ref.startswith("#/$defs/")):
+            return node, None
+        name = ref.split("/")[-1]
+        entry = defs.get(name, {})
+        props = entry.get("properties", {})
+        if set(entry.get("required", [])) <= value.keys() and value.keys() <= props.keys():
+            fits.append(name)
+    if len(fits) != 1:
+        return node, None
+    return defs.get(fits[0], {}), fits[0]
 
 
 class Extractor:
@@ -174,6 +218,8 @@ class Extractor:
         if name:
             bound = name
         node2, variant = _pick_variant(node, value, self.defs, bound, self.defaults)
+        if not variant:
+            node2, variant = _pick_by_keys(node, value, self.defs)
         if variant:
             node, bound = node2, variant
         elif node.get("discriminator") and isinstance(value, dict):
