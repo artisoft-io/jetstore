@@ -142,6 +142,9 @@ func poolSizeFromEnv(name string, def int32) int32 {
 // that login may do, so a refusal reads as a rule rather than a fault.
 func withIDEHint(err error) error {
 	var pgErr *pgconn.PgError
+	if hint := dblogin.ExportHint(err); hint != "" {
+		return fmt.Errorf("%w (%s)", err, hint)
+	}
 	if errors.As(err, &pgErr) && pgErr.Code == "42501" {
 		return fmt.Errorf("%w (the Query Tool, Submit DDL and runbook ddl steps run as %s: "+
 			"they may read and change every table except the security tables, which they may only read, "+
