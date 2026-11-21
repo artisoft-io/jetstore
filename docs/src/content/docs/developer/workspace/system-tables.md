@@ -63,6 +63,17 @@ The apiserver's database user needs `CREATEROLE`, as it did for `jets_reader` be
 holds a privileged attribute, or is a member of another role, stops the start with a message saying
 what to revoke.
 
+**`jets_ide` may call `aws_s3`'s and `aws_commons`' functions**, which reports and *Submit DDL* use
+to export to S3. Each extension keeps its functions in a schema of its own, `aws_s3` and
+`aws_commons`, whatever schema the extension itself is registered in (`public` for
+`jets_init_db.sql`), so the start grants the use of those schemas and the call of each of the
+extensions' functions, by name. A grant by a user that neither owns them nor holds them `WITH GRANT
+OPTION` gives nothing, and PostgreSQL only warns; so the start then checks what `jets_ide` may
+call, and when it is not all of it, logs a warning naming the schemas, their owner and the
+statements to run as that owner. A report that exports to S3 fails meanwhile with *permission
+denied for schema aws_s3*. AWS documents these grants as run by the master user of an RDS or Aurora
+database.
+
 **Several JetStore databases on one cluster** share the two group roles, because roles are
 cluster-wide; each database has its own logins. Two databases may start together, and whichever
 creates a group role first wins; the other carries on with it. From PostgreSQL 16, a user that holds

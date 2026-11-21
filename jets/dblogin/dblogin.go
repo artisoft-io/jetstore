@@ -169,6 +169,9 @@ func EnsureStatus(ctx context.Context, dbpool *pgxpool.Pool) (Status, error) {
 				st.CodeGuardProblem, IDE)
 		}
 	}
+	if st.ExportProblem != "" {
+		log.Printf("Warning: %s", st.ExportProblem)
+	}
 	if code, err := ideCode(ctx, dbpool); err != nil {
 		log.Printf("Warning: IDE code guard: %v", err)
 	} else if len(code) > 0 {
@@ -230,7 +233,8 @@ func ensure(ctx context.Context, dbpool *pgxpool.Pool) (Status, error) {
 	if err = grantReader(ctx, tx, schemas, logins[IDE]); err != nil {
 		return st, err
 	}
-	if err = grantIDE(ctx, tx, schemas); err != nil {
+	exportProblem, err := grantIDE(ctx, tx, schemas)
+	if err != nil {
 		return st, err
 	}
 	if codeGuardSwitchedOff() {
@@ -238,6 +242,7 @@ func ensure(ctx context.Context, dbpool *pgxpool.Pool) (Status, error) {
 	} else {
 		st, err = installCodeGuard(ctx, tx)
 	}
+	st.ExportProblem = exportProblem
 	if err != nil {
 		return st, err
 	}
@@ -527,7 +532,11 @@ func withholdSecrets(ctx context.Context, tx pgx.Tx) error {
 // grantIDE gives IDE what the free-SQL paths need on every table in schemas,
 // now and later, then takes the security tables back to a read without their
 // secret columns. It may create tables in every schema but jetsapi.
-func grantIDE(ctx context.Context, tx pgx.Tx, schemas []string) error {
+//
+// It also grants IDE the export functions, and returns, as a problem to report
+// rather than an error, those IDE still may not call after the grants
+// (exportGrantProblem).
+func grantIDE(ctx context.Context, tx pgx.Tx, schemas []string) (string, error) {
 	role := ident(IDE)
 	stmts := []string{
 		fmt.Sprintf("ALTER DEFAULT PRIVILEGES GRANT %s ON TABLES TO %s", ideTablePrivileges, role),
@@ -537,29 +546,138 @@ func grantIDE(ctx context.Context, tx pgx.Tx, schemas []string) error {
 		stmts = append(stmts, ideSchemaGrants(schema)...)
 	}
 	if err := execAll(ctx, tx, "granting "+IDE, stmts); err != nil {
-		return err
+		return "", err
 	}
 	if err := closeSecurityTables(ctx, tx); err != nil {
-		return err
+		return "", err
 	}
 	// Aurora's export to S3, when the database offers it.
-	rows, err := tx.Query(ctx, `SELECT n.nspname FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace
-		WHERE e.extname = ANY($1) ORDER BY 1`, ideExtensions)
+	funcs, err := exportFunctions(ctx, tx)
 	if err != nil {
-		return fmt.Errorf("while listing the extensions %s may call: %w", IDE, err)
+		return "", err
 	}
-	extSchemas, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err := execAll(ctx, tx, "granting "+IDE+" the export functions", exportGrants(funcs)); err != nil {
+		return "", err
+	}
+	return exportGrantProblem(ctx, tx, funcs)
+}
+
+// ExportHint is what to add to a refusal of an export function's schema or
+// function, so it points at the grant rather than at the report. Empty for any
+// other error.
+func ExportHint(err error) string {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != "42501" {
+		return ""
+	}
+	for _, ext := range ideExtensions {
+		if strings.Contains(pgErr.Message, ext) {
+			return fmt.Sprintf("%s may not call %s's functions: the apiserver and update_db grant them at their start, "+
+				"and their start-up log says what to run when they cannot", IDE, ext)
+		}
+	}
+	return ""
+}
+
+// exportFunction is a function of one of ideExtensions, and its schema.
+type exportFunction struct {
+	schema    string
+	signature string // regprocedure: schema-qualified unless on the search path
+	owner     string // the schema's owner
+}
+
+// exportFunctions lists the functions of ideExtensions, by their membership
+// of the extension rather than by the extension's schema.
+//
+// The two differ. aws_s3 and aws_commons each create a schema of their own
+// for their functions and are not relocatable, so pg_extension.extnamespace
+// is whatever schema the search path put first when CREATE EXTENSION ran,
+// public for jets_init_db.sql. Granting on extnamespace granted public, which
+// IDE could use already, and never aws_s3: every report exporting to S3
+// failed with "permission denied for schema aws_s3".
+func exportFunctions(ctx context.Context, tx pgx.Tx) ([]exportFunction, error) {
+	rows, err := tx.Query(ctx, `SELECT n.nspname, p.oid::regprocedure::text, pg_get_userbyid(n.nspowner)
+		FROM pg_extension e
+		JOIN pg_depend d ON d.refclassid = 'pg_extension'::regclass AND d.refobjid = e.oid
+		                AND d.classid = 'pg_proc'::regclass AND d.deptype = 'e'
+		JOIN pg_proc p ON p.oid = d.objid
+		JOIN pg_namespace n ON n.oid = p.pronamespace
+		WHERE e.extname = ANY($1)
+		ORDER BY 1, 2`, ideExtensions)
 	if err != nil {
-		return fmt.Errorf("while listing the extensions %s may call: %w", IDE, err)
+		return nil, fmt.Errorf("while listing the export functions %s may call: %w", IDE, err)
 	}
-	stmts = stmts[:0]
-	for _, schema := range extSchemas {
-		s := ident(schema)
-		stmts = append(stmts,
-			fmt.Sprintf("GRANT USAGE ON SCHEMA %s TO %s", s, role),
-			fmt.Sprintf("GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA %s TO %s", s, role))
+	funcs, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (exportFunction, error) {
+		var f exportFunction
+		err := row.Scan(&f.schema, &f.signature, &f.owner)
+		return f, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("while listing the export functions %s may call: %w", IDE, err)
 	}
-	return execAll(ctx, tx, "granting "+IDE+" the export functions", stmts)
+	return funcs, nil
+}
+
+// exportGrants are IDE's grants on the export functions: the use of their
+// schemas, and the call of each function. Each function is granted by name,
+// not its schema's every function, so a member function in a shared schema
+// such as public grants nothing else.
+func exportGrants(funcs []exportFunction) []string {
+	role := ident(IDE)
+	var stmts []string
+	var schemas []string
+	for _, f := range funcs {
+		if !slices.Contains(schemas, f.schema) {
+			schemas = append(schemas, f.schema)
+			stmts = append(stmts, fmt.Sprintf("GRANT USAGE ON SCHEMA %s TO %s", ident(f.schema), role))
+		}
+		stmts = append(stmts, fmt.Sprintf("GRANT EXECUTE ON FUNCTION %s TO %s", f.signature, role))
+	}
+	return stmts
+}
+
+// exportGrantProblem says which export functions IDE still may not call, or
+// whose schema it may not use, after exportGrants ran, and what fixes it.
+// Empty when there is none.
+//
+// A GRANT by a user that neither owns the object nor holds the privilege WITH
+// GRANT OPTION does not fail: PostgreSQL warns "no privileges were granted"
+// and goes on. On RDS and Aurora the extension's schemas belong to whoever
+// created it, usually the master user, so an apiserver connecting as another
+// user would grant nothing and say nothing. Checking the privileges, rather
+// than the statements, finds that at the start.
+func exportGrantProblem(ctx context.Context, tx pgx.Tx, funcs []exportFunction) (string, error) {
+	var gaps []exportFunction
+	for _, f := range funcs {
+		var ok bool
+		if err := tx.QueryRow(ctx, `SELECT has_schema_privilege($1, $2, 'USAGE') AND has_function_privilege($1, $3::regprocedure, 'EXECUTE')`,
+			IDE, f.schema, f.signature).Scan(&ok); err != nil {
+			return "", fmt.Errorf("while checking the export functions %s may call: %w", IDE, err)
+		}
+		if !ok {
+			gaps = append(gaps, f)
+		}
+	}
+	if len(gaps) == 0 {
+		return "", nil
+	}
+	var user string
+	if err := tx.QueryRow(ctx, "SELECT current_user").Scan(&user); err != nil {
+		return "", fmt.Errorf("while checking the export functions %s may call: %w", IDE, err)
+	}
+	var schemas, owners []string
+	for _, g := range gaps {
+		if !slices.Contains(schemas, g.schema) {
+			schemas = append(schemas, g.schema)
+		}
+		if !slices.Contains(owners, g.owner) {
+			owners = append(owners, g.owner)
+		}
+	}
+	return fmt.Sprintf("%s may not call %d export function(s) in schema %s, so a report or a Submit DDL that exports to S3 "+
+		"fails with permission denied: the grants gave no privileges, because %s neither owns them nor holds them WITH GRANT OPTION. "+
+		"Run, once, as %s (the owner): %s",
+		IDE, len(gaps), strings.Join(schemas, ", "), user, strings.Join(owners, " or "), strings.Join(exportGrants(gaps), "; ")), nil
 }
 
 // ideTablePrivileges are the privileges IDE holds on the tables of its schemas.
