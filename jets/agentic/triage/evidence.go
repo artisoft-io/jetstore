@@ -463,6 +463,10 @@ type Evidence struct {
 	// Config is observe's confounder read, reused so that a finding's
 	// qualifiers are the ones a detector would have written.
 	Config *observe.ConfigConfounders
+	// Volume is the history locus rows_lost_silently judges each step of this
+	// run against: the step's own recent runs, read by
+	// observe.VolumeCollapse.ReadHistory. Nil where there are no worker rows.
+	Volume *observe.VolumeHistory
 	// Survey is the operator census locus per_record_failures_unreportable
 	// needs. It is a second read of the same column because the two questions
 	// are different: observe asks which of five confounders the config mentions,
@@ -521,6 +525,15 @@ func Gather(ctx context.Context, db observe.DB, sessionId string, baselineFor ti
 			return nil, err
 		}
 	}
+	// The volume history is read with the default detector's bounds (its
+	// HistoryRuns and MinInput), whatever thresholds the classifier then judges
+	// it by: Gather does not know the classifier, and those two only bound the
+	// read.
+	volume := &observe.Evidence{Workers: ev.Workers}
+	if err = observe.DefaultVolumeCollapse().ReadHistory(ctx, db, volume); err != nil {
+		return nil, err
+	}
+	ev.Volume = volume.Volume
 	if baselineFor > 0 {
 		start, ok := ev.runStart()
 		if ok {

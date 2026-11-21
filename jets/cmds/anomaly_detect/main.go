@@ -4,8 +4,14 @@
 // It is the "Go emitter" half of the agentic layer's detection design:
 // the detectors are two SQL reads and a predicate each, and this is the process
 // that runs them. Two detectors — an output count
-// that collapsed relative to its input, and a step that failed having
-// previously succeeded on the same source.
+// that collapsed relative to what the same step usually writes for what it reads,
+// and a step that failed having previously succeeded on the same source.
+//
+// The volume detector judges each (client, process, step) against the median
+// ratio of its own recent runs, and applies an absolute floor only to a step with
+// too little history; the -volume-* flags and -min-ratio set both, and their
+// defaults are unsourced. Its generation is set apart from step regression's, so
+// that the change of basis re-judges volume without re-emitting step regression.
 //
 // Usage:
 //
@@ -61,10 +67,19 @@ var (
 	session  = flag.String("session", "", "restrict to one run; the baseline is never restricted with it")
 	dryRun   = flag.Bool("dry-run", false, "report what would be written and write nothing")
 
-	minRatio     = flag.Float64("min-ratio", 0.5, "volume collapse fires below this output/input ratio")
-	minInput     = flag.Int64("min-input", 1000, "volume collapse ignores workers that read fewer rows than this")
+	// The volume detector's thresholds. Each step is judged against its own
+	// history, and the floor applies only to a step with too little of it
+	// (observe.VolumeCollapse). Every default is unsourced, as the floor was:
+	// see the file comment of jets/agentic/observe/detect.go.
+	minRatio          = flag.Float64("min-ratio", 0.5, "volume collapse: the absolute floor on the output/input ratio, applied only to a step with fewer than -volume-min-prior-runs prior runs")
+	minInput          = flag.Int64("min-input", 1000, "volume collapse ignores workers that read fewer rows than this, and runs of a step that read fewer in all")
+	volumeHistoryRuns = flag.Int("volume-history-runs", 10, "volume collapse: how many of a step's most recent prior runs its baseline is the median of")
+	volumeMinPrior    = flag.Int("volume-min-prior-runs", 3, "volume collapse: how many prior runs a step needs before it is judged against its own history rather than the floor")
+	volumeMaxDrop     = flag.Float64("volume-drop", 0.5, "volume collapse fires when a step's ratio falls this far below its own median: 0.5 fires below half of it")
+	volumeGeneration  = flag.Int("volume-generation", 2, "volume collapse generation; 2 is the first to judge a step against its own history, so it re-judges the rows generation 1 judged")
+
 	minPriorRuns = flag.Int64("min-prior-runs", 3, "step regression needs at least this many prior runs in the baseline")
-	generation   = flag.Int("generation", 1, "detector generation; bumping it re-emits over rows already judged")
+	generation   = flag.Int("generation", 1, "step regression generation; bumping it re-emits over rows already judged")
 
 	usingSshTunnel = flag.Bool("usingSshTunnel", false, "connect to the database through an open ssh tunnel")
 )
@@ -97,6 +112,7 @@ type summary struct {
 	Truncated      bool           `json:"truncated"`
 	BaselineRead   bool           `json:"baselineRead"`
 	Baselines      int            `json:"baselines"`
+	VolumeSteps    int            `json:"volumeSteps"`
 	Found          int            `json:"anomaliesFound"`
 	Written        int            `json:"anomaliesWritten"`
 	Already        int            `json:"anomaliesAlreadyRecorded"`
@@ -135,8 +151,22 @@ func doJob(ctx context.Context, db *pgxpool.Pool, sum *summary) error {
 			"which DAG edge lost rows; every volume anomaly carries cross_step_join_unavailable")
 	}
 
-	found := append([]observe.Anomaly(nil),
-		observe.VolumeCollapse{MinRatio: *minRatio, MinInput: *minInput, Generation: *generation}.Detect(ev)...)
+	volume := observe.VolumeCollapse{
+		MinRatio:     *minRatio,
+		MinInput:     *minInput,
+		HistoryRuns:  *volumeHistoryRuns,
+		MinPriorRuns: *volumeMinPrior,
+		MaxDrop:      *volumeMaxDrop,
+		Generation:   *volumeGeneration,
+	}
+	if err := volume.ReadHistory(ctx, db, ev); err != nil {
+		return err
+	}
+	sum.VolumeSteps = len(ev.Volume.Runs)
+	log.Printf("volume: history read for %d steps, judged against the median of up to %d prior runs, "+
+		"the floor of %.2f only where a step has fewer than %d", len(ev.Volume.Runs), volume.HistoryRuns,
+		volume.MinRatio, volume.MinPriorRuns)
+	found := append([]observe.Anomaly(nil), volume.Detect(ev)...)
 	if ev.Prior != nil {
 		reg, err := observe.StepRegression{MinPriorRuns: *minPriorRuns, Generation: *generation}.Detect(ev)
 		if err != nil {
