@@ -759,13 +759,14 @@ const sourceConfigWorkspace = () => ({
 });
 
 describe("sourceConfigUF against the shipping registry", () => {
-  it("loads eleven forms for eleven states, and all three of its tables", async () => {
+  it("loads twelve forms for twelve states, and all three of its tables", async () => {
     const { store } = storeFor(sourceConfigWorkspace(), productionRegistry);
     const loaded = await store.load("sourceConfigUF");
-    expect(Object.keys(loaded.flow.states)).toHaveLength(11);
-    // Eleven for eleven: every form is named by a state and the flow owes no
+    // Twelve since 2026-11-21: `edit_feed_profile` and its form, the feed profile's page.
+    expect(Object.keys(loaded.flow.states)).toHaveLength(12);
+    // Twelve for twelve: every form is named by a state and the flow owes no
     // dialog form, which is why `dialogCancel` is not one of its arms.
-    expect(Object.keys(loaded.forms.forms)).toHaveLength(11);
+    expect(Object.keys(loaded.forms.forms)).toHaveLength(12);
     expect(Object.keys(loaded.tables).sort()).toEqual([
       "input_format",
       "scSingleOrMultiPartFileOption",

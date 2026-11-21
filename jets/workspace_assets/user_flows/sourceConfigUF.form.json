@@ -264,6 +264,34 @@
         { "action": "ufNext", "label": "Next", "style": "secondary" }
       ]
     },
+    "scEditFeedProfileUF": {
+      "rows": [
+        [{ "field": "spacer" }],
+        [
+          {
+            "field": "label",
+            "text": "Paste or enter the Feed Profile as json (leave empty and the feed is not judged by the feed detectors):"
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "feed_profile_json",
+            "label": "Feed Profile (json)",
+            "hint": "When deliveries are due, their size, the claim set and the thresholds; declared_by and declared_at are required",
+            "maxLines": 13,
+            "maxLength": 51200,
+            "rules": [{ "rule": "json", "message": "Feed Profile is not a valid json" }]
+          }
+        ],
+        [{ "field": "spacer" }]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "scCancelToList", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
     "scSummaryUF": {
       "title": "File Configuration Summary",
       "validator": "sourceConfigFormValidator",

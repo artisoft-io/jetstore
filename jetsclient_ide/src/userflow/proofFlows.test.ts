@@ -1809,7 +1809,9 @@ describe("configure_files, end to end", () => {
       await h.press("ufNext");
       expect(h.at()).toBe("select_single_or_multi_part_file");
       h.formState.setValue(0, "scSingleOrMultiPartFileOption", ["scSingleFileOption"]);
-      for (const state of ["edit_domain_keys", "edit_code_value_mapping", "add_schema_provider_json", "confirm_state"]) {
+      // `edit_feed_profile` since 2026-11-21: the feed profile's page, after the
+      // schema provider's.
+      for (const state of ["edit_domain_keys", "edit_code_value_mapping", "add_schema_provider_json", "edit_feed_profile", "confirm_state"]) {
         await h.press("ufNext");
         expect(h.at()).toBe(state);
       }
@@ -1873,6 +1875,7 @@ describe("configure_files, end to end", () => {
       domain_keys_json: '{"member":["id"]}',
       code_values_mapping_json: "{}",
       schema_provider_json: "{}",
+      feed_profile_json: '{"declared_by":"a","declared_at":"2026-11-21"}',
     });
     h.formState.addSelectedRow(0, "scSourceConfigKey", "42", ["42"]);
     await h.press("ufNext");
@@ -1886,7 +1889,8 @@ describe("configure_files, end to end", () => {
     h.formState.addSelectedRow(0, "scSingleOrMultiPartFileOption", "scSingleFileOption", ["s"]);
     h.formState.setValue(0, "input_columns_json", '["a"]');
     h.formState.setValue(0, "input_columns_positions_csv", "a,0,3");
-    for (let i = 0; i < 4; i += 1) await h.press("ufNext");
+    // Five pages to the summary since 2026-11-21, the feed profile's included.
+    for (let i = 0; i < 5; i += 1) await h.press("ufNext");
     expect(h.at()).toBe("confirm_state");
     await h.press("ufNext");
     expect(h.at()).toBe("select_source_config");
@@ -1906,7 +1910,8 @@ describe("configure_files, end to end", () => {
     h.formState.setValue(0, "input_format", ["csv"]);
     await h.press("ufNext");
     h.formState.setValue(0, "scSingleOrMultiPartFileOption", ["scSingleFileOption"]);
-    for (let i = 0; i < 5; i += 1) await h.press("ufNext");
+    // Six since 2026-11-21: the feed profile's page is one more before the Save.
+    for (let i = 0; i < 6; i += 1) await h.press("ufNext");
     expect(h.at()).toBe("select_source_config");
     const inserted = h.posts.at(-1)!.body;
     expect(inserted["fromClauses"]).toEqual([{ table: "source_config" }]);
@@ -1915,6 +1920,9 @@ describe("configure_files, end to end", () => {
     for (const key of ["key", "domain_keys_json", "code_values_mapping_json", "schema_provider_json", "currentSheet"]) {
       expect([key, row[key]]).toEqual([key, undefined]);
     }
+    // The feed profile is always sent (`sourceConfig.ts`), so the edited
+    // record's arrives as the empty text, not as its profile.
+    expect(row["feed_profile_json"]).toBe("");
   });
 
   it("routes each of the nine file types to the page it needs", async () => {

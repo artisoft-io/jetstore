@@ -88,6 +88,11 @@
       "isNumeric": true
     },
     {
+      "name": "feed_profile_json",
+      "label": "feed_profile_json",
+      "isHidden": true
+    },
+    {
       "name": "last_update",
       "label": "Last Updated",
       "tooltip": "Indicates when the record was last updated"
@@ -159,6 +164,10 @@
       {
         "stateKey": "is_cumulative",
         "columnIdx": 14
+      },
+      {
+        "stateKey": "feed_profile_json",
+        "columnIdx": 15
       }
     ]
   },

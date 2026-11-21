@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jetstore.artisoft.io/schemas/feed_profile.schema.json",
+  "title": "Feed profile",
+  "description": "One feed's declaration, stored in source_config.feed_profile_json: how often its deliveries are due, how large one is, where its claims are, and the thresholds the feed detectors judge it against. Whether the feed is cumulative is source_config.is_cumulative, not a field here. A detector whose fields are absent does not judge the feed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["declared_by", "declared_at"],
+  "properties": {
+    "period_type": {
+      "description": "The unit in which deliveries are due, JetStore's own period types.",
+      "enum": ["month_period", "week_period", "day_period"]
+    },
+    "periods_per_delivery": {
+      "description": "How many periods one delivery covers: 2 for every two weeks, 3 for quarterly. Absent is 1.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "overdue_after_days": {
+      "description": "Grace, in days, after the period in which a delivery was due.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "size_bytes": {
+      "description": "Expected size of one delivery, in bytes. Absent means the trailing band.",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "min": { "type": "integer", "minimum": 0 },
+        "max": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "claim_set": {
+      "description": "The domain table holding the feed's claims, and the columns every content check reads.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["table", "key_columns", "service_date_column", "member_column"],
+      "properties": {
+        "table": { "type": "string", "minLength": 1 },
+        "key_columns": {
+          "description": "The business key, declared and never inferred.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "service_date_column": { "type": "string", "minLength": 1 },
+        "member_column": { "type": "string", "minLength": 1 }
+      }
+    },
+    "max_service_date_lag_days": {
+      "description": "How far the newest date of service may fall behind the delivery.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "max_service_date_span_days": {
+      "description": "Widest span of service dates in one delivery of an incremental feed.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "max_redelivered_share": {
+      "description": "Largest share of an incremental delivery's distinct keys already delivered.",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "required_fields": {
+      "description": "Columns that must be present in at least a share of a delivery's rows.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["column", "min_present_share"],
+        "properties": {
+          "column": { "type": "string", "minLength": 1 },
+          "min_present_share": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+        }
+      }
+    },
+    "declared_by": {
+      "description": "Who declared the profile.",
+      "type": "string",
+      "minLength": 1
+    },
+    "declared_at": {
+      "description": "The date of the declaration.",
+      "type": "string",
+      "format": "date"
+    }
+  }
+}
