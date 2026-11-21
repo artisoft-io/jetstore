@@ -284,9 +284,10 @@ type Ranking struct {
 	// Hypotheses are in rank order, best first.
 	Hypotheses []Hypothesis
 	// UnmappedLoci are the loci that fired and that the gate's table maps to no
-	// cause class, so no hypothesis was emitted for them. **Two of the nine are
-	// permanently in this state** — step_never_started and
-	// per_record_failures_unreportable appear in no row of the table — and a
+	// cause class, so no hypothesis was emitted for them. **Two of the nine run
+	// loci are permanently in this state** — step_never_started and
+	// per_record_failures_unreportable appear in no row of the table — and so
+	// are the two delivery loci until the table gains classes for them. A
 	// caller counting hypotheses per locus needs to know the difference between
 	// a locus that produced none and a locus that was never asked.
 	UnmappedLoci []string

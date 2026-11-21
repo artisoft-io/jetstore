@@ -124,26 +124,32 @@ func TestEveryMappedLocusIsInTheTriageVocabulary(t *testing.T) {
 			}
 		}
 	}
-	for sig, l := range signalLocus {
+	for k, l := range signalLocus {
 		if !slices.Contains(triage.Loci, l) {
-			t.Errorf("signal %s maps to locus %q, which is not in triage.Loci", sig, l)
+			t.Errorf("signal %s on %s maps to locus %q, which is not in triage.Loci", k.Signal, k.Subject, l)
 		}
 	}
 }
 
-// **Two of the nine loci are in no row of the gate's table, and that is the table
-// rather than a transcription slip.** The floor emits no hypothesis when either
-// fires and reports them in Ranking.UnmappedLoci; this test pins the count, so
-// that a future widening of the table has to come here and say so rather than
+// **Two of the nine run loci are in no row of the gate's table, and that is the
+// table rather than a transcription slip.** The floor emits no hypothesis when
+// either fires and reports them in Ranking.UnmappedLoci; this test pins the set,
+// so that a future widening of the table has to come here and say so rather than
 // quietly changing what a ranking omits.
-func TestTwoLociMapToNoCauseClass(t *testing.T) {
+//
+// **The two delivery loci are in no row either, and that is a stage rather than
+// the table's verdict.** The vocabulary was widened first, so that a feed anomaly
+// has somewhere to land; the cause classes a delivery locus can carry are a
+// change to the table of their own, which removes them from this list.
+func TestLociThatMapToNoCauseClass(t *testing.T) {
 	var unmapped []string
 	for _, l := range triage.Loci {
 		if len(ClassesFor(l)) == 0 {
 			unmapped = append(unmapped, l)
 		}
 	}
-	want := []string{triage.LocusStepNeverStarted, triage.LocusPerRecordFailuresUnreportable}
+	want := []string{triage.LocusStepNeverStarted, triage.LocusPerRecordFailuresUnreportable,
+		triage.LocusDeliveryOverdue, triage.LocusDeliveryDepartsProfile}
 	slices.Sort(unmapped)
 	slices.Sort(want)
 	if !slices.Equal(unmapped, want) {

@@ -106,11 +106,12 @@ func (r Ranker) Rank(in *Input) *Ranking {
 	var unplacedSignals []string
 	for i := range in.Anomalies {
 		a := in.Anomalies[i]
-		if l, ok := signalLocus[a.SignalType]; ok {
+		if l, ok := locusOf(a.SubjectType, a.SignalType); ok {
 			anomaliesAt[l] = append(anomaliesAt[l], a)
 			continue
 		}
-		unplacedSignals = append(unplacedSignals, fmt.Sprintf("%s (%s)", a.AnomalyId, a.SignalType))
+		unplacedSignals = append(unplacedSignals,
+			fmt.Sprintf("%s (%s on %s)", a.AnomalyId, a.SignalType, a.SubjectType))
 	}
 
 	for _, locus := range present {
@@ -480,7 +481,7 @@ func (r Ranker) rankingBasis(out *Ranking, present, unplacedSignals []string, an
 			len(out.UnmappedLoci), strings.Join(out.UnmappedLoci, ", "))
 	}
 	if len(out.UnaskedLoci) > 0 {
-		fmt.Fprintf(&b, "%d of the nine loci could not be evaluated (%s), so every class whose only "+
+		fmt.Fprintf(&b, "%d of the loci could not be evaluated (%s), so every class whose only "+
 			"evidence position is among them has not been ruled out — it has not been looked at. ",
 			len(out.UnaskedLoci), strings.Join(out.UnaskedLoci, ", "))
 	}
@@ -508,9 +509,10 @@ func (r Ranker) rankingBasis(out *Ranking, present, unplacedSignals []string, an
 		fmt.Fprintf(&b, "%d anomaly row(s) were read. ", anomalies)
 	}
 	if len(unplacedSignals) > 0 {
-		fmt.Fprintf(&b, "%d anomaly/anomalies carry a signal type the locus table has no locus for and contributed "+
-			"to no hypothesis (%s): step_regression is a comparison across runs rather than a position "+
-			"in one run's record. ", len(unplacedSignals), strings.Join(unplacedSignals, ", "))
+		fmt.Fprintf(&b, "%d anomaly/anomalies carry a signal and subject the locus table has no locus for and "+
+			"contributed to no hypothesis (%s): step_regression is a comparison across runs rather than a "+
+			"position in one run's record, and a subject other than worker, edge or feed is one the table "+
+			"does not place. ", len(unplacedSignals), strings.Join(unplacedSignals, ", "))
 	}
 	b.WriteString("No model was consulted.")
 	return b.String()

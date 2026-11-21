@@ -56,8 +56,13 @@ func TestLociMatchDDL(t *testing.T) {
 	if !slices.Equal(got, want) {
 		t.Errorf("the locus vocabulary drifted from the generated DDL:\n  Go:  %v\n  DDL: %v", got, want)
 	}
-	if len(Loci) != 9 {
-		t.Errorf("section 9.4 is a nine-row table and Loci holds %d", len(Loci))
+	// Nine positions in a run's record and two in a feed's deliveries, the two
+	// appended last because the vocabulary is never renumbered.
+	if len(Loci) != 11 {
+		t.Errorf("the locus vocabulary has eleven members and Loci holds %d", len(Loci))
+	}
+	if got := Loci[len(Loci)-len(DeliveryLoci):]; !slices.Equal(got, DeliveryLoci) {
+		t.Errorf("the delivery loci must be the last two members, appended: got %v", got)
 	}
 }
 

@@ -5,7 +5,7 @@
  * ## Three things this screen refuses to do
  *
  * **It does not show a locus without saying what the record cannot see.** Every
- * one of the nine loci has a *cannot see* column, and that column is the part of
+ * one of the loci has a *cannot see* column, and that column is the part of
  * the finding that does not survive a summary. A
  * screen that rendered `worker_failed` as a bare label would be handing an
  * operator a word that looks like a diagnosis. So the gloss and the blind spot
@@ -53,6 +53,7 @@ import {
   IncidentStateConflictError,
   IncidentsApi,
   LOCUS_GLOSS,
+  locusLabel,
   RECLASSIFIED,
   vocabLabel,
   type Evidence,
@@ -209,7 +210,7 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
           <dl className="incident-facts">
             <dt>Locus</dt>
             <dd>
-              <span className="pill">{vocabLabel(incident.locus)}</span>
+              <span className="pill">{locusLabel(incident.locus)}</span>
               {gloss && <p className="locus-meaning">{gloss.meaning}</p>}
               {gloss && (
                 // The blind spot travels with the locus. It is the half of the
@@ -511,7 +512,7 @@ function Hypothesis({ h, incidentLocus }: { h: HypothesisRow; incidentLocus: str
         )}
         {elsewhere && (
           <span className="pill pill-warn" role="status">
-            raised at {vocabLabel(h.locus)}, not this incident's locus
+            raised at {locusLabel(h.locus)}, not this incident's locus
           </span>
         )}
       </span>

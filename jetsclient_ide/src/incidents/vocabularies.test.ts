@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { AGENT_PHI_ACCESS, ADJUDICATED_STATUSES, LOCUS_GLOSS, OPEN_STATUSES } from "./api";
+import { AGENT_PHI_ACCESS, ADJUDICATED_STATUSES, LOCUS_GLOSS, OPEN_STATUSES, locusLabel } from "./api";
 
 // The one test here that is not about a browser.
 //
@@ -40,6 +40,21 @@ describe("the vocabularies this app spells", () => {
   it("glosses every locus the CHECK admits, and no others", () => {
     const inCheck = checkVocabulary(/incident_locus_ck CHECK \(incident_locus IN \(([^)]*)\)\)/);
     expect([...Object.keys(LOCUS_GLOSS)].sort()).toEqual([...inCheck].sort());
+  });
+
+  // The two delivery loci are appended to the vocabulary, and the screen gives
+  // them labels of their own; every other locus keeps the label made from its
+  // value, so adding a label is not a way to rename a locus by accident.
+  it("labels the two delivery loci readably and leaves the run loci as they were", () => {
+    expect(locusLabel("delivery_overdue")).toBe("Delivery overdue");
+    expect(locusLabel("delivery_departs_profile")).toBe("Delivery departs from profile");
+    expect(locusLabel("worker_failed")).toBe("Worker failed");
+    expect(locusLabel("a_locus_with_no_gloss")).toBe("A locus with no gloss");
+    const labelled = Object.entries(LOCUS_GLOSS)
+      .filter(([, g]) => g.label !== undefined)
+      .map(([locus]) => locus)
+      .sort();
+    expect(labelled).toEqual(["delivery_departs_profile", "delivery_overdue"]);
   });
 
   it("filters only on statuses the CHECK admits", () => {

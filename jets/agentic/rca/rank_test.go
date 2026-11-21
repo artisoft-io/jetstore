@@ -451,7 +451,7 @@ func TestAnomalyConfoundersReachTheCaseAgainst(t *testing.T) {
 			t.Errorf("%s carries a confounder from an anomaly whose signal maps to no locus", h.CauseCategory)
 		}
 	}
-	if !strings.Contains(got.Basis, "an-2 (step_regression)") {
+	if !strings.Contains(got.Basis, "an-2 (step_regression on stage)") {
 		t.Errorf("the ranking's basis does not name the anomaly that reached no hypothesis: %s", got.Basis)
 	}
 }

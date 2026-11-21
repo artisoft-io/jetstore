@@ -500,7 +500,7 @@
         },
         "hypothesis_locus": {
           "$ref": "#/$defs/IncidentLocus",
-          "description": "**The triage classifier's verdict this hypothesis was derived from** - the same nine-value vocabulary Incident.incident_locus is constrained by, deliberately not a second list. Added before the first row was written rather than after. Required: the ranker's headline finding is that 20 of 29 model-generated hypotheses sat at loci triage did not find present, and without this column a hypothesis raised at an absent locus is indistinguishable in stored data from a sound one - which would persist exactly that failure mode, in a form that hides it."
+          "description": "**The triage classifier's verdict this hypothesis was derived from** - the same vocabulary Incident.incident_locus is constrained by, deliberately not a second list. Added before the first row was written rather than after. Required: the ranker's headline finding is that 20 of 29 model-generated hypotheses sat at loci triage did not find present, and without this column a hypothesis raised at an absent locus is indistinguishable in stored data from a sound one - which would persist exactly that failure mode, in a form that hides it."
         },
         "basis": {
           "$ref": "#/$defs/HypothesisBasis",
@@ -567,7 +567,7 @@
         },
         "incident_locus": {
           "$ref": "#/$defs/IncidentLocus",
-          "description": "**Where in the execution record the evidence sits** - the nine loci, the taxonomy the record can evidence and the one the triage classifier classifies deterministically. Required, and carried beside classification rather than instead of it: the locus is evidence, the classification is a claim."
+          "description": "**Where in the record the evidence sits** - nine positions in a run's execution record and two in a feed's deliveries, the taxonomy the record can evidence and the one the triage classifier classifies deterministically. Required, and carried beside classification rather than instead of it: the locus is evidence, the classification is a claim."
         },
         "classification": {
           "$ref": "#/$defs/IncidentClassification",
@@ -583,7 +583,7 @@
         },
         "incident_step_ref": {
           "type": "string",
-          "description": "The `cpipes_step_id` the incident localises to, where the locus supplies one. Optional by construction - four of the nine loci have no step. An incident that sets it should carry step_label_ambiguous in incident_confounders."
+          "description": "The `cpipes_step_id` the incident localises to, where the locus supplies one. Optional by construction - four of the nine run loci have no step, and neither delivery locus has one. An incident that sets it should carry step_label_ambiguous in incident_confounders."
         },
         "incident_shard_ref": {
           "type": "integer",
@@ -698,7 +698,7 @@
       "type": "object"
     },
     "IncidentLocus": {
-      "description": "**Ours entirely, and it is the taxonomy the triage design derived from\nthe execution record** (9 values). Not in the proposal at any level.\n\n**A locus is where in the record a cause would have to have left its\nevidence; it is not a cause.** The triage design's finding is that the\nrecord supports triage and does not support root-cause attribution below the\nlevel of a hypothesis. The nine below are mutually distinguishable by\npredicates over `jetsapi` with no free-text parsing and no join outside it,\nand eight of the nine are computable in SQL.\n\n**Both vocabularies are carried, on the triage design's recommendation.**\n`IncidentClassification` above says what *produced* the failure and three of\nits ten members have no substrate in JetStore at all; pruning an imported\nmodel unilaterally is not this model's call. So `classification` stays typed\nagainst the proposal's ten and `incident_locus` is added beside it. **The\nlocus is evidence and the classification is a claim**, which is the\ndistinction the anomaly design drew between an anomaly's observation and its\nbasis.\n\n**The risk this vocabulary creates** is that a nine-member locus taxonomy\nsitting beside a ten-member cause taxonomy will be read as a second cause\ntaxonomy, and *classified* will be read as *diagnosed*. The member names are\nwritten as observations rather than as diagnoses for that reason \u2014\n`worker_not_terminated` and not `worker_hung`, `rows_lost_silently` and not\n`data_dropped`.\n\nOrdered by how early the failure occurs, which is also roughly the order of\nhow little the record retains. Appended to, never renumbered.",
+      "description": "**Ours entirely, and it is the taxonomy the triage design derived from\nthe execution record** (11 values: nine positions in a run's record, then\ntwo positions in a feed's deliveries). Not in the proposal at any level.\n\n**A locus is where in the record a cause would have to have left its\nevidence; it is not a cause.** The triage design's finding is that the\nrecord supports triage and does not support root-cause attribution below the\nlevel of a hypothesis. The nine below are mutually distinguishable by\npredicates over `jetsapi` with no free-text parsing and no join outside it,\nand eight of the nine are computable in SQL.\n\n**Both vocabularies are carried, on the triage design's recommendation.**\n`IncidentClassification` above says what *produced* the failure and three of\nits ten members have no substrate in JetStore at all; pruning an imported\nmodel unilaterally is not this model's call. So `classification` stays typed\nagainst the proposal's ten and `incident_locus` is added beside it. **The\nlocus is evidence and the classification is a claim**, which is the\ndistinction the anomaly design drew between an anomaly's observation and its\nbasis.\n\n**The risk this vocabulary creates** is that a nine-member locus taxonomy\nsitting beside a ten-member cause taxonomy will be read as a second cause\ntaxonomy, and *classified* will be read as *diagnosed*. The member names are\nwritten as observations rather than as diagnoses for that reason \u2014\n`worker_not_terminated` and not `worker_hung`, `rows_lost_silently` and not\n`data_dropped`.\n\nOrdered by how early the failure occurs, which is also roughly the order of\nhow little the record retains. Appended to, never renumbered.\n\n**The last two are positions in a feed's deliveries rather than in a run,\nand they are appended rather than placed first.** A delivery precedes the\nrun that loads it, so by the ordering rule above both belong before\n`run_not_started`; by the rule after it they go at the end, and the second\nrule wins because the stored values and the CHECK's order outlive any one\nreading of \"how early\". So the member order is no longer failure order for\nthese two, and a reader who sorts by it should know that.\n\n**Both remain predicates over `jetsapi`.** A feed detector reads outside\nthe execution record \u2014 the registration of a delivery against a declared\nprofile \u2014 and writes an anomaly row with subject `feed`; the locus reads that\nrow. The specific departure (stale, restated, incomplete, too large) is the\nanomaly's signal and not the locus, which is why two loci suffice for seven\ndetectors. **Neither has a session of its own when nothing arrived**: an\nincident at `delivery_overdue` is keyed on the last delivery's session \u2014 the\none after which nothing came \u2014 with the feed as its subject.\n\nThe names are observations against a declaration, not diagnoses:\n*overdue* and *departs* say what was seen, not that the feed is at fault,\nand the declaration may be what is wrong.",
       "enum": [
         "run_not_started",
         "step_never_started",
@@ -708,7 +708,9 @@
         "rows_lost_silently",
         "per_record_failures_reported",
         "per_record_failures_unreportable",
-        "written_not_arrived"
+        "written_not_arrived",
+        "delivery_overdue",
+        "delivery_departs_profile"
       ],
       "type": "string"
     },

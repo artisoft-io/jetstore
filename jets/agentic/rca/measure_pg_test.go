@@ -233,8 +233,9 @@ func TestTheLocusAndClassCensusesCarryTheirDenominators(t *testing.T) {
 			"in any class row says nothing", counted, hypotheses)
 	}
 
-	// The other half of the class denominator: two loci are in no row of the gate's table,
-	// so a run exhibiting either produces no hypothesis for it. A census
+	// The other half of the class denominator: two run loci are in no row of the gate's
+	// table, and nor yet are the two delivery loci, so a run exhibiting any of them
+	// produces no hypothesis for it. TestLociThatMapToNoCauseClass pins which four. A census
 	// that did not say so would report a zero that looks like a measurement.
 	unmapped := 0
 	for _, l := range triage.Loci {
@@ -243,8 +244,8 @@ func TestTheLocusAndClassCensusesCarryTheirDenominators(t *testing.T) {
 			t.Logf("locus %s maps to no cause class, so it contributes to no class denominator", l)
 		}
 	}
-	if unmapped != 2 {
-		t.Errorf("%d loci map to no cause class, want 2", unmapped)
+	if unmapped != 4 {
+		t.Errorf("%d loci map to no cause class, want 4", unmapped)
 	}
 }
 

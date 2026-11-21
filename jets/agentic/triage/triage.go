@@ -2,6 +2,17 @@
 // classifies one run into nine loci, from the execution record and
 // nothing else.
 //
+// # Two more loci, and they are not positions in a run
+//
+// The vocabulary has eleven members. The last two, delivery_overdue and
+// delivery_departs_profile, are positions in a feed's deliveries: a feed
+// detector compares a delivery with the feed's declared profile and writes an
+// anomaly with subject feed, and the locus is a predicate over that anomaly row
+// rather than over the execution record. Classify reports both on every run,
+// so that a report still has one verdict per member, and reports them
+// NotEvaluable until it is given the feed anomalies to read: a locus that was
+// never asked is not one that did not fire.
+//
 // # A locus is not a cause, and this package emits only loci
 //
 // A review of the record for what supports a *cause* and found that it supports
@@ -46,13 +57,13 @@
 // observe.ConfigConfounders' Read/Found/Note distinction applied to the verdict
 // itself rather than to a qualifier on it.
 //
-// # Classify returns all nine verdicts, not the ones that fired
+// # Classify returns every verdict, not the ones that fired
 //
 // Criterion 44 asks for triage reported per class with denominators and no
 // aggregate. A classifier that returns only what fired supplies numerators and
 // no denominators — the count of sessions in which a locus was *evaluated and
-// did not fire* is not recoverable from a list of hits. So Classify emits nine
-// Findings per session unconditionally, and the denominator for a locus is the
+// did not fire* is not recoverable from a list of hits. So Classify emits one
+// Finding per locus per session unconditionally, eleven of them, and the denominator for a locus is the
 // count of its Present and Absent verdicts, with the NotEvaluable ones excluded
 // and reported separately rather than folded into either.
 //
@@ -71,14 +82,17 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/observe"
 )
 
-// The nine loci. These are the members of
+// The eleven loci: nine positions in a run's execution record, then two in a
+// feed's deliveries. These are the members of
 // jetsapi.incident's incident_locus_ck; TestLociMatchDDL asserts them against
 // the generated DDL so a regeneration that adds or removes one fails the suite
 // rather than an insert, which is the guard observe.TestVocabulariesMatchDDL
 // gives the anomaly vocabularies.
 //
 // The order is how early the failure occurs, which is also
-// roughly the order of how little the record retains about it.
+// roughly the order of how little the record retains about it — except for
+// the last two, which are appended because the vocabulary is never
+// renumbered. A delivery precedes the run that loads it.
 const (
 	// LocusRunNotStarted — the run header is terminal and there is no worker
 	// row at all.
@@ -105,6 +119,15 @@ const (
 	LocusPerRecordFailuresUnreportable = "per_record_failures_unreportable"
 	// LocusWrittenNotArrived — an edge names a destination the data is not at.
 	LocusWrittenNotArrived = "written_not_arrived"
+	// LocusDeliveryOverdue — no delivery of a feed arrived within its declared
+	// cadence of the last one. Read from a feed anomaly with signal arrival. A
+	// feed that stops has no session of its own, so the incident is keyed on
+	// the last delivery's session, with the feed as the anomaly's subject.
+	LocusDeliveryOverdue = "delivery_overdue"
+	// LocusDeliveryDepartsProfile — a delivery that arrived departs from the
+	// feed's declared profile. Read from a feed anomaly with any signal other
+	// than arrival; the signal says which departure.
+	LocusDeliveryDepartsProfile = "delivery_departs_profile"
 )
 
 // Loci is the vocabulary in section 9.4's order. A caller reporting per class
@@ -120,7 +143,15 @@ var Loci = []string{
 	LocusPerRecordFailuresReported,
 	LocusPerRecordFailuresUnreportable,
 	LocusWrittenNotArrived,
+	LocusDeliveryOverdue,
+	LocusDeliveryDepartsProfile,
 }
+
+// DeliveryLoci are the two loci that are positions in a feed's deliveries
+// rather than in a run's execution record. A caller that counts a locus over
+// runs — the step census, the shard localisation — has nothing to count for
+// these.
+var DeliveryLoci = []string{LocusDeliveryOverdue, LocusDeliveryDepartsProfile}
 
 // Verdict is one locus's answer for one run. It is three-valued rather than
 // boolean, and NotEvaluable is the member the package exists to keep separate:
@@ -164,7 +195,8 @@ type Finding struct {
 	Confounders []string
 
 	// StepRef and ShardRef localise the finding where the locus supplies them.
-	// Four of the nine supply no step at all, which is why they are optional —
+	// Four of the nine run loci supply no step at all and neither delivery
+	// locus does, which is why they are optional —
 	// section 9.6's "localisation is a property, not an identity".
 	StepRef  string
 	ShardRef *int64
@@ -218,7 +250,7 @@ func (f *Finding) Validate() error {
 	return nil
 }
 
-// Report is one run's nine verdicts.
+// Report is one run's verdicts, one per locus.
 type Report struct {
 	SessionId string
 	Findings  []Finding

@@ -4,10 +4,11 @@ description: The Incidents screen, which lists the incidents raised over pipelin
 kind: reference
 ---
 
-An **incident** is a problem in a pipeline run that JetStore's detection found, or that a person
-raised: a worker that failed, one that never finished, records that failed or went missing. JetStore
-separates two things about it. Its **locus** is *where the evidence sits* in the execution record,
-which the record establishes. Its **cause** is *a claim* about what produced it, which the record
+An **incident** is a problem that JetStore's detection found, or that a person raised: in a pipeline
+run, a worker that failed, one that never finished, records that failed or went missing; in a feed's
+deliveries, a delivery that did not come or one that departs from what the feed declares. JetStore
+separates two things about it. Its **locus** is *where the evidence sits* in the record, which the
+record establishes. Its **cause** is *a claim* about what produced it, which the record
 does not establish, and which a hypothesis or a person makes. The *Incidents* screen lists the
 incidents; each has a page with the evidence, the ranked hypotheses, how it reached its status, and
 the controls for a person's verdict.
@@ -41,6 +42,20 @@ The picker chooses **Open incidents** (the default), **Adjudicated**, or **All i
 
 **An empty list is not evidence that nothing went wrong.** Incidents are written by shadow triage,
 which runs where the detection task is deployed; the Detection screen says whether it has run.
+
+### Incidents about a feed's deliveries
+
+Two loci are about a feed rather than a run. They come from feed detection, which compares each
+delivery with the feed's declared profile.
+
+| Locus | What it means |
+|---|---|
+| **Delivery overdue** | No delivery of the feed arrived within its declared cadence of the last one. A delivery that never came has no session of its own, so the incident is on the session of the feed's **last delivery**, the one after which nothing came. |
+| **Delivery departs from profile** | A delivery arrived and departs from what the profile declares: its size, how recent its service dates are, the span they cover, a required field's completeness, its overlap with earlier deliveries, or a repeat of the last delivery. The locus does not say which; the detection that raised it does. |
+
+**Both are observations against a declaration, not a verdict on the feed.** A profile that is out of
+date makes a sound delivery depart from it, so check the profile as well as the delivery before
+claiming a cause.
 
 ## An incident
 

@@ -44,8 +44,9 @@ import (
 // two files are separate, and corrected because *no write path* now reads as a
 // claim about the package rather than about the file.
 
-// The nine loci, mirroring `IncidentLocus` in model.py and the
-// CHECK the DDL generates from it. Named constants for the same reason the
+// The eleven loci, mirroring `IncidentLocus` in model.py and the
+// CHECK the DDL generates from it: nine positions in a run's execution record,
+// then two in a feed's deliveries. Named constants for the same reason the
 // approval states are: a vocabulary written as string literals is a typo away
 // from a filter that silently matches nothing.
 const (
@@ -58,10 +59,14 @@ const (
 	LocusPerRecordFailuresReported      = "per_record_failures_reported"
 	LocusPerRecordFailuresUnreportable  = "per_record_failures_unreportable"
 	LocusWrittenNotArrived              = "written_not_arrived"
+	LocusDeliveryOverdue                = "delivery_overdue"
+	LocusDeliveryDepartsProfile         = "delivery_departs_profile"
 )
 
 // IncidentLoci is the vocabulary in its defined order, which is the order the
-// table is written in and roughly the order in which a run fails. It is sent to
+// table is written in and roughly the order in which a run fails. The two
+// delivery loci come last because the vocabulary is appended to and never
+// renumbered, not because a delivery fails after a run: it precedes one. It is sent to
 // the screen rather than repeated there, on the same argument the transition set
 // is: the client's copy of a vocabulary is the copy that cannot be enforced.
 var IncidentLoci = []string{
@@ -69,6 +74,7 @@ var IncidentLoci = []string{
 	LocusWorkerFailed, LocusSinkFailedUnderCompletedWorker, LocusRowsLostSilently,
 	LocusPerRecordFailuresReported, LocusPerRecordFailuresUnreportable,
 	LocusWrittenNotArrived,
+	LocusDeliveryOverdue, LocusDeliveryDepartsProfile,
 }
 
 // IncidentStatuses is `IncidentStatus`'s eleven values. **Three of them are

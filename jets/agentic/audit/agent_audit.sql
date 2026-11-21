@@ -341,9 +341,9 @@ CREATE INDEX IF NOT EXISTS anomaly_detector_idx
 -- stmt
 -- What triage concluded.
 --
--- **Two taxonomies, on purpose.** incident_locus is where in the execution record
--- the evidence sits -- nine values, each a predicate over jetsapi with no free-text
--- parsing -- and classification is what produced the failure, the proposal's own ten.
+-- **Two taxonomies, on purpose.** incident_locus is where in the record the evidence
+-- sits -- nine positions in a run's execution record and two in a feed's deliveries,
+-- each a predicate over jetsapi with no free-text parsing -- and classification is what produced the failure, the proposal's own ten.
 -- The triage design's reading is that the record supports the first and does not
 -- support the second below the level of a hypothesis: three of the ten classes have no
 -- substrate in JetStore at all and four are evidenced only coarsely. Carrying both is
@@ -356,7 +356,7 @@ CREATE INDEX IF NOT EXISTS anomaly_detector_idx
 -- so an incident identified below the session is one whose evidence set cannot
 -- be assembled by a join. incident_step_ref and incident_shard_ref are nullable
 -- because localisation is a property of an incident and not its identity: four of the
--- nine loci supply no step at all. An incident that sets incident_step_ref should
+-- nine run loci supply no step at all, and neither delivery locus does. An incident that sets incident_step_ref should
 -- carry step_label_ambiguous, cpipes_step_id being a stage location rather than a step
 -- identity -- which is why incident_confounders reuses the detector's vocabulary
 -- rather than opening a second one that would not compare.
@@ -405,7 +405,7 @@ CREATE TABLE IF NOT EXISTS jetsapi.incident (
   incident_shard_ref               bigint,
   incident_confounders             text[] NOT NULL,
   incident_model_version           text NOT NULL,
-  CONSTRAINT incident_locus_ck CHECK (incident_locus IN ('run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived')),
+  CONSTRAINT incident_locus_ck CHECK (incident_locus IN ('run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile')),
   CONSTRAINT incident_classification_ck
              CHECK (classification IS NULL OR classification IN ('source_delivery_failure', 'source_content_change', 'transport_failure', 'parse_failure', 'validation_breach', 'transformation_defect', 'infrastructure_failure', 'dependency_failure', 'capacity_or_cost_deviation', 'benign_variation')),
   CONSTRAINT incident_severity_ck CHECK (severity IN ('info', 'low', 'medium', 'high', 'critical')),
@@ -439,6 +439,26 @@ ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_confounders text[
 -- stmt
 ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_model_version text NOT NULL;
 -- stmt
+-- incident_locus_ck follows incident_locus's vocabulary onto a table created before the
+-- vocabulary last changed. See _replaced_vocabulary_check in the emitter.
+DO $$
+DECLARE
+  admitted text[];
+BEGIN
+  SELECT array(SELECT m[1]
+                 FROM regexp_matches(pg_get_constraintdef(c.oid), '''([a-z0-9_]+)''', 'g') AS m)
+    INTO admitted
+    FROM pg_constraint c
+   WHERE c.conrelid = 'jetsapi.incident'::regclass AND c.conname = 'incident_locus_ck';
+  IF admitted IS NULL
+     OR NOT (admitted @> ARRAY['run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile']::text[]
+             AND admitted <@ ARRAY['run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile']::text[]) THEN
+    ALTER TABLE jetsapi.incident
+      DROP CONSTRAINT IF EXISTS incident_locus_ck,
+      ADD CONSTRAINT incident_locus_ck CHECK (incident_locus IN ('run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile'));
+  END IF;
+END $$;
+-- stmt
 -- "What happened in this run", which is how an operator reaches an incident from a
 -- session id, and "what is open", which is how a supervision screen lists them.
 CREATE INDEX IF NOT EXISTS incident_session_idx
@@ -470,7 +490,7 @@ CREATE INDEX IF NOT EXISTS incident_status_idx
 -- for neither.
 --
 -- hypothesis_locus is constrained by the SAME vocabulary incident_locus is: the CHECK
--- below interpolates the one 'run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived' the emitter builds from M.IncidentLocus, so there is
+-- below interpolates the one 'run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile' the emitter builds from M.IncidentLocus, so there is
 -- no second list to drift. It is required because the ranker's headline finding was that
 -- 20 of 29 model-generated hypotheses sat at loci triage did not find present -- and
 -- without this column a hypothesis raised at an absent locus is indistinguishable in
@@ -502,7 +522,7 @@ CREATE TABLE IF NOT EXISTS jetsapi.hypothesis (
   basis                            jsonb NOT NULL,
   CONSTRAINT hypothesis_cause_category_ck
              CHECK (cause_category IS NULL OR cause_category IN ('source_delivery_failure', 'source_content_change', 'transport_failure', 'parse_failure', 'validation_breach', 'transformation_defect', 'infrastructure_failure', 'dependency_failure', 'capacity_or_cost_deviation', 'benign_variation')),
-  CONSTRAINT hypothesis_locus_ck CHECK (hypothesis_locus IN ('run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived'))
+  CONSTRAINT hypothesis_locus_ck CHECK (hypothesis_locus IN ('run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile'))
 );
 -- stmt
 ALTER TABLE jetsapi.hypothesis ADD COLUMN IF NOT EXISTS hypothesis_incident_ref text NOT NULL;
@@ -522,6 +542,26 @@ ALTER TABLE jetsapi.hypothesis ADD COLUMN IF NOT EXISTS contradicting_evidence j
 ALTER TABLE jetsapi.hypothesis ADD COLUMN IF NOT EXISTS hypothesis_locus text NOT NULL;
 -- stmt
 ALTER TABLE jetsapi.hypothesis ADD COLUMN IF NOT EXISTS basis jsonb NOT NULL;
+-- stmt
+-- hypothesis_locus_ck follows hypothesis_locus's vocabulary onto a table created before the
+-- vocabulary last changed. See _replaced_vocabulary_check in the emitter.
+DO $$
+DECLARE
+  admitted text[];
+BEGIN
+  SELECT array(SELECT m[1]
+                 FROM regexp_matches(pg_get_constraintdef(c.oid), '''([a-z0-9_]+)''', 'g') AS m)
+    INTO admitted
+    FROM pg_constraint c
+   WHERE c.conrelid = 'jetsapi.hypothesis'::regclass AND c.conname = 'hypothesis_locus_ck';
+  IF admitted IS NULL
+     OR NOT (admitted @> ARRAY['run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile']::text[]
+             AND admitted <@ ARRAY['run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile']::text[]) THEN
+    ALTER TABLE jetsapi.hypothesis
+      DROP CONSTRAINT IF EXISTS hypothesis_locus_ck,
+      ADD CONSTRAINT hypothesis_locus_ck CHECK (hypothesis_locus IN ('run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile'));
+  END IF;
+END $$;
 -- stmt
 -- "The ranking for this incident, in order", which is the only way a human reads
 -- hypotheses and is not answerable from the primary key.
