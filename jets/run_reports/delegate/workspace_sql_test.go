@@ -62,6 +62,11 @@ func TestWithIDEHint(t *testing.T) {
 	if !errors.Is(got, denied) || !strings.Contains(got.Error(), dblogin.IDE) {
 		t.Fatalf("withIDEHint(42501) = %v; want the error, wrapped, naming %s", got, dblogin.IDE)
 	}
+	export := &pgconn.PgError{Code: "42501", Message: "permission denied for schema aws_s3"}
+	got = withIDEHint(export)
+	if !errors.Is(got, export) || !strings.Contains(got.Error(), "start-up log") || strings.Contains(got.Error(), "security tables") {
+		t.Fatalf("withIDEHint(aws_s3) = %v; want the error, wrapped, pointing at the start-up log", got)
+	}
 	other := &pgconn.PgError{Code: "42P01", Message: "relation does not exist"}
 	if got := withIDEHint(other); got != error(other) {
 		t.Fatalf("withIDEHint(42P01) = %v; want it unchanged", got)

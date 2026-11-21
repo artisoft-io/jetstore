@@ -255,6 +255,10 @@ type Status struct {
 	// Removal says how Ensure turned the guard off: dropped, disabled, or
 	// its function emptied. Empty when there was nothing to remove.
 	Removal string
+	// ExportProblem says which export functions (aws_s3's, aws_commons') the
+	// IDE login still may not call after Ensure granted them, and what to run
+	// as their owner. Empty when there is none, or no such extension.
+	ExportProblem string
 
 	logins string // the start-up line's first half
 }
