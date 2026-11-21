@@ -27,9 +27,10 @@
 // predicates over the structural position of rows — which table holds a row,
 // which status it holds, whether a row exists — and eight of the nine carry no
 // numeric threshold whatever. The ninth does: locus rows_lost_silently is
-// observe.VolumeCollapse, whose MinRatio and MinInput are unsourced,
-// and it is run here rather than reimplemented so that there is one threshold
-// to source rather than two. So the honest form of the answer is that triage
+// observe.VolumeCollapse, which judges each step against its own history and
+// falls back to a floor, all of whose numbers are unsourced, and it is run here
+// rather than reimplemented so that there is one set of thresholds to source
+// rather than two. So the honest form of the answer is that triage
 // is *more* clearly rule work than detection was, and the one place it is not
 // is the one place it is a detector.
 //
