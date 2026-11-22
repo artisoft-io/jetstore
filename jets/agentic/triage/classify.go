@@ -533,8 +533,9 @@ func (c Classifier) sinkFailedUnderCompletedWorker(ev *Evidence) Finding {
 //
 // **This is the one locus of the nine that is a detector rather than a
 // predicate**, and the one that carries a threshold. It runs
-// observe.VolumeCollapse rather than restating its rule, so the two unsourced
-// numbers stay one thing to source, and the confounders on the finding
+// observe.VolumeCollapse rather than restating its rule, so its unsourced
+// numbers stay one thing to source, each step is judged against its own history
+// as the detector judges it (Evidence.Volume), and the confounders on the finding
 // are the ones the detector would have written on the anomaly — including the
 // four it reads from the run's configuration, which no structural predicate
 // here needs.
@@ -575,13 +576,15 @@ func (c Classifier) rowsLostSilently(ev *Evidence) Finding {
 		Extent:  ev.Extent.Extent,
 		Workers: ev.Workers,
 		Configs: map[string]*observe.ConfigConfounders{ev.SessionId: ev.Config},
+		Volume:  ev.Volume,
 	})
 	if len(anomalies) == 0 {
 		return Finding{Locus: locus, Verdict: Absent, Basis: fmt.Sprintf(
-			"%d of %d worker rows of session %q completed with both counts set, and none emitted fewer "+
-				"than %.0f%% of what it read over an input of at least %d rows (%s)",
-			withCounts, len(ev.Workers.Rows), ev.SessionId, 100*c.Volume.MinRatio, c.Volume.MinInput,
-			c.Volume.Ref())}
+			"%d of %d worker rows of session %q completed with both counts set, and none that read at "+
+				"least %d rows emitted less than %.0f%% of its step's median ratio over the step's last %d "+
+				"runs, or, for a step with fewer than %d prior runs, less than %.0f%% of what it read (%s)",
+			withCounts, len(ev.Workers.Rows), ev.SessionId, c.Volume.MinInput, 100*(1-c.Volume.MaxDrop),
+			c.Volume.HistoryRuns, c.Volume.MinPriorRuns, 100*c.Volume.MinRatio, c.Volume.Ref())}
 	}
 	var subjects, conf []string
 	for i := range anomalies {
@@ -594,9 +597,9 @@ func (c Classifier) rowsLostSilently(ev *Evidence) Finding {
 	}
 	basis := fmt.Sprintf(
 		"%s found %d of the %d completed worker rows of session %q emitting materially fewer rows than "+
-			"they read. This is the one locus of the nine that carries a threshold, and both of its numbers "+
-			"are unsourced: nothing in this repository has measured what a normal output ratio is "+
-			"for a JetStore step. The first anomaly's own basis: %s",
+			"their step usually does for what it reads. This is the one locus of the nine that carries a "+
+			"threshold, and its numbers are unsourced: nothing in this repository has measured how much a "+
+			"step's output ratio varies from run to run. The first anomaly's own basis: %s",
 		c.Volume.Ref(), len(anomalies), completed, ev.SessionId, anomalies[0].ExpectedBasis)
 	f := Finding{Locus: locus, Verdict: Present, Basis: basis, Confounders: conf, Subjects: subjects}
 	if len(anomalies) == 1 {

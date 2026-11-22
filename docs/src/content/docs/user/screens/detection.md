@@ -43,5 +43,41 @@ classified (*present*, *absent*, *not evaluable*) and the text of the attestatio
 
 ![A task's shadow triage opened: the census of the loci worker failed and worker not terminated, and the attestation that no incident has passed diagnosed and no remediation has been written.](../../../../assets/screenshots/user/screens/detection/detection-triage-open.png)
 
+## What anomaly detection looks for
+
+Anomaly detection runs two detectors over the workers of the runs in its window.
+
+- **Volume collapse**: a worker that completed but wrote materially fewer rows than its step usually
+  writes for what it reads. Shadow triage applies the same rule for the locus *Rows lost silently*.
+- **Step regression**: a step that failed after succeeding on earlier runs of the same source.
+
+**Volume collapse judges each step against its own history.** A worker's ratio is its output count
+divided by its input count. The detector compares that ratio with the median ratio of the same step,
+for the same client and process, over the step's last 10 runs before this one. It records an anomaly
+when the ratio is less than half of that median. A step that reduces its input, for example to the
+claims that qualify for a review, writes a small share of what it reads on every run. That share is
+normal for the step, so it raises nothing. The same step writing a much smaller share than usual
+does raise an anomaly, and so does a step that usually writes more than it reads but suddenly writes
+less.
+
+**A step with too little history is judged against a fixed floor.** A step needs 3 earlier runs before
+its own history is used. With fewer, the detector records an anomaly when the worker wrote less than
+half of what it read. These earlier runs count only if every worker of the step completed and the run
+read at least 1,000 rows. Workers that read fewer than 1,000 rows are not judged at all.
+
+**Each anomaly says which comparison it made.** Its basis begins *against the step's own history*,
+with the median and the runs it came from, or *against the absolute floor*, with the reason.
+The reason says either that the step's history is short or that earlier runs of the process were
+archived when their sessions were deleted. A deleted session keeps its run in the pipeline history but
+loses its worker counts, so a step whose history was deleted looks new. Such an anomaly carries the
+confounder *history truncated*.
+
+**The numbers are starting points, not measured values.** The 10 runs, the 3 runs, the halving and the
+floor are the detection command's defaults: `-volume-history-runs`, `-volume-min-prior-runs`,
+`-volume-drop`, `-min-ratio` and `-min-input`. Nothing has yet measured how much a step's ratio varies
+from run to run. The detector that judges by history is *volume_collapse@2*. Earlier anomalies, judged
+against the floor alone, are *volume_collapse@1*. The first run of the new detector judges every worker
+in its window again, even those the earlier one already judged.
+
 **Nothing on this screen acts on an incident.** Shadow triage stops every incident at *diagnosed*;
 what it concluded is on the [Incidents](/docs/user/screens/incidents/) screen.
