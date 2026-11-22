@@ -108,18 +108,23 @@ edits it on the source configuration screen. The incident it names stays at **di
 remediation is recorded. The proposal is drafted once per feed: a later triage run finds it and
 drafts nothing, whatever state it is in, so a rejected proposal stays rejected.
 
-**Deciding on it.** A person moves it, on its page, through the lifecycle above. Two limits apply
-today, and both are being worked on:
+**Deciding on it.** A person decides on it on its page, with the same buttons as any other proposal.
+To approve it, take it through *validated*, *agent reviewed* and *awaiting human approval*, then press
+**Approved**. To reject it, take it to *awaiting human approval* and press **Rejected**. From
+*draft*, **Superseded** is also offered. Each decision is recorded under your account. Nothing else
+moves the proposal: triage drafts it and never decides on it.
 
-- **The decision buttons record nothing yet.** The autonomy tier of a decision is read from the
-  agent's run, and a proposal drafted from an incident has no run, so a decision is refused with
-  *no run … so its tier cannot be resolved*. Its **Run transcript** is empty for the same reason, and
-  the facts label the incident as a run.
-- **A draft cannot be rejected directly.** From *draft* the lifecycle offers only *validated* and
-  *superseded*; *rejected* is reached from *awaiting human approval*.
+Three things differ from a proposal an agent's run produced, all because no run produced this one:
 
-Until both are lifted, the proposal is a reading of the evidence, not something to act on. If the
-feed is cumulative, change its source configuration yourself; the detectors then judge it as
-cumulative. If it is not, leave the proposal in draft: it is not drafted again. Either
-way, the incident on the [Incidents](/docs/user/screens/incidents/) screen moves only when a person
-moves it.
+- **The tier is T0.** A decision's tier is normally read from the agent's run. This proposal has
+  none, so its decisions are recorded at the lowest tier.
+- **Decisions are not in an audit chain.** Each decision is a row in *Decisions so far*, with your
+  account, the time, the states and your rationale, and the proposal's state moves with it. No event
+  is added to a hash-chained run transcript, so the confirmation reports *audit seq 0*. The
+  decisions are durable and attributed to you; they are not tamper-evident.
+- **There is no run transcript.** The **Run transcript** section is empty, and the facts show the
+  incident's id where a run's would be.
+
+**Approving it does not apply it.** Approval records your decision. Declaring the feed cumulative is
+still done on the source configuration, by a person. The incident on the
+[Incidents](/docs/user/screens/incidents/) screen moves only when a person moves it.

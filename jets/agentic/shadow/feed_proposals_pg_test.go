@@ -257,12 +257,45 @@ func TestFeedProposalIsDraftedForCumulativeUnderIncremental(t *testing.T) {
 		t.Errorf("%d change proposals after the second pass, want 1", n)
 	}
 
-	// The attestation notices a draft that left draft with nobody deciding it.
-	if _, err := pool.Exec(ctx, `UPDATE jetsapi.change_proposal SET approval_state = 'approved'
+	// A person moves it, as the proposals screen records a decision: each step
+	// under the person's account, at the runless tier, with run_ref the
+	// incident, and no chain event. The incident does not move, and the
+	// attestation holds with every state explained.
+	path := []string{audit.StateDraft, audit.StateValidated, audit.StateAgentReviewed,
+		audit.StateAwaitingHumanApproval, audit.StateApproved}
+	for i := 1; i < len(path); i++ {
+		seq, err := audit.RecordApproval(ctx, pool, &audit.Approval{
+			ApprovalEventId: fmt.Sprintf("apr_person_%d", i), RunRef: p.TriggerRef,
+			SubjectRef: p.ProposalId, FromState: path[i-1], ToState: path[i],
+			Actor: "person@example.com", TierAtEvent: audit.RunlessDecisionTier,
+			DecisionRationale: "the feed is cumulative", Unchained: true,
+		})
+		if err != nil || seq != 0 {
+			t.Fatalf("%s -> %s: seq %d, %v", path[i-1], path[i], seq, err)
+		}
+	}
+	if n := count(t, pool, `SELECT count(*) FROM jetsapi.agent_audit`); n != 0 {
+		t.Errorf("%d chain events after a person decided a proposal no run produced", n)
+	}
+	if err := pool.QueryRow(ctx, `SELECT status FROM jetsapi.incident WHERE incident_id = $1`, onset).
+		Scan(&status); err != nil || status != audit.IncidentDiagnosed {
+		t.Errorf("the incident is at %s after the proposal was approved (%v)", status, err)
+	}
+	if a, err := Attest(ctx, pool); err != nil || !a.Holds() || a.UnexplainedProposalStates != 0 ||
+		a.IncidentProposalsInDraft != 0 {
+		t.Errorf("after a person's approval: %v\n%s", err, a.Report())
+	}
+	if again, err := w.DraftFeedProposals(ctx, pool, sessions); err != nil || again.Written() != 0 ||
+		again.Drafts[0].Existing != audit.StateApproved {
+		t.Errorf("a pass after the approval: %v, %+v", err, again)
+	}
+
+	// The attestation notices a proposal that moved with nobody deciding it.
+	if _, err := pool.Exec(ctx, `UPDATE jetsapi.change_proposal SET approval_state = 'deployed'
 		WHERE proposal_id = $1`, p.ProposalId); err != nil {
 		t.Fatal(err)
 	}
 	if a, err := Attest(ctx, pool); err != nil || a.Holds() || a.UnexplainedProposalStates != 1 {
-		t.Errorf("an out-of-band approval of the draft is not reported: %v\n%s", err, a.Report())
+		t.Errorf("an out-of-band deployment of the proposal is not reported: %v\n%s", err, a.Report())
 	}
 }

@@ -3,6 +3,7 @@ package audit
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -68,6 +69,14 @@ type Approval struct {
 	DecidedAt time.Time
 	// DecisionRationale is why, in the actor's words. Optional.
 	DecisionRationale string
+	// Unchained is set for a decision on a proposal that no agent run
+	// produced (Proposal.DecidedWithoutRun). There is no run whose chain the
+	// decision could join, so RecordApproval writes the typed row and moves
+	// the proposal, and appends no chain event; RunRef then holds the
+	// proposal's trigger_ref and TierAtEvent must be RunlessDecisionTier.
+	// That is the precedent of a verdict on a runless incident: durable and
+	// attributable, and not tamper-evident.
+	Unchained bool
 }
 
 func (a *Approval) validate() error {
@@ -88,6 +97,8 @@ func (a *Approval) validate() error {
 		return fmt.Errorf("approval %s names no actor; an unattributable approval is the one thing this record exists to prevent", a.ApprovalEventId)
 	case a.TierAtEvent == "":
 		return fmt.Errorf("approval %s carries no tier; tier_at_event is NOT NULL because a decision's authority is part of the decision", a.ApprovalEventId)
+	case a.Unchained && a.TierAtEvent != RunlessDecisionTier:
+		return fmt.Errorf("approval %s is on a proposal no run produced and carries tier %s; such a decision is recorded at %s, since there is no run to read a tier from", a.ApprovalEventId, a.TierAtEvent, RunlessDecisionTier)
 	}
 	return nil
 }
@@ -112,7 +123,8 @@ func (e *ErrStateConflict) Error() string {
 //
 // RecordApproval writes the typed row, appends the chain event and moves the
 // proposal's state, in one transaction. It returns the seq the trigger assigned
-// the audit row, so a caller can cite it.
+// the audit row, so a caller can cite it, or 0 for an Unchained decision, which
+// appends no audit row.
 func RecordApproval(ctx context.Context, db Beginner, a *Approval) (int, error) {
 	if err := a.validate(); err != nil {
 		return 0, err
@@ -126,6 +138,23 @@ func RecordApproval(ctx context.Context, db Beginner, a *Approval) (int, error) 
 		return 0, fmt.Errorf("while opening the transaction for approval %s: %w", a.ApprovalEventId, err)
 	}
 	defer tx.Rollback(ctx)
+
+	// Whether the decision joins a chain is a property of the proposal, not
+	// of the caller: a run-backed proposal is never decided outside its run's
+	// chain, and a proposal no run produced never claims one.
+	var trigger string
+	switch err := tx.QueryRow(ctx, `SELECT trigger FROM jetsapi.change_proposal WHERE proposal_id = $1`,
+		a.SubjectRef).Scan(&trigger); {
+	case errors.Is(err, pgx.ErrNoRows):
+		return 0, &ErrStateConflict{SubjectRef: a.SubjectRef, Expected: a.FromState}
+	case err != nil:
+		return 0, fmt.Errorf("while reading the trigger of proposal %s: %w", a.SubjectRef, err)
+	}
+	if runless := trigger == TriggerIncident; runless != a.Unchained {
+		return 0, fmt.Errorf("approval %s: proposal %s has trigger %q, so its decisions are %s, and this one "+
+			"is not", a.ApprovalEventId, a.SubjectRef, trigger, map[bool]string{
+			true: "recorded without a run, unchained", false: "joined to its run's chain"}[runless])
+	}
 
 	// The subject moves first, because its guard is what decides whether this
 	// approval happens at all. Writing the audit event before knowing that
@@ -150,6 +179,15 @@ func RecordApproval(ctx context.Context, db Beginner, a *Approval) (int, error) 
 		a.ApprovalEventId, a.RunRef, a.SubjectRef, a.FromState, a.ToState,
 		a.Actor, a.TierAtEvent, a.DecidedAt, a.DecisionRationale); err != nil {
 		return 0, fmt.Errorf("while recording approval %s: %w", a.ApprovalEventId, err)
+	}
+
+	if a.Unchained {
+		// No run, so no chain to join: the typed row and the state move are
+		// the record, and seq 0 says no chain event was appended.
+		if err := tx.Commit(ctx); err != nil {
+			return 0, fmt.Errorf("while committing approval %s: %w", a.ApprovalEventId, err)
+		}
+		return 0, nil
 	}
 
 	payload, err := json.Marshal(map[string]any{

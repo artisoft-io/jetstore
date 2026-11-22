@@ -484,13 +484,24 @@ func recordApproval(ctx context.Context, ops agenticOps, a *AgenticAction, actor
 	}
 
 	// The tier comes from the run, never from the request. See audit.RunTier.
-	tier, err := ops.RunTier(ctx, p.TriggerRef)
-	if err != nil {
-		var missing *audit.ErrNoRun
-		if errors.As(err, &missing) {
-			return nil, http.StatusConflict, err
+	//
+	// **A proposal no run produced is decided without one**: its trigger_ref
+	// names the incident that prompted it, so there is no run to read a tier
+	// from and no chain to join. The decision is recorded at
+	// audit.RunlessDecisionTier, under the session's user, with run_ref
+	// holding the trigger_ref, and appends no chain event, which is a verdict
+	// on a runless incident's precedent. Every other proposal takes the path
+	// below unchanged.
+	tier := audit.RunlessDecisionTier
+	unchained := p.DecidedWithoutRun()
+	if !unchained {
+		if tier, err = ops.RunTier(ctx, p.TriggerRef); err != nil {
+			var missing *audit.ErrNoRun
+			if errors.As(err, &missing) {
+				return nil, http.StatusConflict, err
+			}
+			return nil, http.StatusInternalServerError, err
 		}
-		return nil, http.StatusInternalServerError, err
 	}
 
 	decidedAt := time.Now().UTC()
@@ -507,6 +518,7 @@ func recordApproval(ctx context.Context, ops agenticOps, a *AgenticAction, actor
 		TierAtEvent:       tier,
 		DecidedAt:         decidedAt,
 		DecisionRationale: a.Rationale,
+		Unchained:         unchained,
 	}
 	seq, err := ops.RecordApproval(ctx, ap)
 	if err != nil {
@@ -528,8 +540,9 @@ func recordApproval(ctx context.Context, ops agenticOps, a *AgenticAction, actor
 		"tierAtEvent":     ap.TierAtEvent,
 		"decidedAt":       timeOrEmpty(ap.DecidedAt),
 		// The seq the chain trigger assigned, so a caller can cite the audit
-		// row its decision produced.
+		// row its decision produced; 0 when the decision joined no chain.
 		"auditSeq":    seq,
+		"chained":     !unchained,
 		"transitions": transitionsOrEmpty(ap.ToState),
 	}, http.StatusOK, nil
 }

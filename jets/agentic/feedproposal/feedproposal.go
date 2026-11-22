@@ -78,7 +78,7 @@ const CaseCumulativeUnderIncremental = "cumulative_under_incremental"
 
 // Trigger is the change_proposal.trigger written on every draft: the proposal
 // was prompted by an incident, and trigger_ref names it.
-const Trigger = "incident"
+const Trigger = audit.TriggerIncident
 
 // The two detectors whose anomalies are evidence, by the name in their
 // detector_ref (which carries "@<generation>" after it).
