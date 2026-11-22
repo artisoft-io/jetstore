@@ -1,9 +1,9 @@
 {
   "clock": "2026-06-01T05:00:00Z",
   "rules": {
-    "joins": "A delivery is an input_registry row, joined to its feed on table_name with client and org, never on object_type: every delivery here is registered under the object type Member. Its period is input_registry.source_period_key joined to source_period, its arrival is its session id read as milliseconds, and its size is file_key_staging.file_size joined on file_key. file_key_staging.last_update is a sync time, not an arrival. A delivery's predecessor is the feed's previous delivery in registration order. Every delivery-grain verdict is a backfill verdict: each delivery is judged against what was registered before it and nothing after.",
+    "joins": "A delivery is an input_registry row, joined to its feed on table_name alone, never on object_type: every delivery here is registered under the object type Member. table_name is unique in source_config; a registration naming another client or org than its feed is attributed to the feed and reported on the coverage line, not dropped (every delivery here names its feed's client, so no verdict depends on it). Only file registrations (source_type file) are deliveries. Its period is input_registry.source_period_key joined to source_period, its arrival is its session id read as milliseconds, and its size is file_key_staging.file_size joined on file_key. file_key_staging.last_update is a sync time, not an arrival. A delivery's predecessor is the feed's previous delivery in registration order. Every delivery-grain verdict is a backfill verdict: each delivery is judged against what was registered before it and nothing after.",
     "feed_overdue": "At the clock. P is the latest period the feed has delivered, the maximum over its deliveries at the profile's period_type, not the period of the last registration. The next delivery is due in period P + periods_per_delivery, and the feed is overdue from the end of that period plus overdue_after_days. A week period runs Thursday to Wednesday (week_period counts weeks from the epoch, a Thursday), a month period is a calendar month. The finding hangs on the session of the feed's last registered delivery (on_delivery); first_fires_at is the first instant it holds. The late-period feed's last registration names an old period, so reading that period as the latest judges the feed overdue.",
-    "delivery_size": "file_size outside the declared size_bytes range, bounds inclusive. Every profiled feed here declares a range, so no verdict depends on a trailing band.",
+    "delivery_size": "file_size outside the declared size_bytes range, bounds inclusive. Every profiled feed here declares a range, so no verdict depends on a trailing band. With no range declared, a delivery is judged against the trailing band of the sizes registered before it (the detector's unit tests cover that case), and a delivery with fewer preceding sizes than the band needs is not judged (insufficient_history).",
     "delivery_backdated": "The delivery's period, at the profile's period_type, precedes the latest period of any delivery registered before it. The first delivery of a feed is not judged.",
     "service_date_stale": "The delivery's arrival date (UTC) less its newest service date, in days, exceeds max_service_date_lag_days. Every verdict here is the same if the lag is read from the end of the delivery's period instead: the one delivery registered under an old period carries recent dates of service.",
     "service_date_span": "Incremental feeds only: the newest less the oldest service date of one delivery, in days, exceeds max_service_date_span_days.",
@@ -16,7 +16,12 @@
     "field_absent:<field>": "the profile does not declare a field the detector needs",
     "cumulative_feed": "the detector judges incremental feeds only",
     "no_claim_rows": "the claim-set table holds no row of the delivery's session, as when the pipeline skips the database load; not evaluable rather than clean",
-    "no_predecessor": "the detector compares a delivery with its predecessor, and the first delivery has none"
+    "no_predecessor": "the detector compares a delivery with its predecessor, and the first delivery has none",
+    "profile_refused": "the feed's stored profile does not decode or fails validation; the coverage line carries the findings",
+    "no_delivery": "the feed has a profile and no surviving delivery, so feed_overdue has nothing to count from and no session to hang a finding on",
+    "no_period": "the delivery is registered under no source period",
+    "no_size": "file_key_staging holds no row for the delivery's file key",
+    "insufficient_history": "delivery_size with no declared range, and fewer preceding sizes than its trailing band needs"
   },
   "install": {
     "source_config": 11,

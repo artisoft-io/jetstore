@@ -13,8 +13,10 @@ columns identify them, and how much drift is acceptable. Anomaly detection's fee
 against its profile, and **a feed with no profile is not judged**: it is listed as not judged, by
 check, rather than judged against defaults.
 
-In this version JetStore stores and checks the profile; the feed checks that read it come in a later
-release.
+Eight checks read the profile. Three read only what JetStore records when a delivery is registered,
+so they judge a feed whose claims are never loaded; they are described in
+[The registration checks](#the-registration-checks) below. The other five read the delivery's claims
+in the table the profile names.
 
 Whether each delivery holds the whole feed is not part of the profile. It is the source
 configuration's **Is each delivery cumulative?** setting, and the checks read it from there.
@@ -57,10 +59,10 @@ configuration's **Is each delivery cumulative?** setting, and the checks read it
 
 | Field | What it says | Read by the check for |
 |---|---|---|
-| `period_type` | The unit in which deliveries are due: `month_period`, `week_period` or `day_period`, JetStore's own periods. | a delivery that is overdue |
+| `period_type` | The unit in which deliveries are due: `month_period`, `week_period` or `day_period`, JetStore's own periods. | a delivery that is overdue; a delivery for a past period |
 | `periods_per_delivery` | How many periods one delivery covers: `2` with `week_period` for every two weeks, `3` with `month_period` for quarterly. Absent is 1. | a delivery that is overdue |
 | `overdue_after_days` | The grace, in days, after the period in which a delivery was due. | a delivery that is overdue |
-| `size_bytes` | `{"min": …, "max": …}`, the expected size of one delivery in bytes; either bound may be left out. Absent, the check uses the feed's recent deliveries. | a delivery of unusual size |
+| `size_bytes` | `{"min": …, "max": …}`, the expected size of one delivery in bytes; either bound may be left out. Absent, the check uses the feed's recent deliveries (see below). | a delivery of unusual size |
 | `claim_set` | Where the feed's claims are once loaded: `table`, the `key_columns` that identify a claim, the `service_date_column` and the `member_column`. All four are required when it is given. **The key is yours to declare**: JetStore does not infer it, and a check reports how many rows share a key before trusting it. | every check that reads the claims |
 | `max_service_date_lag_days` | How far the newest date of service may fall behind the delivery. | claims that stop advancing |
 | `max_service_date_span_days` | The widest span of service dates one delivery may hold. Not used for a cumulative feed. | a delivery that reaches back in time |
@@ -69,6 +71,50 @@ configuration's **Is each delivery cumulative?** setting, and the checks read it
 | `declared_by`, `declared_at` | Who declared the profile, and the date, written `YYYY-MM-DD`. Required. | every finding, as its evidence |
 
 A field the profile does not have, such as a misspelt one, is refused rather than ignored.
+
+## The registration checks
+
+Each check below needs the fields in its *Needs* column. A feed whose profile lacks one is reported
+as **not judged** by that check, naming the field, and the other checks still judge it. A feed with
+no profile, or whose saved profile no longer passes validation, is not judged by any check, and the
+report says which of the two.
+
+| Check | Fires when | Needs |
+|---|---|---|
+| `feed_overdue` | No delivery has come for the period one was due in, past the grace. | `period_type`, `overdue_after_days` |
+| `delivery_size` | A delivery's size is outside `size_bytes`, bounds included, or, with no `size_bytes`, outside the feed's recent range. | nothing |
+| `delivery_backdated` | A delivery is registered for a period earlier than one the feed has already delivered. | `period_type` |
+
+**What a delivery is.** A delivery is one file registration of the feed, matched to the feed by the
+source configuration's table name. Its arrival is the time it was registered, its period is the
+source period it was registered under, and its size is the file's size as JetStore last listed it. A
+delivery registered under another client than its feed's is still counted as the feed's, and the
+report lists such deliveries so that the registration can be looked into.
+
+**Overdue** counts from the **latest period the feed has delivered**, not from the period of the last
+file to arrive: a late file for an old period does not make an up-to-date feed look overdue. With a
+latest period P, the next delivery is due in period P + `periods_per_delivery`, and the feed is
+overdue once that period has ended and `overdue_after_days` more have passed. A week period runs
+Thursday to Wednesday and a month period is a calendar month. The finding is attached to the feed's
+last delivery, the one after which nothing came, so a feed that stays overdue is reported once, not
+every day.
+
+**Size, with no `size_bytes`**, is judged against the feed's own recent deliveries: the median of the
+last 8 deliveries' sizes, plus or minus the larger of 3 scaled median absolute deviations and half
+the median. A delivery with fewer than 4 earlier sizes is not judged. These figures are starting
+values, not measured ones; the finding states the range it used. Declaring `size_bytes` is better
+when you know what a delivery should weigh, because the recent range follows a feed that drifts
+slowly.
+
+**A back-dated delivery** is one registered for a period earlier than the latest period of any
+delivery before it. The check cannot tell a mistaken registration from a deliberate reload of past
+periods; it reports the fact, and the finding names both periods. A delivery registered for the
+current period whose claims reach back in time is a different case, which the span check finds.
+
+**Every finding** names the profile it judged against, who declared it and when, and compares each
+delivery only with the deliveries registered before it. The first delivery JetStore still holds has
+nothing before it, so a check that compares with earlier deliveries does not judge it, and says that
+earlier history may have been removed.
 
 ## How to tell it worked
 
