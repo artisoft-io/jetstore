@@ -14,7 +14,7 @@ on whose request and with what result, and can start it now.
 
 **Reach it** from *Detection* in the top bar. It needs the `agent_supervision` capability.
 
-![The Detection screen: the task is not part of this deployment, so Run detection now is disabled; two tasks are listed, a manual one over 168 hours and a scheduled one over 26 hours, each with its anomaly detection and shadow triage results, both ok.](../../../../assets/screenshots/user/screens/detection/detection.png)
+![The Detection screen: the task is not part of this deployment, so Run detection now is disabled; two tasks are listed, a manual one over 168 hours and a scheduled one over 26 hours, each with its anomaly detection, feed checks and shadow triage results, all ok; the feed checks judged no feed, because neither of the two has a profile.](../../../../assets/screenshots/user/screens/detection/detection.png)
 
 ## The bar
 

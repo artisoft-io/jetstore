@@ -102,6 +102,8 @@ Three pages of text, each optional:
 
 One more page of text, optional, before the summary:
 
+![The Feed Profile page of hc:PharmacyClaim: an empty Feed Profile (json) box whose placeholder names what a profile holds and that declared_by and declared_at are required, with Previous, Cancel and Next.](../../../../../assets/screenshots/user/screens/flows/source-configuration/feed-profile.png)
+
 | Page | Field |
 |---|---|
 | Feed profile | **Feed Profile (json)**: when the feed's deliveries are due, how large one is, where its claims are and the thresholds they are judged against, with who declared it and when. Leave it empty and the feed is not judged; empty it and save to remove a profile. |
