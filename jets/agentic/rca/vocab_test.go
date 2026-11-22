@@ -124,11 +124,6 @@ func TestEveryMappedLocusIsInTheTriageVocabulary(t *testing.T) {
 			}
 		}
 	}
-	for k, l := range signalLocus {
-		if !slices.Contains(triage.Loci, l) {
-			t.Errorf("signal %s on %s maps to locus %q, which is not in triage.Loci", k.Signal, k.Subject, l)
-		}
-	}
 }
 
 // **Two of the nine run loci are in no row of the gate's table, and that is the
@@ -137,10 +132,10 @@ func TestEveryMappedLocusIsInTheTriageVocabulary(t *testing.T) {
 // so that a future widening of the table has to come here and say so rather than
 // quietly changing what a ranking omits.
 //
-// **The two delivery loci are in no row either, and that is a stage rather than
-// the table's verdict.** The vocabulary was widened first, so that a feed anomaly
-// has somewhere to land; the cause classes a delivery locus can carry are a
-// change to the table of their own, which removes them from this list.
+// **The two delivery loci were in this list for one release and are not any
+// more.** The vocabulary was widened first, so that a feed anomaly had somewhere
+// to land; the cause classes a delivery locus can carry were the table's own
+// change, and they are now in it: three classes each, not one.
 func TestLociThatMapToNoCauseClass(t *testing.T) {
 	var unmapped []string
 	for _, l := range triage.Loci {
@@ -148,8 +143,7 @@ func TestLociThatMapToNoCauseClass(t *testing.T) {
 			unmapped = append(unmapped, l)
 		}
 	}
-	want := []string{triage.LocusStepNeverStarted, triage.LocusPerRecordFailuresUnreportable,
-		triage.LocusDeliveryOverdue, triage.LocusDeliveryDepartsProfile}
+	want := []string{triage.LocusStepNeverStarted, triage.LocusPerRecordFailuresUnreportable}
 	slices.Sort(unmapped)
 	slices.Sort(want)
 	if !slices.Equal(unmapped, want) {
@@ -186,7 +180,14 @@ func TestLociThatMapToNoCauseClass(t *testing.T) {
 // are pinned separately below so that a reader quoting "three classes have no
 // substrate" beside "two can never be emitted" sees they are not the same
 // statement.
-func TestClassesWithNoSubstrateAreThreeAndClassesWithNoLocusAreTwo(t *testing.T) {
+//
+// **Three became two everywhere and stayed three on a run.** A feed's declared
+// cadence is a record of what was due, so source_delivery_failure is graded
+// conditional and is evidenced at delivery_overdue, where a cadence is read. At
+// run_not_started nothing links the run to a cadence, and its grade there is
+// still none (CauseClass.At). The class-wide set answering "no" is the two with
+// no locus; the per-locus grade is what keeps the third ranked last on a run.
+func TestClassesWithNoSubstrateAndClassesWithNoLocus(t *testing.T) {
 	var noLocus, noEvidence []string
 	for _, c := range Classes() {
 		if len(c.Loci) == 0 {
@@ -207,13 +208,27 @@ func TestClassesWithNoSubstrateAreThreeAndClassesWithNoLocusAreTwo(t *testing.T)
 		t.Errorf("the classes the floor can never emit have changed:\n  got:  %v\n  want: %v",
 			noLocus, wantNoLocus)
 	}
-	wantNoEvidence := []string{CauseSourceDeliveryFailure,
-		CauseDependencyFailure, CauseCapacityOrCostDeviation}
+	wantNoEvidence := []string{CauseDependencyFailure, CauseCapacityOrCostDeviation}
 	slices.Sort(noEvidence)
 	slices.Sort(wantNoEvidence)
 	if !slices.Equal(noEvidence, wantNoEvidence) {
-		t.Errorf("the classes the gate's table says the record cannot evidence have changed:\n  got:  %v\n  want: %v",
+		t.Errorf("the classes the gate's table says the record cannot evidence anywhere have changed:\n  got:  %v\n  want: %v",
 			noEvidence, wantNoEvidence)
+	}
+	// And source_delivery_failure, graded conditional on a declared cadence,
+	// is still none at the one run locus it is attached to, which is what keeps
+	// it ranked last on a run that never started.
+	if g := EvidenceabilityAt(CauseSourceDeliveryFailure, triage.LocusRunNotStarted); g != None {
+		t.Errorf("source_delivery_failure at run_not_started is %q, want none: nothing links a run to a cadence", g)
+	}
+	if g := EvidenceabilityAt(CauseSourceDeliveryFailure, triage.LocusDeliveryOverdue); g != Conditional {
+		t.Errorf("source_delivery_failure at delivery_overdue is %q, want conditional", g)
+	}
+	if g := EvidenceabilityAt(CauseSourceContentChange, triage.LocusRowsLostSilently); g != Coarse {
+		t.Errorf("source_content_change at rows_lost_silently is %q, want coarse", g)
+	}
+	if g := EvidenceabilityAt(CauseSourceContentChange, triage.LocusDeliveryDepartsProfile); g != Conditional {
+		t.Errorf("source_content_change at delivery_departs_profile is %q, want conditional", g)
 	}
 }
 

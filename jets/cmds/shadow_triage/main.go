@@ -8,7 +8,8 @@
 //
 // Usage:
 //
-//	shadow_triage -since 24h                  # every run that started in the window
+//	shadow_triage -since 24h                  # every run that started in the window, and every
+//	                                          # session carrying a feed anomaly detected in it
 //	shadow_triage -session <session id>       # one run
 //	shadow_triage -since 24h -dry-run         # classify, rank, report, write nothing
 //	shadow_triage -attest                     # read the record back and say whether anything acted
@@ -42,6 +43,16 @@
 // a later read that can see less is not evidence against it. What corrects
 // an incident is a person, through the supervision screen's `reclassified`
 // transition.
+//
+// # Feed findings, on the sessions they hang on
+//
+// A feed detector's anomaly hangs on a registration session: the delivery that
+// departs from the feed's profile, or, for a feed that stopped, its last
+// delivery, the one after which nothing came. Such a session may have no run,
+// so -since selects the sessions carrying a feed anomaly detected in the window
+// beside the runs that started in it, and the two delivery loci become
+// incidents at `diagnosed` like any other. -client is the feed's own client,
+// from its source configuration.
 //
 // # Its own run is recorded too
 //
@@ -145,6 +156,7 @@ type summary struct {
 	Regime          string                 `json:"purgeRegime"`
 	ChannelDetails  bool                   `json:"channelDetails"`
 	Runs            int                    `json:"runsClassified"`
+	FeedSessions    int                    `json:"feedSessionsSelected"`
 	Incidents       int                    `json:"incidentsWritten"`
 	Hypotheses      int                    `json:"hypothesesWritten"`
 	AlreadyRaised   int                    `json:"alreadyRaised"`
@@ -172,7 +184,7 @@ func doAttest(ctx context.Context, db *pgxpool.Pool, sum *summary) error {
 	return nil
 }
 
-func doJob(ctx context.Context, db *pgxpool.Pool, sum *summary) error {
+func doJob(ctx context.Context, db *pgxpool.Pool, extent *triage.Extent, sum *summary) error {
 	targets, err := shadow.ReadTargets(ctx, db)
 	if err != nil {
 		return err
@@ -187,14 +199,30 @@ func doJob(ctx context.Context, db *pgxpool.Pool, sum *summary) error {
 
 	sessions := []string{*session}
 	if *session == "" {
-		if sessions, err = shadow.RecentSessions(ctx, db, time.Now().UTC().Add(-*since),
-			*client, *process, *limit); err != nil {
+		from := time.Now().UTC().Add(-*since)
+		if sessions, err = shadow.RecentSessions(ctx, db, from, *client, *process, *limit); err != nil {
 			return err
+		}
+		// The delivery loci hang on registration sessions, which may have no
+		// run, so the sessions carrying a feed anomaly are selected as well. A
+		// delivery belongs to no process, so -process leaves them out.
+		switch {
+		case *process != "":
+			log.Printf("-process is set, so sessions selected for their feed anomalies are not classified")
+		case !extent.Anomalies:
+			log.Printf("record: jetsapi.anomaly is absent, so no session is selected for its feed anomalies")
+		default:
+			feeds, err := shadow.RecentFeedSessions(ctx, db, from, *client, *limit)
+			if err != nil {
+				return err
+			}
+			sum.FeedSessions = len(feeds)
+			sessions = shadow.MergeSessions(sessions, feeds)
 		}
 	}
 	sum.Runs = len(sessions)
 	if len(sessions) == 0 {
-		log.Printf("no run started in the last %s", since.String())
+		log.Printf("no run started and no feed anomaly was detected in the last %s", since.String())
 		return nil
 	}
 	log.Printf("classifying %d run(s); severity is %q for every incident, which is a posture and not a "+
@@ -304,7 +332,7 @@ func run(ctx context.Context, db *pgxpool.Pool, sum *summary) error {
 		log.Printf("record: jetsapi.pipeline_execution_channel_details is absent, so locus " +
 			"sink_failed_under_completed_worker is not_evaluable on every run here")
 	}
-	return doJob(ctx, db, sum)
+	return doJob(ctx, db, extent, sum)
 }
 
 func stamp(t time.Time) string {

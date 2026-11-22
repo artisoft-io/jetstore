@@ -385,7 +385,7 @@ func TestHypothesesAreWritableAndReadBackWholeAlbeitByATest(t *testing.T) {
 		basis, err := json.Marshal(map[string]any{
 			"supporting_count":    len(h.SupportingEvidence),
 			"contradicting_count": len(h.ContradictingEvidence),
-			"evidenceability":     string(EvidenceabilityOf(h.CauseCategory)),
+			"evidenceability":     string(EvidenceabilityAt(h.CauseCategory, h.Locus)),
 		})
 		if err != nil {
 			t.Fatalf("marshalling basis: %v", err)

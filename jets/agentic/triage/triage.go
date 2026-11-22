@@ -8,10 +8,15 @@
 // delivery_departs_profile, are positions in a feed's deliveries: a feed
 // detector compares a delivery with the feed's declared profile and writes an
 // anomaly with subject feed, and the locus is a predicate over that anomaly row
-// rather than over the execution record. Classify reports both on every run,
-// so that a report still has one verdict per member, and reports them
-// NotEvaluable until it is given the feed anomalies to read: a locus that was
-// never asked is not one that did not fire.
+// rather than over the execution record. LocusOf is the one table that places
+// an anomaly at a locus, and it is this package's because a delivery locus's
+// verdict is read through it; rca calls it to cite the same anomaly. The
+// session such a finding hangs on is a registration session, which may have no
+// run, so a session can be classified on its feed anomalies alone. Classify
+// reports both on every session, so that a report still has one verdict per
+// member, and reports them NotEvaluable on a session that is not a delivery of
+// a profiled feed and carries no feed anomaly, which is every run's own
+// session: a locus that was never asked is not one that did not fire.
 //
 // # A locus is not a cause, and this package emits only loci
 //
@@ -123,7 +128,8 @@ const (
 	// LocusDeliveryOverdue — no delivery of a feed arrived within its declared
 	// cadence of the last one. Read from a feed anomaly with signal arrival. A
 	// feed that stops has no session of its own, so the incident is keyed on
-	// the last delivery's session, with the feed as the anomaly's subject.
+	// the last delivery's session, with the feed as the anomaly's subject;
+	// deliveryLocus is where that is read.
 	LocusDeliveryOverdue = "delivery_overdue"
 	// LocusDeliveryDepartsProfile — a delivery that arrived departs from the
 	// feed's declared profile. Read from a feed anomaly with any signal other
@@ -203,7 +209,8 @@ type Finding struct {
 	ShardRef *int64
 
 	// Subjects are the record rows the verdict rests on: worker row keys, edge
-	// keys, or a step label, as strings. Empty for an Absent verdict.
+	// keys, a step label, or, for a delivery locus, the anomaly ids, as
+	// strings. Empty for an Absent verdict.
 	Subjects []string
 
 	// ClassifierRef names the classifier and its generation, so two generations

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/agentic/audit"
@@ -19,7 +20,8 @@ import (
 // task the two INSERT sites in the tree were both test fixtures — and it
 // is deliberately the only one.
 type Writer struct {
-	// Classifier is triage's nine predicates.
+	// Classifier is triage's eleven predicates: nine over a run's record and
+	// two over a feed's deliveries.
 	Classifier triage.Classifier
 	// Ranker is rca's deterministic floor. **The model arm is not wired**:
 	// rca.Consult is a measurement rather than a step, it needs a model
@@ -121,7 +123,7 @@ type IncidentWritten struct {
 // SessionResult is what one call concluded and what it wrote.
 type SessionResult struct {
 	SessionId string
-	// Report is all nine verdicts, kept whole. A caller counting per class
+	// Report is all eleven verdicts, kept whole. A caller counting per class
 	// iterates this and not Written: the loci that did *not* fire are the
 	// denominator, and a result that carried only the hits would supply
 	// numerators alone.
@@ -445,12 +447,13 @@ func insertHypothesis(ctx context.Context, db DB, h *rca.Hypothesis) error {
 	// that are being written in the same statement**, not from anything the
 	// ranker reported about them, so the column cannot disagree with the arrays
 	// it describes — which is the whole of what makes a count checkable where a
-	// sentence is not. The tier is read from the gate's table by cause class, and a
+	// sentence is not. The tier is read from the gate's table by cause class at
+	// the hypothesis's own locus, which is the grade it was ranked by, and a
 	// hypothesis naming no class gets `none`, the tier that ranks last.
 	basis, err := json.Marshal(audit.HypothesisBasis{
 		SupportingCount:    len(h.SupportingEvidence),
 		ContradictingCount: len(h.ContradictingEvidence),
-		Evidenceability:    string(rca.EvidenceabilityOf(h.CauseCategory)),
+		Evidenceability:    string(rca.EvidenceabilityAt(h.CauseCategory, h.Locus)),
 	})
 	if err != nil {
 		return fmt.Errorf("hypothesis %s: basis: %w", h.HypothesisId, err)
@@ -548,6 +551,66 @@ func RecentSessions(ctx context.Context, db DB, since time.Time, client, process
 		out = append(out, s)
 	}
 	return out, rows.Err()
+}
+
+// RecentFeedSessions returns the sessions carrying a feed anomaly detected
+// within the window, newest first.
+//
+// **A feed finding hangs on a registration session, and RecentSessions cannot
+// see one.** That selector reads run headers, and a registration session may
+// have no run: a delivery that departs from its profile is judged on its
+// registration and its claims, and an overdue feed's finding hangs on the
+// session of its last delivery, the one after which nothing came. So the
+// sessions the delivery loci are evaluated on are selected from the anomaly
+// table, by the subject the feed detectors write.
+//
+// **The client filter is the feed's, from its source configuration**, never
+// the client a delivery was registered under, because some deliveries are
+// registered under a client that owns no feed. A feed anomaly whose table no
+// source_config row names matches no client filter, and is selected when no
+// filter is set.
+func RecentFeedSessions(ctx context.Context, db DB, since time.Time, client string, limit int) ([]string, error) {
+	if limit <= 0 {
+		limit = 200
+	}
+	rows, err := db.Query(ctx,
+		`SELECT a.anomaly_session_id
+		   FROM jetsapi.anomaly a
+		  WHERE a.anomaly_subject_type = 'feed'
+		    AND a.detected_at >= $1
+		    AND ($2 = '' OR EXISTS (SELECT 1 FROM jetsapi.source_config sc
+		                             WHERE sc.table_name = a.anomaly_subject_ref AND sc.client = $2))
+		  GROUP BY a.anomaly_session_id
+		  ORDER BY max(a.detected_at) DESC, a.anomaly_session_id DESC
+		  LIMIT $3`, since, client, limit)
+	if err != nil {
+		return nil, fmt.Errorf("while listing the sessions carrying feed anomalies: %w", err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err != nil {
+			return nil, fmt.Errorf("while scanning a session id: %w", err)
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+// MergeSessions returns the run sessions followed by the feed sessions not
+// already among them, each once. A session that is both a run and a delivery
+// is classified once, for all eleven loci.
+func MergeSessions(runs, feeds []string) []string {
+	out := make([]string, 0, len(runs)+len(feeds))
+	seen := map[string]bool{}
+	for _, s := range append(slices.Clone(runs), feeds...) {
+		if !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 // IncidentIdFor is the deterministic key of one (session, locus).
