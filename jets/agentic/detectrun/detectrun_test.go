@@ -91,7 +91,7 @@ func TestManualRunGoesRequestedRunningOk(t *testing.T) {
 		t.Fatal(err)
 	}
 	runs, err := List(ctx, db, 0)
-	if err != nil || len(runs) != 2 {
+	if err != nil || len(runs) != len(Commands) {
 		t.Fatalf("after Request: %d runs, err %v; want one per command", len(runs), err)
 	}
 	for _, r := range runs {
@@ -110,8 +110,8 @@ func TestManualRunGoesRequestedRunningOk(t *testing.T) {
 	rec.Finish(ctx, map[string]int{"anomaliesWritten": 1}, nil)
 
 	runs, _ = List(ctx, db, 0)
-	if len(runs) != 2 {
-		t.Fatalf("%d rows after the command ran, want the requested two and no third", len(runs))
+	if len(runs) != len(Commands) {
+		t.Fatalf("%d rows after the command ran, want the requested %d and no more", len(runs), len(Commands))
 	}
 	var got *Run
 	for i := range runs {

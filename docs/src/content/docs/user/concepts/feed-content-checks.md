@@ -12,8 +12,12 @@ profile's `claim_set` names, and judge them against that declaration. They are t
 checks**. Two other feed checks, for a delivery that is overdue or of unusual size, read only the
 registration of a file and are described with the profile.
 
-In this version the checks exist and are tested; the detection task does not run them yet, and a
-later release adds them to it.
+The checks run in the `feed_detect` command, beside the two registration checks and the back-dating
+check: by hand in this version, over the deliveries registered in a window (see
+[Run the feed checks](/docs/install/how-to/run-the-feed-checks/)), and the daily detection task does
+not run it yet. A run that cannot read a feed's claim-set table, because a column cannot be read as
+the profile says, judges every other feed, writes their findings, and is then recorded as failed,
+naming the feed.
 
 ## A delivery, its arrival and its predecessor
 
@@ -26,7 +30,9 @@ Each delivery is judged against its predecessor and nothing that came after it. 
 months of history says, for each delivery, what it would have said the day that delivery arrived.
 
 The checks read the claims of two sessions, the delivery's and its predecessor's, by session id,
-which every table a pipeline writes carries and indexes. They do not read the whole table.
+which every table a pipeline writes carries and indexes. They do not read the whole table. They find
+it by the profile's `claim_set.table`: a name with a dot is read as `schema.table`, and a name with
+no dot is in the `public` schema, where pipelines write.
 
 ## The five checks
 
