@@ -13,9 +13,9 @@ checks**. Two other feed checks, for a delivery that is overdue or of unusual si
 registration of a file and are described with the profile.
 
 The checks run in the `feed_detect` command, beside the two registration checks and the back-dating
-check: by hand in this version, over the deliveries registered in a window (see
-[Run the feed checks](/docs/install/how-to/run-the-feed-checks/)), and the daily detection task does
-not run it yet. A run that cannot read a feed's claim-set table, because a column cannot be read as
+check, over the deliveries registered in a window. Where an installation schedules the daily detection
+task, the task runs it every day over the last 26 hours, and it can also be run by hand (see
+[Run the feed checks](/docs/install/how-to/run-the-feed-checks/)). A run that cannot read a feed's claim-set table, because a column cannot be read as
 the profile says, judges every other feed, writes their findings, and is then recorded as failed,
 naming the feed.
 

@@ -31,9 +31,9 @@ import (
 // The first argument must be the command name, one of allowedCommands. The other
 // arguments are passed to the command being run.
 //
-// anomaly_detect and shadow_triage read and write the database only, so they need
-// neither WORKSPACES_REPO nor WORKSPACES_HOME and no workspace is copied for them
-// (needsWorkspace). They run from the scheduled agentic detection task
+// anomaly_detect, feed_detect and shadow_triage read and write the database only, so
+// they need neither WORKSPACES_REPO nor WORKSPACES_HOME and no workspace is copied for
+// them (needsWorkspace). They run from the scheduled agentic detection task
 // (cdk/jetstore_one/stack/build_agentic_detect.go).
 //
 // The commands are mutually exclusive, only one can be specified at a time.
@@ -71,6 +71,7 @@ var allowedCommands = map[string]bool{
 	"run_reports":          true,
 	"cpipes_native_server": true,
 	"anomaly_detect":       true,
+	"feed_detect":          true,
 	"shadow_triage":        true,
 }
 
@@ -88,12 +89,14 @@ func allowedCommandNames() string {
 // needsWorkspace says whether cmd reads the workspace, and so whether cbooter must
 // require WORKSPACES_REPO and WORKSPACES_HOME and copy the one into the other first.
 //
-// infer_server serves models off the mounted volume. anomaly_detect and shadow_triage
-// run SQL against jetsapi and open no workspace file, so a copy of the workspace for
-// them would be a minute of cp on every scheduled run for nothing.
+// infer_server serves models off the mounted volume. anomaly_detect, feed_detect and
+// shadow_triage run SQL against the database and open no workspace file -- feed_detect
+// reads each feed's profile from its source configuration row, not from the workspace --
+// so a copy of the workspace for them would be a minute of cp on every scheduled run
+// for nothing.
 func needsWorkspace(cmd string) bool {
 	switch cmd {
-	case "infer_server", "anomaly_detect", "shadow_triage":
+	case "infer_server", "anomaly_detect", "feed_detect", "shadow_triage":
 		return false
 	}
 	return true
@@ -193,7 +196,7 @@ func main() {
 			log.Fatalf("infer_server failed: %s", err)
 		}
 
-	case "anomaly_detect", "shadow_triage":
+	case "anomaly_detect", "feed_detect", "shadow_triage":
 		// Database only: no workspace to copy. The volume is still handed to jsuser,
 		// because TMPDIR was created above as root and the root filesystem is read-only;
 		// with no workspace copied into it the chown is over one empty directory.

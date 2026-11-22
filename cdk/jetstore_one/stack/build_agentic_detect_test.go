@@ -49,3 +49,32 @@ func TestAgenticDetectHourFromEnv(t *testing.T) {
 		})
 	}
 }
+
+// The task's containers, as JETS_AGENTIC_DETECT_CONTAINERS lists them for the apiserver's run
+// action, which overrides each by name: every container the task defines must be listed, or a
+// manual run leaves that command's requested row unmoved. Triage is last, because it is what
+// turns the day's feed anomalies into incidents and selects them by detection time.
+func TestAgenticDetectContainersRunInOrder(t *testing.T) {
+	want := []string{"anomalyDetectContainer", "feedDetectContainer", "shadowTriageContainer"}
+	if len(agenticDetectContainers) != len(want) {
+		t.Fatalf("agenticDetectContainers = %v, want %v", agenticDetectContainers, want)
+	}
+	for i, name := range want {
+		if agenticDetectContainers[i] != name {
+			t.Errorf("container %d is %q, want %q", i, agenticDetectContainers[i], name)
+		}
+	}
+	overrides := *scheduleOverrides()
+	if len(overrides) != len(want) {
+		t.Fatalf("the daily rule overrides %d containers, want %d", len(overrides), len(want))
+	}
+	for i, o := range overrides {
+		if *o.ContainerName != want[i] {
+			t.Errorf("override %d names %q, want %q", i, *o.ContainerName, want[i])
+		}
+		env := *o.Environment
+		if len(env) != 1 || *env[0].Name != "JETS_AGENTIC_DETECT_TRIGGER" || *env[0].Value != "schedule" {
+			t.Errorf("override %d does not set JETS_AGENTIC_DETECT_TRIGGER=schedule", i)
+		}
+	}
+}

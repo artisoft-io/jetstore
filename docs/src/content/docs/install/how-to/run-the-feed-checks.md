@@ -11,7 +11,9 @@ The **feed checks** judge each client feed against the
 records when a delivery is registered, and five read the delivery's claims, aggregated inside the
 database (see [Feed content checks](/docs/user/concepts/feed-content-checks/)). The `feed_detect`
 command runs all eight. It needs no inference server and reads no member-level value out of the
-database. In this version the daily detection task does not run it, so it is run by hand.
+database. Where the installation sets `JETS_AGENTIC_DETECT_HOUR_UTC`, the daily detection task runs
+it as `feed_detect -since 26h`, after `anomaly_detect` and before `shadow_triage`, over every client;
+it is run by hand for anything else this page describes.
 
 `feed_detect` is in the same image as `anomaly_detect`. It reads the database from
 `JETS_DSN_URI_VALUE`, or from `JETS_DSN_JSON_VALUE` as the other detection commands do, or from

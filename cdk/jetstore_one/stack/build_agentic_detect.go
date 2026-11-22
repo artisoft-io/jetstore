@@ -2,22 +2,30 @@ package stack
 
 // Build the scheduled agentic detection task.
 //
-// The agentic layer's detectors and its shadow-mode triage are two commands,
-// jets/cmds/anomaly_detect and jets/cmds/shadow_triage. Until this file nothing
-// built them into an image, the launcher refused them, and nothing ran them, so a
-// deployment carried the anomaly and incident tables (the apiserver migrates them
-// at start) and nothing to fill them.
+// The agentic layer's detectors and its shadow-mode triage are three commands:
+// jets/cmds/anomaly_detect over the runs, jets/cmds/feed_detect over the feeds'
+// deliveries, and jets/cmds/shadow_triage. Until this file nothing built them into
+// an image, the launcher refused them, and nothing ran them, so a deployment carried
+// the anomaly and incident tables (the apiserver migrates them at start) and nothing
+// to fill them.
 //
-// One Fargate task, two containers in order: anomaly_detect writes
-// jetsapi.anomaly, and shadow_triage then classifies the same runs and ranks
-// hypotheses over those anomalies (rca.Input.Anomalies), writing jetsapi.incident
-// and jetsapi.hypothesis and stopping at `diagnosed`. It acts on nothing.
+// One Fargate task, three containers in order: anomaly_detect writes jetsapi.anomaly
+// for the runs, feed_detect writes it for the feeds, and shadow_triage then
+// classifies the runs and the sessions carrying a feed anomaly, ranks hypotheses
+// over those anomalies (rca.Input.Anomalies), writes jetsapi.incident and
+// jetsapi.hypothesis, and stops at `diagnosed`. It acts on nothing.
+//
+// Triage runs last because it is what turns a feed anomaly into an incident: it
+// selects the feed sessions from the anomaly table by detection time
+// (shadow.RecentFeedSessions), so a feed anomaly written after triage has run would
+// wait a day for the next run to be triaged.
 
 import (
 	"fmt"
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
@@ -43,13 +51,18 @@ const agenticDetectHourVariable = "JETS_AGENTIC_DETECT_HOUR_UTC"
 // and locus and leaves one already raised alone (shadow.IncidentIdFor).
 const agenticDetectWindow = "26h"
 
-// The two containers' names. The apiserver's run action overrides each by name,
+// The containers' names. The apiserver's run action overrides each by name,
 // and reads the names from JETS_AGENTIC_DETECT_CONTAINERS, which is built from
 // these, so the two cannot drift apart.
 const (
 	agenticDetectContainerName = "anomalyDetectContainer"
+	agenticFeedContainerName   = "feedDetectContainer"
 	agenticTriageContainerName = "shadowTriageContainer"
 )
+
+// agenticDetectContainers is the containers in the order the task runs them, as
+// JETS_AGENTIC_DETECT_CONTAINERS lists them.
+var agenticDetectContainers = []string{agenticDetectContainerName, agenticFeedContainerName, agenticTriageContainerName}
 
 // The trigger the daily rule passes, so a row recorded by a scheduled run says
 // so; jets/agentic/detectrun reads it. A run started any other way records
@@ -87,8 +100,9 @@ func (jsComp *JetStoreStackComponents) BuildAgenticDetect(scope constructs.Const
 		return
 	}
 
-	// Two SQL readers and a writer of a few rows each; the run_reports task's size would
-	// be twelve times what they use.
+	// Three SQL readers and writers of a few rows each, one at a time; feed_detect's
+	// content checks aggregate inside the database and bring back one row per delivery.
+	// The run_reports task's size would be twelve times what they use.
 	jsComp.AgenticDetectTaskDefinition = awsecs.NewFargateTaskDefinition(stack, jsii.String("agenticDetectTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
 		MemoryLimitMiB: jsii.Number(1024),
 		Cpu:            jsii.Number(512),
@@ -105,12 +119,30 @@ func (jsComp *JetStoreStackComponents) BuildAgenticDetect(scope constructs.Const
 			},
 		},
 	})
+	// The task reads member-level tables: feed_detect's content checks aggregate over
+	// each delivery's claims inside the database. So it is tagged as the run_reports
+	// state machine and the UI service are, as handling PHI and PII, and not as the
+	// purge lambda whose daily schedule it copies. What it writes and logs carries no
+	// member value, so the log group is not tagged. The tags go on the task definition
+	// resource itself, not its construct: the rule's events role is created under the
+	// construct and would inherit them, and that role only starts the task.
+	taskDefResource := jsComp.AgenticDetectTaskDefinition.Node().DefaultChild()
+	if phiTagName != nil {
+		awscdk.Tags_Of(taskDefResource).Add(phiTagName, jsii.String("true"), nil)
+	}
+	if piiTagName != nil {
+		awscdk.Tags_Of(taskDefResource).Add(piiTagName, jsii.String("true"), nil)
+	}
+	if descriptionTagName != nil {
+		awscdk.Tags_Of(taskDefResource).Add(descriptionTagName,
+			jsii.String("Daily agentic detection task: run and feed detectors, then shadow-mode triage"), nil)
+	}
 	logGroup := awslogs.NewLogGroup(stack, jsii.String("AgenticDetectContainerLogGroup"), &awslogs.LogGroupProps{
 		Retention: awslogs.RetentionDays_THREE_MONTHS,
 	})
 
-	// The image is JetStoreImage, the apiserver's, which carries both binaries
-	// (dockerfiles/Dockerfile.ui_service). Neither command reads a workspace, so cbooter
+	// The image is JetStoreImage, the apiserver's, which carries the three binaries
+	// (dockerfiles/Dockerfile.ui_service). No command reads a workspace, so cbooter
 	// requires no WORKSPACES_* variable for them and copies nothing (needsWorkspace,
 	// jets/cmds/cbooter/main.go). The volume is still mounted: cbooter creates TMPDIR
 	// under JETS_TEMP_DATA, and the root filesystem is read-only.
@@ -143,15 +175,30 @@ func (jsComp *JetStoreStackComponents) BuildAgenticDetect(scope constructs.Const
 		})
 		return c
 	}
-	// The detectors are not essential and triage waits for them to finish rather than to
-	// succeed: triage reads the execution record itself and takes anomalies as optional
-	// evidence, so a detector failure costs it corroboration and should not cost the
-	// incidents. The task's exit is triage's, and triage ends with its attestation that
-	// nothing acted, which exits non-zero when the record says otherwise.
+	// The detectors are not essential, and each container waits for the one before it to
+	// finish rather than to succeed. feed_detect exits non-zero when one feed's checks
+	// fail, after judging and writing the others, so success would make one unreadable
+	// feed cost every run's triage. Triage reads the execution record itself and takes
+	// anomalies as optional evidence, so a detector failure costs it corroboration and
+	// should not cost the incidents. The task's exit is triage's, and triage ends with its
+	// attestation that nothing acted, which exits non-zero when the record says otherwise;
+	// a detector's failure is on its own row of the detection record.
+	//
+	// feed_detect follows anomaly_detect rather than running beside it so that the task
+	// reads the database one command at a time, and precedes shadow_triage so that the
+	// day's feed anomalies are triaged the same day.
 	detect := addContainer("agenticDetectContainerDef", agenticDetectContainerName, "anomaly_detect", false)
+	feed := addContainer("agenticFeedContainerDef", agenticFeedContainerName, "feed_detect", false)
+	feed.AddContainerDependencies(&awsecs.ContainerDependency{
+		Container: detect,
+		Condition: awsecs.ContainerDependencyCondition_COMPLETE,
+	})
 	triage := addContainer("agenticTriageContainerDef", agenticTriageContainerName, "shadow_triage", true)
 	triage.AddContainerDependencies(&awsecs.ContainerDependency{
 		Container: detect,
+		Condition: awsecs.ContainerDependencyCondition_COMPLETE,
+	}, &awsecs.ContainerDependency{
+		Container: feed,
 		Condition: awsecs.ContainerDependencyCondition_COMPLETE,
 	})
 
@@ -159,20 +206,17 @@ func (jsComp *JetStoreStackComponents) BuildAgenticDetect(scope constructs.Const
 	// Same subnets and security groups as the run_reports task: isolated, with the VPC
 	// endpoints and database access it already relies on.
 	awsevents.NewRule(stack, jsii.String("RunAgenticDetectDaily"), &awsevents.RuleProps{
-		Description: jsii.String("Cron rule to run the agentic detection task (anomaly_detect, then shadow_triage) daily"),
+		Description: jsii.String("Cron rule to run the agentic detection task (anomaly_detect, feed_detect, then shadow_triage) daily"),
 		Targets: &[]awsevents.IRuleTarget{
 			awseventstargets.NewEcsTask(&awseventstargets.EcsTaskProps{
-				Cluster:         jsComp.EcsCluster,
-				TaskDefinition:  jsComp.AgenticDetectTaskDefinition,
-				LaunchType:      awsecs.LaunchType_FARGATE,
-				PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
-				SubnetSelection: jsComp.IsolatedSubnetSelection,
-				SecurityGroups:  &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg},
-				AssignPublicIp:  jsii.Bool(false),
-				ContainerOverrides: &[]*awseventstargets.ContainerOverride{
-					scheduleOverride(agenticDetectContainerName),
-					scheduleOverride(agenticTriageContainerName),
-				},
+				Cluster:            jsComp.EcsCluster,
+				TaskDefinition:     jsComp.AgenticDetectTaskDefinition,
+				LaunchType:         awsecs.LaunchType_FARGATE,
+				PlatformVersion:    awsecs.FargatePlatformVersion_LATEST,
+				SubnetSelection:    jsComp.IsolatedSubnetSelection,
+				SecurityGroups:     &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg},
+				AssignPublicIp:     jsii.Bool(false),
+				ContainerOverrides: scheduleOverrides(),
 			}),
 		},
 		Schedule: awsevents.Schedule_Cron(&awsevents.CronOptions{
@@ -216,7 +260,7 @@ func (jsComp *JetStoreStackComponents) BuildAgenticDetect(scope constructs.Const
 			jsComp.Vpc.SelectSubnets(jsComp.IsolatedSubnetSelection).SubnetIds),
 		"JETS_AGENTIC_DETECT_SECURITY_GROUPS": awscdk.Fn_Join(jsii.String(","), &[]*string{
 			jsComp.VpcEndpointsSg.SecurityGroupId(), jsComp.RdsAccessSg.SecurityGroupId()}),
-		"JETS_AGENTIC_DETECT_CONTAINERS": jsii.String(agenticDetectContainerName + "," + agenticTriageContainerName),
+		"JETS_AGENTIC_DETECT_CONTAINERS": jsii.String(strings.Join(agenticDetectContainers, ",")),
 		"JETS_AGENTIC_DETECT_HOUR_UTC":   jsii.String(hour),
 	}
 
@@ -224,15 +268,21 @@ func (jsComp *JetStoreStackComponents) BuildAgenticDetect(scope constructs.Const
 	// deployment is checked without waiting a day.
 	awscdk.NewCfnOutput(stack, jsii.String("AgenticDetectTaskDefinitionArn"), &awscdk.CfnOutputProps{
 		Value:       jsComp.AgenticDetectTaskDefinition.TaskDefinitionArn(),
-		Description: jsii.String("Task definition of the daily agentic detection task (anomaly_detect, then shadow_triage)"),
+		Description: jsii.String("Task definition of the daily agentic detection task (anomaly_detect, feed_detect, then shadow_triage)"),
 	})
 }
 
-func scheduleOverride(container string) *awseventstargets.ContainerOverride {
-	return &awseventstargets.ContainerOverride{
-		ContainerName: jsii.String(container),
-		Environment: &[]*awseventstargets.TaskEnvironmentVariable{
-			{Name: jsii.String(agenticDetectTriggerVariable), Value: jsii.String(agenticDetectTriggerSchedule)},
-		},
+// scheduleOverrides gives every container the schedule trigger, so each command's row
+// says the daily rule started it.
+func scheduleOverrides() *[]*awseventstargets.ContainerOverride {
+	out := make([]*awseventstargets.ContainerOverride, 0, len(agenticDetectContainers))
+	for _, container := range agenticDetectContainers {
+		out = append(out, &awseventstargets.ContainerOverride{
+			ContainerName: jsii.String(container),
+			Environment: &[]*awseventstargets.TaskEnvironmentVariable{
+				{Name: jsii.String(agenticDetectTriggerVariable), Value: jsii.String(agenticDetectTriggerSchedule)},
+			},
+		})
 	}
+	return &out
 }

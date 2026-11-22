@@ -286,31 +286,41 @@ Rotates all four secrets.
 ## Agentic detection task (optional)
 
 The agentic layer's detectors and its shadow-mode triage, run daily
-(`stack/build_agentic_detect.go`). One Fargate task with two containers in order:
-`cbooter anomaly_detect -since 26h` writes `jetsapi.anomaly`, then
-`cbooter shadow_triage -since 26h` classifies the same runs, writes `jetsapi.incident` and
-`jetsapi.hypothesis` in shadow mode (nothing past `diagnosed`, nothing to `jetsapi.remediation`),
-and ends with its attestation that nothing acted.
+(`stack/build_agentic_detect.go`). One Fargate task with three containers in order:
+`cbooter anomaly_detect -since 26h` writes `jetsapi.anomaly` for the runs, then
+`cbooter feed_detect -since 26h` writes it for every client's feeds (see
+[Run the feed checks](/docs/install/how-to/run-the-feed-checks/)), then
+`cbooter shadow_triage -since 26h` classifies the runs and the sessions carrying a feed anomaly,
+writes `jetsapi.incident` and `jetsapi.hypothesis` in shadow mode (nothing past `diagnosed`, nothing
+to `jetsapi.remediation`), and ends with its attestation that nothing acted.
 
 - **Deployment**: `JETS_AGENTIC_DETECT_HOUR_UTC` set to an hour, 0 to 23; unset or empty builds
   nothing, and any other value stops the synth. 1024 MiB / 512 CPU. Image `JetStoreImage`, which
-  carries both binaries (`dockerfiles/Dockerfile.ui_service`). Both read the execution record and
-  write `jetsapi` only; the tables arrive with the apiserver's start-up migration.
-- **Order**: triage waits for the detectors to **complete**, not to succeed. Anomalies are
-  optional evidence to triage, so a detector failure costs corroboration and not the incidents. The
-  task's exit status is triage's.
+  carries the three binaries (`dockerfiles/Dockerfile.ui_service`). They read the execution record,
+  and `feed_detect` also reads the feeds' registrations and, in aggregate inside the database, each
+  delivery's claims; all three write `jetsapi` only. The tables arrive with the apiserver's start-up
+  migration.
+- **Tags**: because `feed_detect` reads member-level tables, the task definition carries the PHI and
+  PII tags set to `true`, and a description, when `JETS_TAG_NAME_PHI`, `JETS_TAG_NAME_PII` and
+  `JETS_TAG_NAME_DESCRIPTION` are set. The log group is not tagged: no command logs a member value.
+- **Order**: each container waits for the one before it to **complete**, not to succeed.
+  `feed_detect` exits non-zero when one feed's checks fail, after judging and writing the others.
+  Anomalies are optional evidence to triage, so a detector failure costs corroboration and not the
+  incidents. Triage runs last so that the day's feed anomalies become incidents the same day. The
+  task's exit status is triage's; a detector's failure is on its own row of the Detection screen.
 - **Window**: 26 hours on a daily schedule, overlapping on purpose. Both commands are idempotent
   over the overlap: an anomaly is written once per detector generation, and an incident is keyed
-  on its session and locus.
+  on its session and locus. The feed checks read every client; a feed with no profile is reported
+  as not judged.
 - **IAM / SG**: `EcsTaskExecutionRole` + `EcsTaskRole`, the RDS secret as `JETS_DSN_JSON_VALUE`;
   an events role generated for the rule's `ecs:RunTask`; `VpcEndpointsSg` + `RdsAccessSg`;
   isolated subnets, no public IP.
-- **Security**: `ReadonlyRootFilesystem: true` on both containers. No workspace is copied:
-  cbooter requires no `WORKSPACES_*` variable for these two commands (`needsWorkspace`,
+- **Security**: `ReadonlyRootFilesystem: true` on every container. No workspace is copied:
+  cbooter requires no `WORKSPACES_*` variable for these three commands (`needsWorkspace`,
   `jets/cmds/cbooter/main.go`).
 - **Running it now**: the IDE's **Detection** screen (gated on `agent_supervision`) has *Run
   detection now*, which starts this task through the apiserver with a window of 26 hours to 90
-  days, and lists every recorded run (`jetsapi.agentic_detection_run`, written by the two commands
+  days, and lists every recorded run (`jetsapi.agentic_detection_run`, written by the three commands
   themselves) with what each found, and what ECS says about a task that has not recorded its end.
   For that the stack sets `JETS_AGENTIC_DETECT_*` on the UI container and grants the shared
   `EcsTaskRole` `ecs:RunTask` on this task definition in this cluster, `ecs:DescribeTasks` on

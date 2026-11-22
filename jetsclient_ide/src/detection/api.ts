@@ -10,21 +10,23 @@
  *     `agenticDispatch` in `jets/apiserver/api_agentic.go`, the handlers in
  *     `api_agentic_detection.go`;
  *   - a row is `detectrun.Run` in `jets/agentic/detectrun/detectrun.go`;
- *   - the two summaries are the `summary` structs of `jets/cmds/anomaly_detect`
- *     and `jets/cmds/shadow_triage`, which is why both are typed loosely: a
+ *   - the summaries are the `summary` structs of `jets/cmds/anomaly_detect`
+ *     and `jets/cmds/shadow_triage`, and `observe.FeedProcessSummary` for
+ *     `jets/cmds/feed_detect`, which is why all three are typed loosely: a
  *     field a newer command adds is shown nowhere rather than breaking the row.
  */
 
 import type { ApiClient } from "../api/client";
 
-/** The two commands, in the order the detection task runs them. */
+/** The three commands, in the order the detection task runs them. */
 export const ANOMALY_DETECT = "anomaly_detect";
+export const FEED_DETECT = "feed_detect";
 export const SHADOW_TRIAGE = "shadow_triage";
 
 /** Mirrors detectrun.Run. Times are RFC 3339 in UTC, "" when not reached. */
 export interface DetectionRunRow {
   key: number;
-  /** The ECS task ARN, shared by the two commands of one task; `local:…` outside ECS. */
+  /** The ECS task ARN, shared by the commands of one task; `local:…` outside ECS. */
   taskRef: string;
   command: string;
   /** schedule, manual or command. */
@@ -36,7 +38,7 @@ export interface DetectionRunRow {
   requestedAt: string;
   startedAt: string;
   finishedAt: string;
-  summary: AnomalySummary | TriageSummary | null;
+  summary: AnomalySummary | FeedSummary | TriageSummary | null;
   errorMessage: string;
 }
 
@@ -54,6 +56,39 @@ export interface AnomalySummary {
   byDetector?: Record<string, number>;
   purgeRegime?: string;
   channelDetails?: boolean;
+}
+
+/** One check's not-judged feed, by table name and reason (e.g. `no_profile`). */
+export interface FeedNotJudged {
+  tableName: string;
+  reason: string;
+}
+
+/** One feed check's account of a run: `observe.FeedProcessCoverage`. */
+export interface FeedCoverage {
+  detector: string;
+  feedsJudged?: number;
+  feedsNotJudged?: FeedNotJudged[] | null;
+  verdicts?: number;
+  fires?: number;
+  silent?: number;
+  notJudged?: Record<string, number> | null;
+}
+
+/** feed_detect's summary: `observe.FeedProcessSummary`. */
+export interface FeedSummary {
+  dryRun?: boolean;
+  mode?: string;
+  clients?: number;
+  profiledFeeds?: number;
+  unprofiledFeeds?: number;
+  anomaliesFound?: number;
+  anomaliesWritten?: number;
+  anomaliesAlreadyRecorded?: number;
+  byDetector?: Record<string, number>;
+  coverage?: FeedCoverage[] | null;
+  /** A feed whose checks could not run, with the database's error code only. */
+  feedErrors?: { tableName: string; error: string }[] | null;
 }
 
 export interface LocusCensus {
@@ -122,7 +157,7 @@ export class DetectionApi {
   }
 }
 
-/** One run of the detection task: its two commands' rows under one task_ref. */
+/** One run of the detection task: its commands' rows under one task_ref. */
 export interface DetectionTaskRun {
   taskRef: string;
   trigger: string;
@@ -131,6 +166,7 @@ export interface DetectionTaskRun {
   /** The earliest time either row knows, for ordering and display. */
   at: string;
   detect?: DetectionRunRow;
+  feed?: DetectionRunRow;
   triage?: DetectionRunRow;
 }
 
@@ -153,6 +189,7 @@ export function groupByTask(rows: DetectionRunRow[]): DetectionTaskRun[] {
       byRef.set(r.taskRef, t);
     }
     if (r.command === ANOMALY_DETECT) t.detect = r;
+    else if (r.command === FEED_DETECT) t.feed = r;
     else if (r.command === SHADOW_TRIAGE) t.triage = r;
     if (!t.requestedBy && r.requestedBy) t.requestedBy = r.requestedBy;
     // A row the command inserted itself says `command` when nothing told it
@@ -167,7 +204,7 @@ export function groupByTask(rows: DetectionRunRow[]): DetectionTaskRun[] {
 
 /** Whether a task run is still in flight, so the screen keeps polling. */
 export function inFlight(t: DetectionTaskRun): boolean {
-  return [t.detect, t.triage].some(
+  return [t.detect, t.feed, t.triage].some(
     (r) => r && (r.status === "requested" || r.status === "running"),
   );
 }

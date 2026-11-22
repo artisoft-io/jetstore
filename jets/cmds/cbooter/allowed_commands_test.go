@@ -1,9 +1,9 @@
 package main
 
 // Tests for the launcher's allow-list as the scheduled agentic detection task uses it.
-// The task runs `cbooter anomaly_detect` and `cbooter shadow_triage`
-// (cdk/jetstore_one/stack/build_agentic_detect.go), so both names must be allowed, and
-// neither may be made to wait on a workspace it never opens.
+// The task runs `cbooter anomaly_detect`, `cbooter feed_detect` and `cbooter shadow_triage`
+// (cdk/jetstore_one/stack/build_agentic_detect.go), so all three names must be allowed, and
+// none may be made to wait on a workspace it never opens.
 
 import (
 	"strings"
@@ -11,7 +11,7 @@ import (
 )
 
 func TestDetectionCommandsAreAllowed(t *testing.T) {
-	for _, cmd := range []string{"anomaly_detect", "shadow_triage"} {
+	for _, cmd := range []string{"anomaly_detect", "feed_detect", "shadow_triage"} {
 		if !allowedCommands[cmd] {
 			t.Errorf("%s is not in allowedCommands; the scheduled detection task would be refused", cmd)
 		}
@@ -30,6 +30,7 @@ func TestNeedsWorkspace(t *testing.T) {
 		"cpipes_native_server": true,
 		"infer_server":         false,
 		"anomaly_detect":       false,
+		"feed_detect":          false,
 		"shadow_triage":        false,
 	}
 	for cmd := range allowedCommands {
