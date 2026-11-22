@@ -345,12 +345,13 @@ func TestTheModelArm(t *testing.T) {
 	}
 }
 
-// TestABurstIsPointedTo plants the case a backfill makes: the same check fires
+// TestABurstIsOneIncident plants the case a backfill makes: the same check fires
 // on two more deliveries of one feed registered the same day as a fixture
-// incident's. One is triaged into an incident and one is not. The summary of
-// the first names the second's incident and counts the third, and no incident
-// is merged or changed.
-func TestABurstIsPointedTo(t *testing.T) {
+// incident's, after it. Shadow triage raises neither: the first belongs to a
+// burst the second leads, and the second's burst already has the fixture
+// incident, raised by an earlier run. The summary of that incident says it
+// stands for all three, and reading it changes nothing.
+func TestABurstIsOneIncident(t *testing.T) {
 	pool, incs := fixtureIncidents(t, "feedsummary_burst")
 	ctx := context.Background()
 	var target *audit.Incident
@@ -391,8 +392,15 @@ func TestABurstIsPointedTo(t *testing.T) {
 	w.Actor = "triage@1"
 	w.Baseline = 0
 	w.Now = func() time.Time { return feedfixture.Clock }
-	if _, err := w.Run(ctx, pool, planted[0]); err != nil {
-		t.Fatal(err)
+	for _, s := range planted {
+		res, err := w.Run(ctx, pool, s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(res.Written) != 0 || len(res.Grouped) != 1 {
+			t.Errorf("session %s: written %v, grouped %v; want it grouped into the burst's incident",
+				s, res.Written, res.Grouped)
+		}
 	}
 	var before int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM jetsapi.incident`).Scan(&before); err != nil {
@@ -407,22 +415,22 @@ func TestABurstIsPointedTo(t *testing.T) {
 		t.Fatalf("%d bursts, want 1: %+v", len(in.Bursts), in.Bursts)
 	}
 	b := in.Bursts[0]
-	raised := "inc_" + planted[0] + "_" + target.Locus
-	if b.Detector != feedprofile.DeliveryBackdated || b.Deliveries != 3 || b.Unraised != 1 ||
-		!slices.Equal(b.Others, []string{raised}) {
-		t.Errorf("burst %+v, want 3 deliveries, %s raised and one unraised", b, raised)
+	if b.Detector != feedprofile.DeliveryBackdated || b.Deliveries != 3 || b.Unraised != 2 || len(b.Others) != 0 {
+		t.Errorf("burst %+v, want 3 deliveries, two with no incident of their own and no other incident", b)
 	}
 	s, err := Render(in)
 	if err != nil {
 		t.Fatal(err)
 	}
 	flat := strings.Join(strings.Fields(s.Text), " ")
-	for _, want := range []string{"one of three deliveries of the feed registered on",
-		"Incidents raised on the others: " + raised, "One of them has not yet been raised as an incident.",
-		"Each delivery keeps its own incident"} {
+	for _, want := range []string{"This incident stands for the three deliveries of the feed registered on",
+		"Two of them have no incident of their own.", "raised as a single incident; give it a single verdict"} {
 		if !strings.Contains(flat, want) {
 			t.Errorf("the summary does not say %q:\n%s", want, s.Text)
 		}
+	}
+	if strings.Contains(flat, "Incidents raised on others") {
+		t.Errorf("the summary names other incidents where there are none:\n%s", s.Text)
 	}
 	if c := CountUntrue(s.Text, in); c.Untrue() != 0 {
 		t.Errorf("the counter finds untrue statements in the render:\n%s", c)

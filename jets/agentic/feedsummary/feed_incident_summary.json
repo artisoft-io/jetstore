@@ -56,9 +56,9 @@
       ]
     },
     {
-      "comment": "A burst: the same check fired on other deliveries of the feed registered the same day. Each delivery keeps its own incident and nothing here changes the record; the summary points to the others so that a reader can judge them together.",
+      "comment": "A burst: the same check fired on other deliveries of the feed registered the same day. Shadow triage raises a burst as a single incident, on its last delivery, so the others usually have none of their own; an incident another of them carries for a finding outside the burst is named. Nothing here changes the record.",
       "when": "has_Bursts[]|count > 0",
-      "text": "{{each has_Bursts[] sep: ' ' last: ' '}}This delivery is one of {{Deliveries|words}} deliveries of the feed registered on {{Day|d_MMMM_yyyy}} on which the {{Detector}} check fired.{{if Others_Text != ''}} Incidents raised on the others: {{Others_Text}}{{if Others_More != ''}} and {{Others_More|words}} more{{end}}.{{end}}{{if Unraised != ''}} {{Unraised|words|sentence}} of them {{if Unraised == '1'}}has{{end}}{{if Unraised != '1'}}have{{end}} not yet been raised as an incident.{{end}}{{end}} Each delivery keeps its own incident; read them together before giving a verdict on one."
+      "text": "{{each has_Bursts[] sep: ' ' last: ' '}}This incident stands for the {{Deliveries|words}} deliveries of the feed registered on {{Day|d_MMMM_yyyy}} on which the {{Detector}} check fired.{{if Unraised != ''}} {{Unraised|words|sentence}} of them {{if Unraised == '1'}}has{{end}}{{if Unraised != '1'}}have{{end}} no incident of {{if Unraised == '1'}}its{{end}}{{if Unraised != '1'}}their{{end}} own.{{end}}{{if Others_Text != ''}} Incidents raised on others of them: {{Others_Text}}{{if Others_More != ''}} and {{Others_More|words}} more{{end}}.{{end}}{{end}} A burst of deliveries is raised as a single incident; give it a single verdict."
     },
     {
       "when": "Other_Feeds > 0",

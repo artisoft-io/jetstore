@@ -316,9 +316,9 @@ func sessionDay(session string) (time.Time, bool) {
 }
 
 // readBursts finds, for every detector that fired on this delivery, the other
-// deliveries of the feed registered the same day on which it also fired. It
-// changes nothing: each of those deliveries keeps its own incident, and the
-// summary only points to them.
+// deliveries of the feed registered the same day on which it also fired, and
+// which of them carry an incident of their own. Shadow triage raises such a
+// burst as a single incident, so usually none does. It changes nothing.
 func readBursts(ctx context.Context, db observe.DB, in *Input, table string) ([]Burst, error) {
 	session := strings.TrimSuffix(strings.TrimPrefix(in.IncidentID, "inc_"), "_"+in.Locus)
 	day, ok := sessionDay(session)

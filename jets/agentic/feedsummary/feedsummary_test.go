@@ -143,8 +143,8 @@ func TestRendersADeparture(t *testing.T) {
 		"1. the source changed what it sends (source_content_change), confidence 0.55, three items of evidence for and one against, graded conditional",
 		"3. an ordinary variation",
 		"declared by ops@example.com on 15 January 2026, one hundred and thirty-seven days before this was found",
-		"one of three deliveries of the feed registered on 11 May 2026 on which the delivery_unchanged check fired",
-		"Incidents raised on the others: inc_1747000000001_delivery_departs_profile, inc_1747000000002_delivery_departs_profile",
+		"This incident stands for the three deliveries of the feed registered on 11 May 2026 on which the delivery_unchanged check fired",
+		"Incidents raised on others of them: inc_1747000000001_delivery_departs_profile, inc_1747000000002_delivery_departs_profile",
 		"No model wrote it.",
 	} {
 		if !strings.Contains(strings.Join(strings.Fields(s.Text), " "), want) {

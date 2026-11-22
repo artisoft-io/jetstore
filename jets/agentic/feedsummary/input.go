@@ -156,10 +156,12 @@ type Burst struct {
 	// Deliveries counts the deliveries of the feed registered that day on
 	// which the detector fired, this one included.
 	Deliveries int
-	// Others are the incidents the other deliveries' findings raised, sorted.
+	// Others are the incidents raised on the other deliveries, sorted: a
+	// delivery of the burst keeps an incident of its own when another finding
+	// at the locus, outside the burst, holds on it.
 	Others []string
-	// Unraised counts the other deliveries whose finding has not yet been
-	// raised as an incident.
+	// Unraised counts the other deliveries with no incident of their own,
+	// which a burst raised as a single incident leaves all of them.
 	Unraised int
 }
 
