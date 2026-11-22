@@ -54,7 +54,7 @@ Requires `JETS_AGENTIC_DETECT_HOUR_UTC` (`BuildAgenticDetect`, `stack/build_agen
 
 | Output | Value | Source |
 |---|---|---|
-| `AgenticDetectTaskDefinitionArn` | Task definition of the daily detection task (`anomaly_detect`, then `shadow_triage`), so the task can be run by hand between schedules | `stack/build_agentic_detect.go` |
+| `AgenticDetectTaskDefinitionArn` | Task definition of the daily detection task (`anomaly_detect`, `feed_detect`, then `shadow_triage`), so the task can be run by hand between schedules | `stack/build_agentic_detect.go` |
 
 ## Two things to know before consuming these
 

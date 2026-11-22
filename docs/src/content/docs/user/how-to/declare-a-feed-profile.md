@@ -118,9 +118,10 @@ earlier history may have been removed.
 
 ## When the checks run
 
-The checks are run by the `feed_detect` command, which an installation operator runs (see
-[Run the feed checks](/docs/install/how-to/run-the-feed-checks/)). In this version the daily
-detection task does not run it yet. Each run judges the deliveries registered in its window, 26 hours
+The checks are run by the `feed_detect` command: daily by the detection task, where the installation
+schedules it, after anomaly detection and before shadow triage, and by hand by an installation
+operator (see [Run the feed checks](/docs/install/how-to/run-the-feed-checks/)). The
+[Detection](/docs/user/screens/detection/) screen shows each run. Each run judges the deliveries registered in its window, 26 hours
 by default, and judges whether each feed is overdue at the time it runs; every finding becomes an
 anomaly on the feed. A run over a window an earlier run covered writes nothing twice. A profile you
 save is used from the next run on, and a run never judges a delivery against a profile it did not

@@ -159,7 +159,7 @@ The infer container is started as `cbooter infer_server`, which runs the model s
 
 ## The agentic detection task
 
-Both containers run with `JETS_TEMP_DATA`, `TMPDIR`, `JETS_REGION`, `ENVIRONMENT` and the database
+Its three containers run with `JETS_TEMP_DATA`, `TMPDIR`, `JETS_REGION`, `ENVIRONMENT` and the database
 credentials as `JETS_DSN_JSON_VALUE` (`stack/build_agentic_detect.go`). The daily schedule also sets
 `JETS_AGENTIC_DETECT_TRIGGER` to `schedule`, so a run records how it was started.
 

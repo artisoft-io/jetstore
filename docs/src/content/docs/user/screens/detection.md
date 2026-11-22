@@ -1,12 +1,14 @@
 ---
 title: Detection
-description: The Detection screen, which shows whether the anomaly detection and shadow triage tasks ran, when, on whose request and with what result, and starts them now.
+description: The Detection screen, which shows whether anomaly detection, the feed checks and shadow triage ran, when, on whose request and with what result, and starts them now.
 kind: reference
 ---
 
-JetStore's **detection task** runs two commands over recent pipeline runs: **anomaly detection**,
-which compares each run with its history and records what deviates, then **shadow triage**, which
-classifies the runs and raises [incidents](/docs/user/screens/incidents/) with ranked hypotheses.
+JetStore's **detection task** runs three commands: **anomaly detection**, which compares each
+recent pipeline run with its history and records what deviates, then the **feed checks**, which
+judge each feed's recent deliveries against its [feed profile](/docs/user/how-to/declare-a-feed-profile/),
+then **shadow triage**, which classifies the runs and the deliveries with a finding and raises
+[incidents](/docs/user/screens/incidents/) with ranked hypotheses.
 An installation runs it daily at a scheduled hour. The *Detection* screen shows whether it ran, when,
 on whose request and with what result, and can start it now.
 
@@ -36,6 +38,7 @@ One row per task, newest first.
 | **Trigger** | *schedule*, *manual* with who asked, or *command* for a run started outside JetStore. |
 | **Window** | How far back it looked. |
 | **Anomaly detection** | Its status (*requested*, *running*, *ok*, *failed*), how long it took, and how many anomalies it found over how many worker rows, how many it wrote and how many were already recorded. |
+| **Feed checks** | Its status and duration, how many anomalies the feed checks found over how many profiled feeds, how many they wrote and how many were already recorded; how many feeds have no profile and were not judged; and any feed that could not be checked, with the database's error code. A task that ran before the feed checks were part of it shows *not recorded*. |
 | **Shadow triage** | Its status and duration, how many runs it classified, the incidents and hypotheses it wrote, and how many incidents were already raised; and whether the shadow-mode attestation holds. |
 
 **Show census and attestation** opens, under the row, the census of each locus over the runs
