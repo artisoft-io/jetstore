@@ -313,3 +313,41 @@ func TestDeleteAllFileChangesKeepsTheCompiledAssets(t *testing.T) {
 		t.Errorf("rows after the revert: %s", got)
 	}
 }
+
+// The folders added with a reverted file are removed only once empty, and
+// never one the stash holds: a runbook's folder holding a second added file
+// stays until that file is reverted too, and the section folder the workspace
+// was deployed with stays always.
+func TestRemoveAddedFoldersKeepsAFolderThatHoldsAnotherFile(t *testing.T) {
+	ws, file := stashScenario(t, "pristine")
+	if err := StashFiles(ws); err != nil {
+		t.Fatal(err)
+	}
+	root := filepath.Dir(filepath.Dir(file))
+	added := filepath.Join(root, "process_config", "added", "deeper")
+	if err := os.MkdirAll(added, 0755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"a.sql", "b.sql"} {
+		if err := os.WriteFile(filepath.Join(added, name), []byte("SELECT 1"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Remove(filepath.Join(added, "a.sql")); err != nil {
+		t.Fatal(err)
+	}
+	removeAddedFolders(ws, "process_config/added/deeper/a.sql")
+	if _, err := os.Stat(added); err != nil {
+		t.Fatalf("a folder holding another file was removed: %v", err)
+	}
+	if err := os.Remove(filepath.Join(added, "b.sql")); err != nil {
+		t.Fatal(err)
+	}
+	removeAddedFolders(ws, "process_config/added/deeper/b.sql")
+	if _, err := os.Stat(filepath.Join(root, "process_config", "added")); !os.IsNotExist(err) {
+		t.Errorf("the emptied folders added with the files are still there: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "process_config")); err != nil {
+		t.Errorf("the folder the workspace was deployed with was removed: %v", err)
+	}
+}

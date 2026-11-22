@@ -189,8 +189,11 @@ func TestNoGateHardCodesTheUnauthorizedStatus(t *testing.T) {
 // what the status split converted, and a fifteenth gate is a change worth reading this file
 // over -- either it went through RefusalFor, in which case raise the number, or it
 // did not, in which case the test above has already failed.
+//
+// Sixteen since 2026-11-22: CheckWorkspaceFiles and AddWorkspaceFiles, the IDE's
+// added files (workspace_add_files.go), both through RefusalFor.
 func TestEveryGateGoesThroughRefusalFor(t *testing.T) {
-	const want = 14
+	const want = 16
 	got := 0
 	fset := token.NewFileSet()
 	for _, src := range writePathSources {

@@ -52,6 +52,7 @@ these are the things that break:
 | reads `token` from **every** response | `authh` mints a fresh one per request, `jets/apiserver/server.go` |
 | `workspace_query_structure` | returns `{result_type, result_data}` of `wsfile.WorkspaceNode` |
 | `get_workspace_file_content` / `save_workspace_file_content` | `jets/datatable/workspace_data_table_action.go` |
+| `check_workspace_files` / `add_workspace_files`, each row `{file_name, file_content, replace}`, answering `{files}` | `jets/datatable/workspace_add_files.go` |
 | `file_name` passed back **exactly as received** | the server url-escapes it when building the tree and unescapes it on read |
 | local JSON check before save | `SaveWorkspaceFileContent` refuses a `.json` file that will not parse |
 

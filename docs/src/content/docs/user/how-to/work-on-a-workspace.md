@@ -1,6 +1,6 @@
 ---
 title: Work on a workspace
-description: Edit and save a workspace file in the Workspace IDE, compile the workspace, commit and push the change, pull changes made elsewhere, and revert a change.
+description: Edit and save a workspace file in the Workspace IDE, add files and folders to it, compile the workspace, commit and push the change, pull changes made elsewhere, and revert a change.
 kind: how-to
 sidebar:
   order: 6
@@ -24,6 +24,34 @@ it must be compiled, and why it must reach git.
    this installation and not yet committed.
 
    ![Workspace Changes listing jet_rules/hc_model_rules.jr, ticked, above the Delete/Revert Changes button.](../../../../assets/screenshots/user/how-to/work-on-a-workspace/workspace-changes.png)
+
+## Add a file or a folder
+
+A file the installation needs and the workspace does not have, such as a new runbook and its SQL, is
+added from the Workspace IDE: no deployment is needed.
+
+- **One new file**: press **New file**, type its path in the workspace, such as
+  `runbooks/table_counts/counts.sql` (a folder that is not there is made), write it, and press **Save**.
+- **Files or a folder from your computer**: press **Upload files** or **Upload folder**, pick them,
+  and type the workspace folder they go in. Here a folder `runbooks`, holding a runbook
+  `table_counts.rb.json` and its folder of SQL, is uploaded to the workspace's root, so its files
+  keep their paths under `runbooks/`.
+
+1. The IDE checks the files and shows what the upload will do: the files that are new, the ones that
+   replace a file of the same name, and the ones it leaves out. Press **OK** to add them.
+
+   ![The upload's confirmation: Upload 2 files to jets_ws?, listing the new files runbooks/table_counts.rb.json and runbooks/table_counts/counts.sql.](../../../../assets/screenshots/user/how-to/work-on-a-workspace/upload-confirm.png)
+
+2. Each file is checked as a save checks it. If any is refused, nothing is added and the banner lists
+   every refused file with the reason; correct them and upload again.
+3. The files are in the tree, and, with no file open, in **Workspace Changes**, like a saved file.
+
+   ![Workspace Changes listing runbooks/table_counts.rb.json and runbooks/table_counts/counts.sql, added, with the tree's Runbooks section showing table_counts.rb.json and its folder.](../../../../assets/screenshots/user/how-to/work-on-a-workspace/uploaded-files.png)
+
+Only a file the tree would list can be added, so a runbook goes under `runbooks/`, a rule file under
+`jet_rules/`, and so on; [Workspace IDE](/docs/user/screens/workspace-ide/#adding-files) has the rules.
+An added file is kept, compiled and committed like a saved one, as below, and its revert deletes it,
+with the folders it was added in once they are empty.
 
 ## Compile
 

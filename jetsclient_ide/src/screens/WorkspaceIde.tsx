@@ -24,6 +24,8 @@ import {
   WorkspaceApi,
   describeSaveWarnings,
   fileNameOf,
+  queryEscape,
+  type AddedFile,
   type WorkspaceNode,
   type WorkspaceSummary,
 } from "../api/workspace";
@@ -40,6 +42,16 @@ import {
   openWorkspaceGuide,
   useWorkspaceManifest,
 } from "../shell/workspaceGuide";
+import {
+  AddFilesControls,
+  describeUploadPlan,
+  folderOf,
+  normaliseFolder,
+  pathProblem,
+  readText,
+  treeFilePaths,
+  uploadPath,
+} from "./AddFiles";
 import { CompiledView } from "./CompiledView";
 import { WorkspaceChanges } from "./WorkspaceChanges";
 import { WorkspaceToolbar } from "./WorkspaceToolbar";
@@ -118,6 +130,12 @@ type Tab =
        * workspace's root README.
        */
       readOnly: boolean;
+      /**
+       * A file *New file* opened, which is not in the workspace until the tab is
+       * saved (`AddFiles.tsx`). Its save adds the file rather than saving over
+       * one, and it is unsaved until then, empty or not.
+       */
+      isNew?: boolean;
     }
   | {
       kind: "view";
@@ -132,7 +150,7 @@ function tabKey(tab: Tab): string {
 }
 
 function isDirty(tab: Tab): boolean {
-  return tab.kind === "file" && tab.current !== tab.saved;
+  return tab.kind === "file" && (tab.isNew === true || tab.current !== tab.saved);
 }
 
 export function WorkspaceIde({ api }: { api: ApiClient }) {
@@ -391,7 +409,7 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
     // A compiled view is read-only by construction: it shows what the compiler
     // produced, and the way to change it is to edit the sources below the
     // heading. Save is disabled on it rather than silently doing nothing.
-    if (!tab || tab.kind !== "file" || tab.current === tab.saved || !canEdit || tab.readOnly) return;
+    if (!tab || tab.kind !== "file" || !isDirty(tab) || !canEdit || tab.readOnly) return;
 
     // The server parses .json before writing, so catch it here and point at the
     // problem rather than surfacing a bare 400.
@@ -411,12 +429,21 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
     setBusy(true);
     setError(null);
     void guard(async () => {
-      const { warnings } = await workspaceApi.saveFile(workspace, tab.fileName, tab.current);
+      // A new file is added: the same checks and the same write as a save, and
+      // refused if a file of its name is there by now (`AddFiles.tsx`).
+      const { warnings } = tab.isNew
+        ? {
+            warnings:
+              (await workspaceApi.addFiles(workspace, [{ path: tab.label, content: tab.current }]))[0]
+                ?.warnings ?? [],
+          }
+        : await workspaceApi.saveFile(workspace, tab.fileName, tab.current);
       setTabs((prev) =>
         prev.map((t) =>
-          t.kind === "file" && t.fileName === tab.fileName ? { ...t, saved: t.current } : t,
+          t.kind === "file" && t.fileName === tab.fileName ? { ...t, saved: t.current, isNew: false } : t,
         ),
       );
+      if (tab.isNew) refresh();
       // The file is saved either way; warnings are what its validator found
       // and did not refuse, shown in the warning colours until dismissed.
       if (warnings.length > 0) {
@@ -425,7 +452,164 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
         setStatus(`Saved ${tab.label}`);
       }
     }).finally(() => setBusy(false));
-  }, [activeKey, canEdit, guard, setError, setStatus, tabs, workspace, workspaceApi]);
+  }, [activeKey, canEdit, guard, refresh, setError, setStatus, tabs, workspace, workspaceApi]);
+
+  /** The folder of the file open in the editor, where an added file goes unless told otherwise. */
+  const currentFolder = activeTab?.kind === "file" ? folderOf(activeTab.label) : "";
+
+  /**
+   * *New file*: ask for a path, then open an empty tab for it. Nothing is
+   * written until the tab is saved.
+   */
+  const newFile = useCallback(() => {
+    void (async () => {
+      const typed = await prompts.prompt(
+        `New file in ${workspace}: its path in the workspace, such as runbooks/my_runbook.rb.json`,
+        currentFolder === "" ? "" : `${currentFolder}/`,
+      );
+      if (typed === null) return;
+      const path = typed.trim();
+      const problem = pathProblem(path);
+      if (problem !== null) {
+        setError(`${path === "" ? "The new file" : path} cannot be added: ${problem}`);
+        return;
+      }
+      const fileName = queryEscape(path);
+      if (tabs.some((t) => t.kind === "file" && t.fileName === fileName)) {
+        setActiveKey(`file:${fileName}`);
+        return;
+      }
+      if (treeFilePaths(tree).has(path)) {
+        setError(`${path} is already in the workspace: open it from the tree.`);
+        return;
+      }
+      setError(null);
+      setStatus(`${path} is new: write it, then Save to add it to the workspace.`);
+      setTabs((prev) => [
+        ...prev,
+        {
+          kind: "file",
+          fileName,
+          label: path,
+          saved: "",
+          current: "",
+          size: 0,
+          readOnly: false,
+          isNew: true,
+        },
+      ]);
+      setActiveKey(`file:${fileName}`);
+    })();
+  }, [currentFolder, prompts, setError, setStatus, tabs, tree, workspace]);
+
+  /**
+   * *Upload files* and *Upload folder*: ask which folder the files go to, read
+   * them, ask the server what adding them would do, show it, and add them all,
+   * or none when any is refused.
+   */
+  const upload = useCallback(
+    (files: File[]) => {
+      void (async () => {
+        const count = files.length === 1 ? "1 file" : `${files.length} files`;
+        const typed = await prompts.prompt(
+          `Upload ${count} into which folder of ${workspace}? Leave it empty for the workspace's root.`,
+          currentFolder,
+        );
+        if (typed === null) return;
+        const folder = normaliseFolder(typed);
+        const folderProblem = folder === "" ? null : pathProblem(folder);
+        if (folderProblem !== null) {
+          setError(`Nothing was uploaded: the folder ${folder}: ${folderProblem}`);
+          return;
+        }
+        setBusy(true);
+        setError(null);
+        setStatus(null);
+        await guard(async () => {
+          const read: AddedFile[] = [];
+          const notText: string[] = [];
+          for (const file of files) {
+            const path = uploadPath(folder, file);
+            const content = await readText(file);
+            if (content === null) notText.push(path);
+            else read.push({ path, content });
+          }
+          if (notText.length > 0) {
+            setError(
+              [
+                "Nothing was uploaded: a workspace file is text, and these are not:",
+                ...notText.map((p) => `  ${p}`),
+              ].join("\n"),
+            );
+            return;
+          }
+          const plan = await workspaceApi.checkFiles(workspace, read);
+          // A file the IDE does not list is left out, and the confirmation says
+          // so: a folder picked whole may hold a note or a hidden file. Any other
+          // refusal stops the upload, so that a runbook never arrives without
+          // its SQL.
+          const refused = plan.filter(
+            (r) => r.status !== "new" && r.status !== "replaces" && r.status !== "not_listed",
+          );
+          if (refused.length > 0) {
+            setError(["Nothing was uploaded:", ...refused.map((r) => r.message ?? r.path)].join("\n"));
+            return;
+          }
+          const adding = plan.filter((r) => r.status === "new" || r.status === "replaces");
+          if (adding.length === 0) {
+            setError(
+              "Nothing was uploaded: the IDE lists none of these files. A file is added under a section of the " +
+                "file tree, with a file type the section lists.",
+            );
+            return;
+          }
+          const ok = await prompts.confirm(
+            adding.length === 1
+              ? `Upload 1 file to ${workspace}?`
+              : `Upload ${adding.length} files to ${workspace}?`,
+            describeUploadPlan(plan),
+          );
+          if (!ok) return;
+          const content = new Map(read.map((f) => [f.path, f.content]));
+          const results = await workspaceApi.addFiles(
+            workspace,
+            adding.map((r) => ({
+              path: r.path,
+              content: content.get(r.path) ?? "",
+              replace: r.status === "replaces",
+            })),
+          );
+          // A replaced file open in a tab takes the uploaded text as its saved
+          // text; an edit not yet saved there is kept, and now differs from it.
+          setTabs((prev) =>
+            prev.map((t) => {
+              if (t.kind !== "file" || !content.has(t.label) || t.isNew) return t;
+              const text = content.get(t.label)!;
+              return { ...t, saved: text, current: t.current === t.saved ? text : t.current };
+            }),
+          );
+          refresh();
+          // Every file is added either way; the warnings are its validator's,
+          // as a save shows them, one file after another.
+          const warned = results.filter((r) => r.warnings.length > 0);
+          const done =
+            adding.length === 1
+              ? `Uploaded 1 file to ${workspace}.`
+              : `Uploaded ${adding.length} files to ${workspace}.`;
+          if (warned.length > 0) {
+            setStatus(
+              [done, ...warned.map((r) => describeSaveWarnings(r.path, r.warnings))].join("\n"),
+              "warn",
+            );
+          } else {
+            setStatus(done);
+          }
+        });
+        setBusy(false);
+      })();
+    },
+    [currentFolder, guard, prompts, refresh, setError, setStatus, workspace, workspaceApi],
+  );
 
   /**
    * Opens the guide's page for the file in the editor, else its landing page, in
@@ -504,7 +688,7 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
             !activeTab ||
             activeTab.kind !== "file" ||
             activeTab.readOnly ||
-            activeTab.current === activeTab.saved ||
+            !isDirty(activeTab) ||
             busy
           }
         >
@@ -516,6 +700,12 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
 
       <div className="body">
         <aside className="sidebar">
+          <AddFilesControls
+            capability={WORKSPACE_IDE}
+            disabled={busy || workspace === ""}
+            onNewFile={newFile}
+            onUpload={upload}
+          />
           <FileTree
             nodes={tree}
             activeFile={activeFile}
@@ -591,7 +781,12 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
               where a user has not picked one yet — keeps the placeholder.
             */
             workspace ? (
-              <WorkspaceChanges key={changesGeneration} api={api} workspace={workspace} />
+              <WorkspaceChanges
+                key={changesGeneration}
+                api={api}
+                workspace={workspace}
+                onFilesChanged={refreshTree}
+              />
             ) : (
               <div className="empty">
                 <p>Select a workspace to see its changes, or a file to start editing.</p>

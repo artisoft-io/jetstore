@@ -23,7 +23,10 @@ interface Posted {
   body: Record<string, unknown>;
 }
 
-const rows = [["7", "ws1", "0", "jet_rules/main.jr", "jetrules", "", "user@example.com", "2026-09-05"]];
+const rows = [
+  ["7", "ws1", "0", "jet_rules/main.jr", "jetrules", "", "user@example.com", "2026-09-05"],
+  ["8", "ws1", "0", "runbooks/added.sql", "runbooks", "", "user@example.com", "2026-09-06"],
+];
 
 function stubServer(refusals: Record<string, string> = {}) {
   const posts: Posted[] = [];
@@ -56,7 +59,11 @@ function stubServer(refusals: Record<string, string> = {}) {
   return { fetchImpl, posts };
 }
 
-async function mount(workspace = "ws1", refusals: Record<string, string> = {}) {
+async function mount(
+  workspace = "ws1",
+  refusals: Record<string, string> = {},
+  onFilesChanged?: () => void,
+) {
   const { fetchImpl, posts } = stubServer(refusals);
   const api = new ApiClient("", fetchImpl);
   await api.login("user@example.com", "pw");
@@ -64,7 +71,7 @@ async function mount(workspace = "ws1", refusals: Record<string, string> = {}) {
     <ApiProvider api={api}>
       <NotificationsProvider>
         <PromptsProvider>
-          <WorkspaceChanges api={api} workspace={workspace} />
+          <WorkspaceChanges api={api} workspace={workspace} onFilesChanged={onFilesChanged} />
         </PromptsProvider>
       </NotificationsProvider>
     </ApiProvider>,
@@ -122,6 +129,27 @@ describe("the workspace home's changes table", () => {
     // off the envelope, and reads nothing else — the Dart also sent `key`, `oid`
     // and `user_email`, and the handler ignores all three.
     expect(body["data"]).toEqual([{ file_name: "jet_rules/main.jr" }]);
+  });
+
+  // Every selected change is reverted, each once. The action fanned out over
+  // the selection with `fromKey`, which reads a list's first element, so two
+  // selected changes reverted the first twice and kept the second; a
+  // selection of one hid it. Found 2026-11-22 reverting the two files of an
+  // uploaded runbook.
+  it("reverts every selected change, each once, and says the files changed", async () => {
+    const filesChanged = vi.fn();
+    const { posts } = await mount("ws1", {}, filesChanged);
+    fireEvent.click(await screen.findByLabelText("Select row 1"));
+    fireEvent.click(screen.getByLabelText("Select row 2"));
+    fireEvent.click(screen.getByRole("button", { name: "Delete/Revert Changes" }));
+    await answerConfirm("OK");
+    await waitFor(() => expect(actionsOf(posts, "delete_workspace_changes").length).toBe(1));
+    expect(actionsOf(posts, "delete_workspace_changes")[0]!.body["data"]).toEqual([
+      { file_name: "jet_rules/main.jr" },
+      { file_name: "runbooks/added.sql" },
+    ]);
+    // A revert may delete an added file, so the IDE re-reads its tree.
+    await waitFor(() => expect(filesChanged).toHaveBeenCalled());
   });
 
   it("asks before reverting, and sends nothing when refused", async () => {

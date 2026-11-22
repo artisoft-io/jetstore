@@ -122,3 +122,54 @@ func TestSaveContentWritesNothingWhenTheDatabaseRefuses(t *testing.T) {
 		t.Errorf("the file holds %q after a refused save, want it untouched", got)
 	}
 }
+
+// A file added from the IDE in a folder the workspace does not have, a new
+// runbook's folder, is saved as any edit is: the folder is made, the file is
+// written, and the override is recorded, so every start applies it. Its revert
+// deletes it, since the stash taken at the start has no copy of it.
+//
+// SaveContent wrote the file without making its folder until 2026-11-22, so
+// such a save recorded the override and then failed on the disk.
+func TestSaveContentAddsAFileInANewFolderAndItsRevertDeletesIt(t *testing.T) {
+	pool := changesDB(t)
+	bg := context.Background()
+	ws, _ := stashScenario(t, "pristine")
+	if err := StashFiles(ws); err != nil {
+		t.Fatal(err)
+	}
+	const name = "runbooks/health_check/count.sql"
+	file := filepath.Join(os.Getenv("WORKSPACES_HOME"), ws, filepath.FromSlash(name))
+	if err := SaveContent(pool, ws, name, "SELECT 1", "ke@example.com"); err != nil {
+		t.Fatalf("saving a file in a new folder: %v", err)
+	}
+	if got := read(t, file); got != "SELECT 1" {
+		t.Errorf("on disk %q, want the content", got)
+	}
+	var data, contentType string
+	if err := pool.QueryRow(bg, `SELECT convert_from(data, 'UTF8'), content_type FROM jetsapi.workspace_changes
+		WHERE workspace_name = $1 AND file_name = $2`, ws, name).Scan(&data, &contentType); err != nil {
+		t.Fatalf("no workspace_changes row: %v", err)
+	}
+	if data != "SELECT 1" || contentType != "runbooks" {
+		t.Errorf("recorded %q, content type %q", data, contentType)
+	}
+
+	if err := DeleteFileChange(pool, ws, name); err != nil {
+		t.Fatalf("reverting the added file: %v", err)
+	}
+	if _, err := os.Stat(file); !os.IsNotExist(err) {
+		t.Errorf("the added file is still there after its revert: %v", err)
+	}
+	// The folders added with it go too, and the folder the workspace was
+	// deployed with stays.
+	root := filepath.Join(os.Getenv("WORKSPACES_HOME"), ws)
+	if _, err := os.Stat(filepath.Join(root, "runbooks")); !os.IsNotExist(err) {
+		t.Errorf("the folders added with the file are still there after its revert: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "process_config")); err != nil {
+		t.Errorf("the revert removed a folder the workspace was deployed with: %v", err)
+	}
+	if rows := changeRows(t, pool); len(rows) != 0 {
+		t.Errorf("rows left after the revert: %v", rows)
+	}
+}
