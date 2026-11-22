@@ -7,7 +7,8 @@
 // # What it installs
 //
 //   - jetsapi.source_config, one row per feed, with is_cumulative;
-//   - jetsapi.input_registry, one row per delivery, joined to its feed on
+//   - jetsapi.input_registry, one row per delivery (and, for the re-processing
+//     feeds, per re-registration), joined to its feed on
 //     table_name. Every feed of a client registers under the same domain key
 //     (DomainKey), as RegisterFileKeys writes it, so a detector that joins a
 //     delivery to its feed on object_type finds every feed of the client under
@@ -25,6 +26,19 @@
 // The arrival of a delivery is its session id, the registration time in
 // milliseconds, as RegisterFileKeys seeds it. Nothing reads the clock: Clock is
 // the detection time the expected result is written for.
+//
+// # Re-processing
+//
+// A delivery is a file at its first registration. ReprocessingFeeds are two
+// more feeds whose files are registered again, as JetStore records a
+// re-processing: a re-map that registers every earlier file of one feed in a
+// burst, and a backfill of past-period files each registered two or three
+// times within seconds. Each re-registration is an input_registry row with the
+// file's key and period and a session of its own, and the file's claims loaded
+// again under that session. InstallReprocessing writes them on top of Install,
+// with the profiles at ReprocessingProfilesPath, and their expected verdicts
+// are expected.json's reprocessing section; the base feeds and their written
+// totals are unchanged by them.
 //
 // # What it declares, and what it expects
 //

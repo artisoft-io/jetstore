@@ -217,25 +217,39 @@ type refDelivery struct {
 	presence map[string]float64
 }
 
-func readDeliveries(t *testing.T, pool *pgxpool.Pool, f Feed, p *refProfile) []refDelivery {
+// readDeliveries reads a feed's deliveries by expected.json's rules: each file
+// key at its first registration in registration order, with the count of
+// later registrations of a delivered file and of the files they re-process.
+// With perRegistration it reads every registration as a delivery instead, the
+// reading the rules replace, so a test can show the fixture tells them apart.
+func readDeliveries(t *testing.T, pool *pgxpool.Pool, f Feed, p *refProfile, perRegistration bool) ([]refDelivery, int, int) {
 	t.Helper()
 	ctx := context.Background()
-	rows, err := pool.Query(ctx, `SELECT ir.session_id, sp.month_period, sp.week_period, sp.day_period, fks.file_size
+	rows, err := pool.Query(ctx, `SELECT ir.session_id, ir.file_key, sp.month_period, sp.week_period, sp.day_period, fks.file_size
 		FROM jetsapi.input_registry ir
 		JOIN jetsapi.source_config sc ON sc.table_name = ir.table_name AND sc.client = ir.client AND sc.org = ir.org
 		JOIN jetsapi.source_period sp ON sp.key = ir.source_period_key
 		JOIN jetsapi.file_key_staging fks ON fks.file_key = ir.file_key
-		WHERE sc.table_name = $1 ORDER BY ir.session_id::bigint`, f.TableName)
+		WHERE sc.table_name = $1 ORDER BY ir.session_id::bigint, ir.key`, f.TableName)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var out []refDelivery
+	seen := map[string]bool{}
+	again, files := 0, map[string]bool{}
 	for rows.Next() {
 		var d refDelivery
+		var fileKey string
 		var m, w, dp int
-		if err = rows.Scan(&d.session, &m, &w, &dp, &d.size); err != nil {
+		if err = rows.Scan(&d.session, &fileKey, &m, &w, &dp, &d.size); err != nil {
 			t.Fatal(err)
 		}
+		if seen[fileKey] && !perRegistration {
+			again++
+			files[fileKey] = true
+			continue
+		}
+		seen[fileKey] = true
 		ms, _ := strconv.ParseInt(d.session, 10, 64)
 		d.arrival = time.UnixMilli(ms).UTC()
 		d.period = map[string]int{"month_period": m, "week_period": w, "day_period": dp}
@@ -244,6 +258,15 @@ func readDeliveries(t *testing.T, pool *pgxpool.Pool, f Feed, p *refProfile) []r
 	if err = rows.Err(); err != nil {
 		t.Fatal(err)
 	}
+	return readClaims(t, pool, p, out), again, len(files)
+}
+
+// readClaims fills each delivery's claim-set aggregates from its session's
+// rows.
+func readClaims(t *testing.T, pool *pgxpool.Pool, p *refProfile, out []refDelivery) []refDelivery {
+	t.Helper()
+	ctx := context.Background()
+	var err error
 	if p == nil || p.ClaimSet == nil {
 		return out
 	}
@@ -420,16 +443,69 @@ func TestTheExpectationHoldsOverTheInstalledRows(t *testing.T) {
 	if _, err := Install(context.Background(), pool); err != nil {
 		t.Fatal(err)
 	}
-	e, err := LoadExpected()
-	if err != nil {
-		t.Fatal(err)
-	}
 	profiles, err := Profiles()
 	if err != nil {
 		t.Fatal(err)
 	}
+	expectationHolds(t, pool, Feeds(), profiles, nil)
+}
+
+// The re-processing feeds' expectation holds over their installed rows, and
+// the reading it replaces, every registration a delivery, would contradict it:
+// the fixture tells the two readings apart.
+func TestTheReprocessingExpectationHoldsOverTheInstalledRows(t *testing.T) {
+	pool := freshDB(t)
+	ctx := context.Background()
+	if _, err := Install(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := InstallReprocessing(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	profiles, err := ReprocessingProfiles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, err := LoadExpected()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectationHolds(t, pool, ReprocessingFeeds(), profiles, e.Reprocessing.Feeds)
+
+	// Read every registration as a delivery and count what would fire.
 	fired := map[string]int{}
-	for _, f := range Feeds() {
+	for _, f := range ReprocessingFeeds() {
+		p := &refProfile{}
+		if err = json.Unmarshal(profiles[f.TableName], p); err != nil {
+			t.Fatal(err)
+		}
+		ds, _, _ := readDeliveries(t, pool, f, p, true)
+		for _, det := range Detectors {
+			v := reference(det, f, p, ds)
+			fired[det] += len(v.FiresOn)
+		}
+	}
+	for det, want := range map[string]int{"delivery_backdated": 18, "delivery_overlap": 5, "delivery_unchanged": 5,
+		"service_date_stale": 8} {
+		if fired[det] != want {
+			t.Errorf("read per registration, %s fires %d times over the re-processing feeds, want %d", det, fired[det], want)
+		}
+	}
+	t.Logf("read per registration: %v", fired)
+}
+
+// expectationHolds checks the written verdicts of feeds against the reference
+// reading of their installed rows, and, when feeds' expected re-processing is
+// given, the re-processing counts.
+func expectationHolds(t *testing.T, pool *pgxpool.Pool, feeds []Feed, profiles map[string]json.RawMessage,
+	expectedFeeds []ExpectedFeed) {
+	t.Helper()
+	e, err := LoadExpected()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fired := map[string]int{}
+	for i, f := range feeds {
 		var p *refProfile
 		if raw, ok := profiles[f.TableName]; ok {
 			p = &refProfile{}
@@ -437,9 +513,13 @@ func TestTheExpectationHoldsOverTheInstalledRows(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		ds := readDeliveries(t, pool, f, p)
+		ds, again, files := readDeliveries(t, pool, f, p, false)
 		if len(ds) != len(f.Deliveries) {
 			t.Fatalf("%s: %d deliveries read back through table_name, want %d", f.TableName, len(ds), len(f.Deliveries))
+		}
+		if expectedFeeds != nil && (again != expectedFeeds[i].Reregistrations || files != expectedFeeds[i].ReprocessedFiles) {
+			t.Errorf("%s: %d re-registrations of %d files read back, expected.json says %d of %d", f.TableName,
+				again, files, expectedFeeds[i].Reregistrations, expectedFeeds[i].ReprocessedFiles)
 		}
 		for _, det := range Detectors {
 			want, _ := e.Of(det, f.TableName)
@@ -518,4 +598,41 @@ func sessions(f Feed, from, to int) []string {
 		out = append(out, d.SessionID)
 	}
 	return out
+}
+
+// InstallReprocessing writes the counts the re-processing section states, on
+// top of the base install and again, and leaves the base install as it was.
+func TestInstallReprocessingWritesTheWrittenCounts(t *testing.T) {
+	pool := freshDB(t)
+	ctx := context.Background()
+	e, err := LoadExpected()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = Install(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		got, err := InstallReprocessing(ctx, pool)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(got, e.Reprocessing.Install) {
+			t.Errorf("InstallReprocessing reports %+v, expected.json says %+v", got, e.Reprocessing.Install)
+		}
+	}
+	if n := count(t, pool, "SELECT count(*) FROM jetsapi.input_registry"); n != e.Install.InputRegistry+e.Reprocessing.Install.InputRegistry {
+		t.Errorf("input_registry holds %d rows, want the base %d and the re-processing feeds' %d", n,
+			e.Install.InputRegistry, e.Reprocessing.Install.InputRegistry)
+	}
+	// A re-registration reuses its file's key and period: per feed, a file
+	// key names one period, and file_key_staging one row.
+	if n := count(t, pool, `SELECT count(*) FROM (SELECT file_key FROM jetsapi.input_registry WHERE client = $1
+		GROUP BY file_key HAVING count(DISTINCT source_period_key) > 1) s`, ReprocessingClient); n != 0 {
+		t.Errorf("%d file keys are registered under more than one period", n)
+	}
+	if n := count(t, pool, `SELECT count(*) FROM jetsapi.input_registry WHERE client = $1`, ReprocessingClient) -
+		count(t, pool, `SELECT count(DISTINCT file_key) FROM jetsapi.input_registry WHERE client = $1`, ReprocessingClient); n != e.Reprocessing.Install.Reregistrations {
+		t.Errorf("registrations less distinct file keys is %d, want %d re-registrations", n, e.Reprocessing.Install.Reregistrations)
+	}
 }

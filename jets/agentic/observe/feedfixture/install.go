@@ -39,6 +39,9 @@ type Counts struct {
 	FileKeyStaging int            `json:"file_key_staging"`
 	ClaimTables    int            `json:"claim_tables"`
 	ClaimRows      map[string]int `json:"claim_rows"`
+	// Reregistrations are the input_registry rows that register a delivered
+	// file again; InputRegistry includes them.
+	Reregistrations int `json:"reregistrations,omitempty"`
 }
 
 // Install writes the fixture into the database: the jetsapi tables of
@@ -50,14 +53,29 @@ type Counts struct {
 // other clients are left alone, and a source_period row already present for a
 // date is reused rather than duplicated. It runs in one transaction.
 func Install(ctx context.Context, pool *pgxpool.Pool) (Counts, error) {
-	if err := installTables(pool); err != nil {
-		return Counts{}, err
-	}
 	profiles, err := Profiles()
 	if err != nil {
 		return Counts{}, err
 	}
-	feeds := Feeds()
+	return install(ctx, pool, Feeds(), profiles)
+}
+
+// InstallReprocessing writes the re-processing feeds (ReprocessingFeeds) the
+// way Install writes the base feeds, re-registrations included, with their
+// profiles from ReprocessingProfilesPath. It leaves the base feeds alone, so
+// it is called after Install, or alone, and may be called again.
+func InstallReprocessing(ctx context.Context, pool *pgxpool.Pool) (Counts, error) {
+	profiles, err := ReprocessingProfiles()
+	if err != nil {
+		return Counts{}, err
+	}
+	return install(ctx, pool, ReprocessingFeeds(), profiles)
+}
+
+func install(ctx context.Context, pool *pgxpool.Pool, feeds []Feed, profiles map[string]json.RawMessage) (Counts, error) {
+	if err := installTables(pool); err != nil {
+		return Counts{}, err
+	}
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return Counts{}, err
@@ -118,6 +136,17 @@ func Install(ctx context.Context, pool *pgxpool.Pool) (Counts, error) {
 				return Counts{}, fmt.Errorf("file_key_staging %s #%d: %w", f.TableName, d.Ordinal, err)
 			}
 			counts.FileKeyStaging++
+		}
+		for _, r := range f.Reregistrations {
+			d := f.Deliveries[r.Of-1]
+			if _, err = tx.Exec(ctx, `INSERT INTO jetsapi.input_registry
+				(client, org, object_type, file_key, source_period_key, table_name, source_type, session_id, user_email, last_update)
+				VALUES ($1, $2, $3, $4, $5, $6, 'file', $7, 'system', $8)`,
+				f.Client, f.Org, DomainKey, d.FileKey, periods[d.Period], f.TableName, r.SessionID, r.Registered); err != nil {
+				return Counts{}, fmt.Errorf("input_registry %s, delivery #%d again: %w", f.TableName, r.Of, err)
+			}
+			counts.InputRegistry++
+			counts.Reregistrations++
 		}
 		if f.ClaimTable == "" {
 			continue
@@ -233,15 +262,21 @@ func installClaims(ctx context.Context, tx pgx.Tx, f Feed) (int, error) {
 		return 0, fmt.Errorf("creating %s: %w", table.Sanitize(), err)
 	}
 	var rows [][]any
-	for _, d := range f.Deliveries {
-		for i, c := range d.Claims {
+	load := func(session string, claims []Claim) {
+		for i, c := range claims {
 			var paid any
 			if c.PaidAmount != nil {
 				paid = *c.PaidAmount
 			}
-			rows = append(rows, []any{fmt.Sprintf("%s-%05d", d.SessionID, i), d.SessionID,
+			rows = append(rows, []any{fmt.Sprintf("%s-%05d", session, i), session,
 				c.ClaimID, int32(c.LineNumber), c.ServiceDate, c.MemberID, paid, c.LoadBatch})
 		}
+	}
+	for _, d := range f.Deliveries {
+		load(d.SessionID, d.Claims)
+	}
+	for _, r := range f.Reregistrations {
+		load(r.SessionID, r.Claims)
 	}
 	n, err := tx.CopyFrom(ctx, table,
 		[]string{"jets:key", "session_id", ColClaimID, ColLineNumber, ColServiceDate, ColMember, ColPaidAmount, ColLoadBatch},

@@ -7,9 +7,13 @@ package observe
 //
 // # What a delivery is
 //
-// A delivery is a file registration: an input_registry row with source_type
-// 'file'. It belongs to the feed whose source_config.table_name it names, on
-// table_name alone, which is unique in source_config. A registration may name
+// A delivery is a file: a distinct file_key among the feed's file
+// registrations (input_registry rows with source_type 'file'), at its first
+// registration; a later registration of the same file key is re-processing,
+// counted on the coverage line and never judged (feed_delivery_registrations.go
+// holds the one reading both detector families share). A delivery belongs to
+// the feed whose source_config.table_name it names, on table_name alone, which
+// is unique in source_config. A registration may name
 // another client or org than its feed, as JetStore registers some deliveries
 // under a placeholder client; joining on client would drop those silently, so
 // they are attributed to the feed and reported on the coverage line instead.
@@ -43,7 +47,6 @@ import (
 	"fmt"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -92,11 +95,12 @@ func (p FeedDeliveryPeriod) Of(periodType string) int {
 	return 0
 }
 
-// FeedDelivery is one registration of a feed, as the delivery-grain detectors
-// read it.
+// FeedDelivery is one delivery of a feed, a file at its first registration,
+// as the delivery-grain detectors read it.
 type FeedDelivery struct {
 	// Ordinal is 1-based, in registration order within the feed, among the
-	// deliveries registered at or before the as-of time.
+	// deliveries registered at or before the as-of time. Re-processing takes
+	// no ordinal.
 	Ordinal   int
 	SessionId string
 	// Arrival is the session id read as Unix milliseconds.
@@ -108,6 +112,9 @@ type FeedDelivery struct {
 	Period *FeedDeliveryPeriod
 	// SizeBytes is nil when file_key_staging holds no row for the file key.
 	SizeBytes *int64
+	// Reprocessed are the later registrations of the same file key, at or
+	// before the as-of time, in registration order. None is judged.
+	Reprocessed []FeedReprocessing
 }
 
 // FeedDeliveryInput is what the three detectors read: the feeds, split as
@@ -120,7 +127,8 @@ type FeedDeliveryInput struct {
 	AsOf       time.Time
 	Profiled   []feedprofile.Feed
 	Unprofiled []feedprofile.Feed
-	// Deliveries are by table_name, in registration order.
+	// Deliveries are by table_name, in registration order: each file at its
+	// first registration, carrying its re-processing.
 	Deliveries map[string][]FeedDelivery
 	// Unordered counts, by table_name, the registrations whose session id is
 	// not a number and so has no arrival. They are not judged and not used as
@@ -144,48 +152,33 @@ const feedDeliverySQL = `SELECT ir.table_name, ir.session_id, ir.client, ir.org,
 // An unprofiled feed's deliveries are not read: nothing judges them.
 func ReadFeedDeliveryInput(ctx context.Context, db DB, profiled, unprofiled []feedprofile.Feed,
 	asOf time.Time) (*FeedDeliveryInput, error) {
-	in := &FeedDeliveryInput{AsOf: asOf.UTC(), Profiled: profiled, Unprofiled: unprofiled,
-		Deliveries: map[string][]FeedDelivery{}, Unordered: map[string]int{}}
 	tables := make([]string, 0, len(profiled))
 	for _, f := range profiled {
 		tables = append(tables, f.TableName)
 	}
-	if len(tables) == 0 {
-		return in, nil
-	}
-	rows, err := db.Query(ctx, feedDeliverySQL, tables)
+	regs, err := ReadFeedRegistrations(ctx, db, tables)
 	if err != nil {
-		return nil, fmt.Errorf("while reading the feeds' deliveries from input_registry: %w", err)
+		return nil, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var table string
-		var d FeedDelivery
-		var year, month, day, mp, wp, dp *int
-		if err := rows.Scan(&table, &d.SessionId, &d.Client, &d.Org, &d.FileKey,
-			&year, &month, &day, &mp, &wp, &dp, &d.SizeBytes); err != nil {
-			return nil, fmt.Errorf("while reading a delivery: %w", err)
+	return FeedDeliveryInputOf(regs, profiled, unprofiled, asOf), nil
+}
+
+// FeedDeliveryInputOf is the delivery-grain detectors' input from
+// registrations already read: the profiled feeds' deliveries at or before
+// asOf.
+func FeedDeliveryInputOf(regs *FeedRegistrations, profiled, unprofiled []feedprofile.Feed,
+	asOf time.Time) *FeedDeliveryInput {
+	in := &FeedDeliveryInput{AsOf: asOf.UTC(), Profiled: profiled, Unprofiled: unprofiled,
+		Deliveries: map[string][]FeedDelivery{}, Unordered: map[string]int{}}
+	for _, f := range profiled {
+		if ds := regs.Deliveries(f.TableName, in.AsOf); len(ds) > 0 {
+			in.Deliveries[f.TableName] = ds
 		}
-		ms, err := strconv.ParseInt(d.SessionId, 10, 64)
-		if err != nil || ms <= 0 {
-			in.Unordered[table]++
-			continue
+		if n := regs.Unordered[f.TableName]; n > 0 {
+			in.Unordered[f.TableName] = n
 		}
-		d.Arrival = time.UnixMilli(ms).UTC()
-		if d.Arrival.After(in.AsOf) {
-			continue
-		}
-		if year != nil && month != nil && day != nil && mp != nil && wp != nil && dp != nil {
-			d.Period = &FeedDeliveryPeriod{Date: time.Date(*year, time.Month(*month), *day, 0, 0, 0, 0, time.UTC),
-				Month: *mp, Week: *wp, Day: *dp}
-		}
-		d.Ordinal = len(in.Deliveries[table]) + 1
-		in.Deliveries[table] = append(in.Deliveries[table], d)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("while reading the feeds' deliveries: %w", err)
-	}
-	return in, nil
+	return in
 }
 
 // FeedDeliveryVerdict is a detector's verdict on one delivery, or
@@ -237,6 +230,10 @@ type FeedDeliveryCoverage struct {
 	// Unordered counts, by table_name, the registrations not judged because
 	// their session id is not a time.
 	Unordered map[string]int
+	// Reprocessed counts, by table_name, the judged feeds' re-processing at
+	// or before the as-of time: later registrations of a file already
+	// delivered, which are not judged.
+	Reprocessed map[string]FeedReprocessed
 }
 
 // Line renders the coverage as one line of text for a run's log.
@@ -259,6 +256,9 @@ func (c FeedDeliveryCoverage) Line() string {
 	}
 	for _, t := range feedDeliverySortedKeys(c.Unordered) {
 		fmt.Fprintf(&b, "; %s: %d registrations whose session id is not a time", t, c.Unordered[t])
+	}
+	for _, t := range feedReprocessedTables(c.Reprocessed) {
+		fmt.Fprintf(&b, "; %s", feedReprocessedLine(t, c.Reprocessed[t]))
 	}
 	return b.String()
 }
@@ -293,7 +293,7 @@ func FeedDeliveryWrite(ctx context.Context, db Exec, r FeedDeliveryResult) (int,
 // judges, and a coverage line naming the rest with their reasons and every
 // judged feed's deliveries registered elsewhere.
 func feedDeliveryJudgeable(detector string, in *FeedDeliveryInput) ([]feedprofile.Feed, FeedDeliveryCoverage, error) {
-	cov := FeedDeliveryCoverage{Detector: detector, Unordered: map[string]int{}}
+	cov := FeedDeliveryCoverage{Detector: detector, Unordered: map[string]int{}, Reprocessed: map[string]FeedReprocessed{}}
 	for _, f := range in.Unprofiled {
 		n := FeedDeliveryNotJudgedFeed{TableName: f.TableName, Client: f.Client, Org: f.Org,
 			Reason: FeedDeliveryNoProfile}
@@ -327,6 +327,9 @@ func feedDeliveryJudgeable(detector string, in *FeedDeliveryInput) ([]feedprofil
 		cov.Elsewhere = append(cov.Elsewhere, feedDeliveryElsewhereOf(f, in.Deliveries[f.TableName])...)
 		if n := in.Unordered[f.TableName]; n > 0 {
 			cov.Unordered[f.TableName] = n
+		}
+		if n := FeedReprocessedIn(in.Deliveries[f.TableName], time.Time{}, in.AsOf); n.Registrations > 0 {
+			cov.Reprocessed[f.TableName] = n
 		}
 	}
 	sortFeedDeliveryNotJudged(cov.NotJudged)
@@ -412,6 +415,15 @@ func feedDeliveryPeriodName(periodType string, n int) string {
 }
 
 func feedDeliverySortedKeys(m map[string]int) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	return keys
+}
+
+func feedReprocessedTables(m map[string]FeedReprocessed) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)

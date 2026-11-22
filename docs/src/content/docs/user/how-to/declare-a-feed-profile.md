@@ -85,8 +85,11 @@ report says which of the two.
 | `delivery_size` | A delivery's size is outside `size_bytes`, bounds included, or, with no `size_bytes`, outside the feed's recent range. | nothing |
 | `delivery_backdated` | A delivery is registered for a period earlier than one the feed has already delivered. | `period_type` |
 
-**What a delivery is.** A delivery is one file registration of the feed, matched to the feed by the
-source configuration's table name. Its arrival is the time it was registered, its period is the
+**What a delivery is.** A delivery is one file of the feed at its first registration, matched to the
+feed by the source configuration's table name; a later registration of the same file is
+re-processing, counted and not judged (see
+[Feed content checks](/docs/user/concepts/feed-content-checks/#what-counts-as-a-delivery-and-how-re-processing-is-reported)).
+Its arrival is the time it was first registered, its period is the
 source period it was registered under, and its size is the file's size as JetStore last listed it. A
 delivery registered under another client than its feed's is still counted as the feed's, and the
 report lists such deliveries so that the registration can be looked into.
@@ -107,8 +110,8 @@ when you know what a delivery should weigh, because the recent range follows a f
 slowly.
 
 **A back-dated delivery** is one registered for a period earlier than the latest period of any
-delivery before it. The check cannot tell a mistaken registration from a deliberate reload of past
-periods; it reports the fact, and the finding names both periods. A delivery registered for the
+delivery before it. The check cannot tell a mistaken registration from a deliberate backfill of past
+periods (registering a file again is not a new delivery, and is not judged); it reports the fact, and the finding names both periods. A delivery registered for the
 current period whose claims reach back in time is a different case, which the span check finds.
 
 **Every finding** names the profile it judged against, who declared it and when, and compares each

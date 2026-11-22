@@ -304,3 +304,82 @@ func TestTheLateDeliveryIsLastAndOld(t *testing.T) {
 			newest(last).Format(time.DateOnly), newest(prev).Format(time.DateOnly))
 	}
 }
+
+// The re-processing section names the re-processing feeds, with a verdict per
+// detector and feed, and the feeds have the shapes their comments give.
+func TestTheReprocessingExpectationIsComplete(t *testing.T) {
+	e, err := LoadExpected()
+	if err != nil {
+		t.Fatal(err)
+	}
+	feeds := ReprocessingFeeds()
+	if len(e.Reprocessing.Feeds) != len(feeds) {
+		t.Fatalf("the re-processing section names %d feeds, the fixture has %d", len(e.Reprocessing.Feeds), len(feeds))
+	}
+	for i, f := range feeds {
+		ef := e.Reprocessing.Feeds[i]
+		if ef.TableName != f.TableName || ef.Client != f.Client || ef.Cumulative != f.Cumulative ||
+			ef.Deliveries != len(f.Deliveries) || ef.Reregistrations != len(f.Reregistrations) ||
+			ef.ReprocessedFiles != f.ReprocessedFiles() {
+			t.Errorf("feed %d: expected.json says %+v, the fixture %s with %d deliveries and %d re-registrations of %d files",
+				i, ef, f.TableName, len(f.Deliveries), len(f.Reregistrations), f.ReprocessedFiles())
+		}
+		for _, det := range Detectors {
+			if _, ok := e.Of(det, f.TableName); !ok {
+				t.Errorf("no verdict for %s over %s", det, f.TableName)
+			}
+		}
+	}
+	if want := len(Detectors) * len(feeds); len(e.Reprocessing.Verdicts) != want {
+		t.Errorf("%d re-processing verdicts, want %d", len(e.Reprocessing.Verdicts), want)
+	}
+	if e.Rules["reprocessing"] == "" {
+		t.Error("no rule written for re-processing")
+	}
+	if got, want := len(e.ReprocessingRows()), (len(Detectors)-1)*(e.Reprocessing.Install.InputRegistry-
+		e.Reprocessing.Install.Reregistrations); got != want {
+		t.Errorf("ReprocessingRows expands to %d, want one per detector and delivery, %d", got, want)
+	}
+	// Sessions are unique across all the fixture's registrations.
+	seen := map[string]bool{}
+	for _, f := range AllFeeds() {
+		for _, r := range f.Registrations() {
+			if seen[r.SessionID] {
+				t.Errorf("session %s is registered twice", r.SessionID)
+			}
+			seen[r.SessionID] = true
+		}
+	}
+
+	remap, _ := FeedByTable(RemappedIncremental)
+	burst := remap.Reregistrations
+	if span := burst[len(burst)-1].Registered.Sub(burst[0].Registered); len(burst) != 12 || span >= time.Second {
+		t.Errorf("the re-map is %d re-registrations over %s, want every earlier file within one second", len(burst), span)
+	}
+	for _, r := range burst {
+		if r.Of == 13 || r.Registered.After(remap.Deliveries[12].Registered) || !r.Registered.After(remap.Deliveries[11].Registered) {
+			t.Errorf("re-registration of delivery %d at %s is not between the twelfth and thirteenth deliveries", r.Of, r.Registered)
+		}
+	}
+	if burst[0].Of != 12 {
+		t.Errorf("the re-map's first re-registration is of delivery %d, want the twelfth, just before it", burst[0].Of)
+	}
+
+	back, _ := FeedByTable(BackfilledIncremental)
+	times := map[int]int{}
+	for _, r := range back.Registrations() {
+		times[r.Of]++
+	}
+	for _, ord := range []int{8, 9, 10} {
+		d := back.Deliveries[ord-1]
+		if times[ord] < 2 || times[ord] > 3 || !d.Period.Before(back.Deliveries[6].Period) {
+			t.Errorf("backfill delivery %d is registered %d times under %s, want two or three under a week before %s",
+				ord, times[ord], d.Period.Format(time.DateOnly), back.Deliveries[6].Period.Format(time.DateOnly))
+		}
+	}
+	regs := back.Registrations()
+	first, last := regs[7], regs[7+len(back.Reregistrations)+2]
+	if last.Registered.Sub(first.Registered) > 15*time.Second {
+		t.Errorf("the backfill spans %s, want seconds", last.Registered.Sub(first.Registered))
+	}
+}

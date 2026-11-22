@@ -21,10 +21,12 @@ naming the feed.
 
 ## A delivery, its arrival and its predecessor
 
-A **delivery** is one registration of the feed's files: a session of the
+A **delivery** is one file of the feed, at its first registration: a session of the
 [input registry](/docs/user/concepts/files-and-the-input-registry/) whose table name is the feed's.
 Its **arrival** is the time it was registered, which is what its session id records. Its
-**predecessor** is the feed's previous registration, in the order they were registered.
+**predecessor** is the feed's previous delivery, in the order they were registered. A file
+registered again is not a new delivery; see
+[What counts as a delivery](#what-counts-as-a-delivery-and-how-re-processing-is-reported).
 
 Each delivery is judged against its predecessor and nothing that came after it. So a check run over
 months of history says, for each delivery, what it would have said the day that delivery arrived.
@@ -97,3 +99,32 @@ there so that whoever reads the anomaly can weigh it.
 
 Running the checks again over the same deliveries writes nothing twice: an anomaly is identified by
 the check, the feed and the delivery.
+
+## What counts as a delivery, and how re-processing is reported
+
+A delivery is a **file**: a distinct file key among the feed's file registrations, at the first time
+it was registered. Its arrival, its session and its period are that first registration's.
+
+JetStore registers a file again when it processes it again. A re-map of a client's earlier files
+registers every one of them again, and a load can register the same file two or three times within
+seconds. The new registration has a session of its own and keeps the file's file key and its
+period. It is **re-processing**, not a delivery:
+
+- **No check judges it.** Neither the five content checks nor the overdue, size and back-dated
+  checks reach a verdict on it, so a re-map does not look like a run of back-dated files, and a file
+  is never compared with its own second load.
+- **It is never a predecessor.** The next new file is compared with the previous file as it first
+  arrived.
+- **Its claims are not read.** A check reads the claims of the delivery's first session. A
+  re-processing comes later, possibly under another mapping, and a check run over past months must
+  say what it would have said on the day the file arrived. If the first session's claims are gone,
+  purged or never loaded, the delivery is *not evaluable*, and the detail names the sessions that
+  processed the file again.
+- **It is counted.** Every check's coverage line names each feed with re-processing in the run's
+  window: *N re-registration(s) of M file(s) already delivered, re-processing and not judged*. The
+  run record carries the same counts.
+
+A file that is new to the feed but registered for an old period is still a delivery. A backfill of
+three missed weeks raises one back-dated finding for each of the three files, however many times
+each was registered. A registration with no file key has nothing to identify its file, and is a
+delivery of its own.

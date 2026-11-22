@@ -5,16 +5,30 @@ package observe
 //
 // # What they read, and what leaves the database
 //
-// A delivery is a registration of the feed: a distinct session_id of
-// jetsapi.input_registry whose table_name is the feed's and whose source_type
-// is 'file'. The join is on table_name alone, because table_name is unique in
-// source_config and some deliveries are registered under another client than
-// their feed's. Its arrival is its session id read as Unix milliseconds, which
-// is the registration time RegisterFileKeys seeds it with, and the one arrival
-// time that survives a sync of the file keys. Its predecessor is the feed's
-// previous registration in that order. A delivery is judged against its
+// A delivery is a file: a distinct file_key among the feed's file
+// registrations in jetsapi.input_registry, at its first registration, read
+// through the one reading the delivery-grain detectors share
+// (feed_delivery_registrations.go). The join is on table_name alone, because
+// table_name is unique in source_config and some deliveries are registered
+// under another client than their feed's. Its arrival is its first
+// registration's session id read as Unix milliseconds, which is the
+// registration time RegisterFileKeys seeds it with, and the one arrival time
+// that survives a sync of the file keys. Its predecessor is the feed's
+// previous delivery in that order. A delivery is judged against its
 // predecessor and nothing registered after it, so a backfill says what the
 // check would have said on the day.
+//
+// A later registration of a delivered file is re-processing: it is not
+// judged, it is no delivery's predecessor, and its rows are not read. A check
+// reads the claims of the delivery's first registration's session, for three
+// reasons. The backfill rule: a re-processing comes later, and a delivery
+// judged on its day cannot have read it. The comparison: a predecessor is read
+// as it first arrived, and comparing it with a file re-mapped on another day
+// would compare two mappings rather than two deliveries. And the identifier:
+// an anomaly is keyed on the delivery's session, so judging another session's
+// rows would key one delivery's finding two ways. When the first session's
+// rows are gone, purged or never loaded, the delivery is not evaluable, and
+// the detail names the sessions that re-processed it.
 //
 // The claims are read by session_id, which every table a pipeline creates
 // carries and indexes, so each check reads two sessions and not the table.
@@ -128,7 +142,10 @@ const (
 	// where the check reads it, carries a date of service.
 	ClaimSetNoServiceDates = "no_service_dates"
 	// ClaimSetArrivalUnknown: the session id is not a registration time, so
-	// the delivery has no arrival to measure a lag from.
+	// the delivery has no arrival to measure a lag from. A registration whose
+	// session id is not a time is no longer read as a delivery at all (it is
+	// counted on the coverage line), so this reason is kept for a caller that
+	// builds its own deliveries.
 	ClaimSetArrivalUnknown = "arrival_unknown"
 )
 
@@ -189,9 +206,10 @@ type ClaimSetVerdict struct {
 	TableName string // the feed, and the anomaly's subject
 	SessionID string
 	// Ordinal is the delivery's position among the feed's surviving
-	// registrations, from 1.
+	// deliveries, from 1.
 	Ordinal int
-	// PredecessorSessionID is "" for the first surviving registration.
+	// PredecessorSessionID is "" for the first surviving delivery. It is the
+	// predecessor's first registration, never a re-processing.
 	PredecessorSessionID string
 	Verdict              string // ClaimSetFires, ClaimSetSilent or ClaimSetNotJudged
 	Reason               string // why it is not judged; "" otherwise
@@ -209,11 +227,30 @@ type ClaimSetVerdict struct {
 	Anomalies []Anomaly
 }
 
-// claimSetDelivery is one registration of a feed.
+// claimSetDelivery is one delivery of a feed: a file at its first
+// registration.
 type claimSetDelivery struct {
 	session string
 	ordinal int
 	arrival *time.Time // nil when the session id is not a registration time
+	// reprocessed are the later registrations of the same file, not read.
+	reprocessed []FeedReprocessing
+}
+
+// claimSetDeliveriesOf converts the shared reading's deliveries of a feed, up
+// to the end of the window, into the content checks' own.
+func claimSetDeliveriesOf(regs *FeedRegistrations, table string, o ClaimSetOptions) []claimSetDelivery {
+	var asOf time.Time
+	if !o.Until.IsZero() {
+		asOf = o.Until.Add(-time.Nanosecond)
+	}
+	ds := regs.Deliveries(table, asOf)
+	out := make([]claimSetDelivery, len(ds))
+	for i, d := range ds {
+		at := d.Arrival
+		out[i] = claimSetDelivery{session: d.SessionId, ordinal: d.Ordinal, arrival: &at, reprocessed: d.Reprocessed}
+	}
+	return out
 }
 
 // DetectClaimSets runs the five detectors over the deliveries of feeds that
@@ -227,6 +264,20 @@ type claimSetDelivery struct {
 // its error is joined into the returned error; the other feeds' verdicts are
 // returned beside it.
 func DetectClaimSets(ctx context.Context, db DB, feeds []feedprofile.Feed, o ClaimSetOptions) ([]ClaimSetVerdict, error) {
+	tables := make([]string, len(feeds))
+	for i, f := range feeds {
+		tables[i] = f.TableName
+	}
+	regs, err := ReadFeedRegistrations(ctx, db, tables)
+	if err != nil {
+		return nil, err
+	}
+	return detectClaimSetsFrom(ctx, db, feeds, regs, o)
+}
+
+// detectClaimSetsFrom is DetectClaimSets over registrations already read.
+func detectClaimSetsFrom(ctx context.Context, db DB, feeds []feedprofile.Feed, regs *FeedRegistrations,
+	o ClaimSetOptions) ([]ClaimSetVerdict, error) {
 	if o.MinMembers <= 0 {
 		o.MinMembers = claimSetDefaultMinMembers
 	}
@@ -239,7 +290,7 @@ func DetectClaimSets(ctx context.Context, db DB, feeds []feedprofile.Feed, o Cla
 	var out []ClaimSetVerdict
 	var errs []error
 	for _, f := range feeds {
-		vs, err := claimSetFeed(ctx, db, f, o)
+		vs, err := claimSetFeed(ctx, db, f, claimSetDeliveriesOf(regs, f.TableName, o), o)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("feed %s: %w", f.TableName, err))
 			continue
@@ -305,40 +356,6 @@ func claimSetFieldGate(det string, f feedprofile.Feed) string {
 		return ClaimSetFieldAbsent + missing[0]
 	}
 	return ""
-}
-
-// claimSetDeliveriesSQL lists a feed's registrations. Registration order is the
-// session id read as a number: by length, then as text, which orders digit
-// strings numerically and does not fail on one that is not.
-const claimSetDeliveriesSQL = `SELECT DISTINCT session_id, length(session_id)
-  FROM jetsapi.input_registry
- WHERE table_name = $1 AND source_type = $2 AND session_id IS NOT NULL AND session_id <> ''
- ORDER BY length(session_id), session_id`
-
-func claimSetDeliveries(ctx context.Context, db DB, table string) ([]claimSetDelivery, error) {
-	rows, err := db.Query(ctx, claimSetDeliveriesSQL, table, claimSetRegistrationSource)
-	if err != nil {
-		return nil, fmt.Errorf("while reading its registrations: %w", err)
-	}
-	defer rows.Close()
-	var out []claimSetDelivery
-	for rows.Next() {
-		var d claimSetDelivery
-		var n int
-		if err := rows.Scan(&d.session, &n); err != nil {
-			return nil, fmt.Errorf("while reading a registration: %w", err)
-		}
-		d.ordinal = len(out) + 1
-		if ms, err := strconv.ParseInt(d.session, 10, 64); err == nil && ms > 0 {
-			t := time.UnixMilli(ms).UTC()
-			d.arrival = &t
-		}
-		out = append(out, d)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("while reading its registrations: %w", err)
-	}
-	return out, nil
 }
 
 // claimSetInWindow reports whether a delivery's arrival is in the window. A
@@ -526,11 +543,9 @@ func claimSetAggregate(ctx context.Context, db DB, stmt string, d claimSetDelive
 	return a, nil
 }
 
-func claimSetFeed(ctx context.Context, db DB, f feedprofile.Feed, o ClaimSetOptions) ([]ClaimSetVerdict, error) {
-	deliveries, err := claimSetDeliveries(ctx, db, f.TableName)
-	if err != nil {
-		return nil, err
-	}
+func claimSetFeed(ctx context.Context, db DB, f feedprofile.Feed, deliveries []claimSetDelivery,
+	o ClaimSetOptions) ([]ClaimSetVerdict, error) {
+	var err error
 	gates := map[string]string{}
 	anyJudged := false
 	for _, det := range ClaimSetDetectors {
@@ -585,6 +600,20 @@ func claimSetFeed(ctx context.Context, db DB, f feedprofile.Feed, o ClaimSetOpti
 	return out, nil
 }
 
+// claimSetReprocessedNote names the sessions that re-processed a delivery's
+// file, whose rows a check does not read, or is "".
+func claimSetReprocessedNote(d claimSetDelivery) string {
+	if len(d.reprocessed) == 0 {
+		return ""
+	}
+	sessions := make([]string, len(d.reprocessed))
+	for i, r := range d.reprocessed {
+		sessions[i] = r.SessionId
+	}
+	return fmt.Sprintf("; the file was registered again in session(s) %s, re-processing whose rows are not read, "+
+		"because a delivery is read as it first arrived", strings.Join(sessions, ", "))
+}
+
 func claimSetNotJudged(v *ClaimSetVerdict, reason, detail string) {
 	v.Verdict, v.Reason, v.Detail = ClaimSetNotJudged, reason, detail
 }
@@ -633,7 +662,7 @@ func claimSetJudge(v *ClaimSetVerdict, det string, f feedprofile.Feed, d claimSe
 	if a.Rows == 0 {
 		claimSetNotJudged(v, ClaimSetNoClaimRows, fmt.Sprintf(
 			"the claim-set table holds no row of session %s, as when the pipeline skips the database load; "+
-				"not evaluable, which is not clean", d.session))
+				"not evaluable, which is not clean%s", d.session, claimSetReprocessedNote(d)))
 		return
 	}
 	comparing := det == ClaimSetDeliveryOverlap || det == ClaimSetDeliveryUnchanged
@@ -647,7 +676,7 @@ func claimSetJudge(v *ClaimSetVerdict, det string, f feedprofile.Feed, d claimSe
 	if comparing && a.PredecessorRows == 0 {
 		claimSetNotJudged(v, ClaimSetPredecessorNotLoaded, fmt.Sprintf(
 			"the predecessor, session %s, has no row in the claim-set table, so a comparison with it would be "+
-				"a comparison with an empty set", prev.session))
+				"a comparison with an empty set%s", prev.session, claimSetReprocessedNote(*prev)))
 		return
 	}
 	switch det {
