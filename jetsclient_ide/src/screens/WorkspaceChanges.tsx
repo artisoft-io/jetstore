@@ -60,9 +60,15 @@ export interface WorkspaceChangesProps {
   api: ApiClient;
   /** The workspace whose changes these are, from the route. */
   workspace: string;
+  /**
+   * Called after a revert, which can delete files: a file added in the IDE
+   * has no earlier version, so its revert deletes it. The IDE re-reads its
+   * tree, which otherwise listed the deleted file until a Refresh.
+   */
+  onFilesChanged?: () => void;
 }
 
-export function WorkspaceChanges({ api, workspace }: WorkspaceChangesProps) {
+export function WorkspaceChanges({ api, workspace, onFilesChanged }: WorkspaceChangesProps) {
   const { setError, setStatus } = useNotifications();
   const prompts = usePrompts();
   const [error, setLocalError] = useState<string | null>(null);
@@ -175,6 +181,7 @@ export function WorkspaceChanges({ api, workspace }: WorkspaceChangesProps) {
               // leaves the table as it was, and a redraw of unchanged rows is
               // cheaper than a branch that can be wrong.
               formState.requestRefresh();
+              onFilesChanged?.();
               return;
             }
             default:
@@ -192,7 +199,7 @@ export function WorkspaceChanges({ api, workspace }: WorkspaceChangesProps) {
         }
       })();
     },
-    [runNamedAction, formState],
+    [runNamedAction, formState, onFilesChanged],
   );
 
   // The route parameter is the only context this table needs: it has no client

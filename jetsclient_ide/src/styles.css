@@ -371,6 +371,17 @@ body {
 /* ---------- file tree ---------- */
 .tree { display: flex; flex-direction: column; min-height: 0; height: 100%; }
 .tree-filter { padding: 8px; border-bottom: 1px solid var(--rule); flex: 0 0 auto; }
+/* New file, Upload files and Upload folder, above the tree (AddFiles.tsx). */
+.tree-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 8px 0;
+  flex: 0 0 auto;
+}
+.btn-small { font-size: 12px; padding: 3px 8px; }
+/* The tree takes what the controls leave, rather than the sidebar's full height. */
+.tree-actions + .tree { height: auto; flex: 1 1 auto; }
 .tree-filter input {
   width: 100%;
   font-family: var(--sans);

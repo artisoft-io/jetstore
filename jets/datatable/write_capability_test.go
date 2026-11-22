@@ -53,12 +53,18 @@ var writePathsRequiring = map[string]string{
 	"SaveWorkspaceClientConfig": "workspace_ide",
 	"DeleteWorkspaceChanges":    "workspace_ide",
 	"DeleteAllWorkspaceChanges": "workspace_ide",
+	// workspace_add_files.go. CheckWorkspaceFiles writes nothing; it is here
+	// because it reads the workspace's files for a writer, at the writer's
+	// capability, and the sweep's rule, the gate before the workspace is
+	// touched, is the one it has to keep.
+	"AddWorkspaceFiles":   "workspace_ide",
+	"CheckWorkspaceFiles": "workspace_ide",
 }
 
 // writePathSources are the files writePathsRequiring's functions live in. Both
 // are parsed, because the dispatch splits its write handlers across them for
 // reasons of file size rather than of policy.
-var writePathSources = []string{"data_table_action.go", "workspace_data_table_action.go"}
+var writePathSources = []string{"data_table_action.go", "workspace_data_table_action.go", "workspace_add_files.go"}
 
 // gateMarkers are the two ways a function in this package asks for a capability.
 var gateMarkers = []string{"VerifyUserPermission", "requireCapability"}

@@ -1,11 +1,11 @@
 ---
 title: Workspace IDE
-description: The Workspace IDE, where a workspace's files are read and edited, its overrides listed and reverted, and its compiled data model, rules and lookups browsed.
+description: The Workspace IDE, where a workspace's files are read, edited and added, its overrides listed and reverted, and its compiled data model, rules and lookups browsed.
 kind: reference
 ---
 
-The *Workspace IDE* is the editor of a workspace: its files in a tree, each opened in a tab, the
-changes saved on this installation listed and revertible, and what the compiler made of the data
+The *Workspace IDE* is the editor of a workspace: its files in a tree, each opened in a tab, new files
+and folders added from your computer, the changes saved on this installation listed and revertible, and what the compiler made of the data
 model, the rules and the lookups. How a saved file becomes an override, and why it takes a compile
 and a commit to make it last, is in [Workspaces](/docs/user/concepts/workspaces/).
 
@@ -15,7 +15,7 @@ on the [Workspaces](/docs/user/screens/workspaces/) screen, which opens the sele
 `workspace_ide` capability: the top bar entry is disabled without it, and a user who reaches the
 screen anyway sees *Read only* and cannot save.
 
-![The Workspace IDE on jets_ws: the workspace picker, and Workspace guide and Save, at the top, Refresh below, the file tree on the left with Data Model, Jets Rules, Lookups and Pipes Config, and the empty Workspace Changes table on the right.](../../../../assets/screenshots/user/screens/workspace-ide/ide-changes.png)
+![The Workspace IDE on jets_ws: the workspace picker, and Workspace guide and Save, at the top, Refresh below, the file tree on the left under New file, Upload files and Upload folder, with Data Model, Jets Rules, Lookups and Pipes Config, and the empty Workspace Changes table on the right.](../../../../assets/screenshots/user/screens/workspace-ide/ide-changes.png)
 
 ## The bars at the top
 
@@ -59,6 +59,8 @@ The left panel lists the workspace's files by section: *Data Model*, *Jets Rules
 with its size. **Filter files** narrows the tree to the names that match.
 
 - **A file** opens in a tab of the editor.
+- **New file**, **Upload files** and **Upload folder**, above the tree, add files to the workspace
+  ([Adding files](#adding-files), below).
 - **The caret of a section** expands or collapses it.
 - **The name of *Data Model*, *Jets Rules* or *Lookups*** opens that section's compiled view (below),
   rather than expanding it.
@@ -68,10 +70,46 @@ with its size. **Filter files** narrows the tree to the names that match.
 subfolders, and the guide's settings file, `docs/workspace_docs.json`. A page opens, is edited and is
 saved like any other file, and **Workspace guide** opens that page in the guide. A saved page needs no
 compile: nothing compiles it, and the guide shows it once it is committed and the images are rebuilt.
-The section has no **Add File**: a new page is added in the workspace's repository. How to write a page is in
+A new page is added with **New file**, or uploaded, as any file is ([Adding files](#adding-files)). How to write a page is in
 [Document a workspace](/docs/developer/how-to/document-a-workspace/).
 
 ![The Documentation section of jets_ws's file tree, with its customisation folder, index.md and workspace_docs.json, and index.md open in the editor, its front matter highlighted as YAML.](../../../../assets/screenshots/user/screens/workspace-ide/ide-documentation.png)
+
+## Adding files
+
+Three controls above the tree add files to the workspace on this installation, without a deployment.
+Each needs `workspace_ide`, as **Save** does, and is disabled without it.
+
+| Control | What it does |
+|---|---|
+| **New file** | Asks for the file's path in the workspace, starting in the folder of the file open in the editor: for example `runbooks/table_counts.rb.json`, or `runbooks/table_counts/counts.sql`, whose folder is made if the workspace has none. The file opens in a new, empty tab, marked unsaved. Nothing is written until you press **Save**, and the save is refused if a file of that name is there by then: a new file never overwrites one. Closing the tab before saving discards it. |
+| **Upload files** | Picks one or more files on your computer and asks which workspace folder to put them in: the folder of the file open in the editor, or another, or none for the workspace's root. |
+| **Upload folder** | Picks a folder on your computer and uploads every file in it, its subfolders included, keeping their paths: a folder `runbooks` picked and put at the workspace's root becomes `runbooks/…`. |
+
+![The New file prompt: the path of the new file in jets_ws, such as runbooks/my_runbook.rb.json, with OK and Cancel.](../../../../assets/screenshots/user/screens/workspace-ide/ide-new-file.png)
+
+**Before an upload adds anything, it shows what it will do** and asks for **OK**: the files that are
+new, the ones that replace a file of the same name, the ones left out because the IDE does not list
+them, and the warnings any file's checks found. Every file that is added goes through the checks a
+save makes (below), and **an upload is all or nothing**: when any file is refused, the banner lists
+every refused file with the reason, and none is added, so a runbook never arrives without its SQL.
+The files of one upload are checked together, so a form and the table it draws, or
+`reports/config.json` and the reports files it runs, can be uploaded at once.
+
+**What can be added is what the tree lists.** A file goes under one of the sections, with a file type
+that section shows: `.rb.json` and `.sql` under *Runbooks*, `.jr` and `.csv` under *Jets Rules*,
+`.md` and `.mdx` under *Documentation*, and so on, or a `.md` note at the root. A file the tree would
+not list, such as a `notes.txt` in a runbook's folder or a hidden file in a folder picked whole, is
+left out of an upload and named in its confirmation, and refused by **New file**. A file the IDE
+shows read-only cannot be added either, and the file's path must stay inside the workspace. A
+workspace file is text: an upload that holds a file that is not, such as a spreadsheet or an archive,
+adds nothing and says which file it is.
+
+**An added file is an override, as a saved one is.** It appears in *Workspace Changes*, takes effect
+when the workspace is compiled if the compile reads it, and is kept by every restart of the
+installation until it is committed to the workspace's repository. Its **Delete/Revert Changes**
+deletes it, since the workspace as deployed has no copy of it to return to, and with it a folder the
+upload or *New file* made, once nothing else is in it. The tree is read again after every revert.
 
 ## Editing a file
 
@@ -175,7 +213,10 @@ another included file. *Jet Rules Files* lists the included rule files as well a
 ![The Files Relationship tab of the Jets Rules compiled view: each of jets_ws's main rule files with every file it includes, cintel_main.jr with its data model, rule and lookup files, and each unit test's rule file with jets_model.jr.](../../../../assets/screenshots/user/screens/workspace-ide/ide-compiled-files-relationship.png)
 
 The *Data Model Files* and *Jet Rules Files* tabs also have **Add File**, which creates an empty file
-in the section, and **Delete**, which deletes the selected files. A compiled view reflects the last
+in the section, and **Delete**, which deletes the selected files. **Add File** adds the file as
+[Adding files](#adding-files) describes, as an override listed in *Workspace Changes*: a name that is
+there already, or that the tree would not list, is refused, and so is an empty file its checks refuse,
+such as an empty `.json`. A compiled view reflects the last
 compile, so it does not show an edit until the workspace is compiled again.
 
 ## See also

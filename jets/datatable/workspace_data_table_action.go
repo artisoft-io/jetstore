@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path/filepath"
 
 	// "strconv"
 	// "time"
@@ -862,68 +861,43 @@ func (ctx *DataTableContext) WorkspaceQueryStructure(dataTableAction *DataTableA
 }
 
 // AddWorkspaceFile --------------------------------------------------------------------------
-// Function to add a workspace file
-func (ctx *DataTableContext) addWorkspaceFile(dataTableAction *DataTableAction, _ string) (err error) {
-	workspaceName := dataTableAction.WorkspaceName
-	if workspaceName == "" {
-		err = fmt.Errorf("GetWorkspaceFileContent: missing workspace_name")
-		log.Println(err)
-		return
-	}
-	for ipos := range dataTableAction.Data {
-		request := dataTableAction.Data[ipos]
-		wsFileName := request["source_file_name"]
-		if wsFileName == nil {
-			err = fmt.Errorf("GetWorkspaceFileContent: missing file_name")
-			log.Println(err)
-			return
-		}
-		var fileName string
-		fileName, err = url.QueryUnescape(wsFileName.(string))
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		// Confine the file path within the workspace directory (CWE-73)
-		var fullFileName string
-		fullFileName, err = wsfile.ResolveWorkspacePath(workspaceName, fileName)
-		if err != nil {
-			log.Println(err)
-			return
-		}
-
-		// Create an empty file to local workspace
-		var myfile *os.File
-		fileDir := filepath.Dir(fullFileName)
-		if err = os.MkdirAll(fileDir, 0770); err != nil {
-			err = fmt.Errorf("while creating file directory structure: %v", err)
-			log.Println(err)
-			return
-		}
-
-		myfile, err = os.Create(fullFileName)
-		if err != nil {
-			err = fmt.Errorf("while creating workspace file: %v", err)
-			log.Println(err)
-			return
-		}
-		myfile.Close()
-	}
-	return
-}
-
-// AddWorkspaceFile
+// AddWorkspaceFile is the `add_workspace_file` action, the compiled views' *Add
+// File*: an empty file for each row's `source_file_name`.
+//
+// **It is an added file like any other since 2026-11-22**, checked and written
+// by addCheckedFiles (workspace_add_files.go), so it is an override in
+// jetsapi.workspace_changes, kept by every start and listed in Workspace
+// Changes. Until then it created the file on disk only, so the next start of
+// an installation lost it, and it created it with os.Create, so naming a file
+// that was there emptied it with nothing recorded. Now a name that is there,
+// or that the IDE does not list, or whose empty content a validator refuses
+// (an empty `.json` is not JSON), is refused with the reason, and nothing is
+// written.
 func (ctx *DataTableContext) AddWorkspaceFile(dataTableAction *DataTableAction, token string) (rb *[]byte, httpStatus int, err error) {
-	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
+	signedIn, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
 		httpStatus, err = RefusalFor(err2)
 		return
 	}
-	httpStatus = http.StatusOK
-	err = ctx.addWorkspaceFile(dataTableAction, token)
+	root, err := workspaceRoot(dataTableAction)
 	if err != nil {
-		httpStatus = http.StatusBadRequest
-		return
+		log.Println(err)
+		return nil, http.StatusBadRequest, fmt.Errorf("AddWorkspaceFile: %v", err)
+	}
+	rows := make([]map[string]any, 0, len(dataTableAction.Data))
+	for _, request := range dataTableAction.Data {
+		rows = append(rows, map[string]any{"file_name": request["source_file_name"], "file_content": ""})
+	}
+	files, err := readAddedFiles(rows)
+	if err != nil {
+		log.Println(err)
+		return nil, http.StatusBadRequest, fmt.Errorf("AddWorkspaceFile: %v", err)
+	}
+	if _, httpStatus, err = addCheckedFiles(dataTableAction.WorkspaceName, root, files,
+		func(name, content string) error {
+			return wsfile.SaveContent(ctx.Dbpool, dataTableAction.WorkspaceName, name, content, signedIn.Email)
+		}); err != nil {
+		return nil, httpStatus, err
 	}
 	dataTableAction.Action = "workspace_query_structure"
 	dataTableAction.FromClauses = []FromClause{{Table: "workspace_file_structure"}}

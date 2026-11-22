@@ -43,6 +43,22 @@ from the request's token (`VerifyUserPermission`), for a file saved or deleted i
 and for a client configuration saved to the workspace; a change no user made is recorded as
 `system`.
 
+**A file added in the IDE is an override from the start.** The IDE's *New file*, *Upload files* and
+*Upload folder* post `add_workspace_files` (`AddWorkspaceFiles`,
+`jets/datatable/workspace_add_files.go`), and the compiled views' *Add File* posts
+`add_workspace_file`, which goes the same way. Each file is checked by `checkWorkspaceFileIn`, the
+save's checks, against the workspace with the request's other files in place, and written by
+`SaveContent`, which makes a folder the file is the first in; the start makes it the same way when it
+applies the row (`SyncWorkspaceFiles`). The request is all or nothing on the checks, a file that is
+there is replaced only when its row says `replace`, and only a path the IDE's tree would list
+(`wsfile.ListedInIde`) can be added. `check_workspace_files` answers what an add would do and writes
+nothing; the IDE shows that before an upload. Since the stash is taken at the start before the rows are
+applied, it has no copy of an added file, and its revert deletes it (`addedSinceStash`, below), then
+removes its folders, innermost first, while each is empty and absent from the stash
+(`removeAddedFolders`), so a runbook's new `runbooks/<name>/` goes with its last file. Until
+2026-11-22 *Add File* created an empty file on disk and recorded nothing, so the next start of an
+installation lost it, and it emptied a file of the same name.
+
 **`DeleteAllFileChanges` takes two flags and the two call sites set them oppositely**,
 which is the clearest statement of what each is for:
 

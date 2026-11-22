@@ -65,7 +65,7 @@ not have it. The screens are built around that:
   commit and push                          the change is in git; the next image carries it
 ```
 
-**A saved file is an override.** It is kept in the database, so it survives a restart and a new
+**A saved file is an override**, and so is a file added in the IDE. It is kept in the database, so it survives a restart and a new
 deployment, and it takes precedence over the same file in the image until it is committed or
 reverted. The *Workspace IDE* lists the overrides and can revert them. *Pull Workspace Changes*
 brings commits made elsewhere into the installation's copy.

@@ -51,6 +51,11 @@ const agenticDetectHourVariable = "JETS_AGENTIC_DETECT_HOUR_UTC"
 // and locus and leaves one already raised alone (shadow.IncidentIdFor).
 const agenticDetectWindow = "26h"
 
+// agenticDetectDescription is the task definition's description tag. A tag value
+// takes only letters, spaces, numbers and _ . / = + - : @, and ECS refuses the
+// task definition otherwise, so there is no comma here.
+const agenticDetectDescription = "Daily agentic detection task: run and feed detectors then shadow-mode triage"
+
 // The containers' names. The apiserver's run action overrides each by name,
 // and reads the names from JETS_AGENTIC_DETECT_CONTAINERS, which is built from
 // these, so the two cannot drift apart.
@@ -134,8 +139,7 @@ func (jsComp *JetStoreStackComponents) BuildAgenticDetect(scope constructs.Const
 		awscdk.Tags_Of(taskDefResource).Add(piiTagName, jsii.String("true"), nil)
 	}
 	if descriptionTagName != nil {
-		awscdk.Tags_Of(taskDefResource).Add(descriptionTagName,
-			jsii.String("Daily agentic detection task: run and feed detectors, then shadow-mode triage"), nil)
+		awscdk.Tags_Of(taskDefResource).Add(descriptionTagName, jsii.String(agenticDetectDescription), nil)
 	}
 	logGroup := awslogs.NewLogGroup(stack, jsii.String("AgenticDetectContainerLogGroup"), &awslogs.LogGroupProps{
 		Retention: awslogs.RetentionDays_THREE_MONTHS,

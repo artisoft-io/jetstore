@@ -23,7 +23,7 @@
             "over": "file_name",
             "fields": {
               "file_name": {
-                "fromKey": "file_name"
+                "fromKeyAtIndex": "file_name"
               }
             }
           }

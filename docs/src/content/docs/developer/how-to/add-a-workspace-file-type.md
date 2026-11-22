@@ -110,7 +110,9 @@ added and nothing else, the run here failed:
     section's Filters, or to fileTypesNotShownInTheIde with the reason.
 ```
 
-Add the suffix to the `Filters` of the section for its folder. The filter must be at least as specific
+Add the suffix to the `Filters` of the section for its folder. The section's filters are also what
+the IDE lets a person add (`wsfile.ListedInIde`): a file type no section lists can be neither opened
+nor added from the IDE. The filter must be at least as specific
 as the row's suffix: a section's bare `.json` does not count as showing `.note.json`. A type that
 deliberately has no section goes in `fileTypesNotShownInTheIde`
 (`jets/datatable/workspace_file_sections_test.go`) with the reason. A new folder is a new `Section`,
