@@ -149,6 +149,17 @@ describe("groupByTask", () => {
     expect(tasks[0]?.at).toBe("2026-10-13T08:00:05Z");
   });
 
+  it("puts the feed checks on the task's row, and keeps the task in flight while they run", () => {
+    const tasks = groupByTask([
+      row({ key: 1, trigger: "manual", status: "ok" }),
+      row({ key: 2, command: "feed_detect", trigger: "manual", status: "running" }),
+      row({ key: 3, command: "shadow_triage", trigger: "manual", status: "ok" }),
+    ]);
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0]?.feed?.key).toBe(2);
+    expect(inFlight(tasks[0]!)).toBe(true);
+  });
+
   it("names the requester and the manual trigger even from a row the command wrote", () => {
     const tasks = groupByTask([
       row({ trigger: "command", requestedBy: "" }),
@@ -182,6 +193,50 @@ describe("DetectionScreen", () => {
     expect(screen.getByRole("button", { name: "Run detection now" }).hasAttribute("disabled")).toBe(
       false,
     );
+  });
+
+  it("shows the feed checks, the feeds they did not judge and the feeds they could not read", async () => {
+    const { api } = await clientWith({
+      list_detection_runs: deployedList([
+        ...scheduled,
+        row({
+          key: 3,
+          command: "feed_detect",
+          status: "failed",
+          startedAt: "2026-10-13T08:00:10Z",
+          finishedAt: "2026-10-13T08:00:11Z",
+          errorMessage: "1 feed(s) could not be checked",
+          summary: {
+            mode: "window",
+            clients: 2,
+            profiledFeeds: 2,
+            unprofiledFeeds: 3,
+            anomaliesFound: 2,
+            anomaliesWritten: 2,
+            anomaliesAlreadyRecorded: 0,
+            feedErrors: [{ tableName: "claims_feed", error: "SQLSTATE 22007" }],
+          },
+        }),
+      ]),
+    });
+    renderScreen(api);
+    expect(await screen.findByText(/2 anomalies over 2 profiled feeds: 2 written/)).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Feed checks" })).toBeTruthy();
+    expect(screen.getByTestId("feed-unprofiled").textContent).toBe(
+      "3 feeds have no profile and were not judged.",
+    );
+    expect(
+      screen.getByText(/1 feed could not be checked: claims_feed \(SQLSTATE 22007\)/),
+    ).toBeTruthy();
+  });
+
+  it("says the feed checks are not recorded on a task that ran without them", async () => {
+    const { api } = await clientWith({
+      list_detection_runs: deployedList(scheduled),
+    });
+    renderScreen(api);
+    await screen.findByText(/1 anomaly over 40 worker rows/);
+    expect(screen.getByText("not recorded")).toBeTruthy();
   });
 
   it("opens the census and the attestation in a row of their own", async () => {

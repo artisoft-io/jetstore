@@ -8,7 +8,8 @@
 //
 // Usage:
 //
-//	shadow_triage -since 24h                  # every run that started in the window
+//	shadow_triage -since 24h                  # every run that started in the window, and every
+//	                                          # session carrying a feed anomaly detected in it
 //	shadow_triage -session <session id>       # one run
 //	shadow_triage -since 24h -dry-run         # classify, rank, report, write nothing
 //	shadow_triage -attest                     # read the record back and say whether anything acted
@@ -42,6 +43,25 @@
 // a later read that can see less is not evidence against it. What corrects
 // an incident is a person, through the supervision screen's `reclassified`
 // transition.
+//
+// # Feed findings, on the sessions they hang on
+//
+// A feed detector's anomaly hangs on a registration session: the delivery that
+// departs from the feed's profile, or, for a feed that stopped, its last
+// delivery, the one after which nothing came. Such a session may have no run,
+// so -since selects the sessions carrying a feed anomaly detected in the window
+// beside the runs that started in it, and the two delivery loci become
+// incidents at `diagnosed` like any other. -client is the feed's own client,
+// from its source configuration.
+//
+// # A draft proposal for a feed that looks cumulative
+//
+// After the incidents are written, a feed whose latest deliveries each
+// re-deliver most of their predecessor while its source configuration declares
+// it incremental gets a change proposal in `draft`, proposing to declare it
+// cumulative, with its incident as the trigger (jets/agentic/feedproposal).
+// The incident is not moved, no remediation is written, and a second run does
+// not draft it again. A person approves or rejects it on the proposals screen.
 //
 // # Its own run is recorded too
 //
@@ -145,11 +165,16 @@ type summary struct {
 	Regime          string                 `json:"purgeRegime"`
 	ChannelDetails  bool                   `json:"channelDetails"`
 	Runs            int                    `json:"runsClassified"`
+	FeedSessions    int                    `json:"feedSessionsSelected"`
 	Incidents       int                    `json:"incidentsWritten"`
 	Hypotheses      int                    `json:"hypothesesWritten"`
 	AlreadyRaised   int                    `json:"alreadyRaised"`
+	Grouped         int                    `json:"groupedIntoABurst"`
 	UnmappedLoci    []string               `json:"unmappedLoci"`
 	Census          map[string]locusCensus `json:"census"`
+	FeedsAssessed   int                    `json:"feedsAssessedForProposals"`
+	Proposals       int                    `json:"proposalsDrafted"`
+	ProposalsKnown  int                    `json:"proposalsAlreadyRecorded"`
 	AttestationRead bool                   `json:"attestationRead"`
 	AttestationHeld bool                   `json:"attestationHeld"`
 	Attestation     string                 `json:"attestation"`
@@ -172,7 +197,7 @@ func doAttest(ctx context.Context, db *pgxpool.Pool, sum *summary) error {
 	return nil
 }
 
-func doJob(ctx context.Context, db *pgxpool.Pool, sum *summary) error {
+func doJob(ctx context.Context, db *pgxpool.Pool, extent *triage.Extent, sum *summary) error {
 	targets, err := shadow.ReadTargets(ctx, db)
 	if err != nil {
 		return err
@@ -187,14 +212,30 @@ func doJob(ctx context.Context, db *pgxpool.Pool, sum *summary) error {
 
 	sessions := []string{*session}
 	if *session == "" {
-		if sessions, err = shadow.RecentSessions(ctx, db, time.Now().UTC().Add(-*since),
-			*client, *process, *limit); err != nil {
+		from := time.Now().UTC().Add(-*since)
+		if sessions, err = shadow.RecentSessions(ctx, db, from, *client, *process, *limit); err != nil {
 			return err
+		}
+		// The delivery loci hang on registration sessions, which may have no
+		// run, so the sessions carrying a feed anomaly are selected as well. A
+		// delivery belongs to no process, so -process leaves them out.
+		switch {
+		case *process != "":
+			log.Printf("-process is set, so sessions selected for their feed anomalies are not classified")
+		case !extent.Anomalies:
+			log.Printf("record: jetsapi.anomaly is absent, so no session is selected for its feed anomalies")
+		default:
+			feeds, err := shadow.RecentFeedSessions(ctx, db, from, *client, *limit)
+			if err != nil {
+				return err
+			}
+			sum.FeedSessions = len(feeds)
+			sessions = shadow.MergeSessions(sessions, feeds)
 		}
 	}
 	sum.Runs = len(sessions)
 	if len(sessions) == 0 {
-		log.Printf("no run started in the last %s", since.String())
+		log.Printf("no run started and no feed anomaly was detected in the last %s", since.String())
 		return nil
 	}
 	log.Printf("classifying %d run(s); severity is %q for every incident, which is a posture and not a "+
@@ -213,6 +254,10 @@ func doJob(ctx context.Context, db *pgxpool.Pool, sum *summary) error {
 			census[fmt.Sprintf("%s/%s", f.Locus, f.Verdict)]++
 		}
 		already += len(res.AlreadyRaised)
+		sum.Grouped += len(res.Grouped)
+		for _, g := range res.Grouped {
+			log.Printf("%s locus %s: one of a burst of deliveries, raised as one incident on the burst's last delivery", s, g)
+		}
 		for _, wr := range res.Written {
 			incidents++
 			hypotheses += wr.Hypotheses
@@ -223,6 +268,36 @@ func doJob(ctx context.Context, db *pgxpool.Pool, sum *summary) error {
 		if len(res.UnmappedLoci) > 0 {
 			log.Printf("%s: %v fired and the cause mapping maps them to no cause class, so those incidents carry no hypothesis",
 				s, res.UnmappedLoci)
+		}
+	}
+
+	// The advisory step: a feed whose deliveries look cumulative under an
+	// incremental declaration gets a change proposal in draft, triggered by
+	// its incident. It moves no incident and leaves the proposal in draft.
+	drafts, err := w.DraftFeedProposals(ctx, db, sessions)
+	if err != nil {
+		return err
+	}
+	sum.FeedsAssessed = len(drafts.Assessed)
+	for _, a := range drafts.Assessed {
+		if !a.Qualifies {
+			log.Printf("feed %s: no proposal (%s; %d of its latest deliveries look cumulative)",
+				a.TableName, a.Reason, len(a.Streak))
+		}
+	}
+	for _, d := range drafts.Drafts {
+		switch {
+		case d.Written:
+			sum.Proposals++
+			log.Printf("feed %s: drafted change proposal %s, triggered by %s; it stays in draft until a person moves it",
+				d.Assessment.TableName, d.Proposal.ProposalId, d.Proposal.TriggerRef)
+		case d.Existing != "":
+			sum.ProposalsKnown++
+			log.Printf("feed %s: change proposal %s is already recorded, in %s; not drafted again",
+				d.Assessment.TableName, d.Proposal.ProposalId, d.Existing)
+		default:
+			log.Printf("feed %s: change proposal %s would be drafted (-dry-run)",
+				d.Assessment.TableName, d.Proposal.ProposalId)
 		}
 	}
 
@@ -304,7 +379,7 @@ func run(ctx context.Context, db *pgxpool.Pool, sum *summary) error {
 		log.Printf("record: jetsapi.pipeline_execution_channel_details is absent, so locus " +
 			"sink_failed_under_completed_worker is not_evaluable on every run here")
 	}
-	return doJob(ctx, db, sum)
+	return doJob(ctx, db, extent, sum)
 }
 
 func stamp(t time.Time) string {

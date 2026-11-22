@@ -428,9 +428,9 @@ func TestTheBasisAndLocusAreWritableAndCheckable(t *testing.T) {
 				t.Errorf("%s: evidenceability %q is not in the vocabulary",
 					h.HypothesisId, h.Basis.Evidenceability)
 			}
-			if h.Basis.Evidenceability != string(rca.EvidenceabilityOf(h.CauseCategory)) {
-				t.Errorf("%s: basis says %q and the gate's table says %q for class %q", h.HypothesisId,
-					h.Basis.Evidenceability, rca.EvidenceabilityOf(h.CauseCategory), h.CauseCategory)
+			if h.Basis.Evidenceability != string(rca.EvidenceabilityAt(h.CauseCategory, h.Locus)) {
+				t.Errorf("%s: basis says %q and the gate's table says %q for class %q at %s", h.HypothesisId,
+					h.Basis.Evidenceability, rca.EvidenceabilityAt(h.CauseCategory, h.Locus), h.CauseCategory, h.Locus)
 			}
 			// The claim the column exists for.
 			if h.Locus == "" {

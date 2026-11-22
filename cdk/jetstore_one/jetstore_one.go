@@ -743,7 +743,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // RETENTION_DAYS site global rentention days, delete sessions if > 0
 // PURGE_DATA_SCHEDULED_HOUR_UTC hour of day to run purge_data, default 7 UTC
 // PURGE_DRY_RUN the purge lambda deletes only when exactly "false"; unset or anything else is a dry run
-// JETS_AGENTIC_DETECT_HOUR_UTC (optional) hour of day, 0 to 23 UTC, to run the agentic detection task (anomaly_detect, then shadow_triage); unset builds neither the task nor its schedule
+// JETS_AGENTIC_DETECT_HOUR_UTC (optional) hour of day, 0 to 23 UTC, to run the agentic detection task (anomaly_detect, feed_detect, then shadow_triage); unset builds neither the task nor its schedule
 // TASK_MAX_CONCURRENCY (defaults to 1)
 // JETS_DEFAULT_ERROR_REPORTING (optional, defaults to on) false/off/0/no stops giving operators that name no error_channel a default one writing to jetsapi.process_errors; read by the two cpipes starter lambdas only
 // JETS_DEFAULT_ERROR_MAX_COUNT (optional) max_error_count written onto the operators that get a default error channel, bounding what the default costs without turning it off; unset leaves each operator its own (20, or 50 for infer)

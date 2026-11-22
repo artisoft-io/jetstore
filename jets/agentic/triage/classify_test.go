@@ -441,7 +441,7 @@ func TestPredicatesOnAMigratedDeployment(t *testing.T) {
 		storeConfig(t, pool, k, "s-collapse", configNoErrorChannel)
 		r := classify(t, pool, "s-collapse", 0)
 		f := wantVerdict(t, r, LocusRowsLostSilently, Present)
-		if !strings.Contains(f.Basis, "volume_collapse@1") {
+		if !strings.Contains(f.Basis, "volume_collapse@2") {
 			t.Errorf("basis does not name the detector it ran: %s", f.Basis)
 		}
 		if !strings.Contains(f.Basis, "unsourced") {

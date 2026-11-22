@@ -100,6 +100,22 @@ var forward = map[string][]string{
 	StateDeployed: nil,
 }
 
+// runlessForward holds the edges a proposal no run produced has beyond the
+// design's machine, and there is one: `draft -> rejected`.
+//
+// **The design's machine assumes an agent walks a draft to a person.** Its
+// draft passes through validation and agent review before it reaches
+// `awaiting_human_approval`, the one state a person rejects from. A proposal
+// drafted from an incident has no agent run behind it, so nothing walks it,
+// and without this edge a person who reads it and disagrees has to click it
+// through two states that did not happen in order to say no. Rejecting it
+// where it stands records what happened. The edge is not offered on a
+// proposal a run produced: there the agent's review is still to come, and the
+// design's order holds.
+var runlessForward = map[string][]string{
+	StateDraft: {StateRejected},
+}
+
 // KnownState reports whether a string is one of the nine. A proposal row cannot
 // hold anything else — the CHECK sees to that — but a request body can, and a
 // caller naming a state that does not exist should be told so rather than
@@ -135,6 +151,31 @@ func Transitions(from string) []string {
 // and both are needed.
 func TransitionAllowed(from, to string) bool {
 	for _, s := range Transitions(from) {
+		if s == to {
+			return true
+		}
+	}
+	return false
+}
+
+// ProposalTransitions is Transitions for one proposal: the design's machine,
+// plus runlessForward when the proposal is decided without a run
+// (Proposal.DecidedWithoutRun). The screen and the handler both ask this, so
+// neither can offer or accept an edge the other would not.
+func ProposalTransitions(from string, decidedWithoutRun bool) []string {
+	out := Transitions(from)
+	if out == nil || !decidedWithoutRun {
+		return out
+	}
+	out = append(out, runlessForward[from]...)
+	sort.Strings(out)
+	return out
+}
+
+// ProposalTransitionAllowed is TransitionAllowed for one proposal, under
+// ProposalTransitions.
+func ProposalTransitionAllowed(from, to string, decidedWithoutRun bool) bool {
+	for _, s := range ProposalTransitions(from, decidedWithoutRun) {
 		if s == to {
 			return true
 		}

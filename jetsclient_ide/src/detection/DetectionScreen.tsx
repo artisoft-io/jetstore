@@ -4,8 +4,9 @@
  * than at the scheduled hour.
  *
  * **What it shows is what the commands recorded about themselves**
- * (`jetsapi.agentic_detection_run`), one row per task, its two commands side by
- * side. A task the record has not seen finish also shows what ECS says about it,
+ * (`jetsapi.agentic_detection_run`), one row per task, its three commands side by
+ * side: anomaly detection over the runs, the feed checks over the deliveries, and
+ * shadow triage over both. A task the record has not seen finish also shows what ECS says about it,
  * because a task that never got as far as starting a command -- an image that
  * would not pull, a container stopped for memory -- has no other way onto this
  * screen.
@@ -31,6 +32,7 @@ import {
   type DetectionList,
   type DetectionRunRow,
   type DetectionTaskRun,
+  type FeedSummary,
   type TaskState,
   type TriageSummary,
 } from "./api";
@@ -191,6 +193,7 @@ export function DetectionScreen({ api }: { api: ApiClient }) {
                     <th scope="col">Trigger</th>
                     <th scope="col">Window</th>
                     <th scope="col">Anomaly detection</th>
+                    <th scope="col">Feed checks</th>
                     <th scope="col">Shadow triage</th>
                   </tr>
                 </thead>
@@ -241,6 +244,11 @@ function TaskRow({ task, ecs }: { task: DetectionTaskRun; ecs?: TaskState }) {
           </CommandCell>
         </td>
         <td>
+          <CommandCell row={task.feed}>
+            {(s) => <FeedDetail summary={s as FeedSummary} />}
+          </CommandCell>
+        </td>
+        <td>
           <CommandCell row={task.triage}>
             {(s) => (
               <TriageDetail
@@ -254,7 +262,7 @@ function TaskRow({ task, ecs }: { task: DetectionTaskRun; ecs?: TaskState }) {
       </tr>
       {open && triageSummary && (
         <tr className="detection-expansion-row">
-          <td colSpan={5}>
+          <td colSpan={6}>
             <TriageExpansion summary={triageSummary} />
           </td>
         </tr>
@@ -297,6 +305,40 @@ function AnomalyDetail({ summary: s }: { summary: AnomalySummary }) {
       )}
       {s.truncated && (
         <div className="empty-sub">The read was capped; this is not the whole window.</div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The feed checks' result: what was found, and over how many feeds. A feed with
+ * no profile is not judged, which is not the same as clean, so their number is
+ * shown whenever there are any; the per-check coverage is in the record and the
+ * command's log.
+ */
+function FeedDetail({ summary: s }: { summary: FeedSummary }) {
+  const errors = s.feedErrors ?? [];
+  const unprofiled = n(s.unprofiledFeeds);
+  return (
+    <div className="detection-summary">
+      <div>
+        {count(s.anomaliesFound, "anomaly", "anomalies")} over{" "}
+        {count(s.profiledFeeds, "profiled feed", "profiled feeds")}: {n(s.anomaliesWritten)}{" "}
+        written, {n(s.anomaliesAlreadyRecorded)} already recorded
+        {s.dryRun && " (dry run)"}
+      </div>
+      {unprofiled > 0 && (
+        <div className="empty-sub" data-testid="feed-unprofiled">
+          {unprofiled === 1
+            ? "1 feed has no profile and was not judged."
+            : `${unprofiled} feeds have no profile and were not judged.`}
+        </div>
+      )}
+      {errors.length > 0 && (
+        <div className="detection-error">
+          {count(errors.length, "feed", "feeds")} could not be checked:{" "}
+          {errors.map((e) => `${e.tableName} (${e.error})`).join(", ")}
+        </div>
       )}
     </div>
   );

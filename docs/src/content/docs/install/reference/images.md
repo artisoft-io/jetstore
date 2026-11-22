@@ -51,7 +51,7 @@ so **an installation's images are specific to its workspace**. All the runtime i
 - **Contains**: JetStore's sources (`jets/`, `jetsclient_ide/`, `cdk/jetstore_one/`, `docs/` and the
   contract matrix), built: the C++ rule engine `libjets.so`; the Go binaries `cbooter`,
   `compile_workspace`, `install_workspace_assets`, `cpipes_native_server`, `rules_unit_test`,
-  `apiserver`, `run_reports`, `update_db`, `anomaly_detect`, `shadow_triage`, and `bootstrap` (the
+  `apiserver`, `run_reports`, `update_db`, `anomaly_detect`, `feed_detect`, `shadow_triage`, and `bootstrap` (the
   native node Lambda, from `lambdas/compute_pipes/cp_node_native`); the workspace validator
   `jets_validate_workspace.mjs`; and `jets_schema.json`, `workspace_schema.sql` and `jets_init_db.sql`
   copied to `/usr/local/bin`. `JETS_VERSION` is a build argument and is compiled into `libjets.so`.
@@ -82,7 +82,7 @@ so **an installation's images are specific to its workspace**. All the runtime i
 ### `Dockerfile.ui_service`
 
 - **Base**: `amazonlinux:2023`, with `git` and `libstdc++`.
-- **Contains**: `cbooter`, `apiserver`, `update_db`, `run_reports`, `anomaly_detect`, `shadow_triage`,
+- **Contains**: `cbooter`, `apiserver`, `update_db`, `run_reports`, `anomaly_detect`, `feed_detect`, `shadow_triage`,
   `rules_unit_test` and the workspace validator, with `libjets.so` and the three system libraries it
   needs; and the `node` binary, which the workspace compile runs the validator with.
   `JETS_TEMP_DATA` is `/jetsdata`.
@@ -107,7 +107,7 @@ so **an installation's images are specific to its workspace**. All the runtime i
   [Document a workspace](/docs/developer/how-to/document-a-workspace/).
 - **Deployed as**: the image in `JETS_ECR_REPO_ARN` at `JETS_IMAGE_TAG`, which the stack runs as the
   UI service (`cbooter apiserver`), the run-reports task (`cbooter run_reports`) and the agentic
-  detection task (`cbooter anomaly_detect`, then `cbooter shadow_triage`).
+  detection task (`cbooter anomaly_detect`, `cbooter feed_detect`, then `cbooter shadow_triage`).
 
 ### `Dockerfile.cpipes`
 

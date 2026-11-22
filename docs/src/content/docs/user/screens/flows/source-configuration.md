@@ -5,7 +5,8 @@ kind: reference
 ---
 
 A **source configuration** tells JetStore how to read one kind of file from one client and vendor:
-its object type, its format, whether it arrives in parts, its domain keys and its code value mapping.
+its object type, its format, whether it arrives in parts, its domain keys and its code value mapping,
+and the feed profile its deliveries are judged against.
 The *Source Configuration* flow lists them and walks through adding or editing one, page by page,
 to a summary that saves it. What each setting means is explained in
 [Source configurations and domain keys](/docs/user/concepts/source-configurations/).
@@ -97,6 +98,19 @@ Three pages of text, each optional:
 | Code value mapping | **Code Values Mapping (csv or json)**: the client's own codes, mapped to canonical codes. |
 | Schema provider | **Schema Provider JSON**: the schema of a file that carries none, for the formats that use one. |
 
+## The feed profile
+
+One more page of text, optional, before the summary:
+
+![The Feed Profile page of hc:PharmacyClaim: an empty Feed Profile (json) box whose placeholder names what a profile holds and that declared_by and declared_at are required, with Previous, Cancel and Next.](../../../../../assets/screenshots/user/screens/flows/source-configuration/feed-profile.png)
+
+| Page | Field |
+|---|---|
+| Feed profile | **Feed Profile (json)**: when the feed's deliveries are due, how large one is, where its claims are and the thresholds they are judged against, with who declared it and when. Leave it empty and the feed is not judged; empty it and save to remove a profile. |
+
+**Save** refuses a profile that is not one, naming each field at fault, and saves nothing. The fields
+are in [Declare a feed profile](/docs/user/how-to/declare-a-feed-profile/).
+
 ## The summary
 
 ![The summary of hc:PharmacyClaim: client CI, vendor D1, the object type, the staging table, CSV, a single file and not cumulative, with Previous, Cancel and Save.](../../../../../assets/screenshots/user/screens/flows/source-configuration/summary.png)
@@ -108,4 +122,5 @@ configuration, clearing the settings its format does not use, and returns to the
 ## See also
 
 - [Load and map a file](/docs/user/how-to/load-and-map-a-file/)
+- [Declare a feed profile](/docs/user/how-to/declare-a-feed-profile/)
 - [Your first pipeline](/docs/user/tutorials/first-pipeline/)

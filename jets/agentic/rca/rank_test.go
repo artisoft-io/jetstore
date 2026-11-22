@@ -390,7 +390,7 @@ func TestTheRankingBasisIsCheckableByCounting(t *testing.T) {
 	seenUnevidenceable := false
 	for i := range got.Hypotheses {
 		h := &got.Hypotheses[i]
-		un := evidenceabilityOf(h.CauseCategory) == None
+		un := EvidenceabilityAt(h.CauseCategory, h.Locus) == None
 		if un {
 			seenUnevidenceable = true
 		} else if seenUnevidenceable {
@@ -399,7 +399,7 @@ func TestTheRankingBasisIsCheckableByCounting(t *testing.T) {
 		}
 		if i > 0 {
 			p := &got.Hypotheses[i-1]
-			if (evidenceabilityOf(p.CauseCategory) == None) == un && p.Confidence < h.Confidence {
+			if (EvidenceabilityAt(p.CauseCategory, p.Locus) == None) == un && p.Confidence < h.Confidence {
 				t.Errorf("rank %d is less confident than rank %d within one tier", p.Rank, h.Rank)
 			}
 		}
@@ -451,7 +451,7 @@ func TestAnomalyConfoundersReachTheCaseAgainst(t *testing.T) {
 			t.Errorf("%s carries a confounder from an anomaly whose signal maps to no locus", h.CauseCategory)
 		}
 	}
-	if !strings.Contains(got.Basis, "an-2 (step_regression)") {
+	if !strings.Contains(got.Basis, "an-2 (step_regression on stage)") {
 		t.Errorf("the ranking's basis does not name the anomaly that reached no hypothesis: %s", got.Basis)
 	}
 }

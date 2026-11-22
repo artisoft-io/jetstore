@@ -1,0 +1,72 @@
+{
+  "comment": "The summary of a feed incident, in the text template notation that jets/agentic/template compiles. This file is the one copy; it is embedded in jets/agentic/feedsummary and compiled when the package is first used. Its document is built by feedsummary.Document from a feedsummary.Input, which holds numbers, dates and closed vocabularies and nothing read from a delivery's rows. Every property a predicate tests is either a word from a closed list or the marker 'yes', present only when true, so an absent property and a false one read the same.",
+  "key": "feed_incident_summary",
+  "width": 96,
+  "elements": [
+    {
+      "comment": "The headline: which feed, what happened, when it was found. The two loci are the only two a feed incident can sit at, and Validate refuses any other.",
+      "text": "{{if Locus == 'delivery_overdue'}}Feed {{Feed_Table}} is overdue{{end}}{{if Locus == 'delivery_departs_profile'}}A delivery of feed {{Feed_Table}} departs from the feed's declared profile{{end}}{{if Feed_Configured != ''}} (client {{Feed_Client}}{{if Feed_Org != ''}}, org {{Feed_Org}}{{end}}, object type {{Feed_Object_Type}}, {{if Feed_Cumulative != ''}}a cumulative feed{{end}}{{if Feed_Cumulative == ''}}an incremental feed{{end}}){{end}}. Found on {{Detected_At|d_MMMM_yyyy}}."
+    },
+    {
+      "comment": "A feed no source configuration names has no client and no declaration, and the summary says so rather than leaving the two paragraphs that need them silent.",
+      "when": "Feed_Configured == ''",
+      "text": "No source configuration names this table, so no client can be named for the feed and no declaration could be read for it."
+    },
+    {
+      "comment": "Some deployments register deliveries under a placeholder client. The feed is attributed by table name, and the reader is told so before reading a client they will not find on the registration.",
+      "when": "Registered_Under != ''",
+      "text": "The delivery is registered under client {{Registered_Under}}, not the feed's own; it is attributed to the feed by its table name."
+    },
+    {
+      "comment": "What departed from what. One sentence per finding, worded by its detector, with the declared or expected bound beside the measurement. A finding whose numbers could not be read back says so rather than being dropped.",
+      "empty": "No finding at this locus could be read back for this feed.",
+      "elements": [
+        {
+          "text": "{{each has_Findings[] sep: ' ' last: ' '}}{{if Parsed == ''}}The {{Detector}} check fired; what it measured could not be read back as a number.{{end}}{{if Parsed != ''}}{{if Detector == 'feed_overdue'}}No delivery has arrived since the one for the period starting {{Observed_Period|d_MMMM_yyyy}}{{if Overdue_From != ''}}; under the declared cadence the next became overdue on {{Overdue_From|d_MMMM_yyyy}}{{if Days_Overdue != ''}}, {{Days_Overdue|words}} {{Days_Overdue|plural: 'day'}} before this was found{{end}}{{end}}.{{end}}{{if Detector == 'delivery_size'}}The delivery is {{Observed_Text}} bytes{{if Below != ''}}, below the expected minimum of {{Min_Text}} bytes{{end}}{{if Above != ''}}, above the expected maximum of {{Max_Text}} bytes{{end}}.{{end}}{{if Detector == 'delivery_backdated'}}The delivery is for the period starting {{Observed_Period|d_MMMM_yyyy}}, behind the latest period already delivered, which starts {{Bound_Period|d_MMMM_yyyy}}{{if Periods_Behind != ''}}: {{Periods_Behind|words}} {{if Period_Word == 'month'}}{{Periods_Behind|plural: 'month'}}{{end}}{{if Period_Word == 'week'}}{{Periods_Behind|plural: 'week'}}{{end}}{{if Period_Word == 'day'}}{{Periods_Behind|plural: 'day'}}{{end}}{{if Period_Word == ''}}{{Periods_Behind|plural: 'period'}}{{end}} behind{{end}}.{{end}}{{if Detector == 'service_date_stale'}}The newest date of service is {{Observed_Text}} {{Unit}} behind the delivery's arrival{{if Unit == 'calendar months'}}, counted in calendar months because the delivery has few distinct members{{end}}; the declaration allows at most {{Bound_Text}} {{Bound_Unit}}.{{end}}{{if Detector == 'service_date_span'}}The dates of service span {{Observed_Text}} days, newest less oldest; the declaration allows at most {{Bound_Text}} days.{{end}}{{if Detector == 'field_completeness'}}The required field {{Column}} carries a value in {{Observed_Text}} of the delivery's rows; the declaration requires at least {{Bound_Text}}.{{end}}{{if Detector == 'delivery_overlap'}}{{if Unit == 'share'}}{{Observed_Text}} of the delivery's distinct keys were already in the previous delivery; the declaration allows at most {{Bound_Text}}.{{end}}{{if Unit == 'keys absent'}}{{Observed_Text}} of the previous delivery's distinct keys are absent from this one, where a cumulative feed keeps every key it has sent.{{end}}{{end}}{{if Detector == 'delivery_unchanged'}}The delivery carries exactly the same business keys as the previous one.{{end}}{{end}}{{end}}"
+        }
+      ]
+    },
+    {
+      "comment": "The cadence is what an overdue finding was owed against, so it is stated on that locus only. On the other locus each finding already carries its own bound.",
+      "when": "Locus == 'delivery_overdue' and Declaration_Readable != '' and Period_Word != ''",
+      "text": "The declaration expects a delivery every {{if Periods_Per_Delivery > 1}}{{Periods_Per_Delivery|words}} {{end}}{{if Period_Word == 'month'}}{{Periods_Per_Delivery|plural: 'month'}}{{end}}{{if Period_Word == 'week'}}{{Periods_Per_Delivery|plural: 'week'}}{{end}}{{if Period_Word == 'day'}}{{Periods_Per_Delivery|plural: 'day'}}{{end}}{{if Overdue_After_Days != ''}}, with {{Overdue_After_Days|words}} {{Overdue_After_Days|plural: 'day'}} of grace{{end}}."
+    },
+    {
+      "comment": "The ranked readings, best first, each with its confidence, its count of evidence for and against, and the grade its cause class has at this locus. A grade is printed as the ranker records it, so that a reader can find it on the hypothesis below.",
+      "empty": "No reading has been ranked for this incident.",
+      "elements": [
+        {
+          "when": "has_Readings[]|count > 0",
+          "text": "The readings, best first: {{each has_Readings[] sep: '; ' last: '; '}}{{Rank}}. {{if Cause == 'source_delivery_failure'}}the source did not send the delivery{{end}}{{if Cause == 'source_content_change'}}the source changed what it sends{{end}}{{if Cause == 'transformation_defect'}}the mapping lost or changed what the source sent{{end}}{{if Cause == 'benign_variation'}}an ordinary variation, or a declaration that no longer fits the feed{{end}}{{if Cause == 'transport_failure'}}the file was damaged or cut short in transit{{end}}{{if Cause == 'parse_failure'}}the file could not be read as declared{{end}}{{if Cause == 'validation_breach'}}the data failed a validation rule{{end}}{{if Cause == 'infrastructure_failure'}}the platform failed{{end}}{{if Cause == 'dependency_failure'}}something the feed depends on failed{{end}}{{if Cause == 'capacity_or_cost_deviation'}}a capacity or cost limit was reached{{end}} ({{Cause}}), confidence {{Confidence_Text}}, {{Supporting|words}} {{Supporting|plural: 'item'}} of evidence for and {{Contradicting|words}} against, graded {{Grade}} at this locus{{end}}."
+        }
+      ]
+    },
+    {
+      "comment": "The case against every reading: the declaration is what the delivery was judged against, so its author and its age are the first thing to doubt. This is the same item every feed hypothesis carries as contradicting evidence.",
+      "when": "Feed_Configured != ''",
+      "elements": [
+        {
+          "when": "Declaration_Readable != ''",
+          "text": "The case against every reading: the profile this delivery was judged against was declared by {{Declared_By}}{{if Declared_At != ''}} on {{Declared_At|d_MMMM_yyyy}}{{if Declared_After == ''}}, {{Declaration_Age_Days|words}} {{Declaration_Age_Days|plural: 'day'}} before this was found{{end}}{{if Declared_After != ''}}, after this was found; the profile has been declared again since, so this names the current declaration and not the one the delivery was judged against{{end}}{{end}}. The judgement is only as good as that declaration, and a departure from a declaration that no longer describes the feed is not a fault in the feed."
+        },
+        {
+          "when": "Declaration_Readable == ''",
+          "text": "The case against every reading: the feed's profile can no longer be read, so who declared it and when cannot be given. Every reading rests on a declaration that cannot now be checked."
+        }
+      ]
+    },
+    {
+      "comment": "A burst: the same check fired on other deliveries of the feed registered the same day. Shadow triage raises a burst as a single incident, on its last delivery, so the others usually have none of their own; an incident another of them carries for a finding outside the burst is named. Nothing here changes the record.",
+      "when": "has_Bursts[]|count > 0",
+      "text": "{{each has_Bursts[] sep: ' ' last: ' '}}This incident stands for the {{Deliveries|words}} deliveries of the feed registered on {{Day|d_MMMM_yyyy}} on which the {{Detector}} check fired.{{if Unraised != ''}} {{Unraised|words|sentence}} of them {{if Unraised == '1'}}has{{end}}{{if Unraised != '1'}}have{{end}} no incident of {{if Unraised == '1'}}its{{end}}{{if Unraised != '1'}}their{{end}} own.{{end}}{{if Others_Text != ''}} Incidents raised on others of them: {{Others_Text}}{{if Others_More != ''}} and {{Others_More|words}} more{{end}}.{{end}}{{end}} A burst of deliveries is raised as a single incident; give it a single verdict."
+    },
+    {
+      "when": "Other_Feeds > 0",
+      "text": "The same session carries findings on {{Other_Feeds|words}} other {{Other_Feeds|plural: 'feed'}} at this locus, which this summary does not describe."
+    },
+    {
+      "comment": "Said every time, because a reader cannot otherwise tell a rendered summary from a drafted one.",
+      "text": "This summary is rendered from the incident's findings, the feed's declaration and the ranked readings, by a fixed template. No model wrote it."
+    }
+  ]
+}

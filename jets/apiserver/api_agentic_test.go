@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/agentic/audit"
+	"github.com/artisoft-io/jetstore/jets/agentic/feedsummary"
 )
 
 // fakeOps is a scripted agenticOps. Every field is optional; an action that
@@ -68,6 +69,11 @@ type fakeOps struct {
 	verdictClassificationBefore string
 	verdictRunRef               string
 
+	// The feed incident summary: which incidents were summarised, and an
+	// error to return instead of a summary.
+	summaryAsked []string
+	summaryErr   error
+
 	// The Detection screen; its methods are in
 	// api_agentic_detection_test.go.
 	detection detectionFake
@@ -114,6 +120,13 @@ func (f *fakeOps) ListIncidents(_ context.Context, statuses []string, _ int) ([]
 		return nil, f.incidentErr
 	}
 	return f.incidents, nil
+}
+func (f *fakeOps) FeedIncidentSummary(_ context.Context, inc *audit.Incident) (*feedsummary.Summary, error) {
+	f.summaryAsked = append(f.summaryAsked, inc.IncidentId)
+	if f.summaryErr != nil {
+		return nil, f.summaryErr
+	}
+	return &feedsummary.Summary{Text: "rendered " + inc.IncidentId, RenderedBy: feedsummary.RenderedBy}, nil
 }
 func (f *fakeOps) ReadIncident(_ context.Context, id string, phi audit.PHIAccess) (*audit.Incident, error) {
 	f.phiSeen = phi
@@ -452,10 +465,10 @@ func TestListIncidentsCarriesBothTaxonomiesAndTheVocabulary(t *testing.T) {
 	if shard, ok := row["shardRef"].(*int64); !ok || shard == nil || *shard != 0 {
 		t.Errorf("shardRef %v, want a pointer to 0 — shard 0 is a shard", row["shardRef"])
 	}
-	// The nine loci come from the server so the screen's legend cannot drift
+	// The eleven loci come from the server so the screen's legend cannot drift
 	// from the CHECK the rows are written against.
-	if loci, ok := res["loci"].([]string); !ok || len(loci) != 9 {
-		t.Errorf("loci %v, want the nine", res["loci"])
+	if loci, ok := res["loci"].([]string); !ok || len(loci) != 11 {
+		t.Errorf("loci %v, want the eleven", res["loci"])
 	}
 	if st, ok := res["incidentStatuses"].([]string); !ok || len(st) != 11 {
 		t.Errorf("incidentStatuses %v, want the eleven", res["incidentStatuses"])
@@ -862,5 +875,48 @@ func TestGetIncidentOffersNothingOnATerminalStatus(t *testing.T) {
 	}
 	if got := res["permittedTransitions"].([]string); len(got) != 0 {
 		t.Errorf("a closed incident offers %v", got)
+	}
+}
+
+// A feed incident carries its rendered summary; a run incident asks for none;
+// and a summary that cannot be rendered leaves the incident readable, with
+// the reason beside it.
+func TestGetIncidentCarriesAFeedIncidentsSummary(t *testing.T) {
+	feed := &audit.Incident{IncidentSummary: audit.IncidentSummary{IncidentId: "inc_1_delivery_overdue",
+		SessionId: "1", Locus: "delivery_overdue", Status: audit.IncidentDiagnosed}}
+	ops := &fakeOps{incident: feed}
+	res, code, err := dispatch(t, ops, &AgenticAction{Action: "get_incident", IncidentId: feed.IncidentId}, "a@b")
+	if err != nil || code != 200 {
+		t.Fatalf("code %d, err %v", code, err)
+	}
+	inc := res["incident"].(map[string]any)
+	sum, ok := inc["summary"].(map[string]any)
+	if !ok {
+		t.Fatalf("a feed incident carries no summary: %v", inc)
+	}
+	if sum["text"] != "rendered inc_1_delivery_overdue" || sum["renderedBy"] != feedsummary.RenderedBy {
+		t.Errorf("summary %v", sum)
+	}
+
+	run := &audit.Incident{IncidentSummary: audit.IncidentSummary{IncidentId: "inc_2_worker_failed",
+		SessionId: "2", Locus: "worker_failed", Status: audit.IncidentDiagnosed}}
+	ops = &fakeOps{incident: run}
+	res, _, err = dispatch(t, ops, &AgenticAction{Action: "get_incident", IncidentId: run.IncidentId}, "a@b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	inc = res["incident"].(map[string]any)
+	if _, ok := inc["summary"]; ok || len(ops.summaryAsked) != 0 {
+		t.Errorf("a run incident was summarised: %v", inc)
+	}
+
+	ops = &fakeOps{incident: feed, summaryErr: errors.New("the profile table is not deployed")}
+	res, code, err = dispatch(t, ops, &AgenticAction{Action: "get_incident", IncidentId: feed.IncidentId}, "a@b")
+	if err != nil || code != 200 {
+		t.Fatalf("a summary that cannot be rendered failed the read: code %d, err %v", code, err)
+	}
+	inc = res["incident"].(map[string]any)
+	if inc["summaryError"] != "the profile table is not deployed" {
+		t.Errorf("the reason is not carried: %v", inc)
 	}
 }

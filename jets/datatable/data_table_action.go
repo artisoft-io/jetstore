@@ -1129,6 +1129,12 @@ func (ctx *DataTableContext) InsertRows(dataTableAction *DataTableAction, token 
 				httpStatus = http.StatusBadRequest
 				return
 			}
+			// The feed profile is refused here, with its findings, rather than
+			// by the database (source_config_feed_profile.go).
+			if err = normaliseFeedProfile(dataTableAction.Data[irow]); err != nil {
+				httpStatus = http.StatusBadRequest
+				return
+			}
 
 		case strings.HasSuffix(dataTableAction.FromClauses[0].Table, "user_git_profile"):
 			gitToken := dataTableAction.Data[irow]["git_token"]

@@ -43,6 +43,28 @@ type Proposal struct {
 	ModelVersion         string
 }
 
+// TriggerIncident is the trigger of a proposal an incident prompted, such as
+// the change a feed incident's evidence suggests. No agent run produced it.
+const TriggerIncident = "incident"
+
+// RunlessDecisionTier is the tier a decision on a proposal no run produced is
+// recorded at. The tier of a decision is otherwise read from the run that
+// produced the proposal; with no run there is nothing to read, and the
+// proposal was drafted under shadow mode's posture, in which nothing acts, so
+// the decision carries the lowest authority rather than a guessed one.
+const RunlessDecisionTier = string(TierT0)
+
+// DecidedWithoutRun reports whether a proposal is decided without an
+// originating run: its trigger_ref names what prompted it, not an agent run,
+// so a decision on it has no run to take a tier from and no chain to join.
+// Only an incident trigger is such a proposal; every other trigger keeps the
+// run-backed path.
+func (p *Proposal) DecidedWithoutRun() bool { return p != nil && p.Trigger == TriggerIncident }
+
+// DecidedWithoutRun is Proposal.DecidedWithoutRun for a list row, so the list
+// offers a runless proposal the same transitions its detail screen does.
+func (p ProposalSummary) DecidedWithoutRun() bool { return p.Trigger == TriggerIncident }
+
 // RecordProposal inserts a proposal. It is deliberately not part of the
 // write-before-act transaction: a proposal is what a run *produced*, so it is
 // written after the work rather than before it, and its durability matters less

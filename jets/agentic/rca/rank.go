@@ -2,7 +2,6 @@ package rca
 
 import (
 	"fmt"
-	"slices"
 	"sort"
 	"strings"
 
@@ -106,11 +105,12 @@ func (r Ranker) Rank(in *Input) *Ranking {
 	var unplacedSignals []string
 	for i := range in.Anomalies {
 		a := in.Anomalies[i]
-		if l, ok := signalLocus[a.SignalType]; ok {
+		if l, ok := triage.LocusOf(a.SubjectType, a.SignalType); ok {
 			anomaliesAt[l] = append(anomaliesAt[l], a)
 			continue
 		}
-		unplacedSignals = append(unplacedSignals, fmt.Sprintf("%s (%s)", a.AnomalyId, a.SignalType))
+		unplacedSignals = append(unplacedSignals,
+			fmt.Sprintf("%s (%s on %s)", a.AnomalyId, a.SignalType, a.SubjectType))
 	}
 
 	for _, locus := range present {
@@ -166,7 +166,7 @@ func (r Ranker) hypothesis(in *Input, byLocus map[string]*triage.Finding,
 	// evidenced at one, and this is the only place the floor compares classes
 	// on anything but their table row.
 	for _, other := range c.Loci {
-		if other == locus {
+		if other == locus || !sameRecord(other, locus) {
 			continue
 		}
 		if g := byLocus[other]; g != nil && g.Verdict == triage.Present {
@@ -190,19 +190,31 @@ func (r Ranker) hypothesis(in *Input, byLocus map[string]*triage.Finding,
 
 	h.SupportingEvidence = append(h.SupportingEvidence, corroborators(in, locus, c)...)
 
+	// The feed's declaration: what a feed hypothesis is evidenced by where the
+	// condition its grade names is met, and the date and author every feed
+	// hypothesis carries against itself.
+	declared := declarationEvidence(in, locus, c, anomaliesAt[locus])
+	h.SupportingEvidence = append(h.SupportingEvidence, declared.supporting...)
+
 	// --- the case against ----------------------------------------------------
 
 	// The table's own verdict on whether the record can evidence this class. Every
 	// class but parse_failure carries one, which is what makes the floor
-	// advisory by construction rather than by intention.
-	if c.Evidenceability != Evidenced {
+	// advisory by construction rather than by intention. **The one exception is a
+	// Conditional class whose condition this hypothesis meets**: a declared
+	// cadence at delivery_overdue, a column the profile names at
+	// delivery_departs_profile. There the item would say "conditional" of a
+	// condition the case for has just shown to hold, and the case against is
+	// the declaration's own date and author instead.
+	if grade := c.At(locus); grade != Evidenced && !declared.conditionMet {
 		h.ContradictingEvidence = append(h.ContradictingEvidence, Evidence{
 			Statement: fmt.Sprintf("the execution record's ability to evidence %s is %q: %s",
-				c.Name, c.Evidenceability, c.Note),
+				c.Name, grade, c.Note),
 			Source:    SourceCodeInspection,
 			SourceRef: "jets/agentic/rca cause mapping",
 		})
 	}
+	h.ContradictingEvidence = append(h.ContradictingEvidence, declared.against...)
 
 	// The confounders the classifier and the detectors declared. This is the
 	// substrate the design named, and it is the reason the contradicting side is
@@ -222,7 +234,7 @@ func (r Ranker) hypothesis(in *Input, byLocus map[string]*triage.Finding,
 	// be asked at all. The two are different claims and are worded differently:
 	// the first is evidence against, the second is a bound on the case.
 	for _, other := range c.Loci {
-		if other == locus {
+		if other == locus || !sameRecord(other, locus) {
 			continue
 		}
 		g := byLocus[other]
@@ -419,8 +431,8 @@ func causeSentence(locus string, c CauseClass) string {
 func sortHypotheses(hs []Hypothesis) {
 	sort.SliceStable(hs, func(i, j int) bool {
 		a, b := &hs[i], &hs[j]
-		ea := evidenceabilityOf(a.CauseCategory) != None
-		eb := evidenceabilityOf(b.CauseCategory) != None
+		ea := EvidenceabilityAt(a.CauseCategory, a.Locus) != None
+		eb := EvidenceabilityAt(b.CauseCategory, b.Locus) != None
 		if ea != eb {
 			return ea
 		}
@@ -443,13 +455,13 @@ func rankBasis(h *Hypothesis, total int) string {
 		"ratio of the two lists below and not a probability.",
 		h.Rank, total, sup, con, sup, sup+con, h.Confidence)
 	b += fmt.Sprintf(" Derived from locus %s, which the cause mapping lists as carrying %s.", h.Locus, h.CauseCategory)
-	if e := evidenceabilityOf(h.CauseCategory); e == None {
+	if e := EvidenceabilityAt(h.CauseCategory, h.Locus); e == None {
 		b += " The cause mapping answers \"no\" to whether the record can evidence this class, so it is ranked below" +
 			" every class the record can speak to whatever its count; a class the substrate cannot" +
 			" evidence is not a weak candidate but one there is no instrument for."
 	} else {
-		b += fmt.Sprintf(" The cause mapping's evidenceability for this class is %q, which puts it above every class"+
-			" the record cannot evidence at all.", e)
+		b += fmt.Sprintf(" The cause mapping's evidenceability for this class at this locus is %q, which puts it"+
+			" above every class the record cannot evidence at all.", e)
 	}
 	if con == 0 {
 		b += " Nothing was found against it, which for this class means the cause mapping records the record as able" +
@@ -480,7 +492,7 @@ func (r Ranker) rankingBasis(out *Ranking, present, unplacedSignals []string, an
 			len(out.UnmappedLoci), strings.Join(out.UnmappedLoci, ", "))
 	}
 	if len(out.UnaskedLoci) > 0 {
-		fmt.Fprintf(&b, "%d of the nine loci could not be evaluated (%s), so every class whose only "+
+		fmt.Fprintf(&b, "%d of the loci could not be evaluated (%s), so every class whose only "+
 			"evidence position is among them has not been ruled out — it has not been looked at. ",
 			len(out.UnaskedLoci), strings.Join(out.UnaskedLoci, ", "))
 	}
@@ -488,9 +500,16 @@ func (r Ranker) rankingBasis(out *Ranking, present, unplacedSignals []string, an
 	for _, c := range causeClasses {
 		if len(c.Loci) == 0 {
 			noLocus = append(noLocus, c.Name)
+			continue
 		}
-		if c.Evidenceability == None {
-			noEvidence = append(noEvidence, c.Name)
+		var at []string
+		for _, l := range c.Loci {
+			if c.At(l) == None {
+				at = append(at, l)
+			}
+		}
+		if len(at) > 0 {
+			noEvidence = append(noEvidence, fmt.Sprintf("%s at %s", c.Name, strings.Join(at, ", ")))
 		}
 	}
 	fmt.Fprintf(&b, "%d of the ten cause classes are attached to no locus at all in the cause mapping (%s) and can "+
@@ -499,7 +518,7 @@ func (r Ranker) rankingBasis(out *Ranking, present, unplacedSignals []string, an
 		"locus fires and carry the cause mapping's own reason as evidence against themselves, which is how a class the "+
 		"record cannot support is put in front of a reader rather than hidden from one. ",
 		len(noLocus), strings.Join(noLocus, ", "),
-		len(noEvidence)-len(noLocus), strings.Join(without(noEvidence, noLocus), ", "))
+		len(noEvidence), strings.Join(noEvidence, "; "))
 	if anomalies == 0 {
 		b.WriteString("No anomaly rows were supplied for this session, so no detector's confounders " +
 			"entered the case against; jetsapi.anomaly is deployed only where `update_db -migrateDb` " +
@@ -508,21 +527,11 @@ func (r Ranker) rankingBasis(out *Ranking, present, unplacedSignals []string, an
 		fmt.Fprintf(&b, "%d anomaly row(s) were read. ", anomalies)
 	}
 	if len(unplacedSignals) > 0 {
-		fmt.Fprintf(&b, "%d anomaly/anomalies carry a signal type the locus table has no locus for and contributed "+
-			"to no hypothesis (%s): step_regression is a comparison across runs rather than a position "+
-			"in one run's record. ", len(unplacedSignals), strings.Join(unplacedSignals, ", "))
+		fmt.Fprintf(&b, "%d anomaly/anomalies carry a signal and subject the locus table has no locus for and "+
+			"contributed to no hypothesis (%s): step_regression is a comparison across runs rather than a "+
+			"position in one run's record, and a subject other than worker, edge or feed is one the table "+
+			"does not place. ", len(unplacedSignals), strings.Join(unplacedSignals, ", "))
 	}
 	b.WriteString("No model was consulted.")
 	return b.String()
-}
-
-// without returns a minus b, preserving a's order.
-func without(a, b []string) []string {
-	var out []string
-	for _, s := range a {
-		if !slices.Contains(b, s) {
-			out = append(out, s)
-		}
-	}
-	return out
 }

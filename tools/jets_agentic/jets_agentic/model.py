@@ -101,7 +101,8 @@ class IncidentClassification(StrEnum):
 
 class IncidentLocus(StrEnum):
     """**Ours entirely, and it is the taxonomy the triage design derived from
-    the execution record** (9 values). Not in the proposal at any level.
+    the execution record** (11 values: nine positions in a run's record, then
+    two positions in a feed's deliveries). Not in the proposal at any level.
 
     **A locus is where in the record a cause would have to have left its
     evidence; it is not a cause.** The triage design's finding is that the
@@ -128,6 +129,27 @@ class IncidentLocus(StrEnum):
 
     Ordered by how early the failure occurs, which is also roughly the order of
     how little the record retains. Appended to, never renumbered.
+
+    **The last two are positions in a feed's deliveries rather than in a run,
+    and they are appended rather than placed first.** A delivery precedes the
+    run that loads it, so by the ordering rule above both belong before
+    `run_not_started`; by the rule after it they go at the end, and the second
+    rule wins because the stored values and the CHECK's order outlive any one
+    reading of "how early". So the member order is no longer failure order for
+    these two, and a reader who sorts by it should know that.
+
+    **Both remain predicates over `jetsapi`.** A feed detector reads outside
+    the execution record — the registration of a delivery against a declared
+    profile — and writes an anomaly row with subject `feed`; the locus reads that
+    row. The specific departure (stale, restated, incomplete, too large) is the
+    anomaly's signal and not the locus, which is why two loci suffice for seven
+    detectors. **Neither has a session of its own when nothing arrived**: an
+    incident at `delivery_overdue` is keyed on the last delivery's session — the
+    one after which nothing came — with the feed as its subject.
+
+    The names are observations against a declaration, not diagnoses:
+    *overdue* and *departs* say what was seen, not that the feed is at fault,
+    and the declaration may be what is wrong.
     """
 
     # row 1: header terminal, zero worker rows.
@@ -149,6 +171,13 @@ class IncidentLocus(StrEnum):
     per_record_failures_unreportable = "per_record_failures_unreportable"
     # row 9: `output_location` names a destination the data is not at.
     written_not_arrived = "written_not_arrived"
+    # A feed anomaly with signal `arrival`: no delivery within the declared
+    # cadence of the last one.
+    delivery_overdue = "delivery_overdue"
+    # A feed anomaly with any other signal: a delivery that arrived and departs
+    # from the feed's declared profile (size, freshness, span, completeness,
+    # overlap, repetition).
+    delivery_departs_profile = "delivery_departs_profile"
 
 
 class IncidentStatus(StrEnum):
@@ -763,7 +792,7 @@ class Hypothesis(JetsaEntity):
         "The evidence against — required; empty only where the agent explicitly asserts none exists (the proposal's rule)."
     )
     hypothesis_locus: IncidentLocus = prop(
-        "**The triage classifier's verdict this hypothesis was derived from** - the same nine-value "
+        "**The triage classifier's verdict this hypothesis was derived from** - the same "
         "vocabulary Incident.incident_locus is constrained by, deliberately not a second list. Added "
         "before the first row was written rather than after. Required: the ranker's headline finding "
         "is that 20 of 29 model-generated hypotheses sat at loci triage did not find present, and "
@@ -895,8 +924,9 @@ class Incident(JetsaEntity):
         "when a detector emitted an observation rather than when triage clustered them."
     )
     incident_locus: IncidentLocus = prop(
-        "**Where in the execution record the evidence sits** - the nine loci, the taxonomy "
-        "the record can evidence and the one the triage classifier classifies deterministically. "
+        "**Where in the record the evidence sits** - nine positions in a run's execution record "
+        "and two in a feed's deliveries, the taxonomy the record can evidence and the one the "
+        "triage classifier classifies deterministically. "
         "Required, and carried beside classification rather than instead of it: the locus is "
         "evidence, the classification is a claim."
     )
@@ -914,7 +944,7 @@ class Incident(JetsaEntity):
     status: IncidentStatus = prop("Where the incident sits in the proposal's incident state machine.")
     incident_step_ref: str | None = prop(
         "The `cpipes_step_id` the incident localises to, where the locus supplies one. Optional "
-        "by construction - four of the nine loci have no step. An incident that sets it "
+        "by construction - four of the nine run loci have no step, and neither delivery locus has one. An incident that sets it "
         "should carry step_label_ambiguous in incident_confounders.",
         default=None,
     )

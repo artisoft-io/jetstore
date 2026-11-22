@@ -676,6 +676,11 @@
         "isNotNull": true
       },
       {
+        "columnName": "feed_profile_json",
+        "description": "The feed's profile (jets/agentic/feedprofile): when deliveries are due, their expected size, the claim set and the thresholds the feed detectors judge against. NULL: the feed is not judged",
+        "dataType": "jsonb"
+      },
+      {
         "columnName": "schema_provider_json",
         "dataType": "text",
         "description": "Additional file config, with lesser priority than the other settings on this table."

@@ -5,7 +5,7 @@
  * ## Three things this screen refuses to do
  *
  * **It does not show a locus without saying what the record cannot see.** Every
- * one of the nine loci has a *cannot see* column, and that column is the part of
+ * one of the loci has a *cannot see* column, and that column is the part of
  * the finding that does not survive a summary. A
  * screen that rendered `worker_failed` as a bare label would be handing an
  * operator a word that looks like a diagnosis. So the gloss and the blind spot
@@ -53,11 +53,13 @@ import {
   IncidentStateConflictError,
   IncidentsApi,
   LOCUS_GLOSS,
+  locusLabel,
   RECLASSIFIED,
   vocabLabel,
   type Evidence,
   type HypothesisRow,
   type IncidentDetailResponse,
+  type IncidentSummaryText,
   type IncidentTransitionRow,
 } from "./api";
 
@@ -205,11 +207,15 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
         <main className="main incident-detail">
           <h2>{incident.incidentId}</h2>
 
+          {(incident.summary || incident.summaryError) && (
+            <FeedSummary summary={incident.summary} error={incident.summaryError} />
+          )}
+
           <h3>What the record evidences</h3>
           <dl className="incident-facts">
             <dt>Locus</dt>
             <dd>
-              <span className="pill">{vocabLabel(incident.locus)}</span>
+              <span className="pill">{locusLabel(incident.locus)}</span>
               {gloss && <p className="locus-meaning">{gloss.meaning}</p>}
               {gloss && (
                 // The blind spot travels with the locus. It is the half of the
@@ -431,6 +437,37 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
  * whole visible consequence of the arrangement and it belongs where a supervisor
  * is deciding how much to trust the row.
  */
+/**
+ * A feed incident's summary. **It is rendered by the server from a fixed
+ * template and shown verbatim**: the paragraphs are the template's, so the
+ * screen keeps them and adds nothing. A summary that could not be rendered is
+ * said to be missing, with the server's reason, rather than left out.
+ */
+function FeedSummary({ summary, error }: { summary?: IncidentSummaryText; error?: string }) {
+  return (
+    <section className="feed-summary" aria-label="Summary">
+      <h3>Summary</h3>
+      {summary ? (
+        <>
+          {summary.text.split("\n\n").map((p, i) => (
+            <p key={i}>{p.replace(/\s+/g, " ")}</p>
+          ))}
+          {summary.violations.length > 0 && (
+            <p className="empty-sub" role="status">
+              The summary could not say everything its template asks for: {summary.violations.join("; ")}
+            </p>
+          )}
+          <p className="empty-sub">Rendered by {summary.renderedBy}. No model wrote it.</p>
+        </>
+      ) : (
+        <p className="empty-sub" role="status">
+          No summary could be rendered for this feed incident: {error}
+        </p>
+      )}
+    </section>
+  );
+}
+
 function Transitions({ rows }: { rows: IncidentTransitionRow[] }) {
   if (rows.length === 0) {
     return (
@@ -511,7 +548,7 @@ function Hypothesis({ h, incidentLocus }: { h: HypothesisRow; incidentLocus: str
         )}
         {elsewhere && (
           <span className="pill pill-warn" role="status">
-            raised at {vocabLabel(h.locus)}, not this incident's locus
+            raised at {locusLabel(h.locus)}, not this incident's locus
           </span>
         )}
       </span>

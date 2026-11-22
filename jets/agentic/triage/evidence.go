@@ -35,11 +35,19 @@ type Extent struct {
 	// is where a run's configuration survives the run and is the only substrate
 	// for locus per_record_failures_unreportable.
 	CpipesStatus bool
+	// InputRegistry and SourceConfig report whether jetsapi.input_registry and
+	// jetsapi.source_config exist. They are what the two delivery loci read
+	// beside the anomaly: which feed a session is a delivery of, and that
+	// feed's own client and declaration.
+	InputRegistry bool
+	SourceConfig  bool
 }
 
 const triageTablesSQL = `SELECT
   to_regclass('jetsapi.process_errors') IS NOT NULL,
-  to_regclass('jetsapi.cpipes_execution_status') IS NOT NULL`
+  to_regclass('jetsapi.cpipes_execution_status') IS NOT NULL,
+  to_regclass('jetsapi.input_registry') IS NOT NULL,
+  to_regclass('jetsapi.source_config') IS NOT NULL`
 
 // ReadExtent reports what observe.ReadExtent does plus the two tables above.
 // to_regclass returns NULL for an absent relation rather than raising, which is
@@ -51,7 +59,8 @@ func ReadExtent(ctx context.Context, db observe.DB) (*Extent, error) {
 		return nil, err
 	}
 	e := &Extent{Extent: base}
-	if err := db.QueryRow(ctx, triageTablesSQL).Scan(&e.ProcessErrors, &e.CpipesStatus); err != nil {
+	if err := db.QueryRow(ctx, triageTablesSQL).Scan(&e.ProcessErrors, &e.CpipesStatus,
+		&e.InputRegistry, &e.SourceConfig); err != nil {
 		return nil, fmt.Errorf("while reading which triage tables exist: %w", err)
 	}
 	return e, nil
@@ -463,6 +472,17 @@ type Evidence struct {
 	// Config is observe's confounder read, reused so that a finding's
 	// qualifiers are the ones a detector would have written.
 	Config *observe.ConfigConfounders
+	// Volume is the history locus rows_lost_silently judges each step of this
+	// run against: the step's own recent runs, read by
+	// observe.VolumeCollapse.ReadHistory. Nil where there are no worker rows.
+	Volume *observe.VolumeHistory
+	// Feed is what the session holds about feed deliveries: its feed
+	// anomalies, its file registrations and the source configuration of the
+	// feeds they name. It is read whether or not the execution record is
+	// deployed, because a feed finding hangs on a registration session, which
+	// may have no run. Nil only when Gather was not called.
+	Feed *FeedEvidence
+
 	// Survey is the operator census locus per_record_failures_unreportable
 	// needs. It is a second read of the same column because the two questions
 	// are different: observe asks which of five confounders the config mentions,
@@ -470,7 +490,9 @@ type Evidence struct {
 	Survey *ConfigSurvey
 }
 
-// Gather reads everything the nine predicates need for one run, in one call.
+// Gather reads everything the eleven predicates need for one session, in one
+// call: the run's record for the nine run loci, and the session's feed
+// anomalies, registrations and source configuration for the two delivery loci.
 //
 // baselineFor is how far back before the run started the step history reaches;
 // zero means no baseline is read, which is legitimate — eight of the nine loci
@@ -486,6 +508,10 @@ func Gather(ctx context.Context, db observe.DB, sessionId string, baselineFor ti
 	ev := &Evidence{SessionId: sessionId}
 	var err error
 	if ev.Extent, err = ReadExtent(ctx, db); err != nil {
+		return nil, err
+	}
+	// The delivery loci first, because they need nothing below.
+	if ev.Feed, err = ReadFeedEvidence(ctx, db, sessionId, ev.Extent); err != nil {
 		return nil, err
 	}
 	if !ev.Extent.ExecutionRecord {
@@ -521,6 +547,15 @@ func Gather(ctx context.Context, db observe.DB, sessionId string, baselineFor ti
 			return nil, err
 		}
 	}
+	// The volume history is read with the default detector's bounds (its
+	// HistoryRuns and MinInput), whatever thresholds the classifier then judges
+	// it by: Gather does not know the classifier, and those two only bound the
+	// read.
+	volume := &observe.Evidence{Workers: ev.Workers}
+	if err = observe.DefaultVolumeCollapse().ReadHistory(ctx, db, volume); err != nil {
+		return nil, err
+	}
+	ev.Volume = volume.Volume
 	if baselineFor > 0 {
 		start, ok := ev.runStart()
 		if ok {

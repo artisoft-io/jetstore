@@ -147,3 +147,33 @@ func TestTransitionsDoesNotAliasTheTable(t *testing.T) {
 		t.Error("Transitions returned the table's own slice")
 	}
 }
+
+// A proposal no run produced may be rejected from draft; one a run produced may
+// not, and every other edge is the design's for both.
+func TestARunlessDraftMayBeRejected(t *testing.T) {
+	if !ProposalTransitionAllowed(StateDraft, StateRejected, true) {
+		t.Error("a runless draft cannot be rejected")
+	}
+	if ProposalTransitionAllowed(StateDraft, StateRejected, false) {
+		t.Error("a run-produced draft can be rejected before its review")
+	}
+	for _, s := range ApprovalStates {
+		with, without := ProposalTransitions(s, true), ProposalTransitions(s, false)
+		if s == StateDraft {
+			if len(with) != len(without)+1 {
+				t.Errorf("draft: runless %v, run-produced %v", with, without)
+			}
+			continue
+		}
+		if len(with) != len(without) {
+			t.Errorf("%s: runless %v differs from run-produced %v", s, with, without)
+		}
+	}
+	// Still nothing from a terminal or unknown state.
+	if got := ProposalTransitions(StateRejected, true); got != nil {
+		t.Errorf("rejected offered %v", got)
+	}
+	if got := ProposalTransitions("drafted", true); got != nil {
+		t.Errorf("unknown state offered %v", got)
+	}
+}

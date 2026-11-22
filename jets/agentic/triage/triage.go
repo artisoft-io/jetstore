@@ -2,6 +2,22 @@
 // classifies one run into nine loci, from the execution record and
 // nothing else.
 //
+// # Two more loci, and they are not positions in a run
+//
+// The vocabulary has eleven members. The last two, delivery_overdue and
+// delivery_departs_profile, are positions in a feed's deliveries: a feed
+// detector compares a delivery with the feed's declared profile and writes an
+// anomaly with subject feed, and the locus is a predicate over that anomaly row
+// rather than over the execution record. LocusOf is the one table that places
+// an anomaly at a locus, and it is this package's because a delivery locus's
+// verdict is read through it; rca calls it to cite the same anomaly. The
+// session such a finding hangs on is a registration session, which may have no
+// run, so a session can be classified on its feed anomalies alone. Classify
+// reports both on every session, so that a report still has one verdict per
+// member, and reports them NotEvaluable on a session that is not a delivery of
+// a profiled feed and carries no feed anomaly, which is every run's own
+// session: a locus that was never asked is not one that did not fire.
+//
 // # A locus is not a cause, and this package emits only loci
 //
 // A review of the record for what supports a *cause* and found that it supports
@@ -27,9 +43,10 @@
 // predicates over the structural position of rows — which table holds a row,
 // which status it holds, whether a row exists — and eight of the nine carry no
 // numeric threshold whatever. The ninth does: locus rows_lost_silently is
-// observe.VolumeCollapse, whose MinRatio and MinInput are unsourced,
-// and it is run here rather than reimplemented so that there is one threshold
-// to source rather than two. So the honest form of the answer is that triage
+// observe.VolumeCollapse, which judges each step against its own history and
+// falls back to a floor, all of whose numbers are unsourced, and it is run here
+// rather than reimplemented so that there is one set of thresholds to source
+// rather than two. So the honest form of the answer is that triage
 // is *more* clearly rule work than detection was, and the one place it is not
 // is the one place it is a detector.
 //
@@ -46,13 +63,13 @@
 // observe.ConfigConfounders' Read/Found/Note distinction applied to the verdict
 // itself rather than to a qualifier on it.
 //
-// # Classify returns all nine verdicts, not the ones that fired
+// # Classify returns every verdict, not the ones that fired
 //
 // Criterion 44 asks for triage reported per class with denominators and no
 // aggregate. A classifier that returns only what fired supplies numerators and
 // no denominators — the count of sessions in which a locus was *evaluated and
-// did not fire* is not recoverable from a list of hits. So Classify emits nine
-// Findings per session unconditionally, and the denominator for a locus is the
+// did not fire* is not recoverable from a list of hits. So Classify emits one
+// Finding per locus per session unconditionally, eleven of them, and the denominator for a locus is the
 // count of its Present and Absent verdicts, with the NotEvaluable ones excluded
 // and reported separately rather than folded into either.
 //
@@ -71,14 +88,17 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/observe"
 )
 
-// The nine loci. These are the members of
+// The eleven loci: nine positions in a run's execution record, then two in a
+// feed's deliveries. These are the members of
 // jetsapi.incident's incident_locus_ck; TestLociMatchDDL asserts them against
 // the generated DDL so a regeneration that adds or removes one fails the suite
 // rather than an insert, which is the guard observe.TestVocabulariesMatchDDL
 // gives the anomaly vocabularies.
 //
 // The order is how early the failure occurs, which is also
-// roughly the order of how little the record retains about it.
+// roughly the order of how little the record retains about it — except for
+// the last two, which are appended because the vocabulary is never
+// renumbered. A delivery precedes the run that loads it.
 const (
 	// LocusRunNotStarted — the run header is terminal and there is no worker
 	// row at all.
@@ -105,6 +125,16 @@ const (
 	LocusPerRecordFailuresUnreportable = "per_record_failures_unreportable"
 	// LocusWrittenNotArrived — an edge names a destination the data is not at.
 	LocusWrittenNotArrived = "written_not_arrived"
+	// LocusDeliveryOverdue — no delivery of a feed arrived within its declared
+	// cadence of the last one. Read from a feed anomaly with signal arrival. A
+	// feed that stops has no session of its own, so the incident is keyed on
+	// the last delivery's session, with the feed as the anomaly's subject;
+	// deliveryLocus is where that is read.
+	LocusDeliveryOverdue = "delivery_overdue"
+	// LocusDeliveryDepartsProfile — a delivery that arrived departs from the
+	// feed's declared profile. Read from a feed anomaly with any signal other
+	// than arrival; the signal says which departure.
+	LocusDeliveryDepartsProfile = "delivery_departs_profile"
 )
 
 // Loci is the vocabulary in section 9.4's order. A caller reporting per class
@@ -120,7 +150,15 @@ var Loci = []string{
 	LocusPerRecordFailuresReported,
 	LocusPerRecordFailuresUnreportable,
 	LocusWrittenNotArrived,
+	LocusDeliveryOverdue,
+	LocusDeliveryDepartsProfile,
 }
+
+// DeliveryLoci are the two loci that are positions in a feed's deliveries
+// rather than in a run's execution record. A caller that counts a locus over
+// runs — the step census, the shard localisation — has nothing to count for
+// these.
+var DeliveryLoci = []string{LocusDeliveryOverdue, LocusDeliveryDepartsProfile}
 
 // Verdict is one locus's answer for one run. It is three-valued rather than
 // boolean, and NotEvaluable is the member the package exists to keep separate:
@@ -164,18 +202,28 @@ type Finding struct {
 	Confounders []string
 
 	// StepRef and ShardRef localise the finding where the locus supplies them.
-	// Four of the nine supply no step at all, which is why they are optional —
+	// Four of the nine run loci supply no step at all and neither delivery
+	// locus does, which is why they are optional —
 	// section 9.6's "localisation is a property, not an identity".
 	StepRef  string
 	ShardRef *int64
 
 	// Subjects are the record rows the verdict rests on: worker row keys, edge
-	// keys, or a step label, as strings. Empty for an Absent verdict.
+	// keys, a step label, or, for a delivery locus, the anomaly ids, as
+	// strings. Empty for an Absent verdict.
 	Subjects []string
 
 	// ClassifierRef names the classifier and its generation, so two generations
 	// are told apart the way two detector generations are.
 	ClassifierRef string
+
+	// GroupedInto is set on a delivery locus that holds only through anomalies
+	// belonging to bursts another session leads: those sessions, each once. The
+	// burst's incident is written there and not here. See feed_burst.go.
+	GroupedInto []string
+	// BurstSessions are, for a delivery locus that leads a burst, the burst's
+	// other sessions: the deliveries its incident stands for.
+	BurstSessions []string
 }
 
 // Fired reports whether this finding is a hit.
@@ -202,6 +250,12 @@ func (f *Finding) Validate() error {
 	if f.ClassifierRef == "" {
 		return fmt.Errorf("classifier_ref is required")
 	}
+	if (len(f.GroupedInto) > 0 || len(f.BurstSessions) > 0) && f.Verdict != Present {
+		return fmt.Errorf("a %s verdict is grouped into a burst: only a finding that holds belongs to one", f.Verdict)
+	}
+	if len(f.GroupedInto) > 0 && len(f.BurstSessions) > 0 {
+		return fmt.Errorf("a finding both leads a burst and is grouped into another session's: a finding that leads one is written, so it is grouped into nothing")
+	}
 	for _, c := range f.Confounders {
 		if !observe.IsConfounder(c) {
 			return fmt.Errorf("confounders holds %q, which is not in the anomaly confounder vocabulary", c)
@@ -218,7 +272,7 @@ func (f *Finding) Validate() error {
 	return nil
 }
 
-// Report is one run's nine verdicts.
+// Report is one run's verdicts, one per locus.
 type Report struct {
 	SessionId string
 	Findings  []Finding

@@ -21,7 +21,8 @@
  * ## Two taxonomies, and neither screen may show one without the other
  *
  * JetStore's execution record supports a taxonomy of
- * **locus** — where in the record the evidence sits, nine values — and does not
+ * **locus** — where in the record the evidence sits: nine positions in a run's
+ * record and two in a feed's deliveries — and does not
  * support a taxonomy of **cause** below the level of a hypothesis. The incident
  * table puts both on the row and makes `classification` optional for that reason: a
  * required cause column would force a deterministic triage step to invent one.
@@ -158,6 +159,27 @@ export interface HypothesisBasisRow {
 
 export interface IncidentDetail extends IncidentRow {
   hypotheses: HypothesisRow[];
+  /**
+   * A feed incident's summary, rendered on the server at read time by a fixed
+   * template from the incident's findings, the feed's declaration and the
+   * ranked readings. Absent on a run incident, and on a feed incident whose
+   * summary could not be rendered, when `summaryError` says why.
+   *
+   * **No model wrote it**, and the screen says so: a model's draft of the
+   * same summary is measured against this one and is never sent here.
+   */
+  summary?: IncidentSummaryText;
+  /** Why a feed incident carries no summary. */
+  summaryError?: string;
+}
+
+/** A rendered summary, and what rendered it. */
+export interface IncidentSummaryText {
+  text: string;
+  /** Always the template's name; see `IncidentDetail.summary`. */
+  renderedBy: string;
+  /** Assertions of the template the incident did not satisfy; usually empty. */
+  violations: string[];
 }
 
 /**
@@ -287,7 +309,7 @@ export class IncidentStateConflictError extends ApiError {
 export interface IncidentList {
   incidents: IncidentRow[];
   statuses: string[];
-  /** The nine, from the server. See `locusGloss` for why it is not a constant here. */
+  /** The loci, from the server. See `LOCUS_GLOSS` for why they are not a constant here. */
   loci: string[];
   incidentStatuses: string[];
 }
@@ -408,9 +430,9 @@ export function vocabLabel(value: string): string {
  * What a locus is, and what the record cannot see about it, in one
  * line each.
  *
- * **This is a gloss and not a vocabulary.** The nine values arrive from the
+ * **This is a gloss and not a vocabulary.** The values arrive from the
  * server with every list, and this table is looked up by value: a locus with no
- * entry renders with its bare label and no gloss, so a tenth value added by a
+ * entry renders with its bare label and no gloss, so a value added by a
  * regeneration degrades rather than disappears. Nothing here authorises
  * anything — the argument `ProposalsScreen` makes about its filter constants,
  * one step weaker still.
@@ -421,7 +443,7 @@ export function vocabLabel(value: string): string {
  * first time. A vocabulary that looks like a cause taxonomy will be read as one
  * unless something on the page says what it is not.
  */
-export const LOCUS_GLOSS: Record<string, { meaning: string; cannotSee: string }> = {
+export const LOCUS_GLOSS: Record<string, { meaning: string; cannotSee: string; label?: string }> = {
   run_not_started: {
     meaning: "The run header is terminal and no worker row was ever written.",
     cannotSee: "Whether the configuration was read at all — a failure at sharding validation leaves no config row either.",
@@ -458,7 +480,30 @@ export const LOCUS_GLOSS: Record<string, { meaning: string; cannotSee: string }>
     meaning: "An output location names a destination the data is not at.",
     cannotSee: "The difference between absent and superseded: a later run of the same session overwrites the prefix.",
   },
+  // The two delivery loci are positions in a feed's deliveries rather than in a
+  // run, so their glosses say which feed and which session they hang on.
+  delivery_overdue: {
+    label: "Delivery overdue",
+    meaning:
+      "No delivery of the feed arrived within its declared cadence. The session is the feed's last delivery, the one after which nothing came.",
+    cannotSee: "Whether the supplier sent nothing or sent it somewhere JetStore does not look, or whether the declared cadence is itself out of date.",
+  },
+  delivery_departs_profile: {
+    label: "Delivery departs from profile",
+    meaning:
+      "A delivery that arrived departs from what the feed's profile declares: its size, freshness, span of service dates, completeness, overlap with earlier deliveries, or a repeat of the last one.",
+    cannotSee: "Whether the delivery or the declaration is wrong: a departure from a profile nobody has revised is not a fault in the feed.",
+  },
 };
+
+/**
+ * A locus's label for the screen: the gloss's own where it has one, and the
+ * value made readable otherwise. The two delivery loci carry one because
+ * *departs profile* reads as a typo.
+ */
+export function locusLabel(value: string): string {
+  return LOCUS_GLOSS[value]?.label ?? vocabLabel(value);
+}
 
 /**
  * The statuses that describe an incident nobody has finished with.

@@ -45,6 +45,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/agentic/audit"
 	"github.com/artisoft-io/jetstore/jets/agentic/detectrun"
+	"github.com/artisoft-io/jetstore/jets/agentic/feedsummary"
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/jackc/pgx/v5"
@@ -194,6 +195,10 @@ type agenticOps interface {
 	// on the far side of this call — the remaining step was named as "one
 	// call", and this is it.
 	RecordIncidentTransition(ctx context.Context, t *audit.IncidentTransition) (int, error)
+	// FeedIncidentSummary renders a feed incident's summary at read time, from
+	// its findings, the feed's declaration and its ranked readings. Nothing is
+	// stored, so the summary of an incident read twice is rendered twice.
+	FeedIncidentSummary(ctx context.Context, inc *audit.Incident) (*feedsummary.Summary, error)
 	// The Detection screen: the runs the detection commands recorded,
 	// the deployed task those runs come from, and starting it now. The ECS half
 	// is behind the same seam so the dispatch is testable without AWS.
@@ -212,6 +217,8 @@ type pgOps struct{ db pgxPool }
 // substitute one.
 type pgxPool interface {
 	audit.Querier
+	// QueryRow is what the feed incident summary's reads take beside Query.
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 	Begin(ctx context.Context) (pgx.Tx, error)
 	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 }
@@ -245,6 +252,9 @@ func (o pgOps) IncidentTransitionsFor(ctx context.Context, ref string) ([]audit.
 }
 func (o pgOps) RecordIncidentTransition(ctx context.Context, t *audit.IncidentTransition) (int, error) {
 	return audit.RecordIncidentTransition(ctx, o.db, t)
+}
+func (o pgOps) FeedIncidentSummary(ctx context.Context, inc *audit.Incident) (*feedsummary.Summary, error) {
+	return feedsummary.Summarise(ctx, o.db, inc)
 }
 
 // DoAgenticAction ----------------------------------------------------------
@@ -347,7 +357,7 @@ func listProposals(ctx context.Context, ops agenticOps, a *AgenticAction) (*map[
 			// The transitions travel with each row so the list can show which
 			// proposals are still movable without a request per row. It is the
 			// same table the detail screen decides its buttons from.
-			"transitions": transitionsOrEmpty(p.ApprovalState),
+			"transitions": transitionsOrEmpty(p.ApprovalState, p.DecidedWithoutRun()),
 		})
 	}
 	// `states` is echoed back because the screen renders it as the active
@@ -395,7 +405,7 @@ func getProposal(ctx context.Context, ops agenticOps, a *AgenticAction) (*map[st
 			"modelVersion":   p.ModelVersion,
 		},
 		"approvals":   decisions,
-		"transitions": transitionsOrEmpty(p.ApprovalState),
+		"transitions": transitionsOrEmpty(p.ApprovalState, p.DecidedWithoutRun()),
 		"terminal":    audit.Terminal(p.ApprovalState),
 	}, http.StatusOK, nil
 }
@@ -467,20 +477,31 @@ func recordApproval(ctx context.Context, ops agenticOps, a *AgenticAction, actor
 			SubjectRef: p.ProposalId, Expected: a.FromState,
 		}
 	}
-	if !audit.TransitionAllowed(p.ApprovalState, a.ToState) {
+	if !audit.ProposalTransitionAllowed(p.ApprovalState, a.ToState, p.DecidedWithoutRun()) {
 		return nil, http.StatusBadRequest, fmt.Errorf(
 			"proposal %s is in %s, from which %q is not a permitted transition; permitted: %v",
-			p.ProposalId, p.ApprovalState, a.ToState, transitionsOrEmpty(p.ApprovalState))
+			p.ProposalId, p.ApprovalState, a.ToState, transitionsOrEmpty(p.ApprovalState, p.DecidedWithoutRun()))
 	}
 
 	// The tier comes from the run, never from the request. See audit.RunTier.
-	tier, err := ops.RunTier(ctx, p.TriggerRef)
-	if err != nil {
-		var missing *audit.ErrNoRun
-		if errors.As(err, &missing) {
-			return nil, http.StatusConflict, err
+	//
+	// **A proposal no run produced is decided without one**: its trigger_ref
+	// names the incident that prompted it, so there is no run to read a tier
+	// from and no chain to join. The decision is recorded at
+	// audit.RunlessDecisionTier, under the session's user, with run_ref
+	// holding the trigger_ref, and appends no chain event, which is a verdict
+	// on a runless incident's precedent. Every other proposal takes the path
+	// below unchanged.
+	tier := audit.RunlessDecisionTier
+	unchained := p.DecidedWithoutRun()
+	if !unchained {
+		if tier, err = ops.RunTier(ctx, p.TriggerRef); err != nil {
+			var missing *audit.ErrNoRun
+			if errors.As(err, &missing) {
+				return nil, http.StatusConflict, err
+			}
+			return nil, http.StatusInternalServerError, err
 		}
-		return nil, http.StatusInternalServerError, err
 	}
 
 	decidedAt := time.Now().UTC()
@@ -497,6 +518,7 @@ func recordApproval(ctx context.Context, ops agenticOps, a *AgenticAction, actor
 		TierAtEvent:       tier,
 		DecidedAt:         decidedAt,
 		DecisionRationale: a.Rationale,
+		Unchained:         unchained,
 	}
 	seq, err := ops.RecordApproval(ctx, ap)
 	if err != nil {
@@ -518,9 +540,10 @@ func recordApproval(ctx context.Context, ops agenticOps, a *AgenticAction, actor
 		"tierAtEvent":     ap.TierAtEvent,
 		"decidedAt":       timeOrEmpty(ap.DecidedAt),
 		// The seq the chain trigger assigned, so a caller can cite the audit
-		// row its decision produced.
+		// row its decision produced; 0 when the decision joined no chain.
 		"auditSeq":    seq,
-		"transitions": transitionsOrEmpty(ap.ToState),
+		"chained":     !unchained,
+		"transitions": transitionsOrEmpty(ap.ToState, unchained),
 	}, http.StatusOK, nil
 }
 
@@ -600,6 +623,25 @@ func getIncident(ctx context.Context, ops agenticOps, a *AgenticAction, phi audi
 	}
 	row := incidentRow(inc.IncidentSummary)
 	row["hypotheses"] = hs
+
+	// A feed incident's summary, rendered by a fixed template from the
+	// incident's findings, the feed's declaration and the readings above.
+	// **A summary that cannot be rendered is not a failure of the screen**, on
+	// the transitions' argument below: the incident is shown without it, and
+	// the reason travels so the screen can say why rather than show a blank.
+	// A run incident has no summary and carries neither field.
+	if feedsummary.IsFeedIncident(inc.Locus) {
+		if s, err := ops.FeedIncidentSummary(ctx, inc); err == nil {
+			row["summary"] = map[string]any{
+				"text":       s.Text,
+				"renderedBy": s.RenderedBy,
+				"violations": nonEmptyStrings(s.Violations),
+			}
+		} else {
+			log.Printf("while summarising feed incident %s: %v", a.IncidentId, err)
+			row["summaryError"] = err.Error()
+		}
+	}
 
 	// How it got here. **A read failure here is not a failure of the
 	// screen**: jetsapi.incident_event arrived after
@@ -854,8 +896,8 @@ func incidentErrorCode(err error) int {
 // rather than null. A terminal state and an unknown one both produce it, and a
 // client that has to distinguish `null` from `[]` before rendering a button row
 // is a client with an avoidable branch in it.
-func transitionsOrEmpty(state string) []string {
-	if t := audit.Transitions(state); t != nil {
+func transitionsOrEmpty(state string, decidedWithoutRun bool) []string {
+	if t := audit.ProposalTransitions(state, decidedWithoutRun); t != nil {
 		return t
 	}
 	return []string{}

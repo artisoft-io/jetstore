@@ -37,6 +37,15 @@ What the DDL enforces, per the audit-store design:
   way. The boundary is deliberate and is stated on `_added_column_alters`:
   NOT NULL columns, drops, renames and type changes each need a migration with
   an author, and this covers none of them.
+- **A vocabulary CHECK that follows its enum onto an existing table:** the
+  same `CREATE TABLE IF NOT EXISTS` blindness, one level down. A member appended
+  to `IncidentLocus` reaches a fresh database's `incident_locus_ck` and no
+  migrated one, and the first insert at the new member fails there.
+  `_replaced_vocabulary_check` compares the members the installed constraint
+  admits with the enum's and replaces the constraint only when they differ. It
+  is applied to the two locus CHECKs, which are the ones a widening has reached;
+  the other vocabulary CHECKs carry the same latent defect and take one call
+  each when their vocabulary next moves.
 - **The hash chain:** a BEFORE INSERT trigger assigns `seq`
   (monotonic per run), links `prev_hash` to the previous row's `row_hash`,
   and computes `row_hash` as SHA-256 over the row's fields joined by the
@@ -268,6 +277,53 @@ def _added_column_alters(entity) -> str:
     return "".join(lines)
 
 
+def _replaced_vocabulary_check(table: str, name: str, column: str, members: str) -> str:
+    """Replace a single-column vocabulary CHECK on a table that already exists, when
+    the members it admits are not the enum's.
+
+    **`CREATE TABLE IF NOT EXISTS` leaves an existing table's constraints as they
+    were**, so a member appended to a vocabulary reaches a fresh database and no
+    migrated one, and the first row written at the new member is refused there with
+    a 23514 naming the constraint. That is the missing-column failure
+    `_added_column_alters` closes, arriving at a CHECK rather than at a column.
+
+    **Compared before it is replaced, and the comparison is over members rather
+    than over text.** `pg_get_constraintdef` renders the CHECK in Postgres's own
+    form (`= ANY (ARRAY['a'::text, ...])`), so the emitted text and the installed
+    text never match; the quoted members of each do. Where they agree the block
+    does nothing, so an install on an up-to-date database neither takes the table
+    lock nor re-scans its rows. Where they differ, the drop and the add are one
+    `ALTER TABLE`, inside the install's transaction, and the add re-validates the
+    existing rows, so a *narrowing* that existing rows violate fails the install
+    by name rather than leaving the wider constraint in place.
+
+    `members` is the same interpolated list the CREATE TABLE uses, so there is no
+    second list to drift.
+    """
+    return (
+        "-- stmt\n"
+        f"-- {name} follows {column}'s vocabulary onto a table created before the\n"
+        "-- vocabulary last changed. See _replaced_vocabulary_check in the emitter.\n"
+        "DO $$\n"
+        "DECLARE\n"
+        "  admitted text[];\n"
+        "BEGIN\n"
+        "  SELECT array(SELECT m[1]\n"
+        "                 FROM regexp_matches(pg_get_constraintdef(c.oid), '''([a-z0-9_]+)''', 'g') AS m)\n"
+        "    INTO admitted\n"
+        "    FROM pg_constraint c\n"
+        f"   WHERE c.conrelid = 'jetsapi.{table}'::regclass AND c.conname = '{name}';\n"
+        "  IF admitted IS NULL\n"
+        f"     OR NOT (admitted @> ARRAY[{members}]::text[]\n"
+        f"             AND admitted <@ ARRAY[{members}]::text[]) THEN\n"
+        f"    ALTER TABLE jetsapi.{table}\n"
+        f"      DROP CONSTRAINT IF EXISTS {name},\n"
+        f"      ADD CONSTRAINT {name} CHECK ({column} IN ({members}));\n"
+        "  END IF;\n"
+        "END $$;\n"
+    )
+
+
 def _assert_tables_agree(sql: str) -> None:
     """**The flag-and-table guard, and the reason it is here rather than in a check script.**
 
@@ -347,6 +403,13 @@ def emit() -> str:
     step_ambiguous = M.AnomalyConfounder.step_label_ambiguous.value
     classifications = ", ".join(f"'{m.value}'" for m in M.IncidentClassification)
     loci = ", ".join(f"'{m.value}'" for m in M.IncidentLocus)
+    # The locus vocabulary has been widened once (the two delivery loci), and
+    # these two statements are what carries a widening onto a table that existed
+    # before it.
+    incident_locus_check = _replaced_vocabulary_check(
+        "incident", "incident_locus_ck", "incident_locus", loci)
+    hypothesis_locus_check = _replaced_vocabulary_check(
+        "hypothesis", "hypothesis_locus_ck", "hypothesis_locus", loci)
     severities = ", ".join(f"'{m.value}'" for m in M.Severity)
     incident_statuses = ", ".join(f"'{m.value}'" for m in M.IncidentStatus)
     actor_kinds = ", ".join(f"'{m.value}'" for m in M.ActorKind)
@@ -552,9 +615,9 @@ CREATE INDEX IF NOT EXISTS anomaly_detector_idx
 -- stmt
 -- What triage concluded.
 --
--- **Two taxonomies, on purpose.** incident_locus is where in the execution record
--- the evidence sits -- nine values, each a predicate over jetsapi with no free-text
--- parsing -- and classification is what produced the failure, the proposal's own ten.
+-- **Two taxonomies, on purpose.** incident_locus is where in the record the evidence
+-- sits -- nine positions in a run's execution record and two in a feed's deliveries,
+-- each a predicate over jetsapi with no free-text parsing -- and classification is what produced the failure, the proposal's own ten.
 -- The triage design's reading is that the record supports the first and does not
 -- support the second below the level of a hypothesis: three of the ten classes have no
 -- substrate in JetStore at all and four are evidenced only coarsely. Carrying both is
@@ -567,7 +630,7 @@ CREATE INDEX IF NOT EXISTS anomaly_detector_idx
 -- so an incident identified below the session is one whose evidence set cannot
 -- be assembled by a join. incident_step_ref and incident_shard_ref are nullable
 -- because localisation is a property of an incident and not its identity: four of the
--- nine loci supply no step at all. An incident that sets incident_step_ref should
+-- nine run loci supply no step at all, and neither delivery locus does. An incident that sets incident_step_ref should
 -- carry step_label_ambiguous, cpipes_step_id being a stage location rather than a step
 -- identity -- which is why incident_confounders reuses the detector's vocabulary
 -- rather than opening a second one that would not compare.
@@ -616,7 +679,7 @@ CREATE TABLE IF NOT EXISTS jetsapi.incident (
              CHECK (incident_step_ref IS NULL
                     OR '{step_ambiguous}' = ANY (incident_confounders))
 );
-{incident_alters}-- stmt
+{incident_alters}{incident_locus_check}-- stmt
 -- "What happened in this run", which is how an operator reaches an incident from a
 -- session id, and "what is open", which is how a supervision screen lists them.
 CREATE INDEX IF NOT EXISTS incident_session_idx
@@ -673,7 +736,7 @@ CREATE TABLE IF NOT EXISTS jetsapi.hypothesis (
              CHECK (cause_category IS NULL OR cause_category IN ({classifications})),
   CONSTRAINT hypothesis_locus_ck CHECK (hypothesis_locus IN ({loci}))
 );
-{hypothesis_alters}-- stmt
+{hypothesis_alters}{hypothesis_locus_check}-- stmt
 -- "The ranking for this incident, in order", which is the only way a human reads
 -- hypotheses and is not answerable from the primary key.
 CREATE INDEX IF NOT EXISTS hypothesis_incident_idx

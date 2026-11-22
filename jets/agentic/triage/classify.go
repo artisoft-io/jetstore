@@ -6,11 +6,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/agentic/feedprofile"
 	"github.com/artisoft-io/jetstore/jets/agentic/observe"
 )
 
-// The nine predicates. Each is a method on Classifier returning exactly one
-// Finding, and Classify calls all nine in section 9.4's order.
+// The nine predicates over the execution record, and the two over a feed's
+// deliveries. Each is a method on Classifier returning exactly one Finding, and
+// Classify calls all eleven in Loci's order.
 //
 // # What each can and cannot distinguish is in the code rather than beside it
 //
@@ -60,8 +62,8 @@ func Default() Classifier {
 // Ref is the classifier_ref written on every finding.
 func (c Classifier) Ref() string { return fmt.Sprintf("triage@%d", c.Generation) }
 
-// Classify returns one Finding per locus, in section 9.4's order, always nine
-// of them. See the package comment for why it does not return only the hits.
+// Classify returns one Finding per locus, in Loci's order, always eleven of
+// them. See the package comment for why it does not return only the hits.
 func (c Classifier) Classify(ev *Evidence) *Report {
 	r := &Report{SessionId: ev.SessionId}
 	r.Findings = []Finding{
@@ -74,6 +76,8 @@ func (c Classifier) Classify(ev *Evidence) *Report {
 		c.perRecordFailuresReported(ev),
 		c.perRecordFailuresUnreportable(ev),
 		c.writtenNotArrived(ev),
+		c.deliveryOverdue(ev),
+		c.deliveryDepartsProfile(ev),
 	}
 	for i := range r.Findings {
 		r.Findings[i].SessionId = ev.SessionId
@@ -533,8 +537,9 @@ func (c Classifier) sinkFailedUnderCompletedWorker(ev *Evidence) Finding {
 //
 // **This is the one locus of the nine that is a detector rather than a
 // predicate**, and the one that carries a threshold. It runs
-// observe.VolumeCollapse rather than restating its rule, so the two unsourced
-// numbers stay one thing to source, and the confounders on the finding
+// observe.VolumeCollapse rather than restating its rule, so its unsourced
+// numbers stay one thing to source, each step is judged against its own history
+// as the detector judges it (Evidence.Volume), and the confounders on the finding
 // are the ones the detector would have written on the anomaly — including the
 // four it reads from the run's configuration, which no structural predicate
 // here needs.
@@ -575,13 +580,15 @@ func (c Classifier) rowsLostSilently(ev *Evidence) Finding {
 		Extent:  ev.Extent.Extent,
 		Workers: ev.Workers,
 		Configs: map[string]*observe.ConfigConfounders{ev.SessionId: ev.Config},
+		Volume:  ev.Volume,
 	})
 	if len(anomalies) == 0 {
 		return Finding{Locus: locus, Verdict: Absent, Basis: fmt.Sprintf(
-			"%d of %d worker rows of session %q completed with both counts set, and none emitted fewer "+
-				"than %.0f%% of what it read over an input of at least %d rows (%s)",
-			withCounts, len(ev.Workers.Rows), ev.SessionId, 100*c.Volume.MinRatio, c.Volume.MinInput,
-			c.Volume.Ref())}
+			"%d of %d worker rows of session %q completed with both counts set, and none that read at "+
+				"least %d rows emitted less than %.0f%% of its step's median ratio over the step's last %d "+
+				"runs, or, for a step with fewer than %d prior runs, less than %.0f%% of what it read (%s)",
+			withCounts, len(ev.Workers.Rows), ev.SessionId, c.Volume.MinInput, 100*(1-c.Volume.MaxDrop),
+			c.Volume.HistoryRuns, c.Volume.MinPriorRuns, 100*c.Volume.MinRatio, c.Volume.Ref())}
 	}
 	var subjects, conf []string
 	for i := range anomalies {
@@ -594,9 +601,9 @@ func (c Classifier) rowsLostSilently(ev *Evidence) Finding {
 	}
 	basis := fmt.Sprintf(
 		"%s found %d of the %d completed worker rows of session %q emitting materially fewer rows than "+
-			"they read. This is the one locus of the nine that carries a threshold, and both of its numbers "+
-			"are unsourced: nothing in this repository has measured what a normal output ratio is "+
-			"for a JetStore step. The first anomaly's own basis: %s",
+			"their step usually does for what it reads. This is the one locus of the nine that carries a "+
+			"threshold, and its numbers are unsourced: nothing in this repository has measured how much a "+
+			"step's output ratio varies from run to run. The first anomaly's own basis: %s",
 		c.Volume.Ref(), len(anomalies), completed, ev.SessionId, anomalies[0].ExpectedBasis)
 	f := Finding{Locus: locus, Verdict: Present, Basis: basis, Confounders: conf, Subjects: subjects}
 	if len(anomalies) == 1 {
@@ -643,6 +650,16 @@ func (c Classifier) perRecordFailuresReported(ev *Evidence) Finding {
 		return notEvaluable(locus,
 			"jetsapi.process_errors is not deployed on this database, so the absence of a per-record "+
 				"failure cannot be told from the absence of the table")
+	}
+	if ev.Errors.Rows == 0 && ev.Header == nil && len(ev.workerRows()) == 0 {
+		// No run record at all: no header and no worker row. There was no run
+		// to report a failure or to fail to report one, and a registration
+		// session, which the delivery loci are judged on, is exactly this case.
+		// Absent here would count every such session into this locus's
+		// denominator as a run that reported nothing.
+		return notEvaluable(locus, fmt.Sprintf(
+			"session %q has no run header and no worker row, so there is no run whose per-record failures "+
+				"could have been reported; jetsapi.process_errors holds no row for it either", ev.SessionId))
 	}
 	if ev.Errors.Rows == 0 {
 		return Finding{Locus: locus, Verdict: Absent, Basis: fmt.Sprintf(
@@ -784,6 +801,159 @@ func (c Classifier) writtenNotArrived(ev *Evidence) Finding {
 			"and a later run of the same session overwrites the stage prefix, so *absent* and *superseded* "+
 			"are the same observation",
 		ev.SessionId, located, blank), conf...)
+}
+
+// --- Loci 10 and 11: a feed's deliveries ----------------------------------------
+
+// deliveryOverdue is the first of the two delivery loci: a feed anomaly with
+// signal arrival on the session, meaning nothing arrived within the feed's
+// declared cadence after it. feed_overdue hangs that finding on the session of
+// the feed's last delivery, the one after which nothing came, because a feed
+// that stops has no session of its own.
+func (c Classifier) deliveryOverdue(ev *Evidence) Finding {
+	return c.deliveryLocus(ev, LocusDeliveryOverdue, func(d *DeclaredFeed) bool {
+		missing, err := feedprofile.Missing(feedprofile.FeedOverdue, d.Feed.Profile, d.Feed.Cumulative)
+		return err == nil && len(missing) == 0
+	}, "declares a cadence, so feed_overdue judges it, and no arrival anomaly hangs on this delivery: "+
+		"either a later delivery came, or the feed was not yet overdue when it was last judged")
+}
+
+// deliveryDepartsProfile is the second: a feed anomaly with any other signal —
+// a delivery that arrived and departs from what the feed's profile declares.
+// The signal and the detector say which departure.
+func (c Classifier) deliveryDepartsProfile(ev *Evidence) Finding {
+	return c.deliveryLocus(ev, LocusDeliveryDepartsProfile, func(d *DeclaredFeed) bool {
+		for _, det := range feedprofile.Detectors {
+			if det == feedprofile.FeedOverdue {
+				continue
+			}
+			ok, err := feedprofile.Applies(det, d.Feed.Cumulative)
+			if err != nil || !ok {
+				continue
+			}
+			if missing, err := feedprofile.Missing(det, d.Feed.Profile, d.Feed.Cumulative); err == nil && len(missing) == 0 {
+				return true
+			}
+		}
+		return false
+	}, "declares what at least one delivery check compares against, and no departure anomaly hangs on this "+
+		"delivery")
+}
+
+// deliveryLocus is the predicate both delivery loci share.
+//
+//   - **Present** when a feed anomaly on the session lands at the locus. The
+//     basis names each feed by its source configuration, its client included,
+//     and says when the delivery was registered under another client.
+//   - **Absent** when the session is a delivery of a profiled feed whose
+//     declaration the locus's detectors judge, and no anomaly lands there. The
+//     basis says the verdict is as current as the last detection run over the
+//     feed, which this package cannot see.
+//   - **NotEvaluable** otherwise: the anomaly table is not deployed, or the
+//     session is not a registration of any feed whose profile the locus's
+//     detectors judge — which is what every pipeline run's own session is.
+func (c Classifier) deliveryLocus(ev *Evidence, locus string, judged func(*DeclaredFeed) bool,
+	absentBecause string) Finding {
+	fe := ev.Feed
+	if fe == nil || !fe.Read {
+		why := "no feed evidence was gathered for session " + ev.SessionId
+		if fe != nil && fe.Note != "" {
+			why = fe.Note
+		}
+		return notEvaluable(locus, why)
+	}
+	if placed := fe.At(locus); len(placed) > 0 {
+		return deliveryPresent(ev, locus, placed)
+	}
+	var judgedFeeds []string
+	for _, d := range fe.DeliveryOf() {
+		if judged(d) {
+			judgedFeeds = append(judgedFeeds, d.Name())
+		}
+	}
+	if len(judgedFeeds) == 0 {
+		why := fmt.Sprintf("session %q carries no feed anomaly at this locus and is not a registration of any "+
+			"feed whose profile this locus's detectors judge, so there is nothing to have fired", ev.SessionId)
+		if fe.Registrations == nil {
+			why += "; jetsapi.input_registry is not deployed, so which feed the session delivers could not be read"
+		}
+		return notEvaluable(locus, why)
+	}
+	return Finding{Locus: locus, Verdict: Absent, Basis: fmt.Sprintf(
+		"session %q is a delivery of %s, whose profile %s. A detector's verdict is read from "+
+			"jetsapi.anomaly, so this one is as current as the last detection run over the feed",
+		ev.SessionId, strings.Join(judgedFeeds, "; "), absentBecause)}
+}
+
+// deliveryPresent is a delivery locus that holds.
+func deliveryPresent(ev *Evidence, locus string, placed []observe.Anomaly) Finding {
+	fe := ev.Feed
+	var b strings.Builder
+	fmt.Fprintf(&b, "%d feed anomaly/anomalies on session %q land at locus %s", len(placed), ev.SessionId, locus)
+	if locus == LocusDeliveryOverdue {
+		b.WriteString(". A feed that stops has no session of its own, so the finding hangs on the session of " +
+			"the feed's last delivery, the one after which nothing came")
+	}
+	for _, d := range fe.feedsOf(placed) {
+		fmt.Fprintf(&b, ". It concerns %s", d.Name())
+		if s := fe.RegisteredElsewhere(d); s != "" {
+			b.WriteString("; " + s)
+		}
+		if d.Configured && !d.Profiled {
+			b.WriteString("; its source configuration holds no profile that validates now, so the declaration the " +
+				"detector compared against cannot be re-read")
+		}
+	}
+	var conf, subjects []string
+	for _, a := range placed {
+		fmt.Fprintf(&b, ". %s, signal %s, observed %s: %s", a.DetectorRef, a.SignalType, a.ObservedValue,
+			a.ExpectedBasis)
+		subjects = append(subjects, "anomaly "+a.AnomalyId)
+		for _, x := range a.Confounders {
+			if !slices.Contains(conf, x) {
+				conf = append(conf, x)
+			}
+		}
+	}
+	f := Finding{Locus: locus, Verdict: Present, Confounders: conf, Subjects: subjects}
+	groupBursts(ev.SessionId, fe, placed, &f, &b)
+	f.Basis = b.String()
+	return f
+}
+
+// groupBursts decides where a delivery finding's incident is written: here,
+// when one of its anomalies leads a burst or belongs to none, or on the leading
+// sessions of its anomalies' bursts otherwise. It says which in the basis.
+func groupBursts(session string, fe *FeedEvidence, placed []observe.Anomaly, f *Finding, b *strings.Builder) {
+	var leads, others []string
+	kept := false
+	for _, a := range placed {
+		burst := fe.BurstOf(a.AnomalyId)
+		if !burst.Grouped() {
+			kept = true
+			continue
+		}
+		if lead := burst.Lead(); lead != session {
+			if !slices.Contains(leads, lead) {
+				leads = append(leads, lead)
+			}
+			continue
+		}
+		kept = true
+		fmt.Fprintf(b, ". %s; they are one event, and this incident stands for all of them, on the last", burst.describe())
+		for _, s := range burst.Others(session) {
+			if !slices.Contains(others, s) {
+				others = append(others, s)
+			}
+		}
+	}
+	if kept {
+		f.BurstSessions = others
+		return
+	}
+	f.GroupedInto = leads
+	fmt.Fprintf(b, ". Each of these anomalies belongs to a burst of one detector on one feed registered on one day, "+
+		"whose incident is written on its last delivery, session %s, and not here", strings.Join(leads, ", "))
 }
 
 // timeFmt is RFC3339 without the sub-second noise, which is what every basis

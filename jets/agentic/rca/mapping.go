@@ -31,7 +31,9 @@ type Evidenceability string
 const (
 	// Evidenced — the record does this class well. One class only.
 	Evidenced Evidenceability = "evidenced"
-	// Conditional — evidenced only when a configuration switch is set.
+	// Conditional — evidenced only when a configuration switch is set, or,
+	// for the two source classes, when a feed's profile declares what the
+	// class is judged against.
 	Conditional Evidenceability = "conditional"
 	// Coarse — evidenced at a grain coarser than the class name implies.
 	Coarse Evidenceability = "coarse"
@@ -77,24 +79,83 @@ type CauseClass struct {
 	// item quotes. It is written to be read after "the record cannot fully
 	// evidence this class: ".
 	Note string
+
+	// DeclaredAt, for a class graded Conditional on a feed's declaration, are
+	// the loci at which that declaration is read: the delivery loci. At every
+	// other locus the class has no declaration to be judged against and takes
+	// the grade Elsewhere. Empty for every other class, which grades the same
+	// at every locus.
+	DeclaredAt []string
+	// Elsewhere is the grade at a locus not in DeclaredAt.
+	Elsewhere Evidenceability
+}
+
+// At is the class's grade at one locus: Evidenceability, or Elsewhere where the
+// class's condition is a declaration this locus does not read.
+//
+// **The grade is per locus for exactly one reason, and it is the one that kept
+// source_delivery_failure ranked last on a run that never started.** A declared
+// cadence evidences the class at delivery_overdue, where feed_overdue compared
+// the feed's registrations with it. Nothing links a run's header to a feed's
+// cadence, so at run_not_started the record still cannot say what was due, and
+// a class-wide re-grade would have lifted the class into the evidenceable tier
+// there on the strength of a declaration nobody read.
+func (c CauseClass) At(locus string) Evidenceability {
+	if len(c.DeclaredAt) == 0 || slices.Contains(c.DeclaredAt, locus) {
+		return c.Evidenceability
+	}
+	return c.Elsewhere
+}
+
+// EvidenceabilityAt returns the table's grade for a cause class at a locus, or
+// None for a hypothesis that names no class. It is what a written hypothesis's
+// basis records, because the grade a hypothesis was ranked by is the grade at
+// its own locus.
+func EvidenceabilityAt(causeCategory, locus string) Evidenceability {
+	for i := range causeClasses {
+		if causeClasses[i].Name == causeCategory {
+			return causeClasses[i].At(locus)
+		}
+	}
+	return None
 }
 
 // causeClasses is the gate's table, in its own order.
 var causeClasses = []CauseClass{
 	{
-		Name:            CauseSourceDeliveryFailure,
-		Loci:            []string{triage.LocusRunNotStarted},
-		Evidenceability: None,
-		Note: "input_registry and file_key_staging record what arrived and nothing records what was due; " +
-			"there is no schedule, no SLA and no expected-delivery table, so \"did not arrive\" is the " +
-			"absence of a row with nothing asserting a row was owed",
+		Name: CauseSourceDeliveryFailure,
+		Loci: []string{triage.LocusRunNotStarted, triage.LocusDeliveryOverdue},
+		// **Conditional, evidenced when a cadence is declared.** The table graded
+		// this class none, for want of anything recording what was due. A feed
+		// profile's period type and grace are that record, and feed_overdue is
+		// the comparison; so at delivery_overdue the class is evidenced exactly
+		// as far as a cadence was declared. At run_not_started it is still none.
+		Evidenceability: Conditional,
+		DeclaredAt:      []string{triage.LocusDeliveryOverdue},
+		Elsewhere:       None,
+		Note: "it is evidenced only where a feed's profile declares a cadence: the period type and grace say " +
+			"what was due, and the overdue check compares the feed's registrations with them, so at locus " +
+			"delivery_overdue the declaration is what was owed. Anywhere else input_registry and " +
+			"file_key_staging record what arrived and nothing records what was due; there is no schedule, " +
+			"no SLA and no expected-delivery table, so \"did not arrive\" is the absence of a row with nothing " +
+			"asserting a row was owed",
 	},
 	{
-		Name:            CauseSourceContentChange,
-		Loci:            []string{triage.LocusRowsLostSilently, triage.LocusPerRecordFailuresReported},
-		Evidenceability: Coarse,
-		Note: "volume and file size move on the worker row, but input_bad_records_count is read-time parse " +
-			"failure only and is 0 for parquet by construction; column-level change needs a " +
+		Name: CauseSourceContentChange,
+		Loci: []string{triage.LocusRowsLostSilently, triage.LocusPerRecordFailuresReported,
+			triage.LocusDeliveryDepartsProfile},
+		// **Conditional, at column grain when a profile names the column.** The
+		// table graded this class coarse and its note ended "column-level change
+		// needs a profile". At delivery_departs_profile there is one: a check
+		// that compares a column the profile names — a required field, the
+		// service date, the business key — evidences the change at that
+		// column. At the run loci it stays coarse.
+		Evidenceability: Conditional,
+		DeclaredAt:      []string{triage.LocusDeliveryDepartsProfile},
+		Elsewhere:       Coarse,
+		Note: "it is evidenced at column grain only where a feed's profile names the column a delivery check " +
+			"compared. Elsewhere volume and file size move on the worker row, but input_bad_records_count is " +
+			"read-time parse failure only and is 0 for parquet by construction; column-level change needs a " +
 			"profile, and the analyze operator runs in 4 of 47 configurations into a destination the " +
 			"config chooses",
 	},
@@ -126,8 +187,13 @@ var causeClasses = []CauseClass{
 	},
 	{
 		Name: CauseTransformationDefect,
+		// delivery_departs_profile is here because a departure can be the
+		// mapping's rather than the supplier's: a configuration that leaves a
+		// column unmapped makes a required field look absent from every
+		// delivery, and the floor has to offer that reading beside the source's.
 		Loci: []string{triage.LocusWorkerNotTerminated, triage.LocusWorkerFailed,
-			triage.LocusRowsLostSilently, triage.LocusPerRecordFailuresReported},
+			triage.LocusRowsLostSilently, triage.LocusPerRecordFailuresReported,
+			triage.LocusDeliveryDepartsProfile},
 		// **The table answers "no" here and a later finding supersedes it, so this row is
 		// Coarse rather than None.** The table's reason was that establishing what
 		// changed requires binding a run to a workspace version and nothing
@@ -178,8 +244,11 @@ var causeClasses = []CauseClass{
 			"includes queueing on the header",
 	},
 	{
-		Name:            CauseBenignVariation,
-		Loci:            []string{triage.LocusRowsLostSilently},
+		Name: CauseBenignVariation,
+		// The two delivery loci are here because the declaration may be wrong:
+		// a departure from a stale declaration is not a fault in the feed.
+		Loci: []string{triage.LocusRowsLostSilently, triage.LocusDeliveryOverdue,
+			triage.LocusDeliveryDepartsProfile},
 		Evidenceability: Asymmetric,
 		Note: "the class can be proposed and not established: confirming benign needs the absence of a " +
 			"cause, which no record supplies, and ConfigConfounders.Read == false is the ordinary state " +
@@ -191,6 +260,10 @@ var causeClasses = []CauseClass{
 // ClassesFor returns the cause classes the table says a locus can carry, in the
 // table's order. It returns nothing for step_never_started and
 // per_record_failures_unreportable, which appear in no row.
+//
+// The two delivery loci map to three classes each, not one: delivery_overdue
+// to source_delivery_failure and benign_variation, delivery_departs_profile to
+// source_content_change, transformation_defect and benign_variation.
 func ClassesFor(locus string) []CauseClass {
 	var out []CauseClass
 	for i := range causeClasses {
@@ -215,13 +288,45 @@ func classOrder(name string) int {
 	return len(causeClasses)
 }
 
-// locusOrder is a locus's position in the locus vocabulary — how early the failure occurs —
-// used as the first tie-break.
+// locusOrder is a locus's position in onset order — how early the failure
+// occurs — used as the first tie-break.
+//
+// **It is not the vocabulary's order, and the difference is the two delivery
+// loci.** The vocabulary is appended to and never renumbered, so they sit last
+// there, although a delivery precedes the run that loads it. Onset order puts
+// them first: a delivery that never came retains the least, as run_not_started
+// does among the run loci, and a delivery that departs from its profile comes
+// before anything a run does with it. The nine run loci keep their relative
+// order, so a ranking over a run alone is unchanged. The tie can arise only on
+// a session that is both a delivery and a run, which is where a delivery
+// finding should be read first.
 func locusOrder(locus string) int {
-	if i := slices.Index(triage.Loci, locus); i >= 0 {
+	if i := slices.Index(onsetOrder, locus); i >= 0 {
 		return i
 	}
-	return len(triage.Loci)
+	return len(onsetOrder)
+}
+
+var onsetOrder = append(slices.Clone(triage.DeliveryLoci), runLoci()...)
+
+func runLoci() []string {
+	var out []string
+	for _, l := range triage.Loci {
+		if !slices.Contains(triage.DeliveryLoci, l) {
+			out = append(out, l)
+		}
+	}
+	return out
+}
+
+// sameRecord reports whether two loci are positions in the same record: both
+// in a run's execution record, or both in a feed's deliveries. A class's other
+// positions are compared only within one record, because a run's session is
+// never asked about a delivery locus and a registration session rarely has a
+// run, so the other record's verdicts would charge every hypothesis an item
+// for a question nobody put to that session.
+func sameRecord(a, b string) bool {
+	return slices.Contains(triage.DeliveryLoci, a) == slices.Contains(triage.DeliveryLoci, b)
 }
 
 // --- the confounder split ----------------------------------------------------
@@ -264,26 +369,9 @@ func benignExplanation(name string) bool {
 
 // --- the anomaly signal map --------------------------------------------------
 
-// Which locus a detector's signal lands at.
-//
-// observe.Anomaly's signal types are keyed to the detector table's rows
-// (Anomaly.anomaly_signal_type's own comment: "rejection_rate is row 1, volume
-// is rows 2 and 5, step_regression row 3, worker_stall row 4, arrival row 10"),
-// and the loci cite the same rows: locus rows_lost_silently is row 2,
-// worker_not_terminated is row 4, written_not_arrived is row 10, and
-// per_record_failures_reported is where a rejection rate is counted.
-//
-// **step_regression maps to no locus and that is not an omission.** The nine loci
-// are positions in one run's record; a step that regressed is a comparison
-// across runs, and the gate's table files it under transformation_defect's evidence rather
-// than under a locus. An anomaly carrying it contributes to the ranking's basis
-// and to no hypothesis's evidence, and Ranking.Basis says so by name.
-var signalLocus = map[string]string{
-	observe.SignalVolume:        triage.LocusRowsLostSilently,
-	observe.SignalWorkerStall:   triage.LocusWorkerNotTerminated,
-	observe.SignalArrival:       triage.LocusWrittenNotArrived,
-	observe.SignalRejectionRate: triage.LocusPerRecordFailuresReported,
-}
+// The (subject, signal) → locus table is triage's (triage.LocusOf), because
+// triage places a feed anomaly to decide whether a delivery locus holds and the
+// ranker places the same anomaly to cite it: one question, one table.
 
 // evidenceabilityOf returns the table's evidence-column answer for a class name.
 func evidenceabilityOf(name string) Evidenceability {
