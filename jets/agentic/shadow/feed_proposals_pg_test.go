@@ -15,11 +15,13 @@ package shadow
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/agentic/audit"
+	"github.com/artisoft-io/jetstore/jets/agentic/feedprofile"
 	"github.com/artisoft-io/jetstore/jets/agentic/feedproposal"
 	"github.com/artisoft-io/jetstore/jets/agentic/observe"
 	"github.com/artisoft-io/jetstore/jets/agentic/observe/feedfixture"
@@ -297,5 +299,150 @@ func TestFeedProposalIsDraftedForCumulativeUnderIncremental(t *testing.T) {
 	}
 	if a, err := Attest(ctx, pool); err != nil || a.Holds() || a.UnexplainedProposalStates != 1 {
 		t.Errorf("an out-of-band deployment of the proposal is not reported: %v\n%s", err, a.Report())
+	}
+}
+
+// reregister registers a delivered file of a feed again under a new session,
+// as JetStore records a re-processing: the same file key and period.
+func reregister(t *testing.T, pool *pgxpool.Pool, table, ofSession string, at time.Time) string {
+	t.Helper()
+	session := fmt.Sprintf("%d", at.UnixMilli())
+	tag, err := pool.Exec(context.Background(), `INSERT INTO jetsapi.input_registry
+		(client, org, object_type, file_key, source_period_key, table_name, source_type, session_id, user_email, last_update)
+		SELECT client, org, object_type, file_key, source_period_key, table_name, source_type, $3, user_email, $4
+		  FROM jetsapi.input_registry WHERE table_name = $1 AND session_id = $2`, table, ofSession, session, at)
+	if err != nil || tag.RowsAffected() != 1 {
+		t.Fatalf("re-registering %s's session %s: %v (%d rows)", table, ofSession, err, tag.RowsAffected())
+	}
+	return session
+}
+
+// detectFeedsOf runs the eight feed detectors over the clients of feeds, as of
+// the fixture's clock, and writes their anomalies.
+func detectFeedsOf(t *testing.T, pool *pgxpool.Pool, feeds []feedfixture.Feed) {
+	t.Helper()
+	ctx := context.Background()
+	var profiled, unprofiled []feedprofile.Feed
+	clients := map[string]bool{}
+	for _, f := range feeds {
+		if clients[f.Client] {
+			continue
+		}
+		clients[f.Client] = true
+		p, u, err := feedprofile.Load(ctx, pool, f.Client)
+		if err != nil {
+			t.Fatal(err)
+		}
+		profiled, unprofiled = append(profiled, p...), append(unprofiled, u...)
+	}
+	in, err := observe.ReadFeedDeliveryInput(ctx, pool, profiled, unprofiled, feedfixture.Clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range []interface {
+		Detect(*observe.FeedDeliveryInput) (observe.FeedDeliveryResult, error)
+	}{observe.DefaultFeedOverdue(), observe.DefaultDeliverySize(), observe.DefaultDeliveryBackdated()} {
+		res, err := d.Detect(in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := observe.FeedDeliveryWrite(ctx, pool, res); err != nil {
+			t.Fatal(err)
+		}
+	}
+	o := observe.DefaultClaimSetOptions()
+	o.Now = feedfixture.Clock
+	verdicts, err := observe.DetectClaimSets(ctx, pool, append(slices.Clone(profiled), unprofiled...), o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := observe.WriteClaimSetAnomalies(ctx, pool, verdicts); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestFeedProposalReadsReprocessingAsNotADelivery: the misdeclared feed's files
+// are registered again, once in the middle of its history as a backfill does
+// and all of them after its last delivery as a re-map does, newest first. A
+// re-registration is re-processing and carries no finding, so a reading that
+// took every registration for a delivery would end the run of evidence at the
+// re-map and draft nothing. The draft is still written, over the same eight
+// deliveries; and neither re-processing feed of the fixture is drafted.
+func TestFeedProposalReadsReprocessingAsNotADelivery(t *testing.T) {
+	pool := freshDB(t, "shadow_feed_proposals_reprocessing", migratedTables, true)
+	ctx := context.Background()
+	if _, err := feedfixture.Install(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := feedfixture.InstallReprocessing(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+
+	feed, _ := feedfixture.FeedByTable(feedfixture.CumulativeDeclaredIncremental)
+	ds := feed.Deliveries
+	reregistered := []string{reregister(t, pool, feed.TableName, ds[3].SessionID, ds[3].Registered.Add(2*time.Second))}
+	remapAt := ds[len(ds)-1].Registered.Add(48 * time.Hour)
+	if !remapAt.Before(feedfixture.Clock) {
+		t.Fatalf("the re-map at %s is not before the fixture's clock", remapAt)
+	}
+	for i := range ds {
+		reregistered = append(reregistered, reregister(t, pool, feed.TableName, ds[len(ds)-1-i].SessionID,
+			remapAt.Add(time.Duration(i)*60*time.Millisecond)))
+	}
+
+	detectFeedsOf(t, pool, append(feedfixture.Feeds(), feedfixture.ReprocessingFeeds()...))
+
+	// No finding hangs on a re-registration, and the feed's latest
+	// registration is one: under a registration reading the run would be 0.
+	if n := count(t, pool, `SELECT count(*) FROM jetsapi.anomaly WHERE anomaly_session_id = ANY($1)`,
+		reregistered); n != 0 {
+		t.Errorf("%d anomalies on re-registrations", n)
+	}
+	var latest string
+	if err := pool.QueryRow(ctx, `SELECT session_id FROM jetsapi.input_registry WHERE table_name = $1
+		ORDER BY length(session_id) DESC, session_id DESC LIMIT 1`, feed.TableName).Scan(&latest); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(reregistered, latest) {
+		t.Fatalf("the feed's latest registration %s is not a re-registration", latest)
+	}
+
+	since := feedfixture.Clock.Add(-time.Hour)
+	sessions, err := RecentFeedSessions(ctx, pool, since, "", 1000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := testWriter()
+	w.Now = func() time.Time { return feedfixture.Clock }
+	for _, s := range sessions {
+		if _, err := w.Run(ctx, pool, s); err != nil {
+			t.Fatalf("session %s: %v", s, err)
+		}
+	}
+	res, err := w.DraftFeedProposals(ctx, pool, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range res.Assessed {
+		t.Logf("%-34s deliveries %2d  re-registrations %2d  run of evidence %d  qualifies %-5v %s",
+			a.TableName, len(a.Deliveries), a.Reregistrations, len(a.Streak), a.Qualifies, a.Reason)
+		if a.Qualifies && a.TableName != feed.TableName {
+			t.Errorf("feed %s qualifies", a.TableName)
+		}
+	}
+	if len(res.Drafts) != 1 || res.Written() != 1 || res.Drafts[0].Assessment.TableName != feed.TableName {
+		t.Fatalf("%d drafts, %d written; want one, for %s", len(res.Drafts), res.Written(), feed.TableName)
+	}
+	a := res.Drafts[0].Assessment
+	if len(a.Deliveries) != len(ds) || a.Reregistrations != len(reregistered) || len(a.Streak) != len(ds)-1 {
+		t.Errorf("read %d deliveries, %d re-registrations and a run of %d; want %d, %d and %d",
+			len(a.Deliveries), a.Reregistrations, len(a.Streak), len(ds), len(reregistered), len(ds)-1)
+	}
+	if !strings.Contains(res.Drafts[0].Proposal.Rationale, "are re-processing and are not counted") {
+		t.Errorf("the rationale does not say the re-registrations were not counted:\n%s",
+			res.Drafts[0].Proposal.Rationale)
+	}
+	if a, err := Attest(ctx, pool); err != nil || !a.Holds() || a.IncidentProposalsInDraft != 1 {
+		t.Errorf("the attestation: %v\n%s", err, a.Report())
 	}
 }

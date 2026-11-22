@@ -31,7 +31,11 @@
 //
 // A feed looks cumulative when its latest Options.MinStreak deliveries
 // (default 3), in registration order, are all evidence: a run of evidence that
-// ends at the feed's latest registration. So one restated delivery never
+// ends at the feed's latest delivery. A delivery is a file, as the detectors
+// read it (observe.ReadFeedRegistrations): a distinct file_key at its first
+// registration. A later registration of the same file is re-processing (a
+// re-map, a backfill registering a file twice) and is not a delivery, so it
+// neither ends the run nor splits it. So one restated delivery never
 // triggers a draft, nor do restatements scattered through a history, nor a
 // cumulative stretch the feed has since left: a delivery that is not evidence
 // ends the run, and a delivery the detectors did not judge (its claims not
@@ -63,6 +67,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/artisoft-io/jetstore/jets/agentic/audit"
 	"github.com/artisoft-io/jetstore/jets/agentic/observe"
@@ -152,6 +157,9 @@ type Delivery struct {
 	IncidentID string
 	// IncidentStatus is that incident's current status.
 	IncidentStatus string
+	// Reprocessed counts the later registrations of this delivery's file:
+	// re-processing, which is not a delivery and carries no finding.
+	Reprocessed int
 }
 
 // Evidence reports whether the delivery is evidence of a cumulative shape.
@@ -167,8 +175,14 @@ type Assessment struct {
 	ObjectType string
 	// Cumulative is the feed's declaration: is_cumulative != 0.
 	Cumulative bool
-	// Deliveries are the feed's registrations, in registration order.
+	// Deliveries are the feed's deliveries, in registration order: each file
+	// at its first registration.
 	Deliveries []Delivery
+	// Reregistrations counts the later registrations of the feed's files,
+	// which are re-processing and not deliveries, and Unordered its
+	// registrations whose session id is not a time, which are neither.
+	Reregistrations int
+	Unordered       int
 	// Streak is the run of evidence ending at the latest delivery, oldest first.
 	Streak []Delivery
 	// SharedObjectType counts the other source configurations of the same
@@ -245,14 +259,6 @@ const candidatesSQL = `SELECT a.table_name,
   LEFT JOIN jetsapi.source_config sc ON sc.table_name = a.table_name
  WHERE cardinality($3::text[]) = 0 OR a.table_name = ANY($3::text[])
  ORDER BY a.table_name`
-
-// deliveriesSQL lists a feed's registrations in registration order, which is
-// the order the claim-set detectors compare them in: the session id read as a
-// number, by length and then as text.
-const deliveriesSQL = `SELECT DISTINCT session_id, length(session_id)
-  FROM jetsapi.input_registry
- WHERE table_name = $1 AND source_type = 'file' AND session_id IS NOT NULL AND session_id <> ''
- ORDER BY length(session_id), session_id`
 
 // evidenceSQL reads the two detectors' anomalies on a feed: the session, the
 // detector and the observed value, which for these two is a share or the word
@@ -362,27 +368,23 @@ func trailingEvidence(ds []Delivery, minShare float64) []Delivery {
 }
 
 func readDeliveries(ctx context.Context, db DB, a *Assessment) error {
-	rows, err := db.Query(ctx, deliveriesSQL, a.TableName)
+	// The detectors' own reading of a feed's deliveries, so a delivery here
+	// is the delivery they judged and a re-registration is skipped as they
+	// skip it.
+	regs, err := observe.ReadFeedRegistrations(ctx, db, []string{a.TableName})
 	if err != nil {
-		return fmt.Errorf("while listing the deliveries of feed %s: %w", a.TableName, err)
+		return fmt.Errorf("while reading the deliveries of feed %s: %w", a.TableName, err)
 	}
+	a.Unordered = regs.Unordered[a.TableName]
 	bySession := map[string]int{}
-	for rows.Next() {
-		var s string
-		var n int
-		if err := rows.Scan(&s, &n); err != nil {
-			rows.Close()
-			return fmt.Errorf("while scanning a delivery of feed %s: %w", a.TableName, err)
-		}
-		bySession[s] = len(a.Deliveries)
-		a.Deliveries = append(a.Deliveries, Delivery{SessionID: s, Ordinal: len(a.Deliveries) + 1})
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("while listing the deliveries of feed %s: %w", a.TableName, err)
+	for _, d := range regs.Deliveries(a.TableName, time.Time{}) {
+		bySession[d.SessionId] = len(a.Deliveries)
+		a.Deliveries = append(a.Deliveries, Delivery{SessionID: d.SessionId, Ordinal: d.Ordinal,
+			Reprocessed: len(d.Reprocessed)})
+		a.Reregistrations += len(d.Reprocessed)
 	}
 
-	rows, err = db.Query(ctx, evidenceSQL, observe.SubjectFeed, a.TableName, evidenceDetectors)
+	rows, err := db.Query(ctx, evidenceSQL, observe.SubjectFeed, a.TableName, evidenceDetectors)
 	if err != nil {
 		return fmt.Errorf("while reading the overlap and unchanged anomalies of feed %s: %w", a.TableName, err)
 	}
@@ -394,8 +396,9 @@ func readDeliveries(ctx context.Context, db DB, a *Assessment) error {
 		}
 		i, ok := bySession[session]
 		if !ok {
-			// An anomaly on a session that is no longer registered: its
-			// delivery cannot be placed in order, so it is not evidence.
+			// An anomaly on a session that is not a delivery (no longer
+			// registered, or a re-processing): it cannot be placed in the
+			// order of deliveries, so it is not evidence.
 			continue
 		}
 		d := &a.Deliveries[i]
@@ -522,6 +525,10 @@ func Rationale(a *Assessment, o Options) string {
 		"set equal to its predecessor's with no newer date of service; it takes %d such deliveries in a row, "+
 		"ending at the latest, so a single restated delivery does not draft this.\n",
 		len(a.Streak), len(a.Deliveries), o.MinShare, o.MinStreak)
+	if a.Reregistrations > 0 {
+		fmt.Fprintf(&b, "A delivery is a file at its first registration; the feed's %d later registrations of "+
+			"files it already holds are re-processing and are not counted.\n", a.Reregistrations)
+	}
 	for _, d := range a.Streak {
 		var what []string
 		if d.Share != nil {
@@ -534,8 +541,12 @@ func Rationale(a *Assessment, o Options) string {
 		if d.IncidentID != "" {
 			inc = fmt.Sprintf("incident %s, %s", d.IncidentID, d.IncidentStatus)
 		}
-		fmt.Fprintf(&b, "  - delivery %d, session %s: %s (%s)\n", d.Ordinal, d.SessionID,
-			strings.Join(what, ", "), inc)
+		again := ""
+		if d.Reprocessed > 0 {
+			again = fmt.Sprintf("; its file registered %d more time(s) since", d.Reprocessed)
+		}
+		fmt.Fprintf(&b, "  - delivery %d, session %s: %s (%s%s)\n", d.Ordinal, d.SessionID,
+			strings.Join(what, ", "), inc, again)
 	}
 
 	b.WriteString("\nWhat it changes. Two things read the declaration. The feed detectors would judge the feed " +
