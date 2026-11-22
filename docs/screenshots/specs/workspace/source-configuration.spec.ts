@@ -1,6 +1,6 @@
 // The Source Configuration flow (user/screens/flows/source-configuration):
 // CI's source configurations, the add page, and each page of the edit of
-// hc:PharmacyClaim up to its summary. Nothing is saved: the summary is left
+// hc:PharmacyClaim, its feed profile included, up to its summary. Nothing is saved: the summary is left
 // with Cancel.
 import { expect, test } from "@playwright/test";
 import { openFlowMenu, screenshotsFor, settle, signIn, tick, waitForTable } from "../../lib/shots";
@@ -44,6 +44,11 @@ test("Source Configuration flow", async ({ page }) => {
   await next.click();
   await expect(page.getByLabel("Schema Provider JSON")).toBeVisible();
   await settle(page);
+
+  await next.click();
+  await expect(page.getByLabel("Feed Profile (json)")).toBeVisible();
+  await settle(page);
+  await shot(page, "feed-profile");
 
   await next.click();
   await expect(page.getByRole("button", { name: "Save", exact: true })).toBeVisible();
