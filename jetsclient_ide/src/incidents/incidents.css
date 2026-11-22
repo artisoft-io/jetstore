@@ -212,3 +212,15 @@
   margin: 0.25rem 0 0;
   white-space: pre-wrap;
 }
+
+/* A feed incident's summary: the template's paragraphs, set as prose above the
+   record they summarise. */
+.feed-summary {
+  border-left: 3px solid var(--rule);
+  padding: 0.25rem 0 0.25rem 0.9rem;
+  margin-bottom: 1rem;
+}
+.feed-summary p {
+  margin: 0.4rem 0;
+  max-width: 72ch;
+}

@@ -276,6 +276,45 @@ describe("the incident list", () => {
 });
 
 describe("one incident", () => {
+  it("shows a feed incident's rendered summary, paragraph by paragraph, and says no model wrote it", async () => {
+    const feed = {
+      ...disclosed,
+      incident: {
+        ...detail,
+        locus: "delivery_overdue",
+        summary: {
+          text: "Feed acme_medical is overdue. Found on 1 June\n2026.\n\nThe readings, best first: 1. the source did not send the delivery.",
+          renderedBy: "template feed_incident_summary",
+          violations: [],
+        },
+      },
+    };
+    const { api } = await clientWith({ get_incident: { body: feed } });
+    renderAt(api, "/incidents/inc_1");
+    await screen.findByRole("heading", { name: "Summary" });
+    expect(screen.getByText("Feed acme_medical is overdue. Found on 1 June 2026.")).toBeTruthy();
+    expect(screen.getByText(/^The readings, best first:/)).toBeTruthy();
+    expect(screen.getByText(/Rendered by template feed_incident_summary\. No model wrote it\./)).toBeTruthy();
+  });
+
+  it("says why a feed incident has no summary rather than leaving it out", async () => {
+    const feed = {
+      ...disclosed,
+      incident: { ...detail, locus: "delivery_overdue", summaryError: "jetsapi.anomaly is not deployed" },
+    };
+    const { api } = await clientWith({ get_incident: { body: feed } });
+    renderAt(api, "/incidents/inc_1");
+    await screen.findByRole("heading", { name: "Summary" });
+    expect(screen.getByText(/No summary could be rendered for this feed incident: jetsapi.anomaly is not deployed/)).toBeTruthy();
+  });
+
+  it("shows no summary on a run incident", async () => {
+    const { api } = await clientWith({ get_incident: { body: disclosed } });
+    renderAt(api, "/incidents/inc_1");
+    await screen.findByRole("heading", { name: "inc_1" });
+    expect(screen.queryByRole("heading", { name: "Summary" })).toBeNull();
+  });
+
   it("renders the locus with what the record cannot see about it", async () => {
     const { api } = await clientWith({ get_incident: { body: disclosed } });
     renderAt(api, "/incidents/inc_1");
