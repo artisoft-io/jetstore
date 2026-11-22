@@ -1,6 +1,6 @@
 ---
 title: Incidents
-description: The Incidents screen, which lists the incidents raised over pipeline runs, and the page of one incident, with the evidence, the ranked hypotheses, its history and the verdict a supervisor records.
+description: The Incidents screen, which lists the incidents raised over pipeline runs and feed deliveries, and the page of one incident, with the evidence, the ranked hypotheses, its history and the verdict a supervisor records.
 kind: reference
 ---
 
@@ -27,7 +27,7 @@ The picker chooses **Open incidents** (the default), **Adjudicated**, or **All i
 
 | Column | What it shows |
 |---|---|
-| **Incident** | The incident's id, linked to its page, and the session of the run it concerns. |
+| **Incident** | The incident's id, linked to its page, and the session it concerns: a run's, or, for a feed incident, the session in which a delivery was registered. |
 | **Detected** | When it was raised. |
 | **Locus** *evidence* | Where the evidence sits, such as *Worker failed*. Hover for what the locus means. |
 | **Cause** *claim* | The cause claimed, or *not claimed*. |
@@ -46,16 +46,41 @@ which runs where the detection task is deployed; the Detection screen says wheth
 ### Incidents about a feed's deliveries
 
 Two loci are about a feed rather than a run. They come from feed detection, which compares each
-delivery with the feed's declared profile.
+delivery with the feed's declared profile (see
+[Declare a feed profile](/docs/user/how-to/declare-a-feed-profile/)) and records what departs from
+it. Shadow triage turns those findings into incidents, the same way it does for runs, and takes them
+no further than *diagnosed*.
 
 | Locus | What it means |
 |---|---|
-| **Delivery overdue** | No delivery of the feed arrived within its declared cadence of the last one. A delivery that never came has no session of its own, so the incident is on the session of the feed's **last delivery**, the one after which nothing came. |
-| **Delivery departs from profile** | A delivery arrived and departs from what the profile declares: its size, how recent its service dates are, the span they cover, a required field's completeness, its overlap with earlier deliveries, or a repeat of the last delivery. The locus does not say which; the detection that raised it does. |
+| **Delivery overdue** | No delivery of the feed arrived for the period one was due in, past the declared grace. A delivery that never came has no session of its own, so the incident is on the session of the feed's **last delivery**, the one after which nothing came. |
+| **Delivery departs from profile** | A delivery arrived and departs from what the profile declares: its size, how recent its service dates are, the span they cover, a required field's completeness, its overlap with earlier deliveries, a repeat of the last delivery, or a period older than one already delivered. The locus does not say which; the detection that raised it does, and the incident's evidence names it. |
 
-**Both are observations against a declaration, not a verdict on the feed.** A profile that is out of
-date makes a sound delivery depart from it, so check the profile as well as the delivery before
-claiming a cause.
+**A feed incident is on a registration session, which may have no pipeline run.** Its page shows the
+nine run loci as *not evaluable*, because there is no run to ask, and the feed locus with the
+detection's own words as its evidence. The feed is named by its **source configuration**, with that
+configuration's client. When the delivery was registered under another client, such as `Any`, the
+evidence says so beside it; the incident does not take that client as the feed's.
+
+**The hypotheses offered for a feed incident:**
+
+| Locus | Causes proposed |
+|---|---|
+| **Delivery overdue** | *Source delivery failure*, *Benign variation* |
+| **Delivery departs from profile** | *Source content change*, *Transformation defect*, *Benign variation* |
+
+*Transformation defect* is offered because a departure can be the mapping's rather than the
+supplier's: a column the pipeline leaves unmapped looks absent from every delivery. *Benign
+variation* is offered because the declaration can be wrong.
+
+**Both are observations against a declaration, not a verdict on the feed**, and every feed
+hypothesis says so. Each carries, as evidence **against** it, who declared the profile, on what date,
+and how old the declaration was when the finding was detected: a profile that is out of date makes a
+sound delivery depart from it. *Source delivery failure* on an overdue feed carries the declared
+cadence as evidence **for** it, because the cadence is the record of what was due. *Source content
+change* carries a column as evidence for it when the check that fired compared a column the profile
+names: a required field, the service date or the business key. Check the profile as well as the
+delivery before claiming a cause.
 
 ## An incident
 

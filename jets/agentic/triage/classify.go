@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/agentic/feedprofile"
 	"github.com/artisoft-io/jetstore/jets/agentic/observe"
 )
 
@@ -650,6 +651,16 @@ func (c Classifier) perRecordFailuresReported(ev *Evidence) Finding {
 			"jetsapi.process_errors is not deployed on this database, so the absence of a per-record "+
 				"failure cannot be told from the absence of the table")
 	}
+	if ev.Errors.Rows == 0 && ev.Header == nil && len(ev.workerRows()) == 0 {
+		// No run record at all: no header and no worker row. There was no run
+		// to report a failure or to fail to report one, and a registration
+		// session, which the delivery loci are judged on, is exactly this case.
+		// Absent here would count every such session into this locus's
+		// denominator as a run that reported nothing.
+		return notEvaluable(locus, fmt.Sprintf(
+			"session %q has no run header and no worker row, so there is no run whose per-record failures "+
+				"could have been reported; jetsapi.process_errors holds no row for it either", ev.SessionId))
+	}
 	if ev.Errors.Rows == 0 {
 		return Finding{Locus: locus, Verdict: Absent, Basis: fmt.Sprintf(
 			"jetsapi.process_errors holds no row for session %q. That is a weaker statement than it looks: "+
@@ -795,31 +806,116 @@ func (c Classifier) writtenNotArrived(ev *Evidence) Finding {
 // --- Loci 10 and 11: a feed's deliveries ----------------------------------------
 
 // deliveryOverdue is the first of the two delivery loci: a feed anomaly with
-// signal arrival, meaning nothing arrived within the feed's declared cadence of
-// the last delivery.
-//
-// **NotEvaluable here, and for a reason that is about this classifier's inputs
-// rather than about the locus.** The predicate is over jetsapi.anomaly — a row
-// with subject feed — and Evidence carries no anomalies, because every other
-// locus is read from the execution record. A feed that stops writes no run at
-// all, so the session such a finding is keyed on is the last delivery's: the
-// session after which nothing came. Whoever supplies the anomalies supplies
-// that convention with them.
+// signal arrival on the session, meaning nothing arrived within the feed's
+// declared cadence after it. feed_overdue hangs that finding on the session of
+// the feed's last delivery, the one after which nothing came, because a feed
+// that stops has no session of its own.
 func (c Classifier) deliveryOverdue(ev *Evidence) Finding {
-	return notEvaluable(LocusDeliveryOverdue, fmt.Sprintf(
-		"this locus is a feed anomaly with signal arrival, keyed on the last delivery's session, "+
-			"and the classifier was given no feed anomalies for session %q; nothing in the execution "+
-			"record can say whether a delivery that should have followed it arrived", ev.SessionId))
+	return c.deliveryLocus(ev, LocusDeliveryOverdue, func(d *DeclaredFeed) bool {
+		missing, err := feedprofile.Missing(feedprofile.FeedOverdue, d.Feed.Profile, d.Feed.Cumulative)
+		return err == nil && len(missing) == 0
+	}, "declares a cadence, so feed_overdue judges it, and no arrival anomaly hangs on this delivery: "+
+		"either a later delivery came, or the feed was not yet overdue when it was last judged")
 }
 
-// deliveryDepartsProfile is the second: a feed anomaly with any signal other
-// than arrival — a delivery that arrived and departs from what the feed's
-// profile declares. NotEvaluable for deliveryOverdue's reason.
+// deliveryDepartsProfile is the second: a feed anomaly with any other signal —
+// a delivery that arrived and departs from what the feed's profile declares.
+// The signal and the detector say which departure.
 func (c Classifier) deliveryDepartsProfile(ev *Evidence) Finding {
-	return notEvaluable(LocusDeliveryDepartsProfile, fmt.Sprintf(
-		"this locus is a feed anomaly comparing a delivery with the feed's declared profile, and the "+
-			"classifier was given no feed anomalies for session %q; the execution record says what a run "+
-			"did with a delivery, not whether the delivery was the one the profile declares", ev.SessionId))
+	return c.deliveryLocus(ev, LocusDeliveryDepartsProfile, func(d *DeclaredFeed) bool {
+		for _, det := range feedprofile.Detectors {
+			if det == feedprofile.FeedOverdue {
+				continue
+			}
+			ok, err := feedprofile.Applies(det, d.Feed.Cumulative)
+			if err != nil || !ok {
+				continue
+			}
+			if missing, err := feedprofile.Missing(det, d.Feed.Profile, d.Feed.Cumulative); err == nil && len(missing) == 0 {
+				return true
+			}
+		}
+		return false
+	}, "declares what at least one delivery check compares against, and no departure anomaly hangs on this "+
+		"delivery")
+}
+
+// deliveryLocus is the predicate both delivery loci share.
+//
+//   - **Present** when a feed anomaly on the session lands at the locus. The
+//     basis names each feed by its source configuration, its client included,
+//     and says when the delivery was registered under another client.
+//   - **Absent** when the session is a delivery of a profiled feed whose
+//     declaration the locus's detectors judge, and no anomaly lands there. The
+//     basis says the verdict is as current as the last detection run over the
+//     feed, which this package cannot see.
+//   - **NotEvaluable** otherwise: the anomaly table is not deployed, or the
+//     session is not a registration of any feed whose profile the locus's
+//     detectors judge — which is what every pipeline run's own session is.
+func (c Classifier) deliveryLocus(ev *Evidence, locus string, judged func(*DeclaredFeed) bool,
+	absentBecause string) Finding {
+	fe := ev.Feed
+	if fe == nil || !fe.Read {
+		why := "no feed evidence was gathered for session " + ev.SessionId
+		if fe != nil && fe.Note != "" {
+			why = fe.Note
+		}
+		return notEvaluable(locus, why)
+	}
+	if placed := fe.At(locus); len(placed) > 0 {
+		return deliveryPresent(ev, locus, placed)
+	}
+	var judgedFeeds []string
+	for _, d := range fe.DeliveryOf() {
+		if judged(d) {
+			judgedFeeds = append(judgedFeeds, d.Name())
+		}
+	}
+	if len(judgedFeeds) == 0 {
+		why := fmt.Sprintf("session %q carries no feed anomaly at this locus and is not a registration of any "+
+			"feed whose profile this locus's detectors judge, so there is nothing to have fired", ev.SessionId)
+		if fe.Registrations == nil {
+			why += "; jetsapi.input_registry is not deployed, so which feed the session delivers could not be read"
+		}
+		return notEvaluable(locus, why)
+	}
+	return Finding{Locus: locus, Verdict: Absent, Basis: fmt.Sprintf(
+		"session %q is a delivery of %s, whose profile %s. A detector's verdict is read from "+
+			"jetsapi.anomaly, so this one is as current as the last detection run over the feed",
+		ev.SessionId, strings.Join(judgedFeeds, "; "), absentBecause)}
+}
+
+// deliveryPresent is a delivery locus that holds.
+func deliveryPresent(ev *Evidence, locus string, placed []observe.Anomaly) Finding {
+	fe := ev.Feed
+	var b strings.Builder
+	fmt.Fprintf(&b, "%d feed anomaly/anomalies on session %q land at locus %s", len(placed), ev.SessionId, locus)
+	if locus == LocusDeliveryOverdue {
+		b.WriteString(". A feed that stops has no session of its own, so the finding hangs on the session of " +
+			"the feed's last delivery, the one after which nothing came")
+	}
+	for _, d := range fe.feedsOf(placed) {
+		fmt.Fprintf(&b, ". It concerns %s", d.Name())
+		if s := fe.RegisteredElsewhere(d); s != "" {
+			b.WriteString("; " + s)
+		}
+		if d.Configured && !d.Profiled {
+			b.WriteString("; its source configuration holds no profile that validates now, so the declaration the " +
+				"detector compared against cannot be re-read")
+		}
+	}
+	var conf, subjects []string
+	for _, a := range placed {
+		fmt.Fprintf(&b, ". %s, signal %s, observed %s: %s", a.DetectorRef, a.SignalType, a.ObservedValue,
+			a.ExpectedBasis)
+		subjects = append(subjects, "anomaly "+a.AnomalyId)
+		for _, x := range a.Confounders {
+			if !slices.Contains(conf, x) {
+				conf = append(conf, x)
+			}
+		}
+	}
+	return Finding{Locus: locus, Verdict: Present, Basis: b.String(), Confounders: conf, Subjects: subjects}
 }
 
 // timeFmt is RFC3339 without the sub-second noise, which is what every basis
