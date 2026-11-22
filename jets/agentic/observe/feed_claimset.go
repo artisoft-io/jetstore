@@ -282,35 +282,27 @@ func claimSetProfiled(f feedprofile.Feed) bool {
 }
 
 // claimSetFieldGate is the reason a detector does not judge a feed at all, from
-// the profile and the cumulative switch alone, or "".
+// the profile and the cumulative switch alone, or "". Which detector judges
+// which kind of feed, and which fields it needs, is the profile package's
+// table (feedprofile.Applies and feedprofile.Missing), which the
+// delivery-grain detectors read too; the first missing field is the reason.
 func claimSetFieldGate(det string, f feedprofile.Feed) string {
-	p := f.Profile
 	if !claimSetProfiled(f) {
 		return ClaimSetNoProfile
 	}
-	if det == ClaimSetServiceDateSpan && f.Cumulative {
+	applies, err := feedprofile.Applies(det, f.Cumulative)
+	if err != nil {
+		panic(fmt.Sprintf("observe: %v", err)) // ClaimSetDetectors are the table's own names
+	}
+	if !applies {
 		return ClaimSetCumulativeFeed
 	}
-	if p.ClaimSet == nil {
-		return ClaimSetFieldAbsent + "claim_set"
+	missing, err := feedprofile.Missing(det, f.Profile, f.Cumulative)
+	if err != nil {
+		panic(fmt.Sprintf("observe: %v", err))
 	}
-	switch det {
-	case ClaimSetServiceDateStale:
-		if p.MaxServiceDateLagDays == nil {
-			return ClaimSetFieldAbsent + "max_service_date_lag_days"
-		}
-	case ClaimSetServiceDateSpan:
-		if p.MaxServiceDateSpanDays == nil {
-			return ClaimSetFieldAbsent + "max_service_date_span_days"
-		}
-	case ClaimSetFieldCompleteness:
-		if len(p.RequiredFields) == 0 {
-			return ClaimSetFieldAbsent + "required_fields"
-		}
-	case ClaimSetDeliveryOverlap:
-		if !f.Cumulative && p.MaxRedeliveredShare == nil {
-			return ClaimSetFieldAbsent + "max_redelivered_share"
-		}
+	if len(missing) > 0 {
+		return ClaimSetFieldAbsent + missing[0]
 	}
 	return ""
 }

@@ -1,17 +1,17 @@
 // Package detectrun records each run of the agentic detection commands,
-// anomaly_detect and shadow_triage, in jetsapi.agentic_detection_run, so that
+// anomaly_detect, shadow_triage and feed_detect, in jetsapi.agentic_detection_run, so that
 // a person can see that the detectors ran, when, on whose request, and what
 // they found, without reading CloudWatch.
 //
 // # One row per command per task
 //
-// The daily detection task runs both commands, one container each
-// (cdk/jetstore_one/stack/build_agentic_detect.go), so a run of the task is two
-// rows sharing a task_ref, the ECS task ARN. The pair (task_ref, command) is
+// The daily detection task runs the commands, one container each
+// (cdk/jetstore_one/stack/build_agentic_detect.go), so a run of the task is one
+// row per command, sharing a task_ref, the ECS task ARN. The pair (task_ref, command) is
 // unique, and that is what lets the two writers of a row agree on it:
 //
-//   - the apiserver, when a person presses *Run detection now*, inserts both
-//     rows as `requested` with the ARN ECS returned (Request);
+//   - the apiserver, when a person presses *Run detection now*, inserts every
+//     command's row as `requested` with the ARN ECS returned (Request);
 //   - each command, when it starts, moves its row to `running`, inserting it if
 //     the apiserver did not (Begin) -- a scheduled run has no requester -- and
 //     moves it to `ok` or `failed` when it ends (Finish).
@@ -42,14 +42,18 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// The two commands, as they are recorded.
+// The commands, as they are recorded.
 const (
 	CommandAnomalyDetect = "anomaly_detect"
 	CommandShadowTriage  = "shadow_triage"
+	// CommandFeedDetect runs the feed detectors (jets/cmds/feed_detect).
+	CommandFeedDetect = "feed_detect"
 )
 
-// Commands is the order the detection task runs them in.
-var Commands = []string{CommandAnomalyDetect, CommandShadowTriage}
+// Commands is the order the detection task runs them in. A manual run
+// requests a row for each, so a command listed here must be one the task's
+// definition starts, or its requested row is never moved on.
+var Commands = []string{CommandAnomalyDetect, CommandShadowTriage, CommandFeedDetect}
 
 // Triggers. TriggerVariable carries one into the container: the daily rule sets
 // it to schedule and the apiserver's run action to manual. A command started any

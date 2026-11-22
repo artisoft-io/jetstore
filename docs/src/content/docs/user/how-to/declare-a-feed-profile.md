@@ -63,7 +63,7 @@ configuration's **Is each delivery cumulative?** setting, and the checks read it
 | `periods_per_delivery` | How many periods one delivery covers: `2` with `week_period` for every two weeks, `3` with `month_period` for quarterly. Absent is 1. | a delivery that is overdue |
 | `overdue_after_days` | The grace, in days, after the period in which a delivery was due. | a delivery that is overdue |
 | `size_bytes` | `{"min": …, "max": …}`, the expected size of one delivery in bytes; either bound may be left out. Absent, the check uses the feed's recent deliveries (see below). | a delivery of unusual size |
-| `claim_set` | Where the feed's claims are once loaded: `table`, the `key_columns` that identify a claim, the `service_date_column` and the `member_column`. All four are required when it is given. **The key is yours to declare**: JetStore does not infer it, and a check reports how many rows share a key before trusting it. | every check that reads the claims |
+| `claim_set` | Where the feed's claims are once loaded: `table`, the `key_columns` that identify a claim, the `service_date_column` and the `member_column`. All four are required when it is given. A `table` with a dot in it is read as `schema.table`, so `audit.hc:Claim` is the table `hc:Claim` in the schema `audit`; a name with no dot is in the `public` schema, where pipelines write, and the checks do not judge a feed whose table name has more than one dot. **The key is yours to declare**: JetStore does not infer it, and a check reports how many rows share a key before trusting it. | every check that reads the claims |
 | `max_service_date_lag_days` | How far the newest date of service may fall behind the delivery. | claims that stop advancing |
 | `max_service_date_span_days` | The widest span of service dates one delivery may hold. Not used for a cumulative feed. | a delivery that reaches back in time |
 | `max_redelivered_share` | The largest share, from 0 to 1, of a delivery's claims that may have been delivered before. Not used for a cumulative feed. | claims delivered again |
@@ -115,6 +115,16 @@ current period whose claims reach back in time is a different case, which the sp
 delivery only with the deliveries registered before it. The first delivery JetStore still holds has
 nothing before it, so a check that compares with earlier deliveries does not judge it, and says that
 earlier history may have been removed.
+
+## When the checks run
+
+The checks are run by the `feed_detect` command, which an installation operator runs (see
+[Run the feed checks](/docs/install/how-to/run-the-feed-checks/)). In this version the daily
+detection task does not run it yet. Each run judges the deliveries registered in its window, 26 hours
+by default, and judges whether each feed is overdue at the time it runs; every finding becomes an
+anomaly on the feed. A run over a window an earlier run covered writes nothing twice. A profile you
+save is used from the next run on, and a run never judges a delivery against a profile it did not
+have: the findings name the profile's `declared_by` and `declared_at`.
 
 ## How to tell it worked
 

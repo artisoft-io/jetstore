@@ -23,3 +23,4 @@ Each guide is one task. The first five are in the order a new installation needs
 | [Build the inference server AMI](/docs/install/how-to/build-the-infer-ami/) | Build the GPU image the inference server's instances boot from |
 | [Start and stop the inference server](/docs/install/how-to/start-and-stop-the-infer-server/) | Scale the GPU service and its instance up and down, from the command line, from Go or from the UI |
 | [Run against a local checkout](/docs/install/how-to/run-against-a-local-checkout/) | Settings a workstation needs so the UI cannot write into the developer's own repository |
+| [Run the feed checks](/docs/install/how-to/run-the-feed-checks/) | Run `feed_detect` over recent deliveries or over a history, and run a retrospective through the Query Tool on a database you cannot reach |
