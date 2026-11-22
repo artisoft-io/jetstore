@@ -54,6 +54,15 @@
 // incidents at `diagnosed` like any other. -client is the feed's own client,
 // from its source configuration.
 //
+// # A draft proposal for a feed that looks cumulative
+//
+// After the incidents are written, a feed whose latest deliveries each
+// re-deliver most of their predecessor while its source configuration declares
+// it incremental gets a change proposal in `draft`, proposing to declare it
+// cumulative, with its incident as the trigger (jets/agentic/feedproposal).
+// The incident is not moved, no remediation is written, and a second run does
+// not draft it again. A person approves or rejects it on the proposals screen.
+//
 // # Its own run is recorded too
 //
 // Each run writes one row to jetsapi.agentic_detection_run with what it
@@ -162,6 +171,9 @@ type summary struct {
 	AlreadyRaised   int                    `json:"alreadyRaised"`
 	UnmappedLoci    []string               `json:"unmappedLoci"`
 	Census          map[string]locusCensus `json:"census"`
+	FeedsAssessed   int                    `json:"feedsAssessedForProposals"`
+	Proposals       int                    `json:"proposalsDrafted"`
+	ProposalsKnown  int                    `json:"proposalsAlreadyRecorded"`
 	AttestationRead bool                   `json:"attestationRead"`
 	AttestationHeld bool                   `json:"attestationHeld"`
 	Attestation     string                 `json:"attestation"`
@@ -251,6 +263,36 @@ func doJob(ctx context.Context, db *pgxpool.Pool, extent *triage.Extent, sum *su
 		if len(res.UnmappedLoci) > 0 {
 			log.Printf("%s: %v fired and the cause mapping maps them to no cause class, so those incidents carry no hypothesis",
 				s, res.UnmappedLoci)
+		}
+	}
+
+	// The advisory step: a feed whose deliveries look cumulative under an
+	// incremental declaration gets a change proposal in draft, triggered by
+	// its incident. It moves no incident and leaves the proposal in draft.
+	drafts, err := w.DraftFeedProposals(ctx, db, sessions)
+	if err != nil {
+		return err
+	}
+	sum.FeedsAssessed = len(drafts.Assessed)
+	for _, a := range drafts.Assessed {
+		if !a.Qualifies {
+			log.Printf("feed %s: no proposal (%s; %d of its latest deliveries look cumulative)",
+				a.TableName, a.Reason, len(a.Streak))
+		}
+	}
+	for _, d := range drafts.Drafts {
+		switch {
+		case d.Written:
+			sum.Proposals++
+			log.Printf("feed %s: drafted change proposal %s, triggered by %s; it stays in draft until a person moves it",
+				d.Assessment.TableName, d.Proposal.ProposalId, d.Proposal.TriggerRef)
+		case d.Existing != "":
+			sum.ProposalsKnown++
+			log.Printf("feed %s: change proposal %s is already recorded, in %s; not drafted again",
+				d.Assessment.TableName, d.Proposal.ProposalId, d.Existing)
+		default:
+			log.Printf("feed %s: change proposal %s would be drafted (-dry-run)",
+				d.Assessment.TableName, d.Proposal.ProposalId)
 		}
 	}
 

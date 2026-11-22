@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/agentic/feedproposal"
 	"github.com/artisoft-io/jetstore/jets/agentic/observe"
 )
 
@@ -41,6 +42,11 @@ import (
 //     without a transition — an out-of-band UPDATE — and it is the one way the
 //     third answer above could be true and misleading at once. Reporting it is
 //     what turns *no event names an acting status* into *no incident reached one*.
+//   - **And the drafts.** DraftFeedProposals writes change proposals in draft
+//     with an incident as their trigger. A draft moves no incident and is not a
+//     remediation, so it changes none of the answers above; the attestation
+//     counts them, and reports one whose state no recorded decision explains,
+//     which is the same question as the one above asked of a proposal.
 //
 // # Two bounds, stated here rather than left to be discovered
 //
@@ -85,6 +91,22 @@ type Attestation struct {
 	// but it would mean the system had labelled itself, which is the other thing
 	// this wiring is refused.
 	AdjudicationsByAgent int64
+
+	// ProposalsRead is whether jetsapi.change_proposal and
+	// jetsapi.approval_event were both present to count. When they are not,
+	// the three counts below are zero because nothing was read, and the
+	// attestation says so rather than reporting zero drafts.
+	ProposalsRead bool
+	// IncidentProposals counts the change proposals an incident triggered,
+	// which are the drafts DraftFeedProposals writes, and
+	// IncidentProposalsInDraft how many of them are still in draft.
+	IncidentProposals        int64
+	IncidentProposalsInDraft int64
+	// UnexplainedProposalStates counts incident-triggered proposals whose
+	// state is neither `draft` with no recorded decision nor the to_state of
+	// their latest decision: a proposal that left draft without anybody
+	// deciding it, which is the proposal's version of an unexplained status.
+	UnexplainedProposalStates int64
 }
 
 // Holds reports whether the record demonstrates that nothing acted.
@@ -98,7 +120,8 @@ func (a *Attestation) Holds() bool {
 		a.TransitionsIntoActing == 0 &&
 		a.IncidentsAtActingStatus == 0 &&
 		a.UnexplainedStatuses == 0 &&
-		a.AdjudicationsByAgent == 0
+		a.AdjudicationsByAgent == 0 &&
+		a.UnexplainedProposalStates == 0
 }
 
 // Report is the attestation in the words an operator reads, and it is what a
@@ -132,6 +155,14 @@ func (a *Attestation) Report() string {
 	fmt.Fprintf(&b, "  every status is explained by its own history: %d unexplained\n", a.UnexplainedStatuses)
 	fmt.Fprintf(&b, "  no agent adjudicated its own work:      %d agent transitions into %v\n",
 		a.AdjudicationsByAgent, AdjudicationStatuses)
+	if a.ProposalsRead {
+		fmt.Fprintf(&b, "  change proposals an incident triggered: %d, of which %d still in draft\n",
+			a.IncidentProposals, a.IncidentProposalsInDraft)
+		fmt.Fprintf(&b, "  every such proposal's state is explained by a recorded decision: %d unexplained\n",
+			a.UnexplainedProposalStates)
+	} else {
+		b.WriteString("  change proposals: not counted, jetsapi.change_proposal or jetsapi.approval_event is absent\n")
+	}
 	b.WriteString("  bound: jetsapi.incident_event has no append-only trigger, and a transition is " +
 		"hash-chained only where the incident names an AgentRun. A deterministic classifier is " +
 		"not one, so these rows are durable and attributable and are not tamper-evident.\n")
@@ -156,7 +187,25 @@ const attestSQL = `SELECT
     WHERE CASE WHEN last.to_status IS NULL THEN i.status <> 'detected'
                ELSE i.status <> last.to_status END)`
 
-// Attest computes the attestation. It reads five tables and writes nothing.
+const proposalTablesSQL = `SELECT to_regclass('jetsapi.change_proposal') IS NOT NULL
+   AND to_regclass('jetsapi.approval_event') IS NOT NULL`
+
+// proposalsSQL counts the proposals an incident triggered, those still in
+// draft, and those whose state no recorded decision explains.
+const proposalsSQL = `SELECT count(*),
+  count(*) FILTER (WHERE p.approval_state = 'draft'),
+  count(*) FILTER (WHERE CASE WHEN last.to_state IS NULL THEN p.approval_state <> 'draft'
+                              ELSE p.approval_state <> last.to_state END)
+  FROM jetsapi.change_proposal p
+  LEFT JOIN LATERAL (
+    SELECT e.to_state
+      FROM jetsapi.approval_event e
+     WHERE e.subject_ref = p.proposal_id
+     ORDER BY e.decided_at DESC, e.approval_event_id DESC
+     LIMIT 1) last ON true
+ WHERE p.trigger = $1`
+
+// Attest computes the attestation. It reads seven tables and writes nothing.
 func Attest(ctx context.Context, db observe.DB) (*Attestation, error) {
 	targets, err := ReadTargets(ctx, db)
 	if err != nil {
@@ -185,5 +234,17 @@ func Attest(ctx context.Context, db observe.DB) (*Attestation, error) {
 		}
 		a.IncidentsByStatus[s] = n
 	}
-	return a, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := db.QueryRow(ctx, proposalTablesSQL).Scan(&a.ProposalsRead); err != nil {
+		return nil, fmt.Errorf("while reading whether the proposal tables exist: %w", err)
+	}
+	if a.ProposalsRead {
+		if err := db.QueryRow(ctx, proposalsSQL, feedproposal.Trigger).Scan(
+			&a.IncidentProposals, &a.IncidentProposalsInDraft, &a.UnexplainedProposalStates); err != nil {
+			return nil, fmt.Errorf("while counting the proposals an incident triggered: %w", err)
+		}
+	}
+	return a, nil
 }
