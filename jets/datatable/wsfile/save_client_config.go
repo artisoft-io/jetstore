@@ -202,6 +202,13 @@ func escapeTics(str string) string {
 // Nothing caught it because a generated init script is not loaded by whoever
 // generates it, and the loader reported it as a syntax error near `::` in a
 // fragment of a 300-line file.
+//
+// A jsonb column is cast to text in the select list too, for a second reason:
+// the row is scanned into sql.NullString and written back as a quoted literal,
+// which PostgreSQL reads into jsonb on insert. source_config's
+// feed_profile_json is the first jsonb column among the exported tables. The
+// test that loads an export back, TestExportedFeedProfileLoadsBack, is what
+// shows the literal is accepted.
 func getColumns(jetsSchema *map[string]schema.TableDefinition, skipKeyColumn bool, tableName string) (selectList, columnNames []string, err error) {
 	tableDef, ok := (*jetsSchema)[tableName]
 	if !ok {
@@ -213,7 +220,7 @@ func getColumns(jetsSchema *map[string]schema.TableDefinition, skipKeyColumn boo
 			continue
 		}
 		columnNames = append(columnNames, name)
-		if tableDef.Columns[i].IsArray {
+		if tableDef.Columns[i].IsArray || tableDef.Columns[i].DataType == "jsonb" {
 			selectList = append(selectList, name+"::text")
 		} else {
 			selectList = append(selectList, name)

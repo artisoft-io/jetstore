@@ -52,19 +52,27 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 	// Configuration flow always sends it, as 0 or 1 like is_part_files. A caller
 	// that does not gets the column's default on insert, and keeps the stored value
 	// on update, rather than binding NULL against NOT NULL.
+	//
+	// feed_profile_json: the feed's profile (jets/agentic/feedprofile), a
+	// nullable jsonb. InsertRows parses and validates it before either statement
+	// runs and refuses the request when it is not a valid profile
+	// (normaliseFeedProfile). A caller that does not send it inserts NULL, and
+	// keeps the stored profile on update, as is_cumulative does; the JSON null,
+	// which the hook makes of an empty profile, inserts NULL and clears a stored
+	// one, hence the NULLIF.
 	"source_config": {
 		Stmt: `INSERT INTO jetsapi.source_config 
-			(object_type, client, org, automated, table_name, domain_keys_json, code_values_mapping_json, input_columns_json, input_columns_positions_csv, input_format, is_part_files, input_format_data_json, domain_keys, schema_provider_json, user_email, is_cumulative) 
-			VALUES ($1, $2, $3, 0, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, COALESCE($15, 0))
+			(object_type, client, org, automated, table_name, domain_keys_json, code_values_mapping_json, input_columns_json, input_columns_positions_csv, input_format, is_part_files, input_format_data_json, domain_keys, schema_provider_json, user_email, is_cumulative, feed_profile_json) 
+			VALUES ($1, $2, $3, 0, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, COALESCE($15, 0), NULLIF($16::jsonb, 'null'::jsonb))
 			RETURNING key`,
-		ColumnKeys: []string{"object_type", "client", "org", "table_name", "domain_keys_json", "code_values_mapping_json", "input_columns_json", "input_columns_positions_csv", "input_format", "is_part_files", "input_format_data_json", "domain_keys", "schema_provider_json", "user_email", "is_cumulative"},
+		ColumnKeys: []string{"object_type", "client", "org", "table_name", "domain_keys_json", "code_values_mapping_json", "input_columns_json", "input_columns_positions_csv", "input_format", "is_part_files", "input_format_data_json", "domain_keys", "schema_provider_json", "user_email", "is_cumulative", "feed_profile_json"},
 		Capability: "client_config",
 	},
 	"update/source_config": {
 		Stmt: `UPDATE jetsapi.source_config SET
-			(object_type, client, org, automated, table_name, domain_keys_json, code_values_mapping_json, input_columns_json, input_columns_positions_csv, input_format, is_part_files, input_format_data_json, domain_keys, schema_provider_json, user_email, is_cumulative, last_update) 
-			= ($1, $2, $3, 0, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, COALESCE($15, is_cumulative), DEFAULT) WHERE key = $16`,
-		ColumnKeys: []string{"object_type", "client", "org", "table_name", "domain_keys_json", "code_values_mapping_json", "input_columns_json", "input_columns_positions_csv", "input_format", "is_part_files", "input_format_data_json", "domain_keys", "schema_provider_json", "user_email", "is_cumulative", "key"},
+			(object_type, client, org, automated, table_name, domain_keys_json, code_values_mapping_json, input_columns_json, input_columns_positions_csv, input_format, is_part_files, input_format_data_json, domain_keys, schema_provider_json, user_email, is_cumulative, feed_profile_json, last_update) 
+			= ($1, $2, $3, 0, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, COALESCE($15, is_cumulative), NULLIF(COALESCE($16::jsonb, feed_profile_json), 'null'::jsonb), DEFAULT) WHERE key = $17`,
+		ColumnKeys: []string{"object_type", "client", "org", "table_name", "domain_keys_json", "code_values_mapping_json", "input_columns_json", "input_columns_positions_csv", "input_format", "is_part_files", "input_format_data_json", "domain_keys", "schema_provider_json", "user_email", "is_cumulative", "feed_profile_json", "key"},
 		Capability: "client_config",
 	},
 	"delete/source_config": {

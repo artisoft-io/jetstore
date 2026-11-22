@@ -183,6 +183,26 @@ function cumulativeOf(raw: unknown): number {
 }
 
 /**
+ * `feed_profile_json` as the save sends it: the text of the *Feed Profile* field,
+ * trimmed, and `""` when the field is empty. 2026-11-21.
+ *
+ * The column is a nullable `jsonb` holding the feed's profile, which the server
+ * parses and validates before either statement runs and refuses with its findings
+ * (`jets/datatable/source_config_feed_profile.go`). The update keeps the stored
+ * profile when the key is **absent**, as it keeps `is_cumulative`, and clears it
+ * when the key is `""`.
+ *
+ * **Always sent, like `is_cumulative`**, because an emptied field leaves no key in
+ * form state: sent only when present, clearing the field would keep the stored
+ * profile, so the field would not say what is saved. The edit path's binding
+ * publishes the stored text with the row, so an untouched field saves it
+ * unchanged, and a record with none saves none.
+ */
+function feedProfileOf(raw: unknown): string {
+  return (scalar(raw) ?? "").trim();
+}
+
+/**
  * Saves the file configuration, projecting the payload by its file type.
  *
  * **The target is chosen by whether a record was selected**, which is an earlier
@@ -211,6 +231,7 @@ export const saveSourceConfigForFileType: ActionEscape = async (context, host) =
   if (partFiles === undefined) return "error";
   row["is_part_files"] = partFiles;
   row["is_cumulative"] = cumulativeOf(row["is_cumulative"]);
+  row["feed_profile_json"] = feedProfileOf(row["feed_profile_json"]);
   row["user_email"] = host.userEmail();
 
   const table = row["key"] == null ? "source_config" : "update/source_config";

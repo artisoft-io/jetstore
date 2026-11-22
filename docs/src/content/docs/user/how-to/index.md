@@ -24,6 +24,7 @@ see its screen page. To learn the tasks for the first time, start with the
 | [Run a runbook](/docs/user/how-to/run-a-runbook/) | run a workspace runbook, answering the steps that wait for you | `runbook_execute` |
 | [Delete a session](/docs/user/how-to/delete-a-session/) | delete a session and everything derived from it | `delete_session` |
 | [Manage users](/docs/user/how-to/manage-users/) | activate an account, give it roles, or delete it | `user_admin` |
+| [Declare a feed profile](/docs/user/how-to/declare-a-feed-profile/) | say when a feed's deliveries are due and what it is judged against | `client_config` |
 
 [Users, roles and capabilities](/docs/user/concepts/users-and-capabilities/) says which roles grant
 each capability.

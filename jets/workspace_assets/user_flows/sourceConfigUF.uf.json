@@ -167,6 +167,14 @@
       "goToStates": [
         "select_source_config"
       ],
+      "defaultNextState": "edit_feed_profile"
+    },
+    "edit_feed_profile": {
+      "description": "Declare the feed profile, as JSON",
+      "formConfig": "scEditFeedProfileUF",
+      "goToStates": [
+        "select_source_config"
+      ],
       "defaultNextState": "confirm_state"
     },
     "confirm_state": {
