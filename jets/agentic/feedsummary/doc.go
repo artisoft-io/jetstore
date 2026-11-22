@@ -27,10 +27,12 @@
 // and the model arm's prompt is the render's document and nothing else, so a
 // member-level value has no path into either.
 //
-// # A burst is pointed to, not merged
+// # A burst is one incident
 //
-// An incident is one delivery at one locus. When the same check fired on other
-// deliveries of the same feed registered the same day, as a backfill does, the
-// summary says how many and names their incidents. The record is unchanged:
-// each delivery keeps its own incident and its own verdict.
+// When the same check fired on several deliveries of the same feed registered
+// the same day, as a backfill does, shadow triage raises them as a single
+// incident on the last of them (triage's feed_burst.go). The summary of that
+// incident says how many deliveries it stands for, how many have no incident of
+// their own, and names any incident another of them carries for a finding
+// outside the burst. Reading the summary changes nothing.
 package feedsummary

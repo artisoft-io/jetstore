@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/agentic/audit"
@@ -134,6 +135,10 @@ type SessionResult struct {
 	// AlreadyRaised are the fired loci this session already had an incident for.
 	// **This is the add-never-retract rule in one field** — see Run.
 	AlreadyRaised []string
+	// Grouped are the fired delivery loci written as no incident here, because
+	// their anomalies belong to a burst whose incident is written on another
+	// session: "<locus> (into <incident id>, ...)". See triage's feed_burst.go.
+	Grouped []string
 	// UnmappedLoci are the fired loci the gate's table maps to no cause class, so
 	// the incident is written and carries no hypothesis. Two of the nine are
 	// permanently in this state.
@@ -260,6 +265,12 @@ func (w *Writer) Run(ctx context.Context, db DB, sessionId string) (*SessionResu
 			out.AlreadyRaised = append(out.AlreadyRaised, fmt.Sprintf("%s (%s)", f.Locus, id))
 			continue
 		}
+		if into, err := w.groupedInto(ctx, db, targets, f); err != nil {
+			return out, err
+		} else if len(into) > 0 {
+			out.Grouped = append(out.Grouped, fmt.Sprintf("%s (into %s)", f.Locus, strings.Join(into, ", ")))
+			continue
+		}
 		if err := f.Validate(); err != nil {
 			return out, fmt.Errorf("the classifier produced a finding that does not validate, so it was not written: %w", err)
 		}
@@ -285,6 +296,48 @@ func (w *Writer) Run(ctx context.Context, db DB, sessionId string) (*SessionResu
 		out.Written = append(out.Written, written)
 	}
 	return out, nil
+}
+
+// groupedInto returns the incidents a fired finding's burst is raised as
+// instead of one here, or nil when it is written here.
+//
+// A finding grouped into another session's burst names that session's incident,
+// whether or not this run writes it: the burst's last session is the latest
+// arrival of the day, and the run that sees it writes it. A finding that leads a
+// burst is grouped into an incident one of the burst's other sessions already
+// has, when one does: a burst whose day straddled two triage runs was raised by
+// the first on the last session that run saw, and the second adds none. An
+// incident is never moved to a later session, on this writer's rule that it adds
+// and never retracts.
+func (w *Writer) groupedInto(ctx context.Context, db DB, targets *Targets, f *triage.Finding) ([]string, error) {
+	if len(f.GroupedInto) > 0 {
+		ids := make([]string, 0, len(f.GroupedInto))
+		for _, s := range f.GroupedInto {
+			ids = append(ids, IncidentIdFor(s, f.Locus))
+		}
+		return ids, nil
+	}
+	if len(f.BurstSessions) == 0 || !targets.Incident {
+		return nil, nil
+	}
+	ids := make([]string, 0, len(f.BurstSessions))
+	for _, s := range f.BurstSessions {
+		ids = append(ids, IncidentIdFor(s, f.Locus))
+	}
+	rows, err := db.Query(ctx, `SELECT incident_id FROM jetsapi.incident WHERE incident_id = ANY($1::text[]) ORDER BY incident_id`, ids)
+	if err != nil {
+		return nil, fmt.Errorf("while reading the incidents of the burst session %s leads: %w", f.SessionId, err)
+	}
+	defer rows.Close()
+	var raised []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("while scanning an incident of a burst: %w", err)
+		}
+		raised = append(raised, id)
+	}
+	return raised, rows.Err()
 }
 
 // writeOne inserts the incident at `detected`, moves it to `triaged` with the

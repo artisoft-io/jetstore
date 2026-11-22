@@ -169,6 +169,7 @@ type summary struct {
 	Incidents       int                    `json:"incidentsWritten"`
 	Hypotheses      int                    `json:"hypothesesWritten"`
 	AlreadyRaised   int                    `json:"alreadyRaised"`
+	Grouped         int                    `json:"groupedIntoABurst"`
 	UnmappedLoci    []string               `json:"unmappedLoci"`
 	Census          map[string]locusCensus `json:"census"`
 	FeedsAssessed   int                    `json:"feedsAssessedForProposals"`
@@ -253,6 +254,10 @@ func doJob(ctx context.Context, db *pgxpool.Pool, extent *triage.Extent, sum *su
 			census[fmt.Sprintf("%s/%s", f.Locus, f.Verdict)]++
 		}
 		already += len(res.AlreadyRaised)
+		sum.Grouped += len(res.Grouped)
+		for _, g := range res.Grouped {
+			log.Printf("%s locus %s: one of a burst of deliveries, raised as one incident on the burst's last delivery", s, g)
+		}
 		for _, wr := range res.Written {
 			incidents++
 			hypotheses += wr.Hypotheses

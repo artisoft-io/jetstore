@@ -62,6 +62,14 @@ detection's own words as its evidence. The feed is named by its **source configu
 configuration's client. When the delivery was registered under another client, such as `Any`, the
 evidence says so beside it; the incident does not take that client as the feed's.
 
+**A burst of deliveries is one incident.** When the same check fires on several deliveries of one
+feed registered on the same day (UTC), as a catch-up of many past files does, shadow triage raises
+**one** incident, on the **last** of those deliveries. Its evidence says how many deliveries it
+stands for and names their sessions. The other deliveries still show the locus as present on their
+own sessions, but no incident of their own: their evidence names the session the incident is on. If
+triage ran while the day's files were still arriving, the incident is on the last delivery that run
+saw, and later deliveries of the same day join it rather than raising a second one.
+
 **The hypotheses offered for a feed incident:**
 
 | Locus | Causes proposed |
@@ -117,9 +125,10 @@ person who receives the feed rather than for the person who wrote the detectors.
   declaration was when the finding was made. A delivery is judged against what somebody wrote down,
   so a stale declaration is the first thing to doubt;
 - **a burst**, when there is one: if the same check fired on other deliveries of the same feed
-  registered the same day, as a catch-up of many files does, the summary says how many and names
-  their incidents. **Each delivery keeps its own incident**; the summary only points to the others,
-  so that you can read them together before giving a verdict on one.
+  registered the same day, as a catch-up of many files does, the summary says how many deliveries
+  this incident stands for and how many have no incident of their own. **A burst is raised as one
+  incident, so give it one verdict.** If another delivery of the burst has an incident of its own, for a
+  finding outside the burst, it is named.
 
 **The summary is rendered by a fixed template, not written by a model**, and the page says so. It is
 built when the page is read, from the incident's findings, the feed's profile and the ranked
