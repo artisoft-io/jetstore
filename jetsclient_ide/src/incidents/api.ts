@@ -159,6 +159,27 @@ export interface HypothesisBasisRow {
 
 export interface IncidentDetail extends IncidentRow {
   hypotheses: HypothesisRow[];
+  /**
+   * A feed incident's summary, rendered on the server at read time by a fixed
+   * template from the incident's findings, the feed's declaration and the
+   * ranked readings. Absent on a run incident, and on a feed incident whose
+   * summary could not be rendered, when `summaryError` says why.
+   *
+   * **No model wrote it**, and the screen says so: a model's draft of the
+   * same summary is measured against this one and is never sent here.
+   */
+  summary?: IncidentSummaryText;
+  /** Why a feed incident carries no summary. */
+  summaryError?: string;
+}
+
+/** A rendered summary, and what rendered it. */
+export interface IncidentSummaryText {
+  text: string;
+  /** Always the template's name; see `IncidentDetail.summary`. */
+  renderedBy: string;
+  /** Assertions of the template the incident did not satisfy; usually empty. */
+  violations: string[];
 }
 
 /**

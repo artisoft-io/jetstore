@@ -59,6 +59,7 @@ import {
   type Evidence,
   type HypothesisRow,
   type IncidentDetailResponse,
+  type IncidentSummaryText,
   type IncidentTransitionRow,
 } from "./api";
 
@@ -205,6 +206,10 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
       <div className="body">
         <main className="main incident-detail">
           <h2>{incident.incidentId}</h2>
+
+          {(incident.summary || incident.summaryError) && (
+            <FeedSummary summary={incident.summary} error={incident.summaryError} />
+          )}
 
           <h3>What the record evidences</h3>
           <dl className="incident-facts">
@@ -432,6 +437,37 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
  * whole visible consequence of the arrangement and it belongs where a supervisor
  * is deciding how much to trust the row.
  */
+/**
+ * A feed incident's summary. **It is rendered by the server from a fixed
+ * template and shown verbatim**: the paragraphs are the template's, so the
+ * screen keeps them and adds nothing. A summary that could not be rendered is
+ * said to be missing, with the server's reason, rather than left out.
+ */
+function FeedSummary({ summary, error }: { summary?: IncidentSummaryText; error?: string }) {
+  return (
+    <section className="feed-summary" aria-label="Summary">
+      <h3>Summary</h3>
+      {summary ? (
+        <>
+          {summary.text.split("\n\n").map((p, i) => (
+            <p key={i}>{p.replace(/\s+/g, " ")}</p>
+          ))}
+          {summary.violations.length > 0 && (
+            <p className="empty-sub" role="status">
+              The summary could not say everything its template asks for: {summary.violations.join("; ")}
+            </p>
+          )}
+          <p className="empty-sub">Rendered by {summary.renderedBy}. No model wrote it.</p>
+        </>
+      ) : (
+        <p className="empty-sub" role="status">
+          No summary could be rendered for this feed incident: {error}
+        </p>
+      )}
+    </section>
+  );
+}
+
 function Transitions({ rows }: { rows: IncidentTransitionRow[] }) {
   if (rows.length === 0) {
     return (

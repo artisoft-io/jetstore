@@ -45,6 +45,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/agentic/audit"
 	"github.com/artisoft-io/jetstore/jets/agentic/detectrun"
+	"github.com/artisoft-io/jetstore/jets/agentic/feedsummary"
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/jackc/pgx/v5"
@@ -194,6 +195,10 @@ type agenticOps interface {
 	// on the far side of this call — the remaining step was named as "one
 	// call", and this is it.
 	RecordIncidentTransition(ctx context.Context, t *audit.IncidentTransition) (int, error)
+	// FeedIncidentSummary renders a feed incident's summary at read time, from
+	// its findings, the feed's declaration and its ranked readings. Nothing is
+	// stored, so the summary of an incident read twice is rendered twice.
+	FeedIncidentSummary(ctx context.Context, inc *audit.Incident) (*feedsummary.Summary, error)
 	// The Detection screen: the runs the detection commands recorded,
 	// the deployed task those runs come from, and starting it now. The ECS half
 	// is behind the same seam so the dispatch is testable without AWS.
@@ -212,6 +217,8 @@ type pgOps struct{ db pgxPool }
 // substitute one.
 type pgxPool interface {
 	audit.Querier
+	// QueryRow is what the feed incident summary's reads take beside Query.
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 	Begin(ctx context.Context) (pgx.Tx, error)
 	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 }
@@ -245,6 +252,9 @@ func (o pgOps) IncidentTransitionsFor(ctx context.Context, ref string) ([]audit.
 }
 func (o pgOps) RecordIncidentTransition(ctx context.Context, t *audit.IncidentTransition) (int, error) {
 	return audit.RecordIncidentTransition(ctx, o.db, t)
+}
+func (o pgOps) FeedIncidentSummary(ctx context.Context, inc *audit.Incident) (*feedsummary.Summary, error) {
+	return feedsummary.Summarise(ctx, o.db, inc)
 }
 
 // DoAgenticAction ----------------------------------------------------------
@@ -600,6 +610,25 @@ func getIncident(ctx context.Context, ops agenticOps, a *AgenticAction, phi audi
 	}
 	row := incidentRow(inc.IncidentSummary)
 	row["hypotheses"] = hs
+
+	// A feed incident's summary, rendered by a fixed template from the
+	// incident's findings, the feed's declaration and the readings above.
+	// **A summary that cannot be rendered is not a failure of the screen**, on
+	// the transitions' argument below: the incident is shown without it, and
+	// the reason travels so the screen can say why rather than show a blank.
+	// A run incident has no summary and carries neither field.
+	if feedsummary.IsFeedIncident(inc.Locus) {
+		if s, err := ops.FeedIncidentSummary(ctx, inc); err == nil {
+			row["summary"] = map[string]any{
+				"text":       s.Text,
+				"renderedBy": s.RenderedBy,
+				"violations": nonEmptyStrings(s.Violations),
+			}
+		} else {
+			log.Printf("while summarising feed incident %s: %v", a.IncidentId, err)
+			row["summaryError"] = err.Error()
+		}
+	}
 
 	// How it got here. **A read failure here is not a failure of the
 	// screen**: jetsapi.incident_event arrived after

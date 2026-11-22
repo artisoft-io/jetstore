@@ -88,6 +88,7 @@ delivery before claiming a cause.
 
 | Section | What it shows |
 |---|---|
+| **Summary** | On a feed incident only: a few paragraphs saying what was found, in words. See [The summary of a feed incident](#the-summary-of-a-feed-incident) below. |
 | **What the record evidences** | The **locus**, what it means and what it **cannot see**; the **session**; what **raised** it, with whether corrections to it reach an audit chain; when it was **detected**; the **step** and **shard** it is localised to, when it is; and the **confounders**, what the detector could not rule out. |
 | **What has been claimed** | The **cause**, if any, the **severity** and the **model version** that raised it. |
 | **Ranked hypotheses** | The causes proposed, best first. Each shows its confidence and cause category, the counts it was ranked on, and its **supporting** and **contradicting** evidence, each item with its source. A hypothesis contradicted more than supported, or raised at another locus, is marked. |
@@ -96,6 +97,43 @@ delivery before claiming a cause.
 
 **The confidence is a ratio of evidence for and against, not a probability.** The text beside each
 hypothesis says what it was ranked on.
+
+### The summary of a feed incident
+
+A feed incident's page opens with a **summary**: the incident in a few paragraphs, written for the
+person who receives the feed rather than for the person who wrote the detectors. It says:
+
+- **which feed**, as its source configuration names it, with its client, its object type and
+  whether it is cumulative or incremental, and when the finding was made. When the delivery was
+  registered under another client, such as `Any`, it says so;
+- **what departed from what**: one sentence per check that fired, with what was measured beside
+  what the profile declares. For example, *the required field paid_amount carries a value in 12.3%
+  of the delivery's rows; the declaration requires at least 95.0%*, or, for an overdue feed, the
+  last period delivered, the day the next became overdue, and the declared cadence;
+- **the readings, best first**: each proposed cause in plain words and by its name, with its
+  confidence, how many items of evidence are for and against it, and how evidenceable that cause is
+  at this locus. These are the hypotheses listed further down the page, in the same order;
+- **the case against every reading**: who declared the feed's profile, on what date, and how old the
+  declaration was when the finding was made. A delivery is judged against what somebody wrote down,
+  so a stale declaration is the first thing to doubt;
+- **a burst**, when there is one: if the same check fired on other deliveries of the same feed
+  registered the same day, as a catch-up of many files does, the summary says how many and names
+  their incidents. **Each delivery keeps its own incident**; the summary only points to the others,
+  so that you can read them together before giving a verdict on one.
+
+**The summary is rendered by a fixed template, not written by a model**, and the page says so. It is
+built when the page is read, from the incident's findings, the feed's profile and the ranked
+readings, and it is not stored. Two consequences follow:
+
+- It describes the profile **as it is now**. If the profile was declared again after the incident
+  was found, the summary says the declaration it names came later, and is not the one the delivery
+  was judged against. The hypotheses' evidence keeps the declaration as it was at detection.
+- It carries only counts, shares, sizes, dates and names from the feed's configuration. **No
+  member, claim or key value appears in it**, because nothing it is built from carries one.
+
+When a summary cannot be built, for instance because the anomaly table is not installed, the page
+says so and gives the reason; the rest of the incident is shown as usual. A run incident has no
+summary.
 
 ![Lower on the same page: the second hypothesis, the two transitions by shadow triage, and the verdict section with a reason box and the Remediation proposed button.](../../../../assets/screenshots/user/screens/incidents/incident-verdict.png)
 
