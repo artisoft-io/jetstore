@@ -37,6 +37,8 @@ A proposal starts as a **draft**. The agent's own checks take it to **validated*
 reviewed**, then to **awaiting human approval**. A person then records **approved**, **approved with
 modification** or **rejected**; an approved proposal is later **deployed**. At any point before it
 ends, a proposal can be **superseded** by a newer one. **Rejected** and **superseded** are terminal.
+A proposal no agent's run produced can also be **rejected** while it is a draft; see
+[A proposal drafted from a feed incident](#a-proposal-drafted-from-a-feed-incident).
 
 ## A proposal
 
@@ -110,8 +112,8 @@ drafts nothing, whatever state it is in, so a rejected proposal stays rejected.
 
 **Deciding on it.** A person decides on it on its page, with the same buttons as any other proposal.
 To approve it, take it through *validated*, *agent reviewed* and *awaiting human approval*, then press
-**Approved**. To reject it, take it to *awaiting human approval* and press **Rejected**. From
-*draft*, **Superseded** is also offered. Each decision is recorded under your account. Nothing else
+**Approved**. To reject it, press **Rejected** while it is a *draft*, or at *awaiting human
+approval*. From *draft*, **Superseded** is also offered. Each decision is recorded under your account. Nothing else
 moves the proposal: triage drafts it and never decides on it.
 
 Three things differ from a proposal an agent's run produced, all because no run produced this one:

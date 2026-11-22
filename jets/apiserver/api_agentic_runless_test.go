@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"slices"
 	"testing"
 
 	"github.com/artisoft-io/jetstore/jets/agentic/audit"
@@ -71,5 +72,41 @@ func TestARunTriggeredProposalIsStillTieredByItsRun(t *testing.T) {
 		Action: "record_approval", ProposalId: "chg_1", ToState: audit.StateApproved,
 	}, "a@b"); err == nil || code != http.StatusConflict {
 		t.Errorf("code %d err %v", code, err)
+	}
+}
+
+// A person rejects an incident-triggered draft where it stands, and is offered
+// the edge; a run-triggered draft is neither offered it nor allowed it.
+func TestAnIncidentTriggeredDraftMayBeRejected(t *testing.T) {
+	ops := &fakeOps{
+		proposal: &audit.Proposal{ProposalId: "chg_1", Trigger: audit.TriggerIncident,
+			TriggerRef: "inc_1", ApprovalState: audit.StateDraft},
+		tierErr: &audit.ErrNoRun{RunId: "inc_1"},
+	}
+	if got := transitionsOrEmpty(audit.StateDraft, true); !slices.Contains(got, audit.StateRejected) {
+		t.Errorf("runless draft offered %v", got)
+	}
+	_, code, err := dispatch(t, ops, &AgenticAction{
+		Action: "record_approval", ProposalId: "chg_1",
+		FromState: audit.StateDraft, ToState: audit.StateRejected, Rationale: "not a real departure",
+	}, "person@example.com")
+	if err != nil || code != http.StatusOK {
+		t.Fatalf("code %d err %v", code, err)
+	}
+	if r := ops.recorded; r.FromState != audit.StateDraft || r.ToState != audit.StateRejected || !r.Unchained {
+		t.Errorf("recorded %+v", r)
+	}
+
+	p := awaitingProposal()
+	p.Trigger = "authoring_run"
+	p.ApprovalState = audit.StateDraft
+	ops = &fakeOps{proposal: p, tier: "T2"}
+	if got := transitionsOrEmpty(audit.StateDraft, false); slices.Contains(got, audit.StateRejected) {
+		t.Errorf("run-produced draft offered %v", got)
+	}
+	if _, code, err := dispatch(t, ops, &AgenticAction{
+		Action: "record_approval", ProposalId: "chg_1", ToState: audit.StateRejected,
+	}, "a@b"); err == nil || code != http.StatusBadRequest || ops.recorded != nil {
+		t.Errorf("code %d err %v recorded %v", code, err, ops.recorded)
 	}
 }

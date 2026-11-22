@@ -357,7 +357,7 @@ func listProposals(ctx context.Context, ops agenticOps, a *AgenticAction) (*map[
 			// The transitions travel with each row so the list can show which
 			// proposals are still movable without a request per row. It is the
 			// same table the detail screen decides its buttons from.
-			"transitions": transitionsOrEmpty(p.ApprovalState),
+			"transitions": transitionsOrEmpty(p.ApprovalState, p.DecidedWithoutRun()),
 		})
 	}
 	// `states` is echoed back because the screen renders it as the active
@@ -405,7 +405,7 @@ func getProposal(ctx context.Context, ops agenticOps, a *AgenticAction) (*map[st
 			"modelVersion":   p.ModelVersion,
 		},
 		"approvals":   decisions,
-		"transitions": transitionsOrEmpty(p.ApprovalState),
+		"transitions": transitionsOrEmpty(p.ApprovalState, p.DecidedWithoutRun()),
 		"terminal":    audit.Terminal(p.ApprovalState),
 	}, http.StatusOK, nil
 }
@@ -477,10 +477,10 @@ func recordApproval(ctx context.Context, ops agenticOps, a *AgenticAction, actor
 			SubjectRef: p.ProposalId, Expected: a.FromState,
 		}
 	}
-	if !audit.TransitionAllowed(p.ApprovalState, a.ToState) {
+	if !audit.ProposalTransitionAllowed(p.ApprovalState, a.ToState, p.DecidedWithoutRun()) {
 		return nil, http.StatusBadRequest, fmt.Errorf(
 			"proposal %s is in %s, from which %q is not a permitted transition; permitted: %v",
-			p.ProposalId, p.ApprovalState, a.ToState, transitionsOrEmpty(p.ApprovalState))
+			p.ProposalId, p.ApprovalState, a.ToState, transitionsOrEmpty(p.ApprovalState, p.DecidedWithoutRun()))
 	}
 
 	// The tier comes from the run, never from the request. See audit.RunTier.
@@ -543,7 +543,7 @@ func recordApproval(ctx context.Context, ops agenticOps, a *AgenticAction, actor
 		// row its decision produced; 0 when the decision joined no chain.
 		"auditSeq":    seq,
 		"chained":     !unchained,
-		"transitions": transitionsOrEmpty(ap.ToState),
+		"transitions": transitionsOrEmpty(ap.ToState, unchained),
 	}, http.StatusOK, nil
 }
 
@@ -896,8 +896,8 @@ func incidentErrorCode(err error) int {
 // rather than null. A terminal state and an unknown one both produce it, and a
 // client that has to distinguish `null` from `[]` before rendering a button row
 // is a client with an avoidable branch in it.
-func transitionsOrEmpty(state string) []string {
-	if t := audit.Transitions(state); t != nil {
+func transitionsOrEmpty(state string, decidedWithoutRun bool) []string {
+	if t := audit.ProposalTransitions(state, decidedWithoutRun); t != nil {
 		return t
 	}
 	return []string{}
