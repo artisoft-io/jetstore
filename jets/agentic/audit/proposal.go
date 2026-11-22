@@ -61,6 +61,10 @@ const RunlessDecisionTier = string(TierT0)
 // run-backed path.
 func (p *Proposal) DecidedWithoutRun() bool { return p != nil && p.Trigger == TriggerIncident }
 
+// DecidedWithoutRun is Proposal.DecidedWithoutRun for a list row, so the list
+// offers a runless proposal the same transitions its detail screen does.
+func (p ProposalSummary) DecidedWithoutRun() bool { return p.Trigger == TriggerIncident }
+
 // RecordProposal inserts a proposal. It is deliberately not part of the
 // write-before-act transaction: a proposal is what a run *produced*, so it is
 // written after the work rather than before it, and its durability matters less
