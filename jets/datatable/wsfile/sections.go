@@ -399,6 +399,45 @@ func cleanWorkspacePath(filePath string) string {
 	return path.Clean(strings.ReplaceAll(filePath, "\\", "/"))
 }
 
+// ListedInIde reports whether the file tree lists the file at the
+// workspace-relative filePath, were it there: one of the files at the root
+// (workspaceRootFiles), a note at the root (RootNoteSuffix), or a file in a
+// section's directory, at any depth, whose name ends with one of the section's
+// Filters. It is the predicate BuildWorkspaceFileStructure applies, asked of a
+// path rather than of a directory walk.
+//
+// **A file is added from the IDE only where the tree lists it**
+// (AddWorkspaceFiles, jets/datatable): the IDE opens, edits and deletes the
+// files its tree shows, so a file it added anywhere else could be neither
+// opened nor deleted from it, only reverted from its changes. Adding is no
+// wider than editing.
+func ListedInIde(filePath string) bool {
+	cleaned := cleanWorkspacePath(filePath)
+	if cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, "../") || strings.HasPrefix(cleaned, "/") {
+		return false
+	}
+	if !strings.Contains(cleaned, "/") {
+		for _, f := range workspaceRootFiles {
+			if cleaned == f.FileName {
+				return true
+			}
+		}
+		return strings.HasSuffix(strings.ToLower(cleaned), RootNoteSuffix)
+	}
+	name := path.Base(cleaned)
+	for _, s := range WorkspaceSections {
+		if !InDir(cleaned, s.Dir) {
+			continue
+		}
+		for _, filter := range s.Filters {
+			if strings.HasSuffix(name, filter) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // visitRootNotes returns a file node for each RootNoteSuffix file directly in
 // root, in name order. A root that cannot be read yields none, as an absent
 // section directory yields an empty section (visitDir).

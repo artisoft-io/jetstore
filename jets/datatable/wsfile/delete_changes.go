@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -92,6 +93,7 @@ func DeleteFileChange(dbpool *pgxpool.Pool, workspaceName, fileName string) erro
 				return fmt.Errorf("cannot revert %s, the change is kept: while deleting the file: %w", fileName, err)
 			}
 			log.Printf("Reverted %s: added since the stash was taken, deleted", fileName)
+			removeAddedFolders(workspaceName, fileName)
 		} else if err := restoreFileFromStash(workspaceName, fileName, destination); err != nil {
 			log.Printf("Not reverting %s: %v", fileName, err)
 			return fmt.Errorf("cannot revert %s, the change is kept: %w", fileName, err)
@@ -227,6 +229,42 @@ func deleteAddedFiles(dbpool *pgxpool.Pool, workspaceName string) error {
 			return fmt.Errorf("while deleting %s, added since the stash was taken: %w", fileName, err)
 		}
 		log.Printf("Reverted %s: added since the stash was taken, deleted", fileName)
+		removeAddedFolders(workspaceName, fileName)
 	}
 	return nil
+}
+
+// removeAddedFolders removes the folders of fileName, innermost first, that
+// were added with it: each that the stash has no copy of and that is empty now
+// that the file is deleted. It stops at the first that the stash holds, that
+// holds anything else, or that cannot be removed, so it never removes a folder
+// the workspace was deployed with or one holding another file. A revert of a
+// file added in a new folder, such as a runbook's `runbooks/<name>/`, so
+// leaves the workspace as it was (2026-11-22); until then the empty folder
+// stayed, and the IDE's tree listed it.
+//
+// Best effort: a folder left behind is empty and harmless, so a failure here
+// is logged and does not fail the revert.
+func removeAddedFolders(workspaceName, fileName string) {
+	stashRoot := filepath.Join(StashDir(), workspaceName)
+	for dir := path.Dir(filepath.ToSlash(filepath.Clean(fileName))); dir != "." && dir != "/"; dir = path.Dir(dir) {
+		stashed, err := confinePath(stashRoot, dir)
+		if err != nil {
+			return
+		}
+		if _, err := os.Lstat(stashed); !errors.Is(err, os.ErrNotExist) {
+			return
+		}
+		_, folder, err := resolveWorkspacePath(workspaceName, dir)
+		if err != nil {
+			return
+		}
+		if err := os.Remove(folder); err != nil {
+			if !errors.Is(err, os.ErrNotExist) {
+				log.Printf("Not removing the folder %s added with %s: %v", dir, fileName, err)
+			}
+			return
+		}
+		log.Printf("Reverted %s: removed the folder %s, added with it and now empty", fileName, dir)
+	}
 }

@@ -240,6 +240,79 @@ export class WorkspaceApi {
     });
     return { warnings: Array.isArray(body?.warnings) ? (body.warnings as SaveFinding[]) : [] };
   }
+
+  /**
+   * What adding `files` would do, with nothing written: for each file, in the
+   * order given, whether it is new, replaces a file, is one the IDE does not
+   * list, or is refused and why, and the warnings its save would carry
+   * (`check_workspace_files`, `jets/datatable/workspace_add_files.go`). The
+   * files are checked together, as an add checks them.
+   */
+  async checkFiles(workspaceName: string, files: AddedFile[]): Promise<AddedFileResult[]> {
+    return addedFileResults(
+      await this.api.dataTable<{ files?: unknown }>({
+        action: "check_workspace_files",
+        workspaceName,
+        data: files.map(addedFileRow),
+      }),
+    );
+  }
+
+  /**
+   * Add `files` to the workspace, each as an override, exactly as a save writes
+   * one (`add_workspace_files`). **All or nothing**: the server refuses the
+   * request when any file is refused, or is there and its `replace` is not set,
+   * with one line per such file, and writes nothing.
+   */
+  async addFiles(workspaceName: string, files: AddedFile[]): Promise<AddedFileResult[]> {
+    return addedFileResults(
+      await this.api.dataTable<{ files?: unknown }>({
+        action: "add_workspace_files",
+        workspaceName,
+        data: files.map(addedFileRow),
+      }),
+    );
+  }
+}
+
+/** A file to add: its path in the workspace, its text, and whether it may replace one. */
+export interface AddedFile {
+  path: string;
+  content: string;
+  replace?: boolean;
+}
+
+/**
+ * What an added file is, or would be (`AddedNew` and the rest in
+ * `workspace_add_files.go`): `new`, `replaces`, `exists` (is there, and the
+ * request did not replace it), `not_listed` (the IDE's tree would not list it)
+ * or `refused`.
+ */
+export type AddedFileStatus = "new" | "replaces" | "exists" | "not_listed" | "refused";
+
+/** Mirrors `AddedFileResult` in `jets/datatable/workspace_add_files.go`. */
+export interface AddedFileResult {
+  file_name: string;
+  path: string;
+  status: AddedFileStatus;
+  message?: string;
+  warnings: SaveFinding[];
+}
+
+function addedFileRow(file: AddedFile): Record<string, unknown> {
+  return {
+    file_name: queryEscape(file.path),
+    file_content: file.content,
+    replace: file.replace === true,
+  };
+}
+
+function addedFileResults(body: { files?: unknown } | null | undefined): AddedFileResult[] {
+  if (!Array.isArray(body?.files)) return [];
+  return (body.files as AddedFileResult[]).map((r) => ({
+    ...r,
+    warnings: Array.isArray(r.warnings) ? r.warnings : [],
+  }));
 }
 
 /**

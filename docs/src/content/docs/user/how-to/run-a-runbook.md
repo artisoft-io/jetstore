@@ -10,7 +10,9 @@ sidebar:
 needs `jetstore_read`, a pipeline start `run_pipelines`. A runbook is a list of steps in the active
 workspace's `runbooks/` folder, which the installation runs for you one at a time; the Developer's
 Guide describes [the runbook format](/docs/developer/engine/runbook-format/). The example is
-`jets_ws`'s `example_health_check`.
+`jets_ws`'s `example_health_check`. A runbook the installation does not have yet, its `.rb.json` and
+its folder of SQL, is uploaded in the Workspace IDE, with no deployment:
+[Add a file or a folder](/docs/user/how-to/work-on-a-workspace/#add-a-file-or-a-folder).
 
 1. Open **Runbooks** from the top bar. Each runbook shows whether it is **valid** and its last run.
    Only a valid runbook can be started, and only one run of a runbook at a time.

@@ -1,5 +1,6 @@
 // The Workspace IDE (user/screens/workspace-ide): reached from the top bar,
-// with jets_ws picked. Its changes table, a file open in the editor and edited,
+// with jets_ws picked. Its changes table, the New file prompt, a file open in
+// the editor and edited,
 // the compiled views of the data model and of the rules, the Documentation
 // section with the guide's landing page open, and the page of the workspace
 // guide that Workspace guide opens for a data-model file. The edit is never
@@ -15,6 +16,15 @@ test("Workspace IDE", async ({ page }) => {
   await expect(page.locator(".ws-picker select")).toHaveValue("jets_ws");
   await settle(page);
   await shot(page, "ide-changes");
+
+  // New file asks for the path of the file to add; cancelled, nothing is added.
+  await page.getByRole("button", { name: "New file", exact: true }).click();
+  const prompt = page.locator("dialog[open]");
+  await expect(prompt).toBeVisible();
+  await prompt.getByRole("textbox").fill("runbooks/my_runbook.rb.json");
+  await shot(prompt, "ide-new-file");
+  await prompt.getByRole("button", { name: "Cancel" }).click();
+  await expect(prompt).toHaveCount(0);
 
   // A file opens in a tab of the editor.
   const tree = page.locator("aside.sidebar");

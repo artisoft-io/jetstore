@@ -123,11 +123,28 @@ func SaveContent(dbpool *pgxpool.Pool, workspaceName, fileName, fileContent, use
 	}
 	log.Println("uploaded", fo.FileName, "size", n, "bytes to database")
 
-	// Write file to local workspace
+	// Write file to local workspace, making its folder when the file is the
+	// first in it: a file added from the IDE may be in a folder the workspace
+	// does not have yet, such as a new runbook's `runbooks/<name>/`. The start
+	// applying the override makes it the same way (SyncWorkspaceFiles).
+	// Only a folder that is not there is made: an existing one keeps its mode,
+	// which the apiserver may not own.
+	if dir := filepath.Dir(path); !dirExists(dir) {
+		if err = utils.EnsureWorkspaceDir(dir); err != nil {
+			return fmt.Errorf("failed to make the folder of local workspace file %s: %v", fileName, err)
+		}
+	}
 	if err = os.WriteFile(path, data, 0644); err != nil {
 		return fmt.Errorf("failed to write local workspace file %s: %v", fileName, err)
 	}
 	return nil
+}
+
+// dirExists reports whether dir is there, as a folder or anything else: a
+// file in its place is the write's error to report.
+func dirExists(dir string) bool {
+	_, err := os.Stat(dir)
+	return err == nil
 }
 
 // changeAuthor is the user_email a workspace change is recorded with: the
