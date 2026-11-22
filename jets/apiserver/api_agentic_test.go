@@ -452,10 +452,10 @@ func TestListIncidentsCarriesBothTaxonomiesAndTheVocabulary(t *testing.T) {
 	if shard, ok := row["shardRef"].(*int64); !ok || shard == nil || *shard != 0 {
 		t.Errorf("shardRef %v, want a pointer to 0 — shard 0 is a shard", row["shardRef"])
 	}
-	// The nine loci come from the server so the screen's legend cannot drift
+	// The eleven loci come from the server so the screen's legend cannot drift
 	// from the CHECK the rows are written against.
-	if loci, ok := res["loci"].([]string); !ok || len(loci) != 9 {
-		t.Errorf("loci %v, want the nine", res["loci"])
+	if loci, ok := res["loci"].([]string); !ok || len(loci) != 11 {
+		t.Errorf("loci %v, want the eleven", res["loci"])
 	}
 	if st, ok := res["incidentStatuses"].([]string); !ok || len(st) != 11 {
 		t.Errorf("incidentStatuses %v, want the eleven", res["incidentStatuses"])

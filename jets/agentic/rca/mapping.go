@@ -264,7 +264,8 @@ func benignExplanation(name string) bool {
 
 // --- the anomaly signal map --------------------------------------------------
 
-// Which locus a detector's signal lands at.
+// Which locus a detector's anomaly lands at, keyed on its subject as well as its
+// signal.
 //
 // observe.Anomaly's signal types are keyed to the detector table's rows
 // (Anomaly.anomaly_signal_type's own comment: "rejection_rate is row 1, volume
@@ -273,16 +274,72 @@ func benignExplanation(name string) bool {
 // worker_not_terminated is row 4, written_not_arrived is row 10, and
 // per_record_failures_reported is where a rejection rate is counted.
 //
-// **step_regression maps to no locus and that is not an omission.** The nine loci
-// are positions in one run's record; a step that regressed is a comparison
-// across runs, and the gate's table files it under transformation_defect's evidence rather
-// than under a locus. An anomaly carrying it contributes to the ranking's basis
-// and to no hypothesis's evidence, and Ranking.Basis says so by name.
-var signalLocus = map[string]string{
+// **Keyed on the subject because a signal alone does not say where the evidence
+// sits.** A feed detector emits volume when a delivery is the wrong size and
+// arrival when no delivery came — the same words as a run that lost rows and a
+// sink write that never landed, about a different thing. Keyed on the signal
+// alone, a feed's volume would be filed as evidence that a run lost rows, with
+// nothing in the ranking to say otherwise. So the run loci are reached from the
+// two subjects an execution-record detector writes, worker and edge, exactly as
+// they were before the key widened; a feed reaches the two delivery loci; and
+// any other subject reaches nothing, and the ranking's basis names it, rather
+// than being placed by a guess at what its signal meant on a subject nobody
+// has mapped.
+//
+// **On a feed, arrival is delivery_overdue and every departure from the profile
+// is delivery_departs_profile.** Which departure — stale, restated, incomplete,
+// too large — is the anomaly's signal and travels with it; the locus says only
+// that a delivery departs from what was declared for it.
+//
+// **step_regression maps to no locus and that is not an omission.** The nine run
+// loci are positions in one run's record; a step that regressed is a comparison
+// across runs, and the gate's table files it under transformation_defect's
+// evidence rather than under a locus. An anomaly carrying it contributes to the
+// ranking's basis and to no hypothesis's evidence, and Ranking.Basis says so by
+// name.
+type anomalyKey struct {
+	Subject string
+	Signal  string
+}
+
+// runSignalLocus is the map as it stood before it was keyed on the subject. It
+// is applied to worker and edge alike, which is what "exactly as before" means.
+var runSignalLocus = map[string]string{
 	observe.SignalVolume:        triage.LocusRowsLostSilently,
 	observe.SignalWorkerStall:   triage.LocusWorkerNotTerminated,
 	observe.SignalArrival:       triage.LocusWrittenNotArrived,
 	observe.SignalRejectionRate: triage.LocusPerRecordFailuresReported,
+}
+
+// feedSignalLocus is the map for subject feed: the six signals the feed
+// detectors emit.
+var feedSignalLocus = map[string]string{
+	observe.SignalArrival:      triage.LocusDeliveryOverdue,
+	observe.SignalVolume:       triage.LocusDeliveryDepartsProfile,
+	observe.SignalFreshness:    triage.LocusDeliveryDepartsProfile,
+	observe.SignalDistribution: triage.LocusDeliveryDepartsProfile,
+	observe.SignalCardinality:  triage.LocusDeliveryDepartsProfile,
+	observe.SignalRuleBreach:   triage.LocusDeliveryDepartsProfile,
+}
+
+var signalLocus = func() map[anomalyKey]string {
+	m := map[anomalyKey]string{}
+	for _, subject := range []string{observe.SubjectWorker, observe.SubjectEdge} {
+		for signal, locus := range runSignalLocus {
+			m[anomalyKey{subject, signal}] = locus
+		}
+	}
+	for signal, locus := range feedSignalLocus {
+		m[anomalyKey{observe.SubjectFeed, signal}] = locus
+	}
+	return m
+}()
+
+// locusOf returns the locus an anomaly with this subject and signal lands at,
+// and false where the table has none.
+func locusOf(subject, signal string) (string, bool) {
+	l, ok := signalLocus[anomalyKey{subject, signal}]
+	return l, ok
 }
 
 // evidenceabilityOf returns the table's evidence-column answer for a class name.

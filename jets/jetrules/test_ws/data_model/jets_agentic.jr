@@ -299,6 +299,8 @@ text jetsa:INCIDENT_LOCUS_ROWS_LOST_SILENTLY = "rows_lost_silently";
 text jetsa:INCIDENT_LOCUS_PER_RECORD_FAILURES_REPORTED = "per_record_failures_reported";
 text jetsa:INCIDENT_LOCUS_PER_RECORD_FAILURES_UNREPORTABLE = "per_record_failures_unreportable";
 text jetsa:INCIDENT_LOCUS_WRITTEN_NOT_ARRIVED = "written_not_arrived";
+text jetsa:INCIDENT_LOCUS_DELIVERY_OVERDUE = "delivery_overdue";
+text jetsa:INCIDENT_LOCUS_DELIVERY_DEPARTS_PROFILE = "delivery_departs_profile";
 
 # jetsa:severity enum (Severity)
 text jetsa:SEVERITY_INFO = "info";

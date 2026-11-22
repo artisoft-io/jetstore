@@ -55,6 +55,7 @@ import {
   DeploymentNotMigratedError,
   IncidentsApi,
   LOCUS_GLOSS,
+  locusLabel,
   OPEN_STATUSES,
   vocabLabel,
   type IncidentRow,
@@ -207,7 +208,7 @@ export function IncidentsScreen({ api }: { api: ApiClient }) {
                     <td>{r.detectedAt}</td>
                     <td>
                       <span className="pill" title={LOCUS_GLOSS[r.locus]?.meaning ?? ""}>
-                        {vocabLabel(r.locus)}
+                        {locusLabel(r.locus)}
                       </span>
                     </td>
                     <td>

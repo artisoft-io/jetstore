@@ -9,8 +9,9 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/observe"
 )
 
-// The nine predicates. Each is a method on Classifier returning exactly one
-// Finding, and Classify calls all nine in section 9.4's order.
+// The nine predicates over the execution record, and the two over a feed's
+// deliveries. Each is a method on Classifier returning exactly one Finding, and
+// Classify calls all eleven in Loci's order.
 //
 // # What each can and cannot distinguish is in the code rather than beside it
 //
@@ -60,8 +61,8 @@ func Default() Classifier {
 // Ref is the classifier_ref written on every finding.
 func (c Classifier) Ref() string { return fmt.Sprintf("triage@%d", c.Generation) }
 
-// Classify returns one Finding per locus, in section 9.4's order, always nine
-// of them. See the package comment for why it does not return only the hits.
+// Classify returns one Finding per locus, in Loci's order, always eleven of
+// them. See the package comment for why it does not return only the hits.
 func (c Classifier) Classify(ev *Evidence) *Report {
 	r := &Report{SessionId: ev.SessionId}
 	r.Findings = []Finding{
@@ -74,6 +75,8 @@ func (c Classifier) Classify(ev *Evidence) *Report {
 		c.perRecordFailuresReported(ev),
 		c.perRecordFailuresUnreportable(ev),
 		c.writtenNotArrived(ev),
+		c.deliveryOverdue(ev),
+		c.deliveryDepartsProfile(ev),
 	}
 	for i := range r.Findings {
 		r.Findings[i].SessionId = ev.SessionId
@@ -787,6 +790,36 @@ func (c Classifier) writtenNotArrived(ev *Evidence) Finding {
 			"and a later run of the same session overwrites the stage prefix, so *absent* and *superseded* "+
 			"are the same observation",
 		ev.SessionId, located, blank), conf...)
+}
+
+// --- Loci 10 and 11: a feed's deliveries ----------------------------------------
+
+// deliveryOverdue is the first of the two delivery loci: a feed anomaly with
+// signal arrival, meaning nothing arrived within the feed's declared cadence of
+// the last delivery.
+//
+// **NotEvaluable here, and for a reason that is about this classifier's inputs
+// rather than about the locus.** The predicate is over jetsapi.anomaly — a row
+// with subject feed — and Evidence carries no anomalies, because every other
+// locus is read from the execution record. A feed that stops writes no run at
+// all, so the session such a finding is keyed on is the last delivery's: the
+// session after which nothing came. Whoever supplies the anomalies supplies
+// that convention with them.
+func (c Classifier) deliveryOverdue(ev *Evidence) Finding {
+	return notEvaluable(LocusDeliveryOverdue, fmt.Sprintf(
+		"this locus is a feed anomaly with signal arrival, keyed on the last delivery's session, "+
+			"and the classifier was given no feed anomalies for session %q; nothing in the execution "+
+			"record can say whether a delivery that should have followed it arrived", ev.SessionId))
+}
+
+// deliveryDepartsProfile is the second: a feed anomaly with any signal other
+// than arrival — a delivery that arrived and departs from what the feed's
+// profile declares. NotEvaluable for deliveryOverdue's reason.
+func (c Classifier) deliveryDepartsProfile(ev *Evidence) Finding {
+	return notEvaluable(LocusDeliveryDepartsProfile, fmt.Sprintf(
+		"this locus is a feed anomaly comparing a delivery with the feed's declared profile, and the "+
+			"classifier was given no feed anomalies for session %q; the execution record says what a run "+
+			"did with a delivery, not whether the delivery was the one the profile declares", ev.SessionId))
 }
 
 // timeFmt is RFC3339 without the sub-second noise, which is what every basis
