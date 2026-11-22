@@ -21,6 +21,15 @@ package observe
 // Both run this same code against a database that answers from the results a
 // person pasted back, so they measure these detectors and not a copy of them.
 //
+// # What a delivery is
+//
+// A file at its first registration, as both detector families read it
+// (feed_delivery_registrations.go). The run reads every feed's registrations
+// once and gives the same reading to both families, so the export prints that
+// statement once. A later registration of a delivered file is re-processing:
+// no detector judges it, and every detector's coverage counts it, per feed, as
+// re-processed files and re-registrations whose own arrival is in the window.
+//
 // # What the run records
 //
 // Every reason a feed or a delivery was not judged, and every verdict that
@@ -200,6 +209,10 @@ type FeedProcessCoverage struct {
 	// cleanly: registrations under another client, session ids that are not a
 	// time.
 	Notes []string `json:"notes,omitempty"`
+	// Reprocessed counts, by feed the detector judges, the re-registrations
+	// in the window of files already delivered, and the files: re-processing,
+	// which no detector judges.
+	Reprocessed map[string]FeedReprocessed `json:"reprocessed,omitempty"`
 }
 
 // Line renders the coverage as one line of a run's log.
@@ -231,7 +244,22 @@ func (c FeedProcessCoverage) Line() string {
 	for _, n := range c.Notes {
 		fmt.Fprintf(&b, "; %s", n)
 	}
+	for _, t := range feedReprocessedTables(c.Reprocessed) {
+		fmt.Fprintf(&b, "; %s", feedReprocessedLine(t, c.Reprocessed[t]))
+	}
 	return b.String()
+}
+
+// reprocessed counts a judged feed's re-processing in the run's window.
+func (c *FeedProcessCoverage) reprocessed(regs *FeedRegistrations, table string, o FeedProcessOptions) {
+	n := FeedReprocessedIn(regs.Deliveries(table, o.AsOf), o.Since, o.AsOf)
+	if n.Registrations == 0 {
+		return
+	}
+	if c.Reprocessed == nil {
+		c.Reprocessed = map[string]FeedReprocessed{}
+	}
+	c.Reprocessed[table] = n
 }
 
 func (c *FeedProcessCoverage) count(table, verdict, reason string, confounders []string) {
@@ -320,11 +348,18 @@ func RunFeedProcess(ctx context.Context, db DB, feeds FeedProcessFeeds, o FeedPr
 		res.Anomalies = append(res.Anomalies, a)
 	}
 
-	// The delivery-grain detectors read registration once, as of the last step.
-	in, err := ReadFeedDeliveryInput(ctx, db, feeds.Profiled, feeds.Unprofiled, o.AsOf)
+	// Every feed's registrations, read once, and the delivery-grain
+	// detectors' input as of the last step.
+	all := append(append([]feedprofile.Feed(nil), feeds.Profiled...), feeds.Unprofiled...)
+	tables := make([]string, len(all))
+	for i, f := range all {
+		tables[i] = f.TableName
+	}
+	regs, err := ReadFeedRegistrations(ctx, db, tables)
 	if err != nil {
 		return res, err
 	}
+	in := FeedDeliveryInputOf(regs, feeds.Profiled, feeds.Unprofiled, o.AsOf)
 	arrivals := map[string]time.Time{}
 	for _, ds := range in.Deliveries {
 		for _, d := range ds {
@@ -352,7 +387,7 @@ func RunFeedProcess(ctx context.Context, db DB, feeds FeedProcessFeeds, o FeedPr
 			keep(a, step)
 		}
 		if i == len(res.Steps)-1 {
-			feedProcessCoverFeeds(&cov, r.Coverage)
+			feedProcessCoverFeeds(&cov, r.Coverage, regs, o)
 		}
 	}
 	res.Coverage = append(res.Coverage, cov)
@@ -367,7 +402,7 @@ func RunFeedProcess(ctx context.Context, db DB, feeds FeedProcessFeeds, o FeedPr
 			return res, err
 		}
 		cov := FeedProcessCoverage{Detector: r.Detector}
-		feedProcessCoverFeeds(&cov, r.Coverage)
+		feedProcessCoverFeeds(&cov, r.Coverage, regs, o)
 		fired := map[string]bool{}
 		for _, v := range r.Verdicts {
 			at, ok := arrivals[v.SessionId]
@@ -392,8 +427,7 @@ func RunFeedProcess(ctx context.Context, db DB, feeds FeedProcessFeeds, o FeedPr
 	// The five content checks, once, each delivery against its predecessor.
 	co := ClaimSetOptions{Since: o.Since, Until: o.AsOf.Add(time.Millisecond), Now: o.AsOf,
 		MinMembers: o.MinMembers, Generation: o.Generation}
-	all := append(append([]feedprofile.Feed(nil), feeds.Profiled...), feeds.Unprofiled...)
-	verdicts, err := DetectClaimSets(ctx, db, all, co)
+	verdicts, err := detectClaimSetsFrom(ctx, db, all, regs, co)
 	if err != nil {
 		res.FeedErrors = feedProcessFeedErrors(err)
 	}
@@ -407,6 +441,7 @@ func RunFeedProcess(ctx context.Context, db DB, feeds FeedProcessFeeds, o FeedPr
 					Reason: feedProcessFeedReason(gate, f)})
 			} else {
 				c.FeedsJudged++
+				c.reprocessed(regs, f.TableName, o)
 			}
 		}
 		sort.SliceStable(c.FeedsNotJudged, func(i, j int) bool {
@@ -444,9 +479,14 @@ func feedProcessAsOf(in *FeedDeliveryInput, step time.Time) *FeedDeliveryInput {
 	return &out
 }
 
-// feedProcessCoverFeeds copies a delivery-grain coverage line's feeds and notes.
-func feedProcessCoverFeeds(c *FeedProcessCoverage, src FeedDeliveryCoverage) {
+// feedProcessCoverFeeds copies a delivery-grain coverage line's feeds and
+// notes, and counts the judged feeds' re-processing in the run's window.
+func feedProcessCoverFeeds(c *FeedProcessCoverage, src FeedDeliveryCoverage, regs *FeedRegistrations,
+	o FeedProcessOptions) {
 	c.FeedsJudged = len(src.Judged)
+	for _, t := range src.Judged {
+		c.reprocessed(regs, t, o)
+	}
 	for _, n := range src.NotJudged {
 		c.FeedsNotJudged = append(c.FeedsNotJudged, FeedProcessNotJudgedFeed{TableName: n.TableName, Reason: n.Reason})
 	}

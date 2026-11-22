@@ -94,10 +94,15 @@ type Feed struct {
 	// feed has none. It is created even when it holds no rows.
 	ClaimTable string
 	Deliveries []Delivery
+	// Reregistrations are later registrations of files already delivered:
+	// re-processing, not deliveries. Only the re-processing feeds
+	// (ReprocessingFeeds) have any.
+	Reregistrations []Reregistration
 }
 
-// Delivery is one registration: an input_registry row, its file_key_staging
-// row and, for a loaded feed, its rows in the claim-set table.
+// Delivery is one file at its first registration: an input_registry row, its
+// file_key_staging row and, for a loaded feed, its rows in the claim-set
+// table.
 type Delivery struct {
 	Ordinal    int       // 1-based, in registration order within the feed
 	Registered time.Time // the arrival; SessionID is its UnixMilli
@@ -105,6 +110,18 @@ type Delivery struct {
 	Period     time.Time // the date the file key names, its source_period
 	FileKey    string
 	FileSize   int64
+	Claims     []Claim
+}
+
+// Reregistration is a later registration of a delivered file, as JetStore
+// records a re-processing: an input_registry row with the file's file key and
+// period and a session of its own, and, for a loaded feed, the file's claims
+// loaded again under that session with a load batch of their own. It adds no
+// file_key_staging row, which is unique on file_key.
+type Reregistration struct {
+	Of         int // the ordinal of the delivery whose file it registers again
+	Registered time.Time
+	SessionID  string
 	Claims     []Claim
 }
 
@@ -141,9 +158,12 @@ func Feeds() []Feed {
 	return feeds
 }
 
-// FeedByTable returns the feed of a table_name.
+// AllFeeds returns the base feeds and then the re-processing feeds.
+func AllFeeds() []Feed { return append(Feeds(), ReprocessingFeeds()...) }
+
+// FeedByTable returns the feed of a table_name, among all the fixture's feeds.
 func FeedByTable(tableName string) (Feed, bool) {
-	for _, f := range Feeds() {
+	for _, f := range AllFeeds() {
 		if f.TableName == tableName {
 			return f, true
 		}
@@ -211,7 +231,13 @@ func (g *gen) newClaims(n int, lo, hi time.Time) []Claim {
 // size. Claims are copied, and stamped with the delivery's load batch.
 func delivery(feedIndex, ordinal int, client, objectType, tableName string,
 	regDate, period time.Time, rows int, claims []Claim) Delivery {
-	reg := regDate.Add(6*time.Hour + time.Duration(feedIndex)*time.Minute)
+	return deliveryAt(feedIndex, ordinal, client, objectType, tableName,
+		regDate.Add(6*time.Hour+time.Duration(feedIndex)*time.Minute), period, rows, claims)
+}
+
+// deliveryAt builds a Delivery registered at an exact instant.
+func deliveryAt(feedIndex, ordinal int, client, objectType, tableName string,
+	reg, period time.Time, rows int, claims []Claim) Delivery {
 	session := strconv.FormatInt(reg.UnixMilli(), 10)
 	jitter := int64((ordinal*137+feedIndex*53)%901) - 450
 	cs := make([]Claim, len(claims))

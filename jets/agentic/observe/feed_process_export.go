@@ -246,9 +246,7 @@ func feedProcessLabel(sql string, args []any) string {
 	case sql == feedProcessClientsSQL:
 		return "the clients with a source configuration"
 	case sql == feedDeliverySQL:
-		return "the registrations of the profiled feeds, for the delivery-grain checks"
-	case sql == claimSetDeliveriesSQL:
-		return "the registrations of feed " + arg(0) + ", for the content checks"
+		return "the file registrations of the feeds, from which both families read their deliveries"
 	case sql == claimSetColumnsSQL:
 		return "the columns of claim-set table " + arg(0) + "." + arg(1)
 	case strings.HasPrefix(sql, "WITH cur AS"):

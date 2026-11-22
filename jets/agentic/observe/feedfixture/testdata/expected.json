@@ -1,7 +1,7 @@
 {
   "clock": "2026-06-01T05:00:00Z",
   "rules": {
-    "joins": "A delivery is an input_registry row, joined to its feed on table_name alone, never on object_type: every delivery here is registered under the object type Member. table_name is unique in source_config; a registration naming another client or org than its feed is attributed to the feed and reported on the coverage line, not dropped (every delivery here names its feed's client, so no verdict depends on it). Only file registrations (source_type file) are deliveries. Its period is input_registry.source_period_key joined to source_period, its arrival is its session id read as milliseconds, and its size is file_key_staging.file_size joined on file_key. file_key_staging.last_update is a sync time, not an arrival. A delivery's predecessor is the feed's previous delivery in registration order. Every delivery-grain verdict is a backfill verdict: each delivery is judged against what was registered before it and nothing after.",
+    "joins": "A delivery is a file: a distinct file_key among the feed's file registrations (input_registry rows with source_type file), at its first registration, joined to its feed on table_name alone, never on object_type: every delivery here is registered under the object type Member. table_name is unique in source_config; a registration naming another client or org than its feed is attributed to the feed and reported on the coverage line, not dropped (every delivery here names its feed's client, so no verdict depends on it). Only file registrations (source_type file) are deliveries. Its period is input_registry.source_period_key joined to source_period, its arrival is its session id read as milliseconds, and its size is file_key_staging.file_size joined on file_key. file_key_staging.last_update is a sync time, not an arrival. A delivery's predecessor is the feed's previous delivery in registration order. Every delivery-grain verdict is a backfill verdict: each delivery is judged against what was registered before it and nothing after.",
     "feed_overdue": "At the clock. P is the latest period the feed has delivered, the maximum over its deliveries at the profile's period_type, not the period of the last registration. The next delivery is due in period P + periods_per_delivery, and the feed is overdue from the end of that period plus overdue_after_days. A week period runs Thursday to Wednesday (week_period counts weeks from the epoch, a Thursday), a month period is a calendar month. The finding hangs on the session of the feed's last registered delivery (on_delivery); first_fires_at is the first instant it holds. The late-period feed's last registration names an old period, so reading that period as the latest judges the feed overdue.",
     "delivery_size": "file_size outside the declared size_bytes range, bounds inclusive. Every profiled feed here declares a range, so no verdict depends on a trailing band. With no range declared, a delivery is judged against the trailing band of the sizes registered before it (the detector's unit tests cover that case), and a delivery with fewer preceding sizes than the band needs is not judged (insufficient_history).",
     "delivery_backdated": "The delivery's period, at the profile's period_type, precedes the latest period of any delivery registered before it. The first delivery of a feed is not judged.",
@@ -9,7 +9,8 @@
     "service_date_span": "Incremental feeds only: the newest less the oldest service date of one delivery, in days, exceeds max_service_date_span_days.",
     "field_completeness": "For each required field, the share of the delivery's rows (not keys) carrying a value is below min_present_share.",
     "delivery_overlap": "Over distinct values of the declared key columns, never rows. Incremental: the share of this delivery's distinct keys present in its predecessor exceeds max_redelivered_share. Cumulative: some key of the predecessor is absent from this delivery. The first delivery is not judged.",
-    "delivery_unchanged": "Over distinct values of the declared key columns: the key set equals the predecessor's and the newest service date is not later than the predecessor's. The first delivery is not judged."
+    "delivery_unchanged": "Over distinct values of the declared key columns: the key set equals the predecessor's and the newest service date is not later than the predecessor's. The first delivery is not judged.",
+    "reprocessing": "A later registration of a file key already delivered is re-processing, as JetStore records a re-map or a repeated load: the same file key under the same period, with a session of its own. It is not a delivery: none of the eight detectors judges it, it is never a delivery's predecessor, and it is not the feed's last delivery for feed_overdue. It is counted per feed, as reregistrations and reprocessed_files. A content check reads the claims of the delivery's first registration's session, never a re-processing's. Every base feed registers each file once, so no base verdict depends on this rule; the reprocessing section's feeds do. A genuinely new file registered under a past period is a delivery and is judged, so a backfill of new files fires delivery_backdated once per file, not once per registration."
   },
   "not_judged_reasons": {
     "no_profile": "the feed has no profile",
@@ -151,5 +152,41 @@
     {"detector": "delivery_unchanged", "table_name": "cumulative_declared_incremental", "fires_on": [], "not_judged_on": [{"delivery": 1, "reason": "no_predecessor"}]},
     {"detector": "delivery_unchanged", "table_name": "unloaded_claim_set", "not_judged": "no_claim_rows"},
     {"detector": "delivery_unchanged", "table_name": "unprofiled", "not_judged": "no_profile"}
-  ]
+  ],
+  "reprocessing": {
+    "install": {
+      "source_config": 2,
+      "input_registry": 42,
+      "source_period": 13,
+      "file_key_staging": 26,
+      "claim_tables": 2,
+      "claim_rows": {
+        "remapped_incremental": 3000,
+        "backfilled_incremental": 2040
+      },
+      "reregistrations": 16
+    },
+    "feeds": [
+      {"table_name": "remapped_incremental", "client": "client_e", "cumulative": false, "deliveries": 13, "role": "case", "reregistrations": 12, "reprocessed_files": 12},
+      {"table_name": "backfilled_incremental", "client": "client_e", "cumulative": false, "deliveries": 13, "role": "case", "reregistrations": 4, "reprocessed_files": 3}
+    ],
+    "verdicts": [
+      {"detector": "feed_overdue", "table_name": "remapped_incremental", "at_clock": "silent"},
+      {"detector": "delivery_size", "table_name": "remapped_incremental", "fires_on": []},
+      {"detector": "delivery_backdated", "table_name": "remapped_incremental", "fires_on": [], "not_judged_on": [{"delivery": 1, "reason": "no_predecessor"}]},
+      {"detector": "service_date_stale", "table_name": "remapped_incremental", "fires_on": []},
+      {"detector": "service_date_span", "table_name": "remapped_incremental", "fires_on": []},
+      {"detector": "field_completeness", "table_name": "remapped_incremental", "fires_on": []},
+      {"detector": "delivery_overlap", "table_name": "remapped_incremental", "fires_on": [], "not_judged_on": [{"delivery": 1, "reason": "no_predecessor"}]},
+      {"detector": "delivery_unchanged", "table_name": "remapped_incremental", "fires_on": [], "not_judged_on": [{"delivery": 1, "reason": "no_predecessor"}]},
+      {"detector": "feed_overdue", "table_name": "backfilled_incremental", "at_clock": "silent"},
+      {"detector": "delivery_size", "table_name": "backfilled_incremental", "fires_on": []},
+      {"detector": "delivery_backdated", "table_name": "backfilled_incremental", "fires_on": [8, 9, 10], "not_judged_on": [{"delivery": 1, "reason": "no_predecessor"}]},
+      {"detector": "service_date_stale", "table_name": "backfilled_incremental", "fires_on": []},
+      {"detector": "service_date_span", "table_name": "backfilled_incremental", "fires_on": []},
+      {"detector": "field_completeness", "table_name": "backfilled_incremental", "fires_on": []},
+      {"detector": "delivery_overlap", "table_name": "backfilled_incremental", "fires_on": [], "not_judged_on": [{"delivery": 1, "reason": "no_predecessor"}]},
+      {"detector": "delivery_unchanged", "table_name": "backfilled_incremental", "fires_on": [], "not_judged_on": [{"delivery": 1, "reason": "no_predecessor"}]}
+    ]
+  }
 }

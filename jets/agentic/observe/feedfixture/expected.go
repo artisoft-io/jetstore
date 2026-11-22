@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-//go:embed testdata/expected.json testdata/feed_profiles.json
+//go:embed testdata/expected.json testdata/feed_profiles.json testdata/reprocessing_profiles.json
 var testdata embed.FS
 
 // Detectors are the eight feed detectors the expected result covers, in the
@@ -34,17 +34,35 @@ func ProfilesPath() string {
 	return filepath.Join(filepath.Dir(file), "testdata", "feed_profiles.json")
 }
 
+// ReprocessingProfilesPath is testdata/reprocessing_profiles.json: the
+// re-processing feeds' profiles, kept apart from ProfilesPath so a run over
+// the base fixture reads no profile whose feed is not installed.
+func ReprocessingProfilesPath() string {
+	_, file, _, _ := runtime.Caller(0)
+	return filepath.Join(filepath.Dir(file), "testdata", "reprocessing_profiles.json")
+}
+
 // Profiles returns the declared profiles, keyed by table_name, as the JSON
 // documents they are. The fixture does not decode them: what a profile means is
 // the profile package's, and a detector test reads them through it.
 func Profiles() (map[string]json.RawMessage, error) {
-	buf, err := testdata.ReadFile("testdata/feed_profiles.json")
+	return readProfiles("feed_profiles.json")
+}
+
+// ReprocessingProfiles returns the re-processing feeds' profiles, as Profiles
+// returns the base feeds'.
+func ReprocessingProfiles() (map[string]json.RawMessage, error) {
+	return readProfiles("reprocessing_profiles.json")
+}
+
+func readProfiles(name string) (map[string]json.RawMessage, error) {
+	buf, err := testdata.ReadFile("testdata/" + name)
 	if err != nil {
 		return nil, err
 	}
 	var out map[string]json.RawMessage
 	if err = json.Unmarshal(buf, &out); err != nil {
-		return nil, fmt.Errorf("decoding feed_profiles.json: %w", err)
+		return nil, fmt.Errorf("decoding %s: %w", name, err)
 	}
 	return out, nil
 }
@@ -57,6 +75,16 @@ type Expected struct {
 	Install          Counts            `json:"install"`
 	Feeds            []ExpectedFeed    `json:"feeds"`
 	Verdicts         []ExpectedVerdict `json:"verdicts"`
+	// Reprocessing is the expected result over the re-processing feeds, as
+	// InstallReprocessing writes them.
+	Reprocessing ExpectedSet `json:"reprocessing"`
+}
+
+// ExpectedSet is the expected result over a set of feeds installed together.
+type ExpectedSet struct {
+	Install  Counts            `json:"install"`
+	Feeds    []ExpectedFeed    `json:"feeds"`
+	Verdicts []ExpectedVerdict `json:"verdicts"`
 }
 
 // ExpectedFeed is a feed as the expected result states it. Role is "case",
@@ -67,6 +95,11 @@ type ExpectedFeed struct {
 	Cumulative bool   `json:"cumulative"`
 	Deliveries int    `json:"deliveries"`
 	Role       string `json:"role"`
+	// Reregistrations and ReprocessedFiles are the feed's re-processing as of
+	// the clock: later registrations of files already delivered, and the
+	// files. Neither is a delivery, and no detector judges either.
+	Reregistrations  int `json:"reregistrations,omitempty"`
+	ReprocessedFiles int `json:"reprocessed_files,omitempty"`
 }
 
 // ExpectedVerdict is one detector over one feed.
@@ -110,9 +143,10 @@ func LoadExpected() (Expected, error) {
 	return e, nil
 }
 
-// Of returns the expected verdict of a detector over a feed.
+// Of returns the expected verdict of a detector over a feed, base or
+// re-processing.
 func (e Expected) Of(detector, tableName string) (ExpectedVerdict, bool) {
-	for _, v := range e.Verdicts {
+	for _, v := range append(append([]ExpectedVerdict(nil), e.Verdicts...), e.Reprocessing.Verdicts...) {
 		if v.Detector == detector && v.TableName == tableName {
 			return v, true
 		}
@@ -151,9 +185,15 @@ type Row struct {
 // Rows expands the delivery-grain verdicts into one row per detector and
 // delivery, sessions included. feed_overdue is not expanded: it has one verdict
 // per feed, at the clock.
-func (e Expected) Rows() []Row {
+func (e Expected) Rows() []Row { return e.rowsOf(Feeds()) }
+
+// ReprocessingRows is Rows over the re-processing feeds: one row per detector
+// and delivery. A re-registration is not a delivery and has no row.
+func (e Expected) ReprocessingRows() []Row { return e.rowsOf(ReprocessingFeeds()) }
+
+func (e Expected) rowsOf(feeds []Feed) []Row {
 	var out []Row
-	for _, f := range Feeds() {
+	for _, f := range feeds {
 		for _, det := range Detectors {
 			if det == "feed_overdue" {
 				continue
