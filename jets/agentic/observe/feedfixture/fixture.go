@@ -59,10 +59,16 @@ const (
 	// An incremental feed whose paid amount is null on every row from one
 	// delivery on.
 	IncompleteRequiredField = "incomplete_required_field"
-	// An incremental monthly feed with seven deliveries in one month, six of
-	// them back-dated by period, a small key overlap between deliveries, and
-	// rows exceeding distinct keys within a delivery.
-	BackdatedIncremental = "backdated_incremental"
+	// An incremental monthly feed with seven deliveries in one month, each
+	// registered under its own current period, six of them carrying dates of
+	// service that reach years back; a small key overlap between deliveries,
+	// and rows exceeding distinct keys within a delivery.
+	WideSpanIncremental = "wide_span_incremental"
+	// An incremental weekly feed with an ordinary history, then one late
+	// delivery registered under a period about three months older than the
+	// feed's latest. Its dates of service are ordinary: only its registration
+	// is out of order.
+	LatePeriodIncremental = "late_period_incremental"
 	// A cumulative feed one of whose deliveries does not contain its
 	// predecessor. Its business key has two columns.
 	ShrinkingCumulative = "shrinking_cumulative"
@@ -125,7 +131,7 @@ func Feeds() []Feed {
 	specs := []func(int) Feed{
 		staleCumulative, advancingCumulative,
 		stoppedIncremental, siblingIncremental, incompleteRequiredField,
-		backdatedIncremental, shrinkingCumulative,
+		wideSpanIncremental, latePeriodIncremental, shrinkingCumulative,
 		cumulativeDeclaredIncremental, unloadedClaimSet, unprofiled,
 	}
 	feeds := make([]Feed, len(specs))
@@ -317,39 +323,37 @@ func incompleteRequiredField(idx int) Feed {
 	return f
 }
 
-func backdatedIncremental(idx int) Feed {
-	f := Feed{Client: "client_c", ObjectType: "PharmacyClaim", TableName: BackdatedIncremental,
-		Profiled: true, ClaimTable: claimTable("BackdatedIncrementalClaim")}
-	g := &gen{code: "bd"}
-	type reg struct {
-		at, period time.Time
-		backdated  bool
-	}
+func wideSpanIncremental(idx int) Feed {
+	f := Feed{Client: "client_c", ObjectType: "PharmacyClaim", TableName: WideSpanIncremental,
+		Profiled: true, ClaimTable: claimTable("WideSpanIncrementalClaim")}
+	g := &gen{code: "ws"}
+	// Every delivery is registered under its own current period. reach, when
+	// set, is how far back its dates of service go: it covers the year before
+	// reach and the month after, where an ordinary delivery covers the seven
+	// weeks before its arrival.
+	type reg struct{ at, reach time.Time }
 	regs := []reg{
-		// Four monthly deliveries, each for its own month.
-		{day(2026, time.January, 5), day(2026, time.January, 5), false},
-		{day(2026, time.February, 2), day(2026, time.February, 2), false},
-		{day(2026, time.March, 2), day(2026, time.March, 2), false},
-		{day(2026, time.April, 6), day(2026, time.April, 6), false},
-		// Seven in one month: three back-dated, the current one, three more
-		// back-dated. The last registered is back-dated, so a detector reading
-		// the last registration's period as the latest delivered is wrong.
-		{day(2026, time.May, 4), day(2021, time.June, 1), true},
-		{day(2026, time.May, 7), day(2022, time.March, 1), true},
-		{day(2026, time.May, 12), day(2023, time.January, 1), true},
-		{day(2026, time.May, 14), day(2026, time.May, 14), false},
-		{day(2026, time.May, 19), day(2024, time.February, 1), true},
-		{day(2026, time.May, 21), day(2025, time.January, 1), true},
-		{day(2026, time.May, 26), day(2025, time.September, 1), true},
+		// Four monthly deliveries.
+		{day(2026, time.January, 5), time.Time{}},
+		{day(2026, time.February, 2), time.Time{}},
+		{day(2026, time.March, 2), time.Time{}},
+		{day(2026, time.April, 6), time.Time{}},
+		// Seven in one month: three reaching years back, an ordinary one,
+		// three more reaching back.
+		{day(2026, time.May, 4), day(2021, time.June, 1)},
+		{day(2026, time.May, 7), day(2022, time.March, 1)},
+		{day(2026, time.May, 12), day(2023, time.January, 1)},
+		{day(2026, time.May, 14), time.Time{}},
+		{day(2026, time.May, 19), day(2024, time.February, 1)},
+		{day(2026, time.May, 21), day(2025, time.January, 1)},
+		{day(2026, time.May, 26), day(2025, time.September, 1)},
 	}
 	const keysPerDelivery, shared, doubled = 300, 10, 33
 	var prevNew []Claim
 	for i, r := range regs {
-		// A current delivery covers the seven weeks before its arrival; a
-		// back-dated one the year before its period and the month after.
 		lo, hi := r.at.Add(-days(50)), r.at.Add(-days(2))
-		if r.backdated {
-			lo, hi = r.period.Add(-days(365)), r.period.Add(days(30))
+		if !r.reach.IsZero() {
+			lo, hi = r.reach.Add(-days(365)), r.reach.Add(days(30))
 		}
 		// Ten claims of the previous delivery are delivered again when their
 		// service dates fall in this delivery's range. They are taken from its
@@ -371,8 +375,34 @@ func backdatedIncremental(idx int) Feed {
 			c.LineNumber = 2
 			claims = append(claims, c)
 		}
-		f.Deliveries = append(f.Deliveries, delivery(idx, i+1, f.Client, f.ObjectType, f.TableName, r.at, r.period, len(claims), claims))
+		f.Deliveries = append(f.Deliveries, delivery(idx, i+1, f.Client, f.ObjectType, f.TableName, r.at, r.at, len(claims), claims))
 	}
+	return f
+}
+
+// The late delivery of LatePeriodIncremental: registered after the weekly
+// history, under the period of a week about three months before the latest.
+var (
+	lateRegistered = day(2026, time.May, 27)
+	latePeriod     = day(2026, time.February, 9)
+)
+
+func latePeriodIncremental(idx int) Feed {
+	f := Feed{Client: "client_c", ObjectType: "DentalClaim", TableName: LatePeriodIncremental,
+		Profiled: true, ClaimTable: claimTable("LatePeriodIncrementalClaim")}
+	g := &gen{code: "lp"}
+	for i, r := range mondays(day(2026, time.March, 2), 13) {
+		claims := g.newClaims(150, r.Add(-days(28)), r.Add(-days(3)))
+		f.Deliveries = append(f.Deliveries, delivery(idx, i+1, f.Client, f.ObjectType, f.TableName, r, r, len(claims), claims))
+	}
+	// The late delivery is the last registered, so a detector reading the last
+	// registration's period as the latest delivered judges the feed overdue.
+	// Its dates of service are as recent as any other delivery's, so no
+	// content detector fires on it, whether a lag is read from its arrival or
+	// from its period.
+	claims := g.newClaims(150, lateRegistered.Add(-days(28)), lateRegistered.Add(-days(3)))
+	f.Deliveries = append(f.Deliveries, delivery(idx, 14, f.Client, f.ObjectType, f.TableName,
+		lateRegistered, latePeriod, len(claims), claims))
 	return f
 }
 

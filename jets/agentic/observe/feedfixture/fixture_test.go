@@ -205,7 +205,7 @@ func TestTheExpectationIsComplete(t *testing.T) {
 			}
 		}
 	}
-	if got, want := len(e.Rows()), (len(Detectors)-1)*90; got != want {
+	if got, want := len(e.Rows()), (len(Detectors)-1)*e.Install.InputRegistry; got != want {
 		t.Errorf("Rows expands to %d, want %d", got, want)
 	}
 }
@@ -276,5 +276,31 @@ func TestTheProfilesAreTheProfiledFeeds(t *testing.T) {
 	}
 	if n != len(profiles) {
 		t.Errorf("%d profiles, %d of them for a fixture feed", len(profiles), n)
+	}
+}
+
+// The late-period feed's last delivery is registered last, under a week about
+// three months before the latest the feed has delivered, and carries dates of
+// service as recent as its predecessor's.
+func TestTheLateDeliveryIsLastAndOld(t *testing.T) {
+	f, _ := FeedByTable(LatePeriodIncremental)
+	last, prev := f.Deliveries[len(f.Deliveries)-1], f.Deliveries[len(f.Deliveries)-2]
+	_, latest, _ := Period(prev.Period)
+	_, late, _ := Period(last.Period)
+	if gap := latest - late; gap < 12 || gap > 15 {
+		t.Errorf("the late delivery is %d weeks before the latest, want about three months", gap)
+	}
+	newest := func(d Delivery) time.Time {
+		var n time.Time
+		for _, c := range d.Claims {
+			if c.ServiceDate.After(n) {
+				n = c.ServiceDate
+			}
+		}
+		return n
+	}
+	if !newest(last).After(newest(prev)) {
+		t.Errorf("the late delivery's newest service date %s is not after its predecessor's %s",
+			newest(last).Format(time.DateOnly), newest(prev).Format(time.DateOnly))
 	}
 }

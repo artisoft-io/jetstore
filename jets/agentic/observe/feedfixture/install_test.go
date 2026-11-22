@@ -124,8 +124,12 @@ func TestTheRowsCarryTheJoinTraps(t *testing.T) {
 	if n := count(t, pool, "SELECT count(DISTINCT last_update) FROM jetsapi.file_key_staging"); n != 1 {
 		t.Errorf("file_key_staging carries %d last_update values, want the one sync time", n)
 	}
-	if n := count(t, pool, "SELECT count(DISTINCT last_update) FROM jetsapi.input_registry"); n != 90 {
-		t.Errorf("input_registry carries %d distinct registration times, want 90", n)
+	deliveries := 0
+	for _, f := range Feeds() {
+		deliveries += len(f.Deliveries)
+	}
+	if n := count(t, pool, "SELECT count(DISTINCT last_update) FROM jetsapi.input_registry"); n != deliveries {
+		t.Errorf("input_registry carries %d distinct registration times, want %d", n, deliveries)
 	}
 }
 
@@ -471,14 +475,15 @@ func show(v ExpectedVerdict) string {
 	return string(b)
 }
 
-// The properties the expectation rests on, measured: the back-dated feed's
-// overlap and its rows against its keys.
-func TestTheBackdatedFeedHasItsShape(t *testing.T) {
+// The properties the expectation rests on, measured: the wide-span feed's
+// overlap and its rows against its keys, and that all seven deliveries of its
+// month are registered under current periods.
+func TestTheWideSpanFeedHasItsShape(t *testing.T) {
 	pool := freshDB(t)
 	if _, err := Install(context.Background(), pool); err != nil {
 		t.Fatal(err)
 	}
-	f, _ := FeedByTable(BackdatedIncremental)
+	f, _ := FeedByTable(WideSpanIncremental)
 	table := pgx.Identifier{"public", f.ClaimTable}.Sanitize()
 	claim := pgx.Identifier{ColClaimID}.Sanitize()
 	// Within one delivery, rows exceed distinct keys by 11%.
@@ -496,6 +501,13 @@ func TestTheBackdatedFeedHasItsShape(t *testing.T) {
 		" GROUP BY 1 HAVING count(DISTINCT session_id) > 2) s")
 	if share := float64(inTwo) / float64(month); share < 0.015 || share > 0.025 || inMore != 0 {
 		t.Errorf("in the month: %d of %d keys in two deliveries (%.3f), %d in more", inTwo, month, share, inMore)
+	}
+	// Every delivery of the month is registered under a period of that month.
+	current := count(t, pool, `SELECT count(*) FROM jetsapi.input_registry ir
+		JOIN jetsapi.source_period sp ON sp.key = ir.source_period_key
+		WHERE ir.session_id = ANY($1) AND sp.year = 2026 AND sp.month = 5`, sessions(f, 5, 11))
+	if current != 7 {
+		t.Errorf("%d of the month's 7 deliveries are registered under a period of the month", current)
 	}
 	t.Logf("rows %d, keys %d; in the month %d keys, %d in two deliveries", rows, keys, month, inTwo)
 }
