@@ -1,6 +1,6 @@
 ---
 title: Proposals
-description: The Proposals screen, which lists the changes JetStore's AI agents propose, and the page of one proposal, with its decisions, its run's transcript, and the decision a supervisor records on it.
+description: The Proposals screen, which lists the changes JetStore's AI agents propose, and the page of one proposal, with its decisions, its run's transcript, and the decision a supervisor records on it; and the proposal shadow triage drafts for a feed that looks cumulative.
 kind: reference
 ---
 
@@ -73,3 +73,53 @@ its payload. Each event carries a hash of the one before, so the screen can chec
 - **CHAIN NOT VERIFIED** lists the defects found, beside the events they concern.
 
 A decision you record is appended to the same chain.
+
+## A proposal drafted from a feed incident
+
+Not every proposal comes from an agent's run. When shadow triage writes the incidents for a feed's
+deliveries (see [Incidents](/docs/user/screens/incidents/)), it also looks for one case that has a known correction:
+a feed whose deliveries **look cumulative** while its source configuration declares it
+**incremental**. For such a feed it drafts one proposal: declare the feed cumulative, by setting
+**is_cumulative** on its source configuration.
+
+**When it is drafted.** A delivery of an incremental feed looks cumulative when most of it was in the
+delivery before: its *delivery_overlap* finding records that at least half of its distinct keys were
+already in its predecessor, or its *delivery_unchanged* finding records the same key set with no
+newer date of service. The proposal is drafted only when the feed's **latest three deliveries in a
+row** look so. One restated delivery does not draft it, nor do restatements spread through the
+feed's history, nor a stretch the feed has since left. A feed already declared cumulative is never
+proposed.
+
+**What it says.** In the list its trigger is **incident**. On its page, **What the run produced**
+holds the proposal's text:
+
+- the change proposed, naming the feed, its client, org and object type;
+- the evidence, delivery by delivery: the overlap share or *unchanged*, the session, and the incident
+  on it;
+- what the change would do: the feed detectors would judge the feed as cumulative, and a pipeline
+  that names its object type on a channel with a lookback would read **only the latest delivery
+  across the lookback**, not every delivery of every period;
+- a warning when other source configurations of the same client share the object type and are not
+  declared cumulative, since a cumulative read of a mixed object type fails the run;
+- what it does not do.
+
+**What it does not do.** Nothing is applied. The source configuration is unchanged until somebody
+edits it on the source configuration screen. The incident it names stays at **diagnosed**, and no
+remediation is recorded. The proposal is drafted once per feed: a later triage run finds it and
+drafts nothing, whatever state it is in, so a rejected proposal stays rejected.
+
+**Deciding on it.** A person moves it, on its page, through the lifecycle above. Two limits apply
+today, and both are being worked on:
+
+- **The decision buttons record nothing yet.** The autonomy tier of a decision is read from the
+  agent's run, and a proposal drafted from an incident has no run, so a decision is refused with
+  *no run … so its tier cannot be resolved*. Its **Run transcript** is empty for the same reason, and
+  the facts label the incident as a run.
+- **A draft cannot be rejected directly.** From *draft* the lifecycle offers only *validated* and
+  *superseded*; *rejected* is reached from *awaiting human approval*.
+
+Until both are lifted, the proposal is a reading of the evidence, not something to act on. If the
+feed is cumulative, change its source configuration yourself; the detectors then judge it as
+cumulative. If it is not, leave the proposal in draft: it is not drafted again. Either
+way, the incident on the [Incidents](/docs/user/screens/incidents/) screen moves only when a person
+moves it.
