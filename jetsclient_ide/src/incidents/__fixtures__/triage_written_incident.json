@@ -146,7 +146,9 @@
     "stepRef": ""
   },
   "permittedTransitions": [
-    "remediation_proposed"
+    "reclassified",
+    "remediation_proposed",
+    "suppressed_as_benign"
   ],
   "phiCapability": "agent_phi_access",
   "phiProperties": [

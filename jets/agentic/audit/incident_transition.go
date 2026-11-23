@@ -143,6 +143,9 @@ func (t *IncidentTransition) validate() error {
 	case !IncidentTransitionAllowed(t.FromStatus, t.ToStatus):
 		return fmt.Errorf("incident %s is in %s, from which %q is not a permitted transition; permitted: %v",
 			t.IncidentRef, t.FromStatus, t.ToStatus, IncidentTransitions(t.FromStatus))
+	case IncidentTransitionHumanOnly(t.FromStatus, t.ToStatus) && t.ActorKind != ActorHuman:
+		return fmt.Errorf("transition %s: %s -> %s is a person's verdict on a diagnosis, and its actor kind is %q",
+			t.IncidentEventId, t.FromStatus, t.ToStatus, t.ActorKind)
 	}
 	// The attribution rule is shared with RecordTierTransition rather than
 	// spelled twice. It was this function's, moved into

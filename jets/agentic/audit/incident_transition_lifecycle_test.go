@@ -2,6 +2,7 @@ package audit
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -17,7 +18,8 @@ func TestIncidentTransitionsFollowAppendixA5(t *testing.T) {
 		// Three successors, all three adjudications — which is why the supervision design
 		// calls the supervision screen the labelling instrument.
 		{IncidentTriaged, []string{IncidentDiagnosed, IncidentReclassified, IncidentSuppressedAsBenign}},
-		{IncidentDiagnosed, []string{IncidentRemediationProposed}},
+		// Not the design's: a person's verdict on a diagnosis (incidentHumanOnly).
+		{IncidentDiagnosed, []string{IncidentRemediationProposed, IncidentReclassified, IncidentSuppressedAsBenign}},
 		// The back edge the design draws across the top of the figure.
 		{IncidentRemediationProposed, []string{IncidentAwaitingApproval, IncidentTriaged}},
 		{IncidentAwaitingApproval, []string{IncidentRemediating}},
@@ -109,6 +111,40 @@ func TestEveryStatusIsReachableExceptTheEntryState(t *testing.T) {
 	for _, s := range IncidentStatuses {
 		if !reached[s] {
 			t.Errorf("%s is in the vocabulary and no transition reaches it", s)
+		}
+	}
+}
+
+// The two edges from a diagnosis to a verdict are a person's, and only these
+// two: every other edge leaves the actor kind to the attribution rule.
+func TestADiagnosisTakesOnlyAPersonsVerdict(t *testing.T) {
+	for _, to := range []string{IncidentReclassified, IncidentSuppressedAsBenign} {
+		if !IncidentTransitionHumanOnly(IncidentDiagnosed, to) {
+			t.Errorf("diagnosed -> %s should be a person's alone", to)
+		}
+		for _, tc := range []struct {
+			kind string
+			ok   bool
+		}{{ActorHuman, true}, {ActorAgent, false}} {
+			err := (&IncidentTransition{
+				IncidentEventId: "ie_v", IncidentRef: "inc_v",
+				FromStatus: IncidentDiagnosed, ToStatus: to,
+				Actor: "someone", ActorKind: tc.kind,
+			}).validate()
+			if tc.ok && err != nil {
+				t.Errorf("diagnosed -> %s by a %s: %v", to, tc.kind, err)
+			}
+			if !tc.ok && (err == nil || !strings.Contains(err.Error(), "a person's verdict")) {
+				t.Errorf("diagnosed -> %s by an %s: want a refusal, got %v", to, tc.kind, err)
+			}
+		}
+	}
+	for _, from := range IncidentStatuses {
+		for _, to := range IncidentTransitions(from) {
+			want := from == IncidentDiagnosed && (to == IncidentReclassified || to == IncidentSuppressedAsBenign)
+			if IncidentTransitionHumanOnly(from, to) != want {
+				t.Errorf("%s -> %s: human only = %v, want %v", from, to, !want, want)
+			}
 		}
 	}
 }

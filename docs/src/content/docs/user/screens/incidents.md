@@ -158,3 +158,9 @@ The statuses run *detected*, *triaged*, *diagnosed*, *remediation proposed*, *aw
 *remediating*, *resolved*, *verified* and *closed*; a triaged incident may instead be *reclassified*
 or *suppressed as benign*. Shadow triage takes an incident no further than *diagnosed*; every later
 step is a person's.
+
+**A diagnosed incident takes a person's verdict too**: *suppressed as benign*, when the finding is a
+false alarm, or *reclassified*, choosing the cause you hold, which may be the one ranked first. These
+two are the verdicts a person gives on an incident shadow triage raised, and only a person can give
+them; neither acts on anything, so shadow mode holds. A reclassified incident returns to *triaged*,
+and *suppressed as benign* is terminal.
