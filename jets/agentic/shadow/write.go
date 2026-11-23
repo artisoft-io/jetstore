@@ -651,6 +651,68 @@ func RecentFeedSessions(ctx context.Context, db DB, since time.Time, client stri
 	return out, rows.Err()
 }
 
+// Selection is the sessions a shadow triage run classifies, and where each
+// came from.
+type Selection struct {
+	Runs     []string // runs that started in the window
+	Feeds    []string // sessions carrying a feed anomaly detected in the window
+	Sessions []string // both, each once (MergeSessions)
+	// FeedsSkipped says why no feed session was selected, or is "".
+	FeedsSkipped string
+}
+
+// ErrFeedsOnlyWithProcess: a delivery belongs to no process, so a feeds-only
+// selection restricted to one selects nothing, and is refused rather than
+// returning an empty list that reads as a quiet window.
+var ErrFeedsOnlyWithProcess = errors.New("feeds only selects the sessions of feed anomalies, which belong " +
+	"to no process, so it cannot be combined with a process")
+
+// ErrFeedsOnlyWithoutAnomalies: there is no anomaly table to select from.
+var ErrFeedsOnlyWithoutAnomalies = errors.New("feeds only selects from jetsapi.anomaly, which is absent " +
+	"from this database; `update_db -migrateDb` is what installs it")
+
+// SelectSessions selects the sessions a shadow triage run classifies: the runs
+// that started since from (RecentSessions) and the sessions carrying a feed
+// anomaly detected since then (RecentFeedSessions), at most limit of each.
+// anomalies says whether jetsapi.anomaly exists.
+//
+// **feedsOnly selects the feed sessions alone**, for a backfill of the feed
+// checks: their findings are dated at the first daily run that would have
+// seen them, so raising them takes a window reaching back months, and the
+// same window would otherwise classify every run in it, raising run incidents
+// for runs no daily triage ever read. With feedsOnly no run is selected.
+//
+// Without it, a process restricts the runs and leaves the feed sessions out,
+// because a delivery belongs to no process, and the absence of the anomaly
+// table leaves them out too; FeedsSkipped says which.
+func SelectSessions(ctx context.Context, db DB, from time.Time, client, process string, limit int,
+	feedsOnly, anomalies bool) (Selection, error) {
+	var sel Selection
+	var err error
+	if feedsOnly {
+		switch {
+		case process != "":
+			return sel, ErrFeedsOnlyWithProcess
+		case !anomalies:
+			return sel, ErrFeedsOnlyWithoutAnomalies
+		}
+	} else if sel.Runs, err = RecentSessions(ctx, db, from, client, process, limit); err != nil {
+		return sel, err
+	}
+	switch {
+	case process != "":
+		sel.FeedsSkipped = "-process is set, so sessions selected for their feed anomalies are not classified"
+	case !anomalies:
+		sel.FeedsSkipped = "jetsapi.anomaly is absent, so no session is selected for its feed anomalies"
+	default:
+		if sel.Feeds, err = RecentFeedSessions(ctx, db, from, client, limit); err != nil {
+			return sel, err
+		}
+	}
+	sel.Sessions = MergeSessions(sel.Runs, sel.Feeds)
+	return sel, nil
+}
+
 // MergeSessions returns the run sessions followed by the feed sessions not
 // already among them, each once. A session that is both a run and a delivery
 // is classified once, for all eleven loci.
