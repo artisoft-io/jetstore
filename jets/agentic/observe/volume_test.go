@@ -36,6 +36,11 @@ func historyPool(t *testing.T) *pgxpool.Pool {
 			t.Fatalf("installing %s: %v", def.TableName, err)
 		}
 	}
+	// Dropped first, as jets_init_db.sql does: on a database a test run with an
+	// older view left behind, CREATE OR REPLACE cannot insert its new columns.
+	if _, err := pool.Exec(context.Background(), `DROP VIEW IF EXISTS jetsapi.pipeline_execution_history`); err != nil {
+		t.Fatalf("dropping pipeline_execution_history: %v", err)
+	}
 	if _, err := pool.Exec(context.Background(), purgetest.HistoryViewStatement(t)); err != nil {
 		t.Fatalf("creating pipeline_execution_history: %v", err)
 	}

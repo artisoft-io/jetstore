@@ -366,6 +366,29 @@ SELECT '1764583200402', 'CI', 'domain_table', sp.month_period, 'user', 'admin@lo
   FROM jetsapi.source_period sp WHERE sp.key = 102;
 
 -- ---------------------------------------------------------------------------
+-- The run summary Pipelines Status shows, Input Count and Input Span. The Map
+-- runs' mapping step names a span column, so their reducing00 node records the
+-- earliest and latest date it mapped; then, for every run that ended, the
+-- statement the status update runs (jets/datatable/run_input_summary.go).
+UPDATE jetsapi.pipeline_execution_details ped
+   SET input_span_column = 'hc:coverage_start_date',
+       input_span_min = date '2025-10-01' + (ped.pipeline_execution_status_key - 101) * 14,
+       input_span_max = date '2026-01-01' - (ped.pipeline_execution_status_key - 101) * 3
+ WHERE ped.pipeline_execution_status_key BETWEEN 101 AND 103 AND ped.cpipes_step_id = 'reducing00';
+
+UPDATE jetsapi.pipeline_execution_status pe
+   SET main_input_records_count = d.n, input_span_days = d.span
+  FROM (
+    SELECT pipeline_execution_status_key AS k,
+           sum(input_records_count) FILTER (WHERE cpipes_step_id = 'reducing00')::bigint AS n,
+           (max(input_span_max) - min(input_span_min))::int AS span
+      FROM jetsapi.pipeline_execution_details
+     WHERE status != 'in progress'
+     GROUP BY pipeline_execution_status_key
+  ) d
+ WHERE pe.key = d.k AND pe.status NOT IN ('pending', 'submitted');
+
+-- ---------------------------------------------------------------------------
 -- The sequences continue after every fixture's keys.
 DO $$
 BEGIN
