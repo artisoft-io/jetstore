@@ -457,19 +457,20 @@ describe("one incident", () => {
 describe("an incident triage actually wrote", () => {
   // The verdict control over the golden payload. **This is the one
   // assertion here that is not about rendering**: the buttons are whatever
-  // `permittedTransitions` carries, and on a payload triage produced that is
-  // exactly one, because the incident reached `diagnosed` and the lifecycle draws one edge
-  // out of it. A fixture regenerated after a lifecycle change fails this rather
-  // than quietly offering a different set.
-  it("offers the transition the lifecycle draws out of the status triage left it in", async () => {
+  // `permittedTransitions` carries. On a payload triage produced the incident
+  // is at `diagnosed`, and a person may move it to remediation proposed, or
+  // give a verdict on the diagnosis: reclassify it or suppress it as benign. A
+  // fixture regenerated after a lifecycle change fails this rather than
+  // quietly offering a different set.
+  it("offers the transitions the lifecycle draws out of the status triage left it in", async () => {
     const { api } = await clientWith({ get_incident: { body: triageWritten } });
     renderAt(api, `/incidents/${triageWritten.incident.incidentId}`);
     await screen.findByRole("heading", { name: triageWritten.incident.incidentId });
     expect(triageWritten.incident.status).toBe("diagnosed");
     const buttons = screen.getAllByRole("button").map((b) => b.textContent);
-    expect(buttons).toEqual(["Refresh", "Remediation proposed"]);
-    // `reclassified` is not among them, so no cause chooser is offered.
-    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(buttons).toEqual(["Refresh", "Reclassified", "Remediation proposed", "Suppressed as benign"]);
+    // `reclassified` is among them, so the cause chooser is offered.
+    expect(screen.getByRole("combobox")).toBeTruthy();
   });
 
   it("renders its locus, its unclaimed cause and its ranked hypotheses", async () => {

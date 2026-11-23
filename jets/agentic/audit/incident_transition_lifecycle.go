@@ -95,20 +95,43 @@ func IncidentTerminal(status string) bool { return incidentTerminal[status] }
 //   - `remediation_proposed -> triaged` is the back edge the diagram draws
 //     across the top of the figure. A proposal that turns out to address the
 //     wrong thing sends the incident back to triage rather than forward.
-//   - `triaged` is the only state with three successors, and all three of its
-//     branches are adjudications: diagnose it, reclassify it, or call it
-//     benign. That is not a coincidence — it is why the supervision design calls the
+//   - `triaged` has three successors, and all three of its branches are
+//     adjudications: diagnose it, reclassify it, or call it benign. That is
+//     not a coincidence — it is why the supervision design calls the
 //     supervision screen the labelling instrument.
+//
+// **Two edges are not the design's: a person may reclassify a diagnosed
+// incident or suppress it as benign** (incidentHumanOnly). Shadow mode raises
+// its incidents at `diagnosed`, whose one successor in the design is
+// `remediation_proposed`, an acting status the shadow attestation refuses. So
+// a person reading a shadow incident had no verdict to give: the three
+// adjudications were reachable only through acting. Found on 2026-11-22, when
+// a deployment's feed incidents were to be adjudicated. A reclassification
+// still returns to `triaged`, and `suppressed_as_benign` is still terminal.
 var incidentForward = map[string][]string{
 	IncidentDetected:            {IncidentTriaged},
 	IncidentTriaged:             {IncidentDiagnosed, IncidentReclassified, IncidentSuppressedAsBenign},
-	IncidentDiagnosed:           {IncidentRemediationProposed},
+	IncidentDiagnosed:           {IncidentRemediationProposed, IncidentReclassified, IncidentSuppressedAsBenign},
 	IncidentRemediationProposed: {IncidentAwaitingApproval, IncidentTriaged},
 	IncidentAwaitingApproval:    {IncidentRemediating},
 	IncidentRemediating:         {IncidentResolved},
 	IncidentReclassified:        {IncidentTriaged},
 	IncidentResolved:            {IncidentVerified},
 	IncidentVerified:            {IncidentClosed},
+}
+
+// incidentHumanOnly are the edges only a person may take: a verdict on a
+// diagnosis is a label, and an agent that could write one would be scoring
+// its own work.
+var incidentHumanOnly = map[[2]string]bool{
+	{IncidentDiagnosed, IncidentReclassified}:       true,
+	{IncidentDiagnosed, IncidentSuppressedAsBenign}: true,
+}
+
+// IncidentTransitionHumanOnly reports whether `from -> to` is an edge only a
+// person may take.
+func IncidentTransitionHumanOnly(from, to string) bool {
+	return incidentHumanOnly[[2]string{from, to}]
 }
 
 // IncidentTransitions returns the statuses an incident in `from` may move to,
