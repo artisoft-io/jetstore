@@ -409,6 +409,11 @@ func (ca *StatusUpdate) CoordinateWork() error {
 			log.Printf("%s %s\n", sessionId, err)
 			return err
 		}
+		// The run's main input count and input span, shown on Pipeline Status.
+		// Additive: a failure is logged and the status update goes on.
+		if err := UpdateRunInputSummary(context.Background(), ca.Dbpool, ca.PeKey); err != nil {
+			log.Printf("%s %v\n", sessionId, err)
+		}
 		ilkey := ca.CpipesEnv["$INPUT_LOADER_STATUS_KEY"]
 		if ilkey != nil {
 			// Update input_loader_status since process is "Jets_Loader"

@@ -674,6 +674,7 @@ var CpipesContract = map[string]map[string]ContractField{
 		"rdf_type":           {},
 	},
 	"MapRecordSpec/*": {
+		"calculate_span_of":       {},
 		"comment":                 {},
 		"error_channel":           {},
 		"fail_on_error":           {},

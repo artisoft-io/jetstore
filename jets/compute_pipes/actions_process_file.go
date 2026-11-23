@@ -15,6 +15,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 
 	cpCtx.ChResults = &ChannelResults{
 		// Channels created by the entity responsible to close them
+		InputSpan: &InputSpan{},
 	}
 
 	key, err := cpCtx.InsertPipelineExecutionStatus(dbpool)
@@ -285,6 +286,11 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		int(reteSessionCount), int(outputRowCount), cpCtx.MainInputStepId, status, errMessage)
 	if err2 != nil {
 		return fmt.Errorf("error while registering the load (cpipesSM): %v", err2)
+	}
+	// The node's input span, when a map_record step names a span column.
+	// Additive, as the channel detail below: logged rather than returned.
+	if err2 = RecordInputSpan(context.Background(), dbpool, key, cpCtx.ChResults.InputSpan); err2 != nil {
+		log.Printf("%s node %d %v", cpCtx.SessionId, cpCtx.NodeId, err2)
 	}
 
 	// Register the per-channel detail of this shard with

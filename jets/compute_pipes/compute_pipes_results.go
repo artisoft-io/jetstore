@@ -116,6 +116,9 @@ type ChannelResults struct {
 	S3PutObjectResultCh     chan ComputePipesResult
 	JetrulesWorkerResultCh  chan chan JetrulesWorkerResult
 	ClusteringResultCh      chan chan ClusteringResult
+	// InputSpan is the node's input span, from the map_record steps that name
+	// a span column (input_span.go). Nil where no node context made one.
+	InputSpan *InputSpan
 }
 
 type SaveResultsContext struct {
