@@ -32,6 +32,25 @@ package observe
 //
 // The claims are read by session_id, which every table a pipeline creates
 // carries and indexes, so each check reads two sessions and not the table.
+//
+// # Which session holds a delivery's claims
+//
+// A delivery's claims are not always under its registration's session. A
+// pipeline started on a file reads the registration's session
+// (pipeline_execution_status.input_session_id, set from its main input's
+// registration) and writes its domain tables under its own session_id, so a
+// mapping pipeline puts a delivery's claims under the run's session. A
+// deployment measured on 2026-11-22 held every claim that way: of the
+// deliveries of 20 claim feeds over 30 days, no registration session had a
+// row in a claim table, and most mapping runs that read one did. So the
+// statement reads, for the delivery and for its predecessor alike, the
+// registration's own session when the table holds rows of it, and otherwise
+// the earliest completed run that read the registration and wrote rows to
+// the table, then the earliest other such run. Earliest, for the reason a
+// re-processing is not read: a delivery is read as it first arrived, and a
+// re-run maps it again later. The statement returns the session it read for
+// each, which is a run's identifier and no claim value, and the verdict's
+// detail names it. The delivery stays keyed on its registration's session.
 // Each delivery is one statement, and the statement returns aggregates only:
 // counts of rows, distinct keys, distinct members and shared keys, a lag and a
 // span in whole days, the present count of each required field, and three
@@ -197,6 +216,11 @@ type ClaimSetAggregates struct {
 	// Present is the count of rows carrying a value, per declared required
 	// field, in the profile's order: not null and, as text, not blank.
 	Present []int64
+	// ClaimSession and PredecessorClaimSession are the sessions whose rows
+	// were read: the registration's own, or the pipeline run that read it
+	// (see the file comment). Nil when no session holds a row.
+	ClaimSession            *string
+	PredecessorClaimSession *string
 }
 
 // ClaimSetVerdict is one detector on one delivery.
@@ -469,6 +493,10 @@ func claimSetQuoteList(names []string) string {
 //	$4 the declared lag in days, or NULL
 //	$5 the minimum distinct-member count for a lag in days
 //
+// $1 and $2 are each resolved to the session holding its claims, the
+// registration's own or a pipeline run's that read it (claimSetSessionOf), and
+// the statement returns both resolved sessions after the aggregates.
+//
 // Every name in it comes from the profile and is quoted by pgx.Identifier.
 // required are the required-field columns to count, in order.
 func ClaimSetStatement(table pgx.Identifier, cs *feedprofile.ClaimSet, required []string) string {
@@ -488,12 +516,14 @@ func ClaimSetStatement(table pgx.Identifier, cs *feedprofile.ClaimSet, required 
 	keyList := strings.Join(keyAliases, ", ")
 	t := table.Sanitize()
 	dos := q(cs.ServiceDateColumn)
-	return fmt.Sprintf(`WITH cur AS (
+	return fmt.Sprintf(`WITH cur_session AS (%[8]s
+), prev_session AS (%[9]s
+), cur AS (
   SELECT %[2]s, (%[3]s)::date AS claimset_dos, (%[4]s)::text AS claimset_member%[5]s
-    FROM %[1]s WHERE session_id = $1
+    FROM %[1]s WHERE session_id = (SELECT s FROM cur_session)
 ), prev AS (
   SELECT %[2]s, (%[3]s)::date AS claimset_dos
-    FROM %[1]s WHERE session_id = $2
+    FROM %[1]s WHERE session_id = (SELECT s FROM prev_session)
 ), cur_keys AS (SELECT DISTINCT %[6]s FROM cur
 ), prev_keys AS (SELECT DISTINCT %[6]s FROM prev
 ), c AS (
@@ -514,9 +544,34 @@ SELECT c.n_rows, c.n_members,
        ($3::text::date - c.newest) > $4::int,
        (c.newest - c.oldest)::bigint,
        CASE WHEN p.n_rows = 0 THEN NULL ELSE c.newest > p.newest END,
-       c.present
+       c.present,
+       (SELECT s FROM cur_session),
+       (SELECT s FROM prev_session)
   FROM c, p`, t, strings.Join(keys, ", "), dos, q(cs.MemberColumn),
-		strings.Join(present, ""), keyList, strings.Join(presentCounts, ", "))
+		strings.Join(present, ""), keyList, strings.Join(presentCounts, ", "),
+		claimSetSessionOf(t, "$1"), claimSetSessionOf(t, "$2"))
+}
+
+// claimSetSessionOf is the subquery that resolves a registration's session,
+// the parameter param, to the one session of table t that holds its claims:
+// the registration's own when t has rows of it; otherwise a pipeline run that
+// read the registration, by input_session_id or by its main input's
+// registration key, and has rows in t, completed runs first and the earliest
+// first. It returns no row when no such session has a row, and none for a
+// NULL parameter. Every session it compares is indexed in t.
+func claimSetSessionOf(t, param string) string {
+	return fmt.Sprintf(`
+  SELECT z.s FROM (
+    SELECT %[2]s::text AS s, 0 AS o, 0::bigint AS k
+     WHERE EXISTS (SELECT 1 FROM %[1]s x WHERE x.session_id = %[2]s::text)
+    UNION ALL
+    SELECT pe.session_id, CASE WHEN pe.status = 'completed' THEN 1 ELSE 2 END, pe.key::bigint
+      FROM jetsapi.pipeline_execution_status pe
+     WHERE %[2]s::text IN (pe.input_session_id,
+             (SELECT ir.session_id FROM jetsapi.input_registry ir
+               WHERE ir.key = pe.main_input_registry_key AND ir.source_type = '%[3]s'))
+       AND EXISTS (SELECT 1 FROM %[1]s x WHERE x.session_id = pe.session_id)
+  ) z ORDER BY z.o, z.k LIMIT 1`, t, param, claimSetRegistrationSource)
 }
 
 func claimSetAggregate(ctx context.Context, db DB, stmt string, d claimSetDelivery, prev *claimSetDelivery,
@@ -533,7 +588,8 @@ func claimSetAggregate(ctx context.Context, db DB, stmt string, d claimSetDelive
 	a := &ClaimSetAggregates{}
 	err := db.QueryRow(ctx, stmt, d.session, prevSession, arrival, maxLag, minMembers).Scan(
 		&a.Rows, &a.Members, &a.DistinctKeys, &a.PredecessorRows, &a.PredecessorDistinctKeys, &a.SharedKeys,
-		&a.Lag, &a.LagInMonths, &a.LagExceeds, &a.SpanDays, &a.Advanced, &a.Present)
+		&a.Lag, &a.LagInMonths, &a.LagExceeds, &a.SpanDays, &a.Advanced, &a.Present,
+		&a.ClaimSession, &a.PredecessorClaimSession)
 	if err != nil {
 		return nil, fmt.Errorf("while aggregating session %s: %w", d.session, err)
 	}
@@ -594,10 +650,31 @@ func claimSetFeed(ctx context.Context, db DB, f feedprofile.Feed, deliveries []c
 				v.PredecessorSessionID = prev.session
 			}
 			claimSetJudge(&v, det, f, d, prev, gates[det], readable, agg, o)
+			v.Detail += claimSetReadFromNote(d, prev, agg)
 			out = append(out, v)
 		}
 	}
 	return out, nil
+}
+
+// claimSetReadFromNote names the pipeline runs whose rows were read, where
+// they are not the registrations themselves, or is "".
+func claimSetReadFromNote(d claimSetDelivery, prev *claimSetDelivery, a *ClaimSetAggregates) string {
+	if a == nil {
+		return ""
+	}
+	var parts []string
+	if a.ClaimSession != nil && *a.ClaimSession != d.session {
+		parts = append(parts, fmt.Sprintf("the delivery's claims were read from session %s, a pipeline run that read it",
+			*a.ClaimSession))
+	}
+	if prev != nil && a.PredecessorClaimSession != nil && *a.PredecessorClaimSession != prev.session {
+		parts = append(parts, fmt.Sprintf("the predecessor's from session %s", *a.PredecessorClaimSession))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return "; " + strings.Join(parts, ", and ")
 }
 
 // claimSetReprocessedNote names the sessions that re-processed a delivery's
@@ -661,8 +738,8 @@ func claimSetJudge(v *ClaimSetVerdict, det string, f feedprofile.Feed, d claimSe
 	}
 	if a.Rows == 0 {
 		claimSetNotJudged(v, ClaimSetNoClaimRows, fmt.Sprintf(
-			"the claim-set table holds no row of session %s, as when the pipeline skips the database load; "+
-				"not evaluable, which is not clean%s", d.session, claimSetReprocessedNote(d)))
+			"the claim-set table holds no row of session %s, nor of any pipeline run that read it, as when the "+
+				"pipeline skips the database load; not evaluable, which is not clean%s", d.session, claimSetReprocessedNote(d)))
 		return
 	}
 	comparing := det == ClaimSetDeliveryOverlap || det == ClaimSetDeliveryUnchanged
@@ -675,8 +752,9 @@ func claimSetJudge(v *ClaimSetVerdict, det string, f feedprofile.Feed, d claimSe
 	}
 	if comparing && a.PredecessorRows == 0 {
 		claimSetNotJudged(v, ClaimSetPredecessorNotLoaded, fmt.Sprintf(
-			"the predecessor, session %s, has no row in the claim-set table, so a comparison with it would be "+
-				"a comparison with an empty set%s", prev.session, claimSetReprocessedNote(*prev)))
+			"the predecessor, session %s, has no row in the claim-set table, nor has any pipeline run that read "+
+				"it, so a comparison with it would be a comparison with an empty set%s", prev.session,
+			claimSetReprocessedNote(*prev)))
 		return
 	}
 	switch det {

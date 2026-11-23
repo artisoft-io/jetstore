@@ -600,13 +600,17 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_ELB_NO_ALL_INCOMING UI ELB SG w/o all incoming traffic (not required unless JETS_ELB_INTERNET_FACING==true, default false, values: true, false)
 // JETS_GIT_ACCESS (optional) value is list of SCM e.g. 'github,bitbucket'. **Synth-time only:
 //	no container receives it.** It is read once, by NewGitAccessSecurityGroup
-//	(stack/jetstore_github.go:71), to add egress rules to those providers' address ranges: one
+//	(stack/jetstore_github.go:147), to add egress rules to those providers' address ranges: one
 //	os.Getenv in the whole CDK app besides the synth log below, measured 2026-09-07, and no
 //	task definition's environment map carries the name -- so the apiserver cannot read it and
 //	does not change what it does when it is unset. This is worth stating because "deployed
 //	without JETS_GIT_ACCESS" reads as a statement about the runtime and is a statement about
 //	the network: it decides whether a git operation could reach a host, not whether one is
 //	attempted. The runtime switch is JETS_NO_GIT_ACCESS below.
+// GITHUB_TOKEN (optional, synth-time only) with JETS_GIT_ACCESS naming github, authenticates the
+//	GET https://api.github.com/meta that lists GitHub's git CIDRs. Unauthenticated, that request is
+//	limited to 60 an hour per IP address, which a shared CI runner can exhaust; the synth then stops
+//	with GitHub's 403 message and when the limit resets. Its value is never logged.
 // JETS_IMAGE_TAG (required)
 // CPIPES_IMAGE_TAG (required for cpipes server)
 // DEPLOY_CPIPES_NATIVE (optional, values: TRUE, 1, case-insensitive) builds cpipesNativeSM and its
@@ -833,6 +837,7 @@ func main() {
 	log.Println("env JETS_ELB_MODE:", os.Getenv("JETS_ELB_MODE"))
 	log.Println("env JETS_ELB_NO_ALL_INCOMING:", os.Getenv("JETS_ELB_NO_ALL_INCOMING"))
 	log.Println("env JETS_GIT_ACCESS:", os.Getenv("JETS_GIT_ACCESS"))
+	log.Println("env GITHUB_TOKEN is set:", os.Getenv("GITHUB_TOKEN") != "")
 	log.Println("**** env JETS_IMAGE_TAG:", os.Getenv("JETS_IMAGE_TAG"))
 	log.Println("env CPIPES_IMAGE_TAG:", os.Getenv("CPIPES_IMAGE_TAG"))
 	log.Println("env DEPLOY_CPIPES_NATIVE:", os.Getenv("DEPLOY_CPIPES_NATIVE"))

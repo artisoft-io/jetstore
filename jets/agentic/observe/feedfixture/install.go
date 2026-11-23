@@ -16,8 +16,20 @@ import (
 )
 
 // JetsapiTables are the jetsapi tables Install creates, from jets_schema.json,
-// when they are not already there.
-var JetsapiTables = []string{"source_config", "input_registry", "source_period", "file_key_staging"}
+// when they are not already there. pipeline_execution_status is read by the
+// claim-set statement, which finds the run that wrote a delivery's claims there;
+// Install leaves it empty and InstallUnderPipelineRuns writes it.
+var JetsapiTables = []string{"source_config", "input_registry", "source_period", "file_key_staging",
+	"pipeline_execution_status"}
+
+// RunProcessName is the process_name of the pipeline runs
+// InstallUnderPipelineRuns writes.
+const RunProcessName = "fixture_map"
+
+// RunSessionOf is the session under which InstallUnderPipelineRuns writes the
+// claims of the registration session registration: the session of the one
+// completed pipeline run that read it.
+func RunSessionOf(registration string) string { return registration + "-run" }
 
 // ProfileColumn is the source_config column a profile is stored in. Install
 // writes each feed's profile into it when the column exists, so the same
@@ -42,6 +54,9 @@ type Counts struct {
 	// Reregistrations are the input_registry rows that register a delivered
 	// file again; InputRegistry includes them.
 	Reregistrations int `json:"reregistrations,omitempty"`
+	// PipelineRuns are the pipeline_execution_status rows
+	// InstallUnderPipelineRuns writes; Install writes none.
+	PipelineRuns int `json:"pipeline_runs,omitempty"`
 }
 
 // Install writes the fixture into the database: the jetsapi tables of
@@ -57,7 +72,21 @@ func Install(ctx context.Context, pool *pgxpool.Pool) (Counts, error) {
 	if err != nil {
 		return Counts{}, err
 	}
-	return install(ctx, pool, Feeds(), profiles)
+	return install(ctx, pool, Feeds(), profiles, false)
+}
+
+// InstallUnderPipelineRuns writes the base feeds as Install does, except where
+// their claims are: under the session of a pipeline run that read the
+// registration (RunSessionOf), with that run's pipeline_execution_status row,
+// rather than under the registration's own session. It is how a deployment
+// whose mapping pipelines write the claim tables holds them, and every check
+// must reach the verdicts it reaches on Install's.
+func InstallUnderPipelineRuns(ctx context.Context, pool *pgxpool.Pool) (Counts, error) {
+	profiles, err := Profiles()
+	if err != nil {
+		return Counts{}, err
+	}
+	return install(ctx, pool, Feeds(), profiles, true)
 }
 
 // InstallReprocessing writes the re-processing feeds (ReprocessingFeeds) the
@@ -69,10 +98,11 @@ func InstallReprocessing(ctx context.Context, pool *pgxpool.Pool) (Counts, error
 	if err != nil {
 		return Counts{}, err
 	}
-	return install(ctx, pool, ReprocessingFeeds(), profiles)
+	return install(ctx, pool, ReprocessingFeeds(), profiles, false)
 }
 
-func install(ctx context.Context, pool *pgxpool.Pool, feeds []Feed, profiles map[string]json.RawMessage) (Counts, error) {
+func install(ctx context.Context, pool *pgxpool.Pool, feeds []Feed, profiles map[string]json.RawMessage,
+	underRuns bool) (Counts, error) {
 	if err := installTables(pool); err != nil {
 		return Counts{}, err
 	}
@@ -90,7 +120,7 @@ func install(ctx context.Context, pool *pgxpool.Pool, feeds []Feed, profiles map
 	}
 
 	clients := clientsOf(feeds)
-	for _, table := range []string{"input_registry", "file_key_staging", "source_config"} {
+	for _, table := range []string{"input_registry", "file_key_staging", "source_config", "pipeline_execution_status"} {
 		if _, err = tx.Exec(ctx, "DELETE FROM jetsapi."+table+" WHERE client = ANY($1)", clients); err != nil {
 			return Counts{}, fmt.Errorf("clearing %s: %w", table, err)
 		}
@@ -151,7 +181,14 @@ func install(ctx context.Context, pool *pgxpool.Pool, feeds []Feed, profiles map
 		if f.ClaimTable == "" {
 			continue
 		}
-		n, err := installClaims(ctx, tx, f)
+		if underRuns {
+			runs, err := installRuns(ctx, tx, f, periods)
+			if err != nil {
+				return Counts{}, err
+			}
+			counts.PipelineRuns += runs
+		}
+		n, err := installClaims(ctx, tx, f, underRuns)
 		if err != nil {
 			return Counts{}, err
 		}
@@ -247,9 +284,40 @@ func installPeriods(ctx context.Context, tx pgx.Tx, feeds []Feed) (map[time.Time
 	return keys, nil
 }
 
+// installRuns writes one completed pipeline run per registration of the feed,
+// delivery or re-registration, reading it by input_session_id and writing
+// under RunSessionOf.
+func installRuns(ctx context.Context, tx pgx.Tx, f Feed, periods map[time.Time]int) (int, error) {
+	n := 0
+	run := func(session string, period time.Time) error {
+		_, err := tx.Exec(ctx, `INSERT INTO jetsapi.pipeline_execution_status
+			(pipeline_config_key, client, process_name, main_object_type, input_session_id, session_id,
+			 source_period_key, status, user_email)
+			VALUES (0, $1, $2, $3, $4, $5, $6, 'completed', 'fixture')`,
+			f.Client, RunProcessName, DomainKey, session, RunSessionOf(session), periods[period])
+		if err != nil {
+			return fmt.Errorf("pipeline_execution_status %s, session %s: %w", f.TableName, session, err)
+		}
+		n++
+		return nil
+	}
+	for _, d := range f.Deliveries {
+		if err := run(d.SessionID, d.Period); err != nil {
+			return 0, err
+		}
+	}
+	for _, r := range f.Reregistrations {
+		if err := run(r.SessionID, f.Deliveries[r.Of-1].Period); err != nil {
+			return 0, err
+		}
+	}
+	return n, nil
+}
+
 // installClaims drops and creates a feed's claim-set table the way a pipeline
-// creates a domain table, session_id indexed, and copies its rows in.
-func installClaims(ctx context.Context, tx pgx.Tx, f Feed) (int, error) {
+// creates a domain table, session_id indexed, and copies its rows in, under
+// each registration's session or, underRuns, its run's (RunSessionOf).
+func installClaims(ctx context.Context, tx pgx.Tx, f Feed, underRuns bool) (int, error) {
 	table := pgx.Identifier{"public", f.ClaimTable}
 	q := func(c string) string { return pgx.Identifier{c}.Sanitize() }
 	ddl := fmt.Sprintf(`DROP TABLE IF EXISTS %[1]s;
@@ -263,6 +331,9 @@ func installClaims(ctx context.Context, tx pgx.Tx, f Feed) (int, error) {
 	}
 	var rows [][]any
 	load := func(session string, claims []Claim) {
+		if underRuns {
+			session = RunSessionOf(session)
+		}
 		for i, c := range claims {
 			var paid any
 			if c.PaidAmount != nil {

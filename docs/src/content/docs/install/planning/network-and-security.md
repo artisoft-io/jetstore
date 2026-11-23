@@ -65,8 +65,9 @@ isolated tier work without NAT. All but API Gateway can be left out with `JETS_V
 | `InstanceSG` | all | Infer GPU instances; ingress :11434 |
 
 `GitAccessSecurityGroup` is built by fetching `https://api.github.com/meta` **at synth time**
-(`getGithubIps`, `cdk/jetstore_one/stack/jetstore_github.go`) and panics if the call fails, so its
-rules differ between synths and an offline synth is impossible when GitHub access is enabled.
+(`getGithubIps`, `cdk/jetstore_one/stack/jetstore_github.go`) and stops the synth if the call fails, naming
+GitHub's answer, so its rules differ between synths and an offline synth is impossible when GitHub access is
+enabled. `GITHUB_TOKEN`, when set, authenticates the call; see [Deploy](/docs/install/how-to/deploy/).
 Bitbucket ranges are hard-coded.
 
 **`JETS_GIT_ACCESS` is consumed at synth and does not reach a container.** Its one reader is
