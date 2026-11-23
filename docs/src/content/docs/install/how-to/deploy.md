@@ -18,7 +18,14 @@ block headed *Expected Env Variables* in `cdk/jetstore_one/jetstore_one.go`.
 | CDK bootstrap | `utils/cdk_bootstrap.sh` (runs `cdk bootstrap $CDK_BOOTSTRAP_ARG`), once per account/region; see [Bootstrap an account](/docs/install/how-to/bootstrap-an-account/) |
 | Images in ECR | `jetstore` (UI + run reports) and `cpipes`; plus `infer` and the cpipes native lambda image if those are enabled; see [Build and deploy a workspace](/docs/install/how-to/build-and-deploy-a-workspace/) |
 | Local toolchain | Go (the app is `go run jetstore_one.go`), the `cdk` CLI, and AWS credentials for the target account |
-| Network reachability | Synth performs a live `GET https://api.github.com/meta` when `JETS_GIT_ACCESS` names github, and **panics if it fails** |
+| Network reachability | Synth performs a live `GET https://api.github.com/meta` when `JETS_GIT_ACCESS` names github, and **stops if it fails** |
+
+**That request is limited to 60 an hour per IP address unless it is authenticated**, and a shared CI runner can
+use them up. The synth then stops with GitHub's answer, for example `403 Forbidden: API rate limit exceeded`, and
+the time the limit resets: run the deployment again after that time, or set `GITHUB_TOKEN` in the synth's
+environment (in a GitHub Actions workflow, `${{ secrets.GITHUB_TOKEN }}`), which raises the limit. The token is
+used for that one request and is not logged. A server error from GitHub is tried three times before the synth
+stops.
 
 The Lambda bundles are compiled from source at synth by `awslambdago`, so a broken Go build in
 `jets/` fails the deploy, not just the image build.
