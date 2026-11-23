@@ -9744,6 +9744,19 @@
       "additionalProperties": false,
       "description": "Optional configuration for map_record operator: log trace info, read column mapping from db table.",
       "properties": {
+        "calculate_span_of": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Output column, by its canonical name, whose dates give the run's input span on Pipeline Status: the days from the earliest to the latest value over the records the step maps.",
+          "title": "Calculate Span Of"
+        },
         "comment": {
           "anyOf": [
             {

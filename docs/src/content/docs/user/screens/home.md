@@ -26,7 +26,7 @@ Every run of a pipeline, the latest first: one row per run, with its status, its
 session. What each status means is in
 [Pipelines and sessions](/docs/user/concepts/pipelines-and-sessions/#what-a-runs-status-means).
 
-![The Pipelines Status tab: nine runs of the CI client's pipelines, three completed Map runs and six runs of Patient_Profile_Template, pending, submitted, interrupted, failed, errors and completed, with the tab's buttons above them.](../../../../assets/screenshots/user/screens/home/pipelines-status.png)
+![The Pipelines Status tab: nine runs of the CI client's pipelines, three completed Map runs and six runs of Patient_Profile_Template, pending, submitted, interrupted, failed, errors and completed, with the tab's buttons above them; the runs that ended show an input count, and the three Map runs an input span.](../../../../assets/screenshots/user/screens/home/pipelines-status.png)
 
 | Column | What it holds |
 |---|---|
@@ -38,6 +38,8 @@ session. What each status means is in
 | Session ID | the run's own session: every row it writes carries it |
 | Input Session | the session of the main input the run read |
 | Request ID | the request the input was registered under, when it came with one |
+| Input Count | the records read from the run's main input, counted at its first step (`reducing00`); filled in when the run ends |
+| Input Span | the days from the earliest to the latest date in one column of the mapped records, the column the pipeline's mapping step names in `calculate_span_of` (see [the operators](/docs/developer/compute-pipes/operators/)); filled in when the run ends, and empty when the pipeline names no such column or no record had a date in it |
 | User | who started the run |
 | Duration | from the run's start to its last update; for a run still going, so far |
 | Loaded At | when the run's row was last updated; the tab sorts on it |
@@ -49,7 +51,7 @@ The tab has three rows of buttons. The first row acts on the whole table and nee
 | **Start Pipeline** | Opens the [Start Pipeline](/docs/user/screens/flows/start-pipeline/) flow, to start a pipeline by hand. | `run_pipelines` |
 | **Refresh** | Reads the table again. | |
 | **Set Filters** | Opens the [Pipeline Execution Status Filters](/docs/user/screens/flows/pipeline-execution-status-filters/) flow, to show only some runs. | |
-| **Set Session Id** | Asks for one or more session ids, separated by commas, and shows only the runs with those sessions. The *Data Registry* tab then shows the inputs those runs read. | |
+| **Set Session Id** | Asks for one or more session ids, separated by commas, and shows only the runs whose own session, or whose input's session, is one of them. A file's session finds the runs that read the file; a run's session finds the run. The *Data Registry* tab then shows the inputs those runs read. | |
 | **Set Request Id** | The same, by request id. | |
 | **Clear Filters** | Removes the filters the three buttons above set, here and on the *Data Registry* and *Archived Pipelines* tabs. Disabled when there are none. | |
 | **Put Schema Event** | Opens a dialog to paste a schema event, as JSON. *Save* stores it in the installation's schema triggers folder, which registers the file it describes, as if the file had just arrived. | `run_pipelines` |

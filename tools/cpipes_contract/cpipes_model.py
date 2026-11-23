@@ -773,6 +773,7 @@ class MapExpression(_Base):
 
 class MapRecordSpec(_Base):
     """Optional configuration for map_record operator: log trace info, read column mapping from db table."""
+    calculate_span_of: str | None = Field(default=None, description="Output column, by its canonical name, whose dates give the run's input span on Pipeline Status: the days from the earliest to the latest value over the records the step maps.")
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
     error_channel: OutputChannelConfig | None = Field(default=None, description="Channel where mapping errors are reported.")
     fail_on_error: bool | None = Field(default=None, description="Interrupt the pipeline on a mapping error.")

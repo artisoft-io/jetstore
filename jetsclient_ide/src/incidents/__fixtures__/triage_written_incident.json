@@ -136,6 +136,7 @@
     ],
     "hypothesisCount": 2,
     "incidentId": "inc_s-golden_worker_not_terminated",
+    "inputs": [],
     "locus": "worker_not_terminated",
     "modelVersion": "0.1.0",
     "runRef": "",

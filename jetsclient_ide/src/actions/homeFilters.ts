@@ -294,6 +294,15 @@ export function clearHomeFilters(context: EscapeContext): Promise<string | null>
  * **Not an escape**, because no document names it — the action *type* is the
  * reference, and `actionDispatch` turns it into a `promptFilter` request the host
  * serves. An escape name would be a second way to reach the same behaviour.
+ *
+ * **A session id matches a run's `session_id` or its `input_session_id`**
+ * (2026-11-23, a departure from the Dart). An incident names the session its
+ * evidence came from, and for a file that is the session the file was registered
+ * under, which the pipeline run that read it carries as `input_session_id`; for a
+ * domain table it is the run's own `session_id`. With `session_id` alone, the
+ * run behind a file's incident could not be found by its session at all. The
+ * union is one `orWith`, which `visitWhereClause` writes as
+ * `( a IN (…) OR b IN (…) )`, and `request_id` keeps its single column.
  */
 export function setIdFilter(column: "session_id" | "request_id", input: string): void {
   const values = input.split(",").map((part) => part.trim());
@@ -301,11 +310,17 @@ export function setIdFilter(column: "session_id" | "request_id", input: string):
     column === "session_id"
       ? "pipeline_execution_status.input_session_id"
       : "pipeline_execution_status.input_request_id";
-  store.homeFilters = [where({ table: EXEC_STATUS, column, defaultValue: values })];
-  store.dataRegistryFilters = [
-    where({ table: INPUT_REGISTRY, column, joinWith }),
-    where({ table: EXEC_STATUS, column, defaultValue: values }),
-  ];
+  const byId = (): WhereClause =>
+    where({
+      table: EXEC_STATUS,
+      column,
+      defaultValue: values,
+      ...(column === "session_id"
+        ? { orWith: where({ table: EXEC_STATUS, column: "input_session_id", defaultValue: values }) }
+        : {}),
+    });
+  store.homeFilters = [byId()];
+  store.dataRegistryFilters = [where({ table: INPUT_REGISTRY, column, joinWith }), byId()];
 }
 
 /**

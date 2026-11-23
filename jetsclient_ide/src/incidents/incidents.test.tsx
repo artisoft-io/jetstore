@@ -308,6 +308,32 @@ describe("one incident", () => {
     expect(screen.getByText(/No summary could be rendered for this feed incident: jetsapi.anomaly is not deployed/)).toBeTruthy();
   });
 
+  it("shows the file key and source type the session registered", async () => {
+    // What a person needs to find the incident's runs on Pipeline Status: a
+    // file's runs carry its session as their input session.
+    const feed = {
+      ...disclosed,
+      incident: {
+        ...detail,
+        locus: "delivery_overdue",
+        inputs: [{ fileKey: "client=A/object_type=Claim/2026-05-12.csv", sourceType: "file" }],
+      },
+    };
+    const { api } = await clientWith({ get_incident: { body: feed } });
+    renderAt(api, "/incidents/inc_1");
+    await screen.findByRole("heading", { name: "inc_1" });
+    expect(screen.getByText("Source type").nextElementSibling!.textContent).toBe("file");
+    expect(screen.getByText("client=A/object_type=Claim/2026-05-12.csv")).toBeTruthy();
+  });
+
+  it("says a session registered nothing rather than leaving the rows blank", async () => {
+    // `disclosed` is from before the field: a server that does not send it.
+    const { api } = await clientWith({ get_incident: { body: disclosed } });
+    renderAt(api, "/incidents/inc_1");
+    await screen.findByRole("heading", { name: "inc_1" });
+    expect(screen.getAllByText("nothing registered under this session")).toHaveLength(2);
+  });
+
   it("shows no summary on a run incident", async () => {
     const { api } = await clientWith({ get_incident: { body: disclosed } });
     renderAt(api, "/incidents/inc_1");

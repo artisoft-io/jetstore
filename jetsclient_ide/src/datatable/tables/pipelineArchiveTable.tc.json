@@ -99,6 +99,20 @@
       "isHidden": true
     },
     {
+      "name": "main_input_records_count",
+      "table": "pipeline_execution_status_archive",
+      "label": "Input Count",
+      "tooltip": "Records read from the run's main input (step reducing00), written when the run ends",
+      "isNumeric": true
+    },
+    {
+      "name": "input_span_days",
+      "table": "pipeline_execution_status_archive",
+      "label": "Input Span",
+      "tooltip": "Days from the earliest to the latest date in the column a mapping step names in calculate_span_of, written when the run ends; empty when no step names one",
+      "isNumeric": true
+    },
+    {
       "name": "user_email",
       "label": "User",
       "tooltip": "Who submitted the pipeline"

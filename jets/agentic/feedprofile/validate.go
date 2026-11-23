@@ -14,6 +14,8 @@ import (
 // says, and against three things the schema does not say: a size range's
 // minimum is at most its maximum, a required field is named once, and a table
 // or column name has no leading or trailing blank and no control character.
+// The schema says max_out_of_span_share needs max_service_date_span_days, and
+// so does Validate.
 // The detectors that read the names still quote them as identifiers.
 //
 // Every finding is an error. A profile with none is usable.
@@ -37,6 +39,16 @@ func Validate(p Profile) []wsvalidate.Finding {
 	v.atLeast("/max_service_date_span_days", p.MaxServiceDateSpanDays, 0)
 	if p.MaxRedeliveredShare != nil {
 		v.share("/max_redelivered_share", *p.MaxRedeliveredShare, true)
+	}
+	if x := p.MaxOutOfSpanShare; x != nil {
+		switch {
+		case p.MaxServiceDateSpanDays == nil:
+			v.add("/max_out_of_span_share", "max_out_of_span_share is a share of rows outside the span, and needs "+
+				"max_service_date_span_days, the span")
+		case *x < 0 || *x >= 1:
+			v.add("/max_out_of_span_share", fmt.Sprintf("max_out_of_span_share is %g and must be at least 0 and "+
+				"below 1", *x))
+		}
 	}
 
 	if s := p.SizeBytes; s != nil {

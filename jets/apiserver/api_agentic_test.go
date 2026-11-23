@@ -74,6 +74,11 @@ type fakeOps struct {
 	summaryAsked []string
 	summaryErr   error
 
+	// The inputs registered under an incident's session, keyed by session, and
+	// an error to return instead.
+	inputs    map[string][]audit.IncidentInput
+	inputsErr error
+
 	// The Detection screen; its methods are in
 	// api_agentic_detection_test.go.
 	detection detectionFake
@@ -127,6 +132,12 @@ func (f *fakeOps) FeedIncidentSummary(_ context.Context, inc *audit.Incident) (*
 		return nil, f.summaryErr
 	}
 	return &feedsummary.Summary{Text: "rendered " + inc.IncidentId, RenderedBy: feedsummary.RenderedBy}, nil
+}
+func (f *fakeOps) IncidentInputs(_ context.Context, sessionID string) ([]audit.IncidentInput, error) {
+	if f.inputsErr != nil {
+		return nil, f.inputsErr
+	}
+	return f.inputs[sessionID], nil
 }
 func (f *fakeOps) ReadIncident(_ context.Context, id string, phi audit.PHIAccess) (*audit.Incident, error) {
 	f.phiSeen = phi
@@ -918,5 +929,35 @@ func TestGetIncidentCarriesAFeedIncidentsSummary(t *testing.T) {
 	inc = res["incident"].(map[string]any)
 	if inc["summaryError"] != "the profile table is not deployed" {
 		t.Errorf("the reason is not carried: %v", inc)
+	}
+}
+
+// The incident detail carries each file key registered under the incident's
+// session and its source type, which is how a person finds the incident's
+// pipeline runs; an input that cannot be read leaves an empty list, not a
+// failed read.
+func TestGetIncidentCarriesTheSessionsInputs(t *testing.T) {
+	feed := &audit.Incident{IncidentSummary: audit.IncidentSummary{IncidentId: "inc_7_delivery_departs_profile",
+		SessionId: "7", Locus: "delivery_departs_profile", Status: audit.IncidentDiagnosed}}
+	ops := &fakeOps{incident: feed, inputs: map[string][]audit.IncidentInput{
+		"7": {{FileKey: "client=A/object_type=Claim/2026-05-12.csv", SourceType: "file"}},
+	}}
+	res, code, err := dispatch(t, ops, &AgenticAction{Action: "get_incident", IncidentId: feed.IncidentId}, "a@b")
+	if err != nil || code != 200 {
+		t.Fatalf("code %d, err %v", code, err)
+	}
+	got := res["incident"].(map[string]any)["inputs"]
+	want := []map[string]any{{"fileKey": "client=A/object_type=Claim/2026-05-12.csv", "sourceType": "file"}}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("inputs %v, want %v", got, want)
+	}
+
+	ops = &fakeOps{incident: feed, inputsErr: errors.New("no input_registry")}
+	res, code, err = dispatch(t, ops, &AgenticAction{Action: "get_incident", IncidentId: feed.IncidentId}, "a@b")
+	if err != nil || code != 200 {
+		t.Fatalf("inputs that cannot be read failed the read: code %d, err %v", code, err)
+	}
+	if got := res["incident"].(map[string]any)["inputs"].([]map[string]any); len(got) != 0 {
+		t.Errorf("inputs %v, want none", got)
 	}
 }

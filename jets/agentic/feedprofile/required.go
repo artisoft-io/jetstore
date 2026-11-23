@@ -33,6 +33,7 @@ const (
 	FieldClaimSet               = "claim_set"
 	FieldMaxServiceDateLagDays  = "max_service_date_lag_days"
 	FieldMaxServiceDateSpanDays = "max_service_date_span_days"
+	FieldMaxOutOfSpanShare      = "max_out_of_span_share"
 	FieldMaxRedeliveredShare    = "max_redelivered_share"
 	FieldRequiredFields         = "required_fields"
 )
@@ -56,7 +57,9 @@ type requirement struct {
 //
 // delivery_size needs no field: without size_bytes it judges a delivery
 // against the feed's own trailing band of sizes, and its basis says so.
-// periods_per_delivery is never required, because it defaults to 1.
+// periods_per_delivery is never required, because it defaults to 1, and
+// max_out_of_span_share is never required, because it defaults to 0: absent,
+// service_date_span fires when any row is outside the span, as it always has.
 var required = map[string]requirement{
 	FeedOverdue:       {always: []string{FieldPeriodType, FieldOverdueAfterDays}, cumulative: true},
 	DeliverySize:      {cumulative: true},
@@ -139,6 +142,8 @@ func present(field string, p Profile) bool {
 		return p.MaxServiceDateLagDays != nil
 	case FieldMaxServiceDateSpanDays:
 		return p.MaxServiceDateSpanDays != nil
+	case FieldMaxOutOfSpanShare:
+		return p.MaxOutOfSpanShare != nil
 	case FieldMaxRedeliveredShare:
 		return p.MaxRedeliveredShare != nil
 	case FieldRequiredFields:
