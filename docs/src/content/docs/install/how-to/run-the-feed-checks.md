@@ -61,6 +61,33 @@ a message about a value that could not be read quotes the value, and it may be a
 cause is a profile that names a column of the wrong kind, such as a member column as the date of
 service.
 
+## Raise a backfill's findings as incidents
+
+A backfill writes its findings dated at the first daily run that would have seen each one, so the
+daily `shadow_triage -since 24h` never reads them. To have shadow triage raise them as incidents, run
+it once with a window reaching back to the backfill's start, and with `-feeds-only`:
+
+```bash
+feed_detect -mode backfill -from 2026-03-19
+shadow_triage -feeds-only -since 6000h -limit 2000
+```
+
+`-feeds-only` classifies only the sessions carrying a feed finding detected in the window, and **no
+pipeline run**. Without it, the same window would classify every run that started in it, and raise run
+incidents for runs that no daily triage ever read. `-since` is a duration counted back from now
+(`6000h` is 250 days), and `-limit` caps the sessions read, newest first, so give it more than the
+backfill's number of findings. A second run raises nothing twice. `-feeds-only` cannot be combined
+with `-session` or `-process`, and `-dry-run` reports what it would write and writes nothing.
+
+**On a deployment that schedules detection**, run both from the daily detection task's definition
+(the stack output `AgenticDetectTaskDefinitionArn`), overriding two containers' commands. The entry
+point already names the binary, so the command is the flags alone: `feedDetectContainer` takes
+`-mode backfill -from 2026-03-19`, and `shadowTriageContainer` takes `-feeds-only -since 6000h -limit
+2000`. The task runs `anomalyDetectContainer` first with its usual command, which writes nothing it
+has already written, and each container waits for the one before it to finish. The incidents are written in shadow mode, at
+`diagnosed`, and the people with `agent_supervision` see them on the Incidents screen, where they are
+given verdicts.
+
 ## Run a retrospective through the Query Tool
 
 A retrospective asks what the checks would have said over a past period, on a database `feed_detect`
