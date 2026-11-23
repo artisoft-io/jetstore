@@ -12,6 +12,9 @@
 //	                                          # session carrying a feed anomaly detected in it
 //	shadow_triage -session <session id>       # one run
 //	shadow_triage -since 24h -dry-run         # classify, rank, report, write nothing
+//	shadow_triage -feeds-only -since 6000h -limit 2000
+//	                                          # only the sessions carrying a feed anomaly, after
+//	                                          # a feed_detect backfill
 //	shadow_triage -attest                     # read the record back and say whether anything acted
 //
 // The DSN comes from JETS_DSN_URI_VALUE, or from JETS_DSN_JSON_VALUE by the same
@@ -54,6 +57,12 @@
 // incidents at `diagnosed` like any other. -client is the feed's own client,
 // from its source configuration.
 //
+// **-feeds-only classifies those sessions and no run**, for after a
+// `feed_detect -mode backfill`. A backfill dates each finding at the first
+// daily run that would have seen it, so raising its findings takes a -since
+// reaching back months, and that window would otherwise classify every run
+// in it as well, raising run incidents for runs no daily triage ever read.
+//
 // # A draft proposal for a feed that looks cumulative
 //
 // After the incidents are written, a feed whose latest deliveries each
@@ -89,15 +98,16 @@ import (
 )
 
 var (
-	dsnFlag  = flag.String("dsn", "", "database DSN; defaults to JETS_DSN_URI_VALUE, then JETS_DSN_JSON_VALUE")
-	since    = flag.Duration("since", 24*time.Hour, "classify runs that started within this window")
-	baseline = flag.Duration("baseline", 30*24*time.Hour, "how far back before each run the step history reaches; 0 reads none, which makes locus step_never_started not_evaluable")
-	client   = flag.String("client", "", "restrict to one client")
-	process  = flag.String("process", "", "restrict to one process name")
-	session  = flag.String("session", "", "classify one run and ignore -since")
-	limit    = flag.Int("limit", 200, "at most this many runs")
-	dryRun   = flag.Bool("dry-run", false, "classify, rank and report; write nothing")
-	attest   = flag.Bool("attest", false, "read the incident record back and report whether anything acted; classify nothing")
+	dsnFlag   = flag.String("dsn", "", "database DSN; defaults to JETS_DSN_URI_VALUE, then JETS_DSN_JSON_VALUE")
+	since     = flag.Duration("since", 24*time.Hour, "classify runs that started within this window")
+	baseline  = flag.Duration("baseline", 30*24*time.Hour, "how far back before each run the step history reaches; 0 reads none, which makes locus step_never_started not_evaluable")
+	client    = flag.String("client", "", "restrict to one client")
+	process   = flag.String("process", "", "restrict to one process name")
+	session   = flag.String("session", "", "classify one run and ignore -since")
+	feedsOnly = flag.Bool("feeds-only", false, "classify only the sessions carrying a feed anomaly detected in the window, and no run; for after a feed_detect backfill")
+	limit     = flag.Int("limit", 200, "at most this many runs")
+	dryRun    = flag.Bool("dry-run", false, "classify, rank and report; write nothing")
+	attest    = flag.Bool("attest", false, "read the incident record back and report whether anything acted; classify nothing")
 
 	actor        = flag.String("actor", "", "the agent identity recorded on every transition; defaults to the classifier ref")
 	severity     = flag.String("severity", shadow.SeverityInfo, "the severity written on every incident. No locus determines one and shadow mode's default is `info`, argued from the posture: nothing acts on these rows")
@@ -162,6 +172,7 @@ type summary struct {
 	AttestOnly      bool                   `json:"attestOnly"`
 	Since           time.Time              `json:"since"`
 	Session         string                 `json:"session,omitempty"`
+	FeedsOnly       bool                   `json:"feedsOnly,omitempty"`
 	Regime          string                 `json:"purgeRegime"`
 	ChannelDetails  bool                   `json:"channelDetails"`
 	Runs            int                    `json:"runsClassified"`
@@ -212,26 +223,23 @@ func doJob(ctx context.Context, db *pgxpool.Pool, extent *triage.Extent, sum *su
 
 	sessions := []string{*session}
 	if *session == "" {
+		// The delivery loci hang on registration sessions, which may have no
+		// run, so the sessions carrying a feed anomaly are selected as well,
+		// or alone with -feeds-only (shadow.SelectSessions).
 		from := time.Now().UTC().Add(-*since)
-		if sessions, err = shadow.RecentSessions(ctx, db, from, *client, *process, *limit); err != nil {
+		sel, err := shadow.SelectSessions(ctx, db, from, *client, *process, *limit, *feedsOnly, extent.Anomalies)
+		if err != nil {
 			return err
 		}
-		// The delivery loci hang on registration sessions, which may have no
-		// run, so the sessions carrying a feed anomaly are selected as well. A
-		// delivery belongs to no process, so -process leaves them out.
-		switch {
-		case *process != "":
-			log.Printf("-process is set, so sessions selected for their feed anomalies are not classified")
-		case !extent.Anomalies:
-			log.Printf("record: jetsapi.anomaly is absent, so no session is selected for its feed anomalies")
-		default:
-			feeds, err := shadow.RecentFeedSessions(ctx, db, from, *client, *limit)
-			if err != nil {
-				return err
-			}
-			sum.FeedSessions = len(feeds)
-			sessions = shadow.MergeSessions(sessions, feeds)
+		if sel.FeedsSkipped != "" {
+			log.Print(sel.FeedsSkipped)
 		}
+		if *feedsOnly {
+			log.Printf("-feeds-only: %d session(s) carrying a feed anomaly detected since %s, and no run",
+				len(sel.Feeds), from.Format(time.RFC3339))
+		}
+		sum.FeedSessions = len(sel.Feeds)
+		sessions = sel.Sessions
 	}
 	sum.Runs = len(sessions)
 	if len(sessions) == 0 {
@@ -348,7 +356,8 @@ func main() {
 	defer db.Close()
 
 	rec := detectrun.Begin(ctx, db, detectrun.CommandShadowTriage, detectrun.Window(*since))
-	sum := &summary{DryRun: *dryRun, AttestOnly: *attest, Session: *session, Census: map[string]locusCensus{}}
+	sum := &summary{DryRun: *dryRun, AttestOnly: *attest, Session: *session, FeedsOnly: *feedsOnly,
+		Census: map[string]locusCensus{}}
 	err = run(ctx, db, sum)
 	rec.Finish(ctx, sum, err)
 	if err != nil {
@@ -359,6 +368,9 @@ func main() {
 func run(ctx context.Context, db *pgxpool.Pool, sum *summary) error {
 	if *attest {
 		return doAttest(ctx, db, sum)
+	}
+	if *feedsOnly && *session != "" {
+		return fmt.Errorf("-feeds-only selects sessions by -since, and -session names one; use one or the other")
 	}
 	sum.Since = time.Now().UTC().Add(-*since)
 
