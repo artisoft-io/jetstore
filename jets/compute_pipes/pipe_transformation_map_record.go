@@ -25,6 +25,9 @@ type MapRecordTransformationPipe struct {
 	sourcePeriodType    string
 	doneCh              chan struct{}
 	builderContext      *BuilderContext
+	// span tracks the dates of map_record_config.calculate_span_of; nil when
+	// the step names no span column.
+	span *spanTracker
 }
 
 // Implementing interface PipeTransformationEvaluator
@@ -111,6 +114,10 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]any) error {
 		}
 	}
 
+	if ctx.span != nil {
+		ctx.span.observe(*currentValues)
+	}
+
 	var outBytes []byte
 	// Debug logging of output record
 	if ctx.spec.MapRecordConfig != nil && ctx.spec.MapRecordConfig.IsDebug {
@@ -134,6 +141,9 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]any) error {
 }
 
 func (ctx *MapRecordTransformationPipe) Done() error {
+	if ctx.span != nil && ctx.builderContext != nil && ctx.builderContext.chResults != nil {
+		ctx.builderContext.chResults.InputSpan.merge(ctx.span)
+	}
 	return nil
 }
 
@@ -267,8 +277,18 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 			maxErrorCount = config.MaxErrorCount
 		}
 	}
+	var span *spanTracker
+	if config != nil && config.CalculateSpanOf != "" {
+		pos, ok := (*outputCh.Columns)[config.CalculateSpanOf]
+		if !ok {
+			return nil, fmt.Errorf("error: map_record_config calculate_span_of '%s' is not a column of output channel '%s'",
+				config.CalculateSpanOf, outputCh.Name)
+		}
+		span = &spanTracker{column: config.CalculateSpanOf, pos: pos}
+	}
 	currentSourcePeriod, sourcePeriodType := GetCurrentSourcePeriod(ctx.env)
 	return &MapRecordTransformationPipe{
+		span:                span,
 		source:              source,
 		outputCh:            outputCh,
 		columnEvaluators:    columnEvaluators,

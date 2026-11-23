@@ -753,6 +753,11 @@ type MapRecordSpec struct {
 	MaxErrorCount        int                  `json:"max_error_count,omitzero"`
 	FailOnError          bool                 `json:"fail_on_error,omitzero"`
 	IsDebug              bool                 `json:"is_debug,omitzero"`
+	// CalculateSpanOf names an output column, by its canonical name, whose
+	// dates the step tracks: the days from the earliest to the latest value
+	// over the records it maps are the run's input span, shown on Pipeline
+	// Status (input_span.go).
+	CalculateSpanOf string `json:"calculate_span_of,omitempty"`
 }
 
 // AnalyzeSpec configuration

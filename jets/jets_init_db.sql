@@ -204,12 +204,16 @@ WHERE input_rdf_type = entity_rdf_type
 -- table gains one. A column added to pipeline_execution_status goes in the
 -- archive's definition (jets_schema.json), in both lists here, and in
 -- statusColumns in jets/sessionpurge, whose test fails until the three agree.
+-- The view is dropped first: CREATE OR REPLACE VIEW may only add columns at the
+-- end, and a new status column goes before archived_at.
+DROP VIEW IF EXISTS jetsapi.pipeline_execution_history;
 CREATE OR REPLACE VIEW jetsapi.pipeline_execution_history AS
 SELECT
   key, pipeline_config_key, main_input_registry_key, main_input_file_key,
   merged_input_registry_keys, client, process_name, main_object_type, input_session_id, request_id,
   session_id, source_period_key, status, failure_details, user_email, start_time, last_update,
   failure_class, failure_source, workspace_name, workspace_version,
+  main_input_records_count, input_span_days,
   NULL::timestamp AS archived_at, NULL::text AS archive_reason
 FROM jetsapi.pipeline_execution_status
 UNION ALL
@@ -218,6 +222,7 @@ SELECT
   merged_input_registry_keys, client, process_name, main_object_type, input_session_id, request_id,
   session_id, source_period_key, status, failure_details, user_email, start_time, last_update,
   failure_class, failure_source, workspace_name, workspace_version,
+  main_input_records_count, input_span_days,
   archived_at, archive_reason
 FROM jetsapi.pipeline_execution_status_archive
 ;

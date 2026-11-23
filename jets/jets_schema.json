@@ -1496,6 +1496,16 @@
         "columnName": "workspace_version",
         "description": "The compiled workspace version in force when the run was submitted, MAX(version) of jetsapi.workspace_version. Binds a run to the compiled artefact it ran under; it is not a git commit.",
         "dataType": "text"
+      },
+      {
+        "columnName": "main_input_records_count",
+        "description": "The records read from the run's main input: the sum of input_records_count over the run's pipeline_execution_details rows of step reducing00, the count start_reducing_cp passes on as main_input_row_count. Written when the run ends; NULL for a run that has not ended or recorded no reducing00 row.",
+        "dataType": "long"
+      },
+      {
+        "columnName": "input_span_days",
+        "description": "Days from the earliest to the latest value of the column a map_record step names in map_record_config.calculate_span_of, over the records that step mapped on every node. Written when the run ends; NULL when no step of the run names a span column or no mapped record carried a date in it.",
+        "dataType": "int"
       }
     ],
     "indexes": [
@@ -1717,6 +1727,21 @@
       {
         "columnName": "output_records_count",
         "dataType": "int"
+      },
+      {
+        "columnName": "input_span_column",
+        "description": "The column this node's map_record step named in map_record_config.calculate_span_of; NULL when none did.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "input_span_min",
+        "description": "The earliest date this node's map_record step mapped into input_span_column; NULL when none.",
+        "dataType": "date"
+      },
+      {
+        "columnName": "input_span_max",
+        "description": "The latest date this node's map_record step mapped into input_span_column; NULL when none.",
+        "dataType": "date"
       },
       {
         "columnName": "user_email",
@@ -2678,6 +2703,16 @@
         "columnName": "workspace_version",
         "description": "The compiled workspace version in force when the run was submitted, MAX(version) of jetsapi.workspace_version. Binds a run to the compiled artefact it ran under; it is not a git commit.",
         "dataType": "text"
+      },
+      {
+        "columnName": "main_input_records_count",
+        "description": "As pipeline_execution_status.main_input_records_count.",
+        "dataType": "long"
+      },
+      {
+        "columnName": "input_span_days",
+        "description": "As pipeline_execution_status.input_span_days.",
+        "dataType": "int"
       },
       {
         "columnName": "archived_at",
