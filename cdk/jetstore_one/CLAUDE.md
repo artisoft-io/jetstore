@@ -73,8 +73,8 @@ gets built and what goes into every container and Lambda environment. Consequenc
 - **Synth reaches the network.** With `JETS_GIT_ACCESS` naming `github`, `getGithubIps`
   (`jetstore_github.go`) does a live `GET https://api.github.com/meta` and **panics** if it fails,
   so the git security group's rules differ run to run and an offline synth is impossible. Unauthenticated,
-  that request is limited to 60 an hour per IP address. On 2026-11-22 a deployment on a shared CI runner got an
-  answer with no `git` key, most likely that limit's 403, and the synth died on a type assertion. Since then a non-200 answer stops the synth with GitHub's message and when
+  that request is limited to 60 an hour per IP address. On 2026-11-22 a deployment on a CI runner got an answer
+  with no `git` key, most likely that limit's 403 for the runner's egress address, and the synth died on a type assertion. Since then a non-200 answer stops the synth with GitHub's message and when
   the limit resets (`fetchGithubGitCidrs`), a 5xx is tried three times, and `GITHUB_TOKEN`, when set,
   authenticates the request.
 - **`JETS_GIT_ACCESS` is synth-time only, and reads as though it were not.** Its one consumer is
