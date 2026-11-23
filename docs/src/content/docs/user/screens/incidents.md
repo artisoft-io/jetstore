@@ -92,7 +92,7 @@ delivery before claiming a cause.
 
 ## An incident
 
-![The page of inc_20001: what the record evidences (locus Worker failed, with what it cannot see; session; raised by run_20010; detected; no step; shard 2; no confounders), what has been claimed (no cause, severity high, model version), and the first ranked hypothesis with its supporting and contradicting evidence.](../../../../assets/screenshots/user/screens/incidents/incident.png)
+![The page of inc_20001: what the record evidences (locus Worker failed, with what it cannot see; session; source type and file key, nothing registered under this session; raised by run_20010; detected; no step; shard 2; no confounders), what has been claimed (no cause, severity high, model version), and the first ranked hypothesis with its supporting and contradicting evidence.](../../../../assets/screenshots/user/screens/incidents/incident.png)
 
 | Section | What it shows |
 |---|---|
@@ -144,7 +144,7 @@ When a summary cannot be built, for instance because the anomaly table is not in
 says so and gives the reason; the rest of the incident is shown as usual. A run incident has no
 summary.
 
-![Lower on the same page: the second hypothesis, the two transitions by shadow triage, and the verdict section with a reason box and the Remediation proposed button.](../../../../assets/screenshots/user/screens/incidents/incident-verdict.png)
+![Lower on the same page: the second hypothesis, the two transitions by shadow triage, and the verdict section with a reason box, a cause list and three buttons: Reclassified, Remediation proposed and Suppressed as benign.](../../../../assets/screenshots/user/screens/incidents/incident-verdict.png)
 
 ### Recording a verdict
 
