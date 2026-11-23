@@ -31,10 +31,18 @@ registered again is not a new delivery; see
 Each delivery is judged against its predecessor and nothing that came after it. So a check run over
 months of history says, for each delivery, what it would have said the day that delivery arrived.
 
-The checks read the claims of two sessions, the delivery's and its predecessor's, by session id,
-which every table a pipeline writes carries and indexes. They do not read the whole table. They find
-it by the profile's `claim_set.table`: a name with a dot is read as `schema.table`, and a name with
-no dot is in the `public` schema, where pipelines write.
+The checks read the claims of two deliveries, the delivery and its predecessor, by session id, which
+every table a pipeline writes carries and indexes. They do not read the whole table. They find it by
+the profile's `claim_set.table`: a name with a dot is read as `schema.table`, and a name with no dot
+is in the `public` schema, where pipelines write.
+
+**A delivery's claims are usually under the session of the pipeline that mapped it**, not under the
+registration's: a pipeline started on a file writes its tables under its own session. So for each
+delivery the checks read the registration's own session when the table holds rows of it, and
+otherwise the earliest completed pipeline run that read the registration and wrote rows to the table
+(a failed run's rows only when no completed run has any). The earliest, because a delivery is read as
+it first arrived and a re-run maps it again later. The delivery is still named by its registration's
+session, and a verdict's detail names the pipeline run whose claims were read.
 
 ## The five checks
 
@@ -64,8 +72,8 @@ A check reports a delivery as **not judged**, with the reason, rather than as pa
 
 - the feed has no profile, or the profile does not declare a field the check needs;
 - the check judges incremental feeds only and the feed is cumulative;
-- the claim-set table holds no row of the delivery's session, or does not exist, as when the pipeline
-  that reads the feed skips the database load;
+- the claim-set table holds no row of the delivery's session, nor of any pipeline run that read it,
+  or does not exist, as when the pipeline that reads the feed skips the database load;
 - a column the profile names is not in the table;
 - the check compares with a predecessor and no earlier delivery survives. This is the feed's first
   delivery, or its earlier deliveries were purged by the retention period, and the two cannot be told
@@ -115,7 +123,8 @@ period. It is **re-processing**, not a delivery:
   is never compared with its own second load.
 - **It is never a predecessor.** The next new file is compared with the previous file as it first
   arrived.
-- **Its claims are not read.** A check reads the claims of the delivery's first session. A
+- **Its claims are not read.** A check reads the claims of the delivery's first session, or of the
+  pipeline run that first mapped it. A
   re-processing comes later, possibly under another mapping, and a check run over past months must
   say what it would have said on the day the file arrived. If the first session's claims are gone,
   purged or never loaded, the delivery is *not evaluable*, and the detail names the sessions that
