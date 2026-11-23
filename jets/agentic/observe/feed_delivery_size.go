@@ -20,12 +20,22 @@ import (
 // # The trailing band
 //
 // With no size_bytes, a delivery is judged against the sizes of the last
-// BandDeliveries deliveries registered before it that have a size: their
-// median, plus or minus the larger of BandSpread scaled median absolute
+// BandDeliveries deliveries registered before it that have a non-zero size:
+// their median, plus or minus the larger of BandSpread scaled median absolute
 // deviations and MinBandWidth of the median. A delivery with fewer than
 // MinBandDeliveries such predecessors is not judged and carries
 // history_truncated. The four parameters are arguments, and their defaults are
 // unsourced: no feed's size distribution has been measured to set them.
+//
+// A size of 0 is left out of the band because it does not say what a feed
+// delivers: file_key_staging.file_size is NOT NULL DEFAULT 0, so a 0 is an
+// empty file or a size never recorded. Read into the band, a feed whose
+// recorded sizes are half or more 0 had a median and a MAD of 0, a band of 0
+// to 0 bytes, and every non-empty delivery fired against a maximum of 0 bytes;
+// two feeds in production did exactly that. A delivery whose own size is 0 is
+// still judged, against the band of the non-zero sizes before it, so an empty
+// delivery from a feed that is normally full fires below the band. The basis
+// says how many zero sizes the band left out.
 //
 // The band follows the feed, so it accepts a change that arrives slowly: a
 // cumulative feed growing by a few per cent a delivery stays inside it, and a
@@ -33,9 +43,10 @@ import (
 // sizes never vary from firing on every change of a few bytes.
 type DeliverySize struct {
 	Generation int
-	// BandDeliveries is how many preceding sizes the band reads, at most.
+	// BandDeliveries is how many preceding non-zero sizes the band reads, at
+	// most.
 	BandDeliveries int
-	// MinBandDeliveries is how many it needs before it judges.
+	// MinBandDeliveries is how many non-zero sizes it needs before it judges.
 	MinBandDeliveries int
 	// BandSpread is the band's half-width in scaled median absolute
 	// deviations (1.4826 times the MAD, a standard deviation for normal data).
@@ -45,8 +56,14 @@ type DeliverySize struct {
 }
 
 // DefaultDeliverySize is the first generation, with the band's defaults:
-// eight preceding deliveries, at least four, three scaled MADs, and at least
-// half the median either side. The defaults are unsourced.
+// eight preceding non-zero sizes, at least four, three scaled MADs, and at
+// least half the median either side. The defaults are unsourced.
+//
+// Leaving the sizes of 0 out of the band did not start a new generation: it
+// changes no verdict on a feed that never records a 0, and on one that does it
+// moves the band onto the sizes the feed delivers, withdrawing the findings
+// against a band of 0 bytes, which said nothing about the feed. A new generation would derive a second identifier for every finding
+// already written, on every feed.
 func DefaultDeliverySize() DeliverySize {
 	return DeliverySize{Generation: 1, BandDeliveries: 8, MinBandDeliveries: 4, BandSpread: 3, MinBandWidth: 0.5}
 }
@@ -56,29 +73,38 @@ func (d DeliverySize) Ref() string {
 	return fmt.Sprintf("%s@%d", feedprofile.DeliverySize, d.Generation)
 }
 
-// FeedDeliveryBand is the trailing band over prior sizes: its bounds,
-// inclusive, and the median and median absolute deviation it was built from.
-// It is defined for at least one size.
+// FeedDeliveryBand is the trailing band over prior non-zero sizes: its
+// bounds, inclusive, the median and median absolute deviation it was built
+// from, and how many sizes it read. Zeros counts the sizes of 0 it left out:
+// those registered after the oldest size it reads, or all of them when it
+// reads every non-zero size there is. It is defined for at least one size.
 type FeedDeliveryBand struct {
 	Min, Max    int64
 	Median, MAD float64
 	N           int
+	Zeros       int
 }
 
 // Band computes the trailing band over the sizes given, which are the
-// preceding deliveries' in registration order; it reads the last
-// BandDeliveries of them. ok is false when there are fewer than
-// MinBandDeliveries.
+// preceding deliveries' in registration order. It leaves out the sizes of 0
+// and reads the last BandDeliveries of the rest. ok is false when fewer than
+// MinBandDeliveries non-zero sizes remain.
 func (d DeliverySize) Band(prior []int64) (b FeedDeliveryBand, ok bool) {
-	if d.BandDeliveries > 0 && len(prior) > d.BandDeliveries {
-		prior = prior[len(prior)-d.BandDeliveries:]
+	var xs []float64
+	zeros := 0
+	for i := len(prior) - 1; i >= 0; i-- {
+		if d.BandDeliveries > 0 && len(xs) == d.BandDeliveries {
+			break
+		}
+		if prior[i] == 0 {
+			zeros++
+			continue
+		}
+		xs = append(xs, float64(prior[i]))
 	}
-	if len(prior) == 0 || len(prior) < d.MinBandDeliveries {
-		return FeedDeliveryBand{N: len(prior)}, false
-	}
-	xs := make([]float64, len(prior))
-	for i, s := range prior {
-		xs[i] = float64(s)
+	slices.Reverse(xs)
+	if len(xs) == 0 || len(xs) < d.MinBandDeliveries {
+		return FeedDeliveryBand{N: len(xs), Zeros: zeros}, false
 	}
 	med := feedDeliveryMedian(xs)
 	dev := make([]float64, len(xs))
@@ -90,7 +116,7 @@ func (d DeliverySize) Band(prior []int64) (b FeedDeliveryBand, ok bool) {
 	return FeedDeliveryBand{
 		Min:    int64(math.Max(0, math.Floor(med-half))),
 		Max:    int64(math.Ceil(med + half)),
-		Median: med, MAD: mad, N: len(prior),
+		Median: med, MAD: mad, N: len(xs), Zeros: zeros,
 	}, true
 }
 
@@ -193,11 +219,20 @@ func (d DeliverySize) basis(f feedprofile.Feed, x FeedDelivery, band FeedDeliver
 		s = fmt.Sprintf("%s gives one delivery's size as %s bytes, bounds inclusive", feedDeliveryDeclaration(f),
 			feedDeliveryRange(r.Min, r.Max))
 	} else {
+		zeros := ""
+		switch band.Zeros {
+		case 0:
+		case 1:
+			zeros = " (1 preceding size of 0 bytes, an empty file or a size never recorded, is left out)"
+		default:
+			zeros = fmt.Sprintf(" (%d preceding sizes of 0 bytes, empty files or sizes never recorded, are left out)",
+				band.Zeros)
+		}
 		s = fmt.Sprintf("%s declares no size range, so the delivery is judged against the feed's trailing band: "+
-			"the median of the %d preceding delivery sizes, %.0f bytes, plus or minus the larger of %g scaled "+
-			"median absolute deviations (MAD %.0f) and %g of the median, giving %d to %d bytes. "+
+			"the median of the %d preceding non-zero delivery sizes%s, %.0f bytes, plus or minus the larger of %g "+
+			"scaled median absolute deviations (MAD %.0f) and %g of the median, giving %d to %d bytes. "+
 			"The band's parameters are defaults nobody has measured",
-			feedDeliveryDeclaration(f), band.N, band.Median, d.BandSpread, band.MAD, d.MinBandWidth,
+			feedDeliveryDeclaration(f), band.N, zeros, band.Median, d.BandSpread, band.MAD, d.MinBandWidth,
 			band.Min, band.Max)
 	}
 	return s + fmt.Sprintf(". The delivery of session %s, registered %s, is file %s of %d bytes",

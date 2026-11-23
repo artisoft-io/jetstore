@@ -156,6 +156,41 @@ func TestRendersADeparture(t *testing.T) {
 	}
 }
 
+// The span check reads as the span in days against the declared span, or, where
+// the profile declares max_out_of_span_share, as the share of dated rows
+// outside the span against that share.
+func TestRendersBothShapesOfTheSpanCheck(t *testing.T) {
+	for _, c := range []struct {
+		f    Finding
+		want string
+	}{
+		{Finding{Detector: feedprofile.ServiceDateSpan, Generation: 1, Signal: observe.SignalDistribution,
+			Observed: f64(412), ObservedUnit: UnitDays, Bound: f64(62), BoundUnit: UnitDays},
+			"The dates of service span 412 days, newest less oldest; the declaration allows at most 62 days."},
+		{Finding{Detector: feedprofile.ServiceDateSpan, Generation: 1, Signal: observe.SignalDistribution,
+			Observed: f64(0.125), ObservedUnit: UnitShare, Bound: f64(0.05), BoundUnit: UnitShare},
+			"12.5% of the delivery's rows with a date of service are dated further before its newest date of " +
+				"service than the declared span; the declaration allows at most 5.0%."},
+	} {
+		in := departs()
+		in.Findings = []Finding{c.f}
+		in.Bursts = nil
+		s, err := Render(in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(strings.Join(strings.Fields(s.Text), " "), c.want) {
+			t.Errorf("the summary does not say %q:\n%s", c.want, s.Text)
+		}
+		if strings.Contains(s.Text, "could not be read back") {
+			t.Errorf("the %s finding was not read:\n%s", c.f.ObservedUnit, s.Text)
+		}
+		if n := CountUntrue(s.Text, in); n.Untrue() != 0 {
+			t.Errorf("the counter finds untrue statements in the render:\n%s\n%s", n, s.Text)
+		}
+	}
+}
+
 func TestRendersAnOverdueFeed(t *testing.T) {
 	in := &Input{
 		IncidentID: "inc_1747000000000_delivery_overdue",
@@ -261,6 +296,17 @@ func TestParsesWhatEachDetectorWrites(t *testing.T) {
 			}},
 		{observe.Anomaly{DetectorRef: "delivery_unchanged@1", ObservedValue: "equal"},
 			func(f Finding) bool { return f.Equal }},
+		{observe.Anomaly{DetectorRef: "service_date_span@1", ObservedValue: "412 days", ExpectedMax: str("62 days")},
+			func(f Finding) bool {
+				return *f.Observed == 412 && f.ObservedUnit == UnitDays && *f.Bound == 62 && f.BoundUnit == UnitDays
+			}},
+		{observe.Anomaly{DetectorRef: "service_date_span@1", ObservedValue: "0.1250", ExpectedMax: str("0.0500")},
+			func(f Finding) bool {
+				return *f.Observed == 0.125 && f.ObservedUnit == UnitShare && *f.Bound == 0.05 && f.BoundUnit == UnitShare
+			}},
+		// A span in days against a share is not one comparison; it is left unread.
+		{observe.Anomaly{DetectorRef: "service_date_span@1", ObservedValue: "412 days", ExpectedMax: str("0.0500")},
+			func(f Finding) bool { return f.Observed == nil && f.Bound == nil }},
 	} {
 		f, ok := parseFinding(c.a, nil)
 		if !ok || !c.check(f) {

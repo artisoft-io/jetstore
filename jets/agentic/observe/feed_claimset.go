@@ -53,8 +53,9 @@ package observe
 // detail names it. The delivery stays keyed on its registration's session.
 // Each delivery is one statement, and the statement returns aggregates only:
 // counts of rows, distinct keys, distinct members and shared keys, a lag and a
-// span in whole days, the present count of each required field, and three
-// booleans computed inside the database. No key, member, date of service or
+// span in whole days, the counts of rows with a date of service and of those
+// outside the declared span, the present count of each required field, and
+// three booleans computed inside the database. No key, member, date of service or
 // fingerprint is returned:
 //
 //   - the lag of the newest date of service behind the arrival is a number of
@@ -210,6 +211,13 @@ type ClaimSetAggregates struct {
 	LagExceeds *bool
 	// SpanDays is the newest less the oldest date of service.
 	SpanDays *int64
+	// DatedRows counts the rows carrying a date of service.
+	DatedRows int64
+	// OutOfSpanRows counts the rows whose date of service is more than the
+	// declared max_service_date_span_days before the delivery's newest. It is
+	// above 0 exactly when SpanDays exceeds the span. Nil when no span is
+	// declared.
+	OutOfSpanRows *int64
 	// Advanced is whether the newest date of service is later than the
 	// predecessor's. Nil without a loaded predecessor or without dates.
 	Advanced *bool
@@ -492,6 +500,7 @@ func claimSetQuoteList(names []string) string {
 //	$3 the arrival date, as text YYYY-MM-DD (UTC)
 //	$4 the declared lag in days, or NULL
 //	$5 the minimum distinct-member count for a lag in days
+//	$6 the declared span in days, or NULL
 //
 // $1 and $2 are each resolved to the session holding its claims, the
 // registration's own or a pipeline run's that read it (claimSetSessionOf), and
@@ -529,6 +538,7 @@ func ClaimSetStatement(table pgx.Identifier, cs *feedprofile.ClaimSet, required 
 ), c AS (
   SELECT count(*) AS n_rows, count(DISTINCT claimset_member) AS n_members,
          max(claimset_dos) AS newest, min(claimset_dos) AS oldest,
+         count(claimset_dos) AS n_dated,
          ARRAY[%[7]s]::bigint[] AS present
     FROM cur
 ), p AS (SELECT count(*) AS n_rows, max(claimset_dos) AS newest FROM prev)
@@ -543,6 +553,9 @@ SELECT c.n_rows, c.n_members,
        c.n_members < $5::int,
        ($3::text::date - c.newest) > $4::int,
        (c.newest - c.oldest)::bigint,
+       c.n_dated,
+       CASE WHEN $6::int IS NULL THEN NULL
+            ELSE (SELECT count(*) FROM cur WHERE claimset_dos < c.newest - $6::int) END,
        CASE WHEN p.n_rows = 0 THEN NULL ELSE c.newest > p.newest END,
        c.present,
        (SELECT s FROM cur_session),
@@ -575,7 +588,7 @@ func claimSetSessionOf(t, param string) string {
 }
 
 func claimSetAggregate(ctx context.Context, db DB, stmt string, d claimSetDelivery, prev *claimSetDelivery,
-	maxLag *int, minMembers int) (*ClaimSetAggregates, error) {
+	maxLag *int, minMembers int, maxSpan *int) (*ClaimSetAggregates, error) {
 	var prevSession *string
 	if prev != nil {
 		prevSession = &prev.session
@@ -586,9 +599,9 @@ func claimSetAggregate(ctx context.Context, db DB, stmt string, d claimSetDelive
 		arrival = &s
 	}
 	a := &ClaimSetAggregates{}
-	err := db.QueryRow(ctx, stmt, d.session, prevSession, arrival, maxLag, minMembers).Scan(
+	err := db.QueryRow(ctx, stmt, d.session, prevSession, arrival, maxLag, minMembers, maxSpan).Scan(
 		&a.Rows, &a.Members, &a.DistinctKeys, &a.PredecessorRows, &a.PredecessorDistinctKeys, &a.SharedKeys,
-		&a.Lag, &a.LagInMonths, &a.LagExceeds, &a.SpanDays, &a.Advanced, &a.Present,
+		&a.Lag, &a.LagInMonths, &a.LagExceeds, &a.SpanDays, &a.DatedRows, &a.OutOfSpanRows, &a.Advanced, &a.Present,
 		&a.ClaimSession, &a.PredecessorClaimSession)
 	if err != nil {
 		return nil, fmt.Errorf("while aggregating session %s: %w", d.session, err)
@@ -639,7 +652,8 @@ func claimSetFeed(ctx context.Context, db DB, f feedprofile.Feed, deliveries []c
 		}
 		var agg *ClaimSetAggregates
 		if anyJudged && readable.reason == "" {
-			if agg, err = claimSetAggregate(ctx, db, stmt, d, prev, f.Profile.MaxServiceDateLagDays, o.MinMembers); err != nil {
+			if agg, err = claimSetAggregate(ctx, db, stmt, d, prev, f.Profile.MaxServiceDateLagDays, o.MinMembers,
+				f.Profile.MaxServiceDateSpanDays); err != nil {
 				return nil, err
 			}
 		}
@@ -840,27 +854,66 @@ func claimSetStale(v *ClaimSetVerdict, f feedprofile.Feed, d claimSetDelivery, a
 	claimSetFire(v, an)
 }
 
+// claimSetSpan judges the span of a delivery's dates of service. A row is
+// outside the span when its date of service is more than
+// max_service_date_span_days before the delivery's newest, and the check fires
+// when the share of the rows with a date of service that are outside exceeds
+// max_out_of_span_share. Absent, the share is 0: the check fires when any row
+// is outside, which is when the newest less the oldest date of service
+// exceeds the span, as it always has, and the anomaly reads as it always has,
+// the span in days against the declared span. Declared, the anomaly records
+// the share against the declared share, and its basis gives the span as well.
 func claimSetSpan(v *ClaimSetVerdict, f feedprofile.Feed, d claimSetDelivery, a *ClaimSetAggregates, o ClaimSetOptions) {
-	if a.SpanDays == nil {
+	if a.SpanDays == nil || a.DatedRows == 0 {
 		claimSetNotJudged(v, ClaimSetNoServiceDates, "no row of the delivery carries a date of service")
 		return
 	}
 	max := *f.Profile.MaxServiceDateSpanDays
 	decl := claimSetDeclaration(f.Profile, "max_service_date_span_days", strconv.Itoa(max))
-	v.Detail = fmt.Sprintf("the dates of service span %d days; %s", *a.SpanDays, decl)
-	if *a.SpanDays <= int64(max) {
+	var outside int64
+	if a.OutOfSpanRows != nil {
+		outside = *a.OutOfSpanRows
+	}
+	share := float64(outside) / float64(a.DatedRows)
+	maxShare := 0.0
+	if f.Profile.MaxOutOfSpanShare != nil {
+		maxShare = *f.Profile.MaxOutOfSpanShare
+	}
+	counts := fmt.Sprintf("%d of %d rows with a date of service (%.1f%%) are dated more than %d days before the "+
+		"newest", outside, a.DatedRows, 100*share, max)
+	v.Detail = fmt.Sprintf("the dates of service span %d days; %s; %s", *a.SpanDays, counts, decl)
+	if f.Profile.MaxOutOfSpanShare != nil {
+		v.Detail += "; " + claimSetDeclaration(f.Profile, "max_out_of_span_share", strconv.FormatFloat(maxShare, 'f', -1, 64))
+	}
+	if share <= maxShare {
 		v.Verdict = ClaimSetSilent
 		return
 	}
 	an := claimSetAnomaly(ClaimSetServiceDateSpan, f, d, "", o)
-	an.ObservedValue = fmt.Sprintf("%d days", *a.SpanDays)
-	an.ExpectedMax = claimSetStrPtr(fmt.Sprintf("%d days", max))
-	if max > 0 {
-		an.DeviationMagnitude = claimSetFloatPtr(float64(*a.SpanDays-int64(max)) / float64(max))
+	if f.Profile.MaxOutOfSpanShare == nil {
+		an.ObservedValue = fmt.Sprintf("%d days", *a.SpanDays)
+		an.ExpectedMax = claimSetStrPtr(fmt.Sprintf("%d days", max))
+		if max > 0 {
+			an.DeviationMagnitude = claimSetFloatPtr(float64(*a.SpanDays-int64(max)) / float64(max))
+		}
+		an.ExpectedBasis = fmt.Sprintf("the dates of service of delivery %s span %d days, newest less oldest, which "+
+			"exceeds %s; the feed is incremental (source_config.is_cumulative), so one delivery should cover a "+
+			"short stretch of service. Read over %d rows of the declared claim set", d.session, *a.SpanDays, decl, a.Rows)
+		claimSetFire(v, an)
+		return
 	}
-	an.ExpectedBasis = fmt.Sprintf("the dates of service of delivery %s span %d days, newest less oldest, which "+
-		"exceeds %s; the feed is incremental (source_config.is_cumulative), so one delivery should cover a "+
-		"short stretch of service. Read over %d rows of the declared claim set", d.session, *a.SpanDays, decl, a.Rows)
+	declShare := claimSetDeclaration(f.Profile, "max_out_of_span_share", strconv.FormatFloat(maxShare, 'f', -1, 64))
+	an.ObservedValue = strconv.FormatFloat(share, 'f', 4, 64)
+	an.ExpectedMax = claimSetStrPtr(strconv.FormatFloat(maxShare, 'f', 4, 64))
+	if maxShare > 0 {
+		an.DeviationMagnitude = claimSetFloatPtr((share - maxShare) / maxShare)
+	}
+	an.ExpectedBasis = fmt.Sprintf("%d of the %d rows of delivery %s that carry a date of service are dated more "+
+		"than %d days before its newest date of service, a share of %.4f, above %s. The dates of service span %d "+
+		"days, newest less oldest, against %s; the feed is incremental (source_config.is_cumulative), so one "+
+		"delivery should cover a short stretch of service, and the declared share lets a few rows outside it "+
+		"through. Read over %d rows of the declared claim set", outside, a.DatedRows, d.session, max, share,
+		declShare, *a.SpanDays, decl, a.Rows)
 	claimSetFire(v, an)
 }
 

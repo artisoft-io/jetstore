@@ -250,12 +250,25 @@ func parseFinding(a observe.Anomaly, required []string) (Finding, bool) {
 		case okHi:
 			f.Bound, f.BoundUnit = hi, UnitBytes
 		}
-	case feedprofile.ServiceDateStale, feedprofile.ServiceDateSpan:
+	case feedprofile.ServiceDateStale:
 		if x, u, ok := parseQuantity(a.ObservedValue); ok && u != "" {
 			f.Observed, f.ObservedUnit = x, u
 		}
 		if x, u, ok := parseQuantity(deref(a.ExpectedMax)); ok && u != "" {
 			f.Bound, f.BoundUnit = x, u
+		}
+	case feedprofile.ServiceDateSpan:
+		// The span in days against the declared span, or, where the profile
+		// declares max_out_of_span_share, the share of dated rows outside the
+		// span against that share. The observed value and the bound are in
+		// one unit or the finding is left unread.
+		x, u, okX := parseQuantity(a.ObservedValue)
+		b, bu, okB := parseQuantity(deref(a.ExpectedMax))
+		switch {
+		case okX && okB && u == UnitDays && bu == UnitDays:
+			f.Observed, f.ObservedUnit, f.Bound, f.BoundUnit = x, u, b, bu
+		case okX && okB && u == "" && bu == "":
+			f.Observed, f.ObservedUnit, f.Bound, f.BoundUnit = x, UnitShare, b, UnitShare
 		}
 	case feedprofile.FieldCompleteness:
 		col := a.AnomalyId[strings.LastIndex(a.AnomalyId, "/")+1:]

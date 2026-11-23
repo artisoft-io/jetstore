@@ -26,6 +26,7 @@ const fullProfile = `{
   },
   "max_service_date_lag_days": 45,
   "max_service_date_span_days": 62,
+  "max_out_of_span_share": 0.02,
   "max_redelivered_share": 0.05,
   "required_fields": [{"column": "hc:paid_amount", "min_present_share": 0.95}],
   "declared_by": "analyst@example.com",
@@ -39,7 +40,7 @@ func TestParseFullProfile(t *testing.T) {
 	}
 	if p.PeriodType != WeekPeriod || p.DeliveryPeriods() != 2 || *p.OverdueAfterDays != 5 ||
 		*p.SizeBytes.Max != 900000 || p.ClaimSet.MemberColumn != "hc:member_id" ||
-		len(p.ClaimSet.KeyColumns) != 2 || *p.MaxRedeliveredShare != 0.05 ||
+		len(p.ClaimSet.KeyColumns) != 2 || *p.MaxRedeliveredShare != 0.05 || *p.MaxOutOfSpanShare != 0.02 ||
 		*p.RequiredFields[0].MinPresentShare != 0.95 || p.DeclaredAt != "2026-11-21" {
 		t.Errorf("decoded %+v", p)
 	}
@@ -52,6 +53,17 @@ func TestParseMinimalProfileJudgesNothing(t *testing.T) {
 	}
 	if p.DeliveryPeriods() != 1 || p.ClaimSet != nil || p.OverdueAfterDays != nil {
 		t.Errorf("a minimal profile declares nothing beyond who and when: %+v", p)
+	}
+}
+
+// An out-of-span share of 0 is a valid declaration, and the same verdicts as
+// none: a share is valid from 0 up to, not including, 1.
+func TestParseOutOfSpanShareBounds(t *testing.T) {
+	for _, x := range []string{"0", "0.5", "0.999"} {
+		doc := `{"declared_by":"a","declared_at":"2026-01-01","max_service_date_span_days":31,"max_out_of_span_share":` + x + `}`
+		if _, findings := Parse([]byte(doc)); len(findings) != 0 {
+			t.Errorf("max_out_of_span_share %s: %v", x, findings)
+		}
 	}
 }
 
@@ -74,6 +86,9 @@ func TestParseRefuses(t *testing.T) {
 		{"negative grace", `{"declared_by":"a","declared_at":"2026-01-01","overdue_after_days":-1}`, "/overdue_after_days", "feed_profile.invalid"},
 		{"negative lag", `{"declared_by":"a","declared_at":"2026-01-01","max_service_date_lag_days":-1}`, "/max_service_date_lag_days", "feed_profile.invalid"},
 		{"negative span", `{"declared_by":"a","declared_at":"2026-01-01","max_service_date_span_days":-3}`, "/max_service_date_span_days", "feed_profile.invalid"},
+		{"out-of-span share alone", `{"declared_by":"a","declared_at":"2026-01-01","max_out_of_span_share":0.05}`, "/max_out_of_span_share", "feed_profile.invalid"},
+		{"out-of-span share of one", `{"declared_by":"a","declared_at":"2026-01-01","max_service_date_span_days":31,"max_out_of_span_share":1}`, "/max_out_of_span_share", "feed_profile.invalid"},
+		{"negative out-of-span share", `{"declared_by":"a","declared_at":"2026-01-01","max_service_date_span_days":31,"max_out_of_span_share":-0.1}`, "/max_out_of_span_share", "feed_profile.invalid"},
 		{"share above one", `{"declared_by":"a","declared_at":"2026-01-01","max_redelivered_share":1.5}`, "/max_redelivered_share", "feed_profile.invalid"},
 		{"empty size", `{"declared_by":"a","declared_at":"2026-01-01","size_bytes":{}}`, "/size_bytes", "feed_profile.invalid"},
 		{"size inverted", `{"declared_by":"a","declared_at":"2026-01-01","size_bytes":{"min":10,"max":5}}`, "/size_bytes", "feed_profile.invalid"},

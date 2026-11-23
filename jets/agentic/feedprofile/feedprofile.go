@@ -71,8 +71,16 @@ type Profile struct {
 	// behind the delivery.
 	MaxServiceDateLagDays *int `json:"max_service_date_lag_days,omitempty"`
 	// MaxServiceDateSpanDays is the widest span of service dates one delivery
-	// of an incremental feed may hold.
+	// of an incremental feed may hold: a row whose date of service is more
+	// than this many days before the delivery's newest is outside the span.
 	MaxServiceDateSpanDays *int `json:"max_service_date_span_days,omitempty"`
+	// MaxOutOfSpanShare is the largest share, at least 0 and below 1, of a
+	// delivery's rows with a date of service that may be outside the span.
+	// It is valid only with MaxServiceDateSpanDays. Absent is 0: any row
+	// outside the span fires, which is the same as judging newest less oldest
+	// against the span. Declaring it lets a few late rows, reversals of old
+	// claims say, through without letting a back-dated delivery through.
+	MaxOutOfSpanShare *float64 `json:"max_out_of_span_share,omitempty"`
 	// MaxRedeliveredShare is the largest share, 0 to 1, of an incremental
 	// delivery's distinct keys that may already have been delivered.
 	MaxRedeliveredShare *float64 `json:"max_redelivered_share,omitempty"`

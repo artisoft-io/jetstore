@@ -82,9 +82,73 @@ func TestFeedDeliveryBandDefaults(t *testing.T) {
 		t.Errorf("the band reads %d sizes, median %g", b.N, b.Median)
 	}
 	// The lower bound never goes below zero.
-	b, _ = d.Band([]int64{0, 0, 10, 1000, 1000})
+	b, _ = d.Band([]int64{10, 10, 1000, 1000, 1000})
 	if b.Min < 0 {
 		t.Errorf("a negative lower bound: %+v", b)
+	}
+}
+
+// A size of 0 is an empty file or a size never recorded, so the band leaves
+// it out: half or more zeros no longer make a band of 0 to 0 bytes, and the
+// band still reads the last BandDeliveries non-zero sizes.
+func TestFeedDeliveryBandLeavesOutZeroSizes(t *testing.T) {
+	d := DefaultDeliverySize()
+	b, ok := d.Band([]int64{0, 1000, 0, 1000, 0, 0, 1000, 0, 1000, 0})
+	if !ok || b.N != 4 || b.Zeros != 6 || b.Median != 1000 || b.Min != 500 || b.Max != 1500 {
+		t.Errorf("half zeros give %+v, ok %v", b, ok)
+	}
+	// Fewer than MinBandDeliveries non-zero sizes: no band, however many zeros.
+	if b, ok := d.Band([]int64{0, 0, 0, 0, 0, 0, 1000, 1000, 1000}); ok || b.N != 3 || b.Zeros != 6 {
+		t.Errorf("three non-zero sizes among nine made a band: %+v", b)
+	}
+	if _, ok := d.Band([]int64{0, 0, 0, 0, 0, 0, 0, 0}); ok {
+		t.Error("only zeros made a band")
+	}
+	// The window is the last eight non-zero sizes; zeros before the oldest of
+	// them are not counted as left out.
+	b, _ = d.Band([]int64{0, 0, 7, 10, 10, 10, 0, 10, 10, 10, 10, 10})
+	if b.N != 8 || b.Zeros != 1 || b.Median != 10 {
+		t.Errorf("the window over non-zero sizes: %+v", b)
+	}
+}
+
+// A feed whose recorded sizes are mostly 0 is judged against its non-zero
+// sizes. The fifth delivery, which fired against a band of 0 to 0 bytes when
+// zeros were read into the band, is not judged: fewer than four non-zero sizes
+// precede it, as they do every delivery up to the eleventh. The twelfth is
+// silent, and the empty thirteenth fires below the band of the full ones.
+func TestFeedDeliverySizeBandOverZeroSizes(t *testing.T) {
+	f := feedDeliveryFeed("zero_feed", feedprofile.Profile{PeriodType: feedprofile.WeekPeriod})
+	ds := feedDeliveryWeekly(0, 0, 0, 0, 1000, 0, 1000, 0, 1000, 0, 1000, 1000, 0)
+	in := &FeedDeliveryInput{AsOf: ds[len(ds)-1].Arrival, Profiled: []feedprofile.Feed{f},
+		Deliveries: map[string][]FeedDelivery{f.TableName: ds}}
+	res, err := DefaultDeliverySize().Detect(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	short := "not_judged insufficient_history"
+	want := []string{short, short, short, short, short, short, short, short, short, short, short,
+		"silent ", "fires "}
+	if len(res.Verdicts) != len(want) {
+		t.Fatalf("%d verdicts", len(res.Verdicts))
+	}
+	for i, v := range res.Verdicts {
+		if got := v.Verdict + " " + v.Reason; got != want[i] {
+			t.Errorf("delivery %d: %s, want %s", i+1, got, want[i])
+		}
+	}
+	if len(res.Anomalies) != 1 {
+		t.Fatalf("%d anomalies", len(res.Anomalies))
+	}
+	a := res.Anomalies[0]
+	if a.ObservedValue != "0" || *a.ExpectedMin != "500" || *a.ExpectedMax != "1500" ||
+		a.DeviationMagnitude == nil || *a.DeviationMagnitude != 1 ||
+		!strings.Contains(a.ExpectedBasis, "the median of the 5 preceding non-zero delivery sizes (7 preceding "+
+			"sizes of 0 bytes, empty files or sizes never recorded, are left out), 1000 bytes") {
+		t.Errorf("the empty delivery's anomaly: %+v %s", a, a.ExpectedBasis)
+	}
+	if err := a.Validate(); err != nil {
+		t.Error(err)
 	}
 }
 
