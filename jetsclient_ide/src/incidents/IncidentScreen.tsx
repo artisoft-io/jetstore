@@ -182,6 +182,7 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
   const gloss = LOCUS_GLOSS[incident.locus];
   const namesAStep = incident.stepRef !== "";
   const namesARun = incident.runRef !== "";
+  const inputs = incident.inputs ?? [];
   const phiCapability = detail.phiCapability || AGENT_PHI_ACCESS;
   // Both default to empty rather than to a guess: a response from a server
   // predating the verdict control carries neither, and the screen is then read-only again
@@ -228,6 +229,29 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
             </dd>
             <dt>Session</dt>
             <dd>{incident.sessionId}</dd>
+            {/* What the session registered, so the incident's runs can be found
+                on Pipeline Status: a file's runs carry this session as their
+                input session, a domain table's as their own. */}
+            <dt>Source type</dt>
+            <dd>
+              {inputs.length === 0 ? (
+                <em className="unclaimed">nothing registered under this session</em>
+              ) : (
+                [...new Set(inputs.map((i) => i.sourceType))].join(", ")
+              )}
+            </dd>
+            <dt>File key</dt>
+            <dd>
+              {inputs.length === 0 ? (
+                <em className="unclaimed">nothing registered under this session</em>
+              ) : (
+                inputs.map((i) => (
+                  <code key={`${i.sourceType}:${i.fileKey}`} className="incident-file-key">
+                    {i.fileKey}
+                  </code>
+                ))
+              )}
+            </dd>
             <dt>Raised by</dt>
             <dd>
               {namesARun ? (

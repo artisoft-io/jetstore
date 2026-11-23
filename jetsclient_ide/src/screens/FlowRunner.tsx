@@ -284,6 +284,17 @@ export function FlowRunner({ api }: { api: ApiClient }) {
         // findings list rather than a loaded flow with no position — it is
         // reported through the same list a bad document is. See `startAtPosition`.
         const opensAt = startAtPosition(flow.flow, requestedStart);
+        // **The flow's `formStateInitializer`, run before its first state draws.**
+        // `homeFiltersUF` names `seedFromHomeFilters`, so the filters dialog reopens
+        // with the answers that set the filters standing: its tables tick the rows
+        // chosen last time and its text fields hold what was typed. The name was
+        // resolved at load and checked by every document test, and nothing called
+        // it, so the dialog opened empty every time (2026-11-23). `load` has
+        // already refused a name the registry lacks.
+        const initializer = flow.flow.formStateInitializer;
+        if (initializer !== undefined) {
+          productionRegistry.initializers[initializer]?.({ formState, group: 0, flowKey: key });
+        }
         setLoaded({ workspaceName: active.name, flow });
         setPosition(opensAt);
       } catch (error) {
@@ -305,7 +316,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
     return () => {
       cancelled = true;
     };
-  }, [key, workspaceApi, requestedStart]);
+  }, [key, formState, workspaceApi, requestedStart]);
 
   const fetcher: DataTableFetcher = useCallback(
     (payload) => api.dataTable(payload),

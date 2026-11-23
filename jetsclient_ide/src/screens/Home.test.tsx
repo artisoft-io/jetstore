@@ -683,16 +683,23 @@ describe("the table's buttons", () => {
     const { posts } = await mount();
     await openTab("Pipelines Status", "00:01:12");
     fireEvent.click(button("Set Session Id"));
-    expect(await answerPrompt("sess-1, sess-2")).toBe("Enter session IDs comma separated to filter");
+    expect(await answerPrompt("sess-1, sess-2")).toBe("Enter session IDs comma separated to filter (a run's own session or its input's)");
     await waitFor(() => {
       const where = lastRead(posts, "pipeline_execution_status")!["whereClauses"] as Record<
         string,
         unknown
       >[];
+      // The run's own session or its input's: a file's session finds the run
+      // that read the file (2026-11-23).
       expect(where).toContainEqual({
         table: "pipeline_execution_status",
         column: "session_id",
         values: ["sess-1", "sess-2"],
+        orWith: {
+          table: "pipeline_execution_status",
+          column: "input_session_id",
+          values: ["sess-1", "sess-2"],
+        },
       });
     });
   });

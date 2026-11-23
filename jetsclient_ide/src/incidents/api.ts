@@ -171,6 +171,20 @@ export interface IncidentDetail extends IncidentRow {
   summary?: IncidentSummaryText;
   /** Why a feed incident carries no summary. */
   summaryError?: string;
+  /**
+   * The inputs registered under the incident's session, files first: what the
+   * Pipeline Status screen finds the incident's runs by. Empty when the session
+   * registered nothing, or the registry could not be read; absent from a
+   * server older than this field.
+   */
+  inputs?: IncidentInput[];
+}
+
+/** One input registered under an incident's session, from `jetsapi.input_registry`. */
+export interface IncidentInput {
+  fileKey: string;
+  /** `file`, or `domain_table`. */
+  sourceType: string;
 }
 
 /** A rendered summary, and what rendered it. */

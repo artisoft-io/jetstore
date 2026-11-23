@@ -49,7 +49,7 @@ The tab has three rows of buttons. The first row acts on the whole table and nee
 | **Start Pipeline** | Opens the [Start Pipeline](/docs/user/screens/flows/start-pipeline/) flow, to start a pipeline by hand. | `run_pipelines` |
 | **Refresh** | Reads the table again. | |
 | **Set Filters** | Opens the [Pipeline Execution Status Filters](/docs/user/screens/flows/pipeline-execution-status-filters/) flow, to show only some runs. | |
-| **Set Session Id** | Asks for one or more session ids, separated by commas, and shows only the runs with those sessions. The *Data Registry* tab then shows the inputs those runs read. | |
+| **Set Session Id** | Asks for one or more session ids, separated by commas, and shows only the runs whose own session, or whose input's session, is one of them. A file's session finds the runs that read the file; a run's session finds the run. The *Data Registry* tab then shows the inputs those runs read. | |
 | **Set Request Id** | The same, by request id. | |
 | **Clear Filters** | Removes the filters the three buttons above set, here and on the *Data Registry* and *Archived Pipelines* tabs. Disabled when there are none. | |
 | **Put Schema Event** | Opens a dialog to paste a schema event, as JSON. *Save* stores it in the installation's schema triggers folder, which registers the file it describes, as if the file had just arrived. | `run_pipelines` |

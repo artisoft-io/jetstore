@@ -1058,20 +1058,35 @@ describe("home_filters, end to end", () => {
   it("replaces the filters wholesale when a session id list is entered", () => {
     resetHomeFilters();
     setIdFilter("session_id", "s1, s2 ,s3");
-    expect(currentHomeFilters()).toEqual([
-      { table: "pipeline_execution_status", column: "session_id", defaultValue: ["s1", "s2", "s3"], lookupColumnInFormState: false },
-    ]);
+    // A session id matches the run's own session or the session of its input,
+    // so a file's session finds the run that read the file.
+    const bySession = {
+      table: "pipeline_execution_status",
+      column: "session_id",
+      defaultValue: ["s1", "s2", "s3"],
+      lookupColumnInFormState: false,
+      orWith: {
+        table: "pipeline_execution_status",
+        column: "input_session_id",
+        defaultValue: ["s1", "s2", "s3"],
+        lookupColumnInFormState: false,
+      },
+    };
+    expect(currentHomeFilters()).toEqual([bySession]);
     // The data-registry half joins rather than filtering, and the join column
     // differs between the two prompts — `input_session_id` here.
     expect(currentDataRegistryFilters()!.map((w) => w.joinWith ?? w.defaultValue)).toEqual([
       "pipeline_execution_status.input_session_id",
       ["s1", "s2", "s3"],
     ]);
+    expect(currentDataRegistryFilters()![1]).toEqual(bySession);
 
     setIdFilter("request_id", "r1");
     expect(currentDataRegistryFilters()![0]!.joinWith).toBe(
       "pipeline_execution_status.input_request_id",
     );
+    // A request id has one column; nothing is or-ed with it.
+    expect(currentHomeFilters()![0]!.orWith).toBeUndefined();
   });
 });
 
