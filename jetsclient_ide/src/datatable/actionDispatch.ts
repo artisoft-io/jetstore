@@ -184,7 +184,7 @@ export function requestFor(
       return {
         kind: "promptFilter",
         column: "session_id",
-        prompt: "Enter session IDs comma separated to filter",
+        prompt: "Enter session IDs comma separated to filter (a run's own session or its input's)",
       };
     case "setRequestIdFilter":
       return {

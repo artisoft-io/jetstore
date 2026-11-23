@@ -199,6 +199,9 @@ type agenticOps interface {
 	// its findings, the feed's declaration and its ranked readings. Nothing is
 	// stored, so the summary of an incident read twice is rendered twice.
 	FeedIncidentSummary(ctx context.Context, inc *audit.Incident) (*feedsummary.Summary, error)
+	// IncidentInputs returns the file keys and source types registered under an
+	// incident's session, which is how a person finds its pipeline runs.
+	IncidentInputs(ctx context.Context, sessionID string) ([]audit.IncidentInput, error)
 	// The Detection screen: the runs the detection commands recorded,
 	// the deployed task those runs come from, and starting it now. The ECS half
 	// is behind the same seam so the dispatch is testable without AWS.
@@ -255,6 +258,9 @@ func (o pgOps) RecordIncidentTransition(ctx context.Context, t *audit.IncidentTr
 }
 func (o pgOps) FeedIncidentSummary(ctx context.Context, inc *audit.Incident) (*feedsummary.Summary, error) {
 	return feedsummary.Summarise(ctx, o.db, inc)
+}
+func (o pgOps) IncidentInputs(ctx context.Context, sessionID string) ([]audit.IncidentInput, error) {
+	return audit.IncidentInputs(ctx, o.db, sessionID)
 }
 
 // DoAgenticAction ----------------------------------------------------------
@@ -623,6 +629,21 @@ func getIncident(ctx context.Context, ops agenticOps, a *AgenticAction, phi audi
 	}
 	row := incidentRow(inc.IncidentSummary)
 	row["hypotheses"] = hs
+
+	// The inputs registered under the incident's session: each file key and
+	// whether it is a file or a domain table, which is what the Pipeline Status
+	// screen finds runs by. **Not a failure of the screen when it cannot be
+	// read**, on the summary's argument below: the incident is shown with an
+	// empty list and the reason is logged.
+	inputs := []map[string]any{}
+	if ins, err := ops.IncidentInputs(ctx, inc.SessionId); err == nil {
+		for _, in := range ins {
+			inputs = append(inputs, map[string]any{"fileKey": in.FileKey, "sourceType": in.SourceType})
+		}
+	} else {
+		log.Printf("while reading the inputs of incident %s: %v", a.IncidentId, err)
+	}
+	row["inputs"] = inputs
 
 	// A feed incident's summary, rendered by a fixed template from the
 	// incident's findings, the feed's declaration and the readings above.

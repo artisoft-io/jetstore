@@ -1245,6 +1245,51 @@ describe("home_filters in the app", () => {
     });
   });
 
+  it("reopens with the filters it set, ticked and typed", async () => {
+    // The dialog opened empty every time: `seedFromHomeFilters` was named by the
+    // flow, resolved at load and never run, so a user re-entered the same
+    // filters to change one of them.
+    resetHomeFilters();
+    await mount("homeFiltersUF");
+    expect(await screen.findByText("loadFile")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByText("Timed Out")).toBeTruthy();
+    const statusIndex = 3; // Completed with Errors, in the table's order
+    fireEvent.click(screen.getAllByRole("checkbox", { name: ROW_BOX })[statusIndex]!);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByText("Starts With")).toBeTruthy();
+    fireEvent.click(screen.getAllByRole("checkbox", { name: ROW_BOX })[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.change(await screen.findByLabelText("Start Offset Duration"), {
+      target: { value: "3 days" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByText("sess-1");
+
+    // *Set Filters* again: a new mount of the flow, as the button's navigation is.
+    cleanup();
+    await mount("homeFiltersUF");
+    expect(await screen.findByText("loadFile")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByText("Timed Out")).toBeTruthy();
+    await waitFor(() => {
+      const ticked = (screen.getAllByRole("checkbox", { name: ROW_BOX }) as HTMLInputElement[]).map(
+        (box) => box.checked,
+      );
+      expect(ticked.indexOf(true)).toBe(statusIndex);
+      expect(ticked.filter(Boolean)).toHaveLength(1);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByText("Starts With")).toBeTruthy();
+    // The filter type chosen last time is ticked, so Next needs no new choice.
+    await waitFor(() =>
+      expect((screen.getAllByRole("checkbox", { name: ROW_BOX })[0] as HTMLInputElement).checked).toBe(true),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    const offset = (await screen.findByLabelText("Start Offset Duration")) as HTMLInputElement;
+    expect(offset.value).toBe("3 days");
+  });
+
   it("draws the second action row, where this table's only two references are", async () => {
     await walkToTheTable();
     await screen.findByText("sess-1");

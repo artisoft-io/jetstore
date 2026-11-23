@@ -89,7 +89,7 @@ describe("the corpus this task owns", () => {
     expect(prompt("setSessionIdFilter")).toEqual({
       kind: "promptFilter",
       column: "session_id",
-      prompt: "Enter session IDs comma separated to filter",
+      prompt: "Enter session IDs comma separated to filter (a run's own session or its input's)",
     });
     expect(prompt("setRequestIdFilter")).toEqual({
       kind: "promptFilter",
