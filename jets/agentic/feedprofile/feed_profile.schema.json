@@ -6,6 +6,7 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["declared_by", "declared_at"],
+  "dependentRequired": { "max_out_of_span_share": ["max_service_date_span_days"] },
   "properties": {
     "period_type": {
       "description": "The unit in which deliveries are due, JetStore's own period types.",
@@ -55,9 +56,15 @@
       "minimum": 0
     },
     "max_service_date_span_days": {
-      "description": "Widest span of service dates in one delivery of an incremental feed.",
+      "description": "Widest span of service dates in one delivery of an incremental feed: a row dated more than this many days before the delivery's newest date of service is outside the span.",
       "type": "integer",
       "minimum": 0
+    },
+    "max_out_of_span_share": {
+      "description": "Largest share of a delivery's rows with a date of service that may be outside the span. Needs max_service_date_span_days. Absent is 0: any row outside the span fires.",
+      "type": "number",
+      "minimum": 0,
+      "exclusiveMaximum": 1
     },
     "max_redelivered_share": {
       "description": "Largest share of an incremental delivery's distinct keys already delivered.",

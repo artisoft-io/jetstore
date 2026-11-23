@@ -49,10 +49,19 @@ session, and a verdict's detail names the pipeline run whose claims were read.
 | Check | What it reads | It raises an anomaly when | Profile fields it needs |
 |---|---|---|---|
 | **Stale service dates** (`service_date_stale`) | the newest date of service in the delivery | the newest date of service is more than `max_service_date_lag_days` before the delivery's arrival | `claim_set`, `max_service_date_lag_days` |
-| **Wide service-date span** (`service_date_span`) | the oldest and newest dates of service in the delivery | they are more than `max_service_date_span_days` apart. Incremental feeds only | `claim_set`, `max_service_date_span_days` |
+| **Wide service-date span** (`service_date_span`) | each row's date of service against the delivery's newest | the share of the delivery's rows with a date of service that are dated more than `max_service_date_span_days` before its newest is above `max_out_of_span_share`, which is 0 when absent, so that any such row fires. Incremental feeds only | `claim_set`, `max_service_date_span_days`; `max_out_of_span_share` is optional |
 | **Missing required field** (`field_completeness`) | each required field, row by row | the share of the delivery's rows carrying a value is below the field's `min_present_share`. A value is present when it is not empty | `claim_set`, `required_fields` |
 | **Claims delivered again** (`delivery_overlap`) | the distinct keys of the delivery and of its predecessor | *incremental feed*: the share of the delivery's keys already in its predecessor is above `max_redelivered_share`. *Cumulative feed*: some key of the predecessor is missing from the delivery, so the delivery lost claims | `claim_set`; `max_redelivered_share` for an incremental feed |
 | **Delivery did not advance** (`delivery_unchanged`) | the distinct keys and the newest date of service of the delivery and of its predecessor | the delivery holds exactly its predecessor's keys **and** its newest date of service is no later than the predecessor's | `claim_set` |
+
+**The span is judged row by row, so a few late rows need not fire it.** With no
+`max_out_of_span_share`, the check fires when any row is outside the span, which is the same as
+judging the newest less the oldest date of service against `max_service_date_span_days`, and its
+anomaly records that span in days against the declared one. A single late row, a reversal of a
+months-old claim say, then fires the check as surely as a delivery that is back-dated as a whole.
+Declaring `max_out_of_span_share` lets that share of rows through; the anomaly then records the share
+of rows outside the span against the declared share, and its basis gives the span and the counts as
+well.
 
 Whether a feed is **incremental** or **cumulative** is the source configuration's **Is each delivery
 cumulative?** setting, not part of the profile. It decides which half of *claims delivered again*
@@ -84,7 +93,8 @@ A check reports a delivery as **not judged**, with the reason, rather than as pa
 
 Claims are about members, and **only aggregates leave the database**. Each delivery is one query,
 and it returns counts of rows, distinct keys, distinct members and shared keys, a lag and a span in
-days, the number of rows carrying each required field, and yes-or-no answers. No claim, key, member
+days, the number of rows carrying a date of service and of those outside the declared span, the
+number of rows carrying each required field, and yes-or-no answers. No claim, key, member
 or date of service is returned, written to an anomaly, or shown.
 
 - **A lag, never a date.** *Stale service dates* records how many days the newest date of service is

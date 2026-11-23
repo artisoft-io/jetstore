@@ -249,7 +249,7 @@ func feedProcessLabel(sql string, args []any) string {
 		return "the file registrations of the feeds, from which both families read their deliveries"
 	case sql == claimSetColumnsSQL:
 		return "the columns of claim-set table " + arg(0) + "." + arg(1)
-	case strings.HasPrefix(sql, "WITH cur AS"):
+	case strings.HasPrefix(sql, "WITH cur_session AS"):
 		return "the content-check aggregates of session " + arg(0) + " against " + arg(1)
 	case strings.Contains(sql, "jetsapi.source_config"):
 		return "the feeds of client " + arg(0)

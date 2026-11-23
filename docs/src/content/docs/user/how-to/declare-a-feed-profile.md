@@ -65,7 +65,8 @@ configuration's **Is each delivery cumulative?** setting, and the checks read it
 | `size_bytes` | `{"min": …, "max": …}`, the expected size of one delivery in bytes; either bound may be left out. Absent, the check uses the feed's recent deliveries (see below). | a delivery of unusual size |
 | `claim_set` | Where the feed's claims are once loaded: `table`, the `key_columns` that identify a claim, the `service_date_column` and the `member_column`. All four are required when it is given. A `table` with a dot in it is read as `schema.table`, so `audit.hc:Claim` is the table `hc:Claim` in the schema `audit`; a name with no dot is in the `public` schema, where pipelines write, and the checks do not judge a feed whose table name has more than one dot. **The key is yours to declare**: JetStore does not infer it, and a check reports how many rows share a key before trusting it. | every check that reads the claims |
 | `max_service_date_lag_days` | How far the newest date of service may fall behind the delivery. | claims that stop advancing |
-| `max_service_date_span_days` | The widest span of service dates one delivery may hold. Not used for a cumulative feed. | a delivery that reaches back in time |
+| `max_service_date_span_days` | The widest span of service dates one delivery may hold: a row whose date of service is more than this many days before the delivery's newest is outside the span. Not used for a cumulative feed. | a delivery that reaches back in time |
+| `max_out_of_span_share` | The largest share, at least 0 and below 1, of a delivery's rows with a date of service that may be outside the span. Allowed only with `max_service_date_span_days`. **Absent is 0**: any row outside the span fires the check, which is how the check has always judged. Declare it when a feed's deliveries carry a few late rows, such as reversals of old claims, that should not count as a delivery reaching back. | a delivery that reaches back in time |
 | `max_redelivered_share` | The largest share, from 0 to 1, of a delivery's claims that may have been delivered before. Not used for a cumulative feed. | claims delivered again |
 | `required_fields` | Columns that must be present, each with its `min_present_share`, above 0 and at most 1. | a column that goes missing |
 | `declared_by`, `declared_at` | Who declared the profile, and the date, written `YYYY-MM-DD`. Required. | every finding, as its evidence |
@@ -103,11 +104,15 @@ last delivery, the one after which nothing came, so a feed that stays overdue is
 every day.
 
 **Size, with no `size_bytes`**, is judged against the feed's own recent deliveries: the median of the
-last 8 deliveries' sizes, plus or minus the larger of 3 scaled median absolute deviations and half
-the median. A delivery with fewer than 4 earlier sizes is not judged. These figures are starting
-values, not measured ones; the finding states the range it used. Declaring `size_bytes` is better
-when you know what a delivery should weigh, because the recent range follows a feed that drifts
-slowly.
+last 8 non-zero sizes, plus or minus the larger of 3 scaled median absolute deviations and half
+the median. A delivery with fewer than 4 earlier non-zero sizes is not judged. A size of 0 is left out
+of the range because JetStore records 0 both for an empty file and for a size it never recorded, so it
+does not say what the feed delivers; a range built with half or more zeros in it would be 0 to 0
+bytes, and every delivery with content would fire against it. A delivery of 0 bytes is still judged,
+against the range of the non-zero sizes before it, so an empty delivery from a feed that is normally
+full is found. These figures are starting values, not measured ones; the finding states the range it
+used and how many sizes of 0 it left out. Declaring `size_bytes` is better when you know what a
+delivery should weigh, because the recent range follows a feed that drifts slowly.
 
 **A back-dated delivery** is one registered for a period earlier than the latest period of any
 delivery before it. The check cannot tell a mistaken registration from a deliberate backfill of past
