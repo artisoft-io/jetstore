@@ -34,6 +34,14 @@ const claimSetTestDatabase = "observe_claimset_test"
 // fixture and jetsapi.anomaly into it, and returns a pool on it.
 func claimSetTestPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
+	return claimSetTestPoolWith(t, claimSetTestDatabase, feedfixture.Install)
+}
+
+// claimSetTestPoolWith is claimSetTestPool on the database name, with the
+// fixture written by install.
+func claimSetTestPoolWith(t *testing.T, database string,
+	install func(context.Context, *pgxpool.Pool) (feedfixture.Counts, error)) *pgxpool.Pool {
+	t.Helper()
 	dsn := os.Getenv("JETS_TEST_DSN")
 	if dsn == "" {
 		t.Skip("JETS_TEST_DSN not set; needs a throwaway Postgres")
@@ -43,7 +51,7 @@ func claimSetTestPool(t *testing.T) *pgxpool.Pool {
 	if err != nil {
 		t.Fatal(err)
 	}
-	name := pgx.Identifier{claimSetTestDatabase}.Sanitize()
+	name := pgx.Identifier{database}.Sanitize()
 	_, err = admin.Exec(ctx, "DROP DATABASE IF EXISTS "+name+" WITH (FORCE)")
 	if err == nil {
 		_, err = admin.Exec(ctx, "CREATE DATABASE "+name)
@@ -56,13 +64,13 @@ func claimSetTestPool(t *testing.T) *pgxpool.Pool {
 	if err != nil {
 		t.Fatal(err)
 	}
-	u.Path = "/" + claimSetTestDatabase
+	u.Path = "/" + database
 	pool, err := pgxpool.New(ctx, u.String())
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	if _, err := feedfixture.Install(ctx, pool); err != nil {
+	if _, err := install(ctx, pool); err != nil {
 		t.Fatalf("installing the feed fixture: %v", err)
 	}
 	if err := audit.InstallSchema(ctx, pool); err != nil {
