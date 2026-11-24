@@ -177,13 +177,17 @@ Recommendation: export the handful genuinely consumed across stacks — `JetStor
   strings), the **RDS secret name** (every component needs it and it is generated), and the
   **subnet ids** a stack sharing this VPC may want to pin.
 
-### 11. Remove the duplicate S3 gateway endpoint
+### 11. Remove the duplicate S3 gateway endpoint — done 2026-11-24
 
-Two are synthesized per created VPC: `s3Endpoint` in `CreateJetStoreVPC` (`jetstore_vpc.go:165`) and
-`S3GatewayEndpointv2` in `AddVpcEndpoints` (`jetstore_vpc.go:260`). Gateway endpoints are free, so
-this costs nothing — but it is 20 endpoints where the code reads as 19, and the two differ in subnet
-association, so which one carries the route is not obvious. Keep the one in `CreateJetStoreVPC`,
-which names its subnets explicitly.
+Two were synthesized per created VPC: `s3Endpoint` in `CreateJetStoreVPC` and `S3GatewayEndpointv2`
+in `AddVpcEndpoints`. ~~Gateway endpoints are free, so this costs nothing~~: it stopped a new stack
+from being created. EC2 allows one route to the S3 prefix list per route table, and both endpoints
+routed the private and isolated route tables, so the second failed with `AlreadyExists` and the
+stack rolled back (a new stack in us-east-2, 2026-11-23). This note recommended keeping
+`s3Endpoint`; `S3GatewayEndpointv2` was kept instead, because an existing stack read on 2026-11-24
+carried it alone, routed from all six route tables, with no `s3Endpoint` endpoint in the account.
+`TestCreatedVpcHasOneS3GatewayEndpoint` (`stack/jetstore_vpc_test.go`) asserts one gateway
+endpoint on six route tables.
 
 ### 12. Replace the dead test scaffold with synth assertions
 
