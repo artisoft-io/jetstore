@@ -287,44 +287,9 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 		}
 
 		// Merge a sub-set of fields from the source_config schema_provider_json into mainInputSchemaProvider
-		type SchemaProviderSourceConfig struct {
-			BlankFieldMarkers         *BlankFieldMarkersSpec `json:"blank_field_markers,omitempty"`
-			Delimiter                 rune                   `json:"delimiter,omitzero"`
-			DetectCrAsEol             bool                   `json:"detect_cr_as_eol,omitzero"`
-			DiscardFileHeaders        bool                   `json:"discard_file_headers,omitzero"`
-			DropExcedentHeaders       bool                   `json:"drop_excedent_headers,omitzero"`
-			Encoding                  string                 `json:"encoding,omitempty"`
-			EnforceRowMaxLength       bool                   `json:"enforce_row_max_length,omitzero"`
-			EnforceRowMinLength       bool                   `json:"enforce_row_min_length,omitzero"`
-			Env                       map[string]any         `json:"env,omitempty"`
-			EolByte                   byte                   `json:"eol_byte,omitzero"`
-			MultiColumnsInput         bool                   `json:"multi_columns_input,omitzero"`
-			NoQuotes                  bool                   `json:"no_quotes,omitzero"`
-			OutputEncoding            string                 `json:"output_encoding,omitempty"`
-			OutputEncodingSameAsInput bool                   `json:"output_encoding_same_as_input,omitempty"`
-			QuoteAllRecords           bool                   `json:"quote_all_records,omitzero"`
-			ReadDateLayout            string                 `json:"read_date_layout,omitempty"`
-			ReorderColumnsOnRead      []int                  `json:"reorder_columns_on_read,omitempty"`
-			TrimColumns               bool                   `json:"trim_columns,omitzero"`
-			UseLazyQuotes             bool                   `json:"use_lazy_quotes,omitzero"`
-			UseLazyQuotesSpecial      bool                   `json:"use_lazy_quotes_special,omitzero"`
-			VariableFieldsPerRecord   bool                   `json:"variable_fields_per_record,omitzero"`
-			WriteDateLayout           string                 `json:"write_date_layout,omitempty"`
-		}
 		if scSchemaProviderJson.Valid && len(scSchemaProviderJson.String) > 0 {
-			mainInputSchemaProviderFromSC := &SchemaProviderSourceConfig{}
-			err = json.Unmarshal([]byte(scSchemaProviderJson.String), mainInputSchemaProviderFromSC)
-			if err != nil {
-				return cpipesStartup, fmt.Errorf("while unmarshaling schema_provider_json from source_config: %s", err)
-			}
-			// Merge the fields, via json marshal/unmarshal
-			b, err := json.Marshal(mainInputSchemaProviderFromSC)
-			if err != nil {
-				return cpipesStartup, fmt.Errorf("while marshaling schema_provider_json from source_config: %s", err)
-			}
-			err = json.Unmarshal(b, mainInputSchemaProvider)
-			if err != nil {
-				return cpipesStartup, fmt.Errorf("while unmarshaling merged schema_provider_json: %s", err)
+			if err = mergeSourceConfigSchemaProvider(scSchemaProviderJson.String, mainInputSchemaProvider); err != nil {
+				return cpipesStartup, err
 			}
 		}
 
@@ -2174,6 +2139,55 @@ func (cpss *CpipesStartup) validateOutputChConfig(outputChConfig *OutputChannelC
 				"configuration error: unknown output_channel config type: %s (expecting: memory (default), stage, output, sql)",
 				outputChConfig.Type)
 		}
+	}
+	return nil
+}
+
+// schemaProviderSourceConfig is the sub-set of a main input schema provider
+// that a source_config row's schema_provider_json may set.
+type schemaProviderSourceConfig struct {
+	BlankFieldMarkers         *BlankFieldMarkersSpec `json:"blank_field_markers,omitempty"`
+	Delimiter                 rune                   `json:"delimiter,omitzero"`
+	DetectCrAsEol             bool                   `json:"detect_cr_as_eol,omitzero"`
+	DiscardFileHeaders        bool                   `json:"discard_file_headers,omitzero"`
+	DropExcedentHeaders       bool                   `json:"drop_excedent_headers,omitzero"`
+	Encoding                  string                 `json:"encoding,omitempty"`
+	EnforceRowMaxLength       bool                   `json:"enforce_row_max_length,omitzero"`
+	EnforceRowMinLength       bool                   `json:"enforce_row_min_length,omitzero"`
+	Env                       map[string]any         `json:"env,omitempty"`
+	EolByte                   byte                   `json:"eol_byte,omitzero"`
+	MultiColumnsInput         bool                   `json:"multi_columns_input,omitzero"`
+	NoQuotes                  bool                   `json:"no_quotes,omitzero"`
+	OutputEncoding            string                 `json:"output_encoding,omitempty"`
+	OutputEncodingSameAsInput bool                   `json:"output_encoding_same_as_input,omitempty"`
+	QuoteAllRecords           bool                   `json:"quote_all_records,omitzero"`
+	ReadDateLayout            string                 `json:"read_date_layout,omitempty"`
+	ReorderColumnsOnRead      []int                  `json:"reorder_columns_on_read,omitempty"`
+	TrimColumns               bool                   `json:"trim_columns,omitzero"`
+	UseLazyQuotes             bool                   `json:"use_lazy_quotes,omitzero"`
+	UseLazyQuotesSpecial      bool                   `json:"use_lazy_quotes_special,omitzero"`
+	VariableFieldsPerRecord   bool                   `json:"variable_fields_per_record,omitzero"`
+	WriteDateLayout           string                 `json:"write_date_layout,omitempty"`
+}
+
+// mergeSourceConfigSchemaProvider merges the fields of a source_config row's
+// schema_provider_json that schemaProviderSourceConfig names into the main
+// input schema provider sp. Its env entries are added to sp.Env, replacing a
+// key sp.Env already has, and so reach the run's env, where a context entry
+// of type default_value fills only the keys still unset: this is how one feed
+// overrides a value the pipeline configuration defaults.
+func mergeSourceConfigSchemaProvider(scJson string, sp *SchemaProviderSpec) error {
+	fromSC := &schemaProviderSourceConfig{}
+	if err := json.Unmarshal([]byte(scJson), fromSC); err != nil {
+		return fmt.Errorf("while unmarshaling schema_provider_json from source_config: %s", err)
+	}
+	// Merge the fields, via json marshal/unmarshal
+	b, err := json.Marshal(fromSC)
+	if err != nil {
+		return fmt.Errorf("while marshaling schema_provider_json from source_config: %s", err)
+	}
+	if err = json.Unmarshal(b, sp); err != nil {
+		return fmt.Errorf("while unmarshaling merged schema_provider_json: %s", err)
 	}
 	return nil
 }

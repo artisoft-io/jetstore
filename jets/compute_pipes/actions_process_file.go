@@ -15,7 +15,8 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 
 	cpCtx.ChResults = &ChannelResults{
 		// Channels created by the entity responsible to close them
-		InputSpan: &InputSpan{},
+		InputSpan:    &InputSpan{},
+		RetainWindow: &RetainWindowDrops{},
 	}
 
 	key, err := cpCtx.InsertPipelineExecutionStatus(dbpool)
@@ -290,6 +291,10 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	// The node's input span, when a map_record step names a span column.
 	// Additive, as the channel detail below: logged rather than returned.
 	if err2 = RecordInputSpan(context.Background(), dbpool, key, cpCtx.ChResults.InputSpan); err2 != nil {
+		log.Printf("%s node %d %v", cpCtx.SessionId, cpCtx.NodeId, err2)
+	}
+	// The records the node's retain window dropped, by reason, likewise.
+	if err2 = RecordRetainWindow(context.Background(), dbpool, key, cpCtx.ChResults.RetainWindow); err2 != nil {
 		log.Printf("%s node %d %v", cpCtx.SessionId, cpCtx.NodeId, err2)
 	}
 

@@ -127,8 +127,8 @@ func TestRecordInputSpan(t *testing.T) {
 	if err := RecordInputSpan(context.Background(), r, 7, s); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(r.sql, "pipeline_execution_details") || len(r.args) != 4 ||
-		r.args[0] != "dos" || r.args[1] != "2026-01-15" || r.args[2] != "2026-02-20" || r.args[3] != 7 {
+	if !strings.Contains(r.sql, "pipeline_execution_details") || len(r.args) != 5 ||
+		r.args[0] != "dos" || r.args[1] != "2026-01-15" || r.args[2] != "2026-02-20" || r.args[3] != "{}" || r.args[4] != 7 {
 		t.Errorf("RecordInputSpan wrote %q with %v", r.sql, r.args)
 	}
 }

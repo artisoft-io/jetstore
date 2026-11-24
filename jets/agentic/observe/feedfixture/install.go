@@ -18,9 +18,11 @@ import (
 // JetsapiTables are the jetsapi tables Install creates, from jets_schema.json,
 // when they are not already there. pipeline_execution_status is read by the
 // claim-set statement, which finds the run that wrote a delivery's claims there;
-// Install leaves it empty and InstallUnderPipelineRuns writes it.
+// Install leaves it empty and InstallUnderPipelineRuns writes it. The statement
+// reads that run's retain window drops from pipeline_execution_details, which
+// both leave empty.
 var JetsapiTables = []string{"source_config", "input_registry", "source_period", "file_key_staging",
-	"pipeline_execution_status"}
+	"pipeline_execution_status", "pipeline_execution_details"}
 
 // RunProcessName is the process_name of the pipeline runs
 // InstallUnderPipelineRuns writes.

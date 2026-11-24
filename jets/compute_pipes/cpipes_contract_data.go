@@ -682,6 +682,7 @@ var CpipesContract = map[string]map[string]ContractField{
 		"is_debug":                {},
 		"max_error_count":         {},
 		"on_error":                {Values: []string{"pass_through", "drop", "fail"}},
+		"retain_window":           {},
 	},
 	"MergeFileSpec/*": {
 		"comment":                     {},
@@ -942,6 +943,11 @@ var CpipesContract = map[string]map[string]ContractField{
 		"s3_copy_file_config": {Required: true},
 		"type":                {Required: true},
 		"when":                {},
+	},
+	"RetainWindowSpec/*": {
+		"column":                {Required: true},
+		"days_after_file_date":  {},
+		"days_before_file_date": {Required: true},
 	},
 	"S3CopyFileSpec/*": {
 		"comment":          {},

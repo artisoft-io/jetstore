@@ -28,6 +28,8 @@ type MapRecordTransformationPipe struct {
 	// span tracks the dates of map_record_config.calculate_span_of; nil when
 	// the step names no span column.
 	span *spanTracker
+	// window is map_record_config.retain_window; nil when the step names none.
+	window *retainWindow
 }
 
 // Implementing interface PipeTransformationEvaluator
@@ -114,8 +116,13 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]any) error {
 		}
 	}
 
+	// The span observes the record as delivered, then the retain window
+	// decides whether it goes on.
 	if ctx.span != nil {
 		ctx.span.observe(*currentValues)
+	}
+	if ctx.window != nil && !ctx.window.decide(*currentValues) {
+		return nil
 	}
 
 	var outBytes []byte
@@ -143,6 +150,9 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]any) error {
 func (ctx *MapRecordTransformationPipe) Done() error {
 	if ctx.span != nil && ctx.builderContext != nil && ctx.builderContext.chResults != nil {
 		ctx.builderContext.chResults.InputSpan.merge(ctx.span)
+	}
+	if ctx.window != nil && ctx.builderContext != nil && ctx.builderContext.chResults != nil {
+		ctx.builderContext.chResults.RetainWindow.merge(ctx.window)
 	}
 	return nil
 }
@@ -286,9 +296,16 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 		}
 		span = &spanTracker{column: config.CalculateSpanOf, pos: pos}
 	}
+	var window *retainWindow
+	if config != nil && config.RetainWindow != nil {
+		if window, err = newRetainWindow(config.RetainWindow, outputCh, ctx.env); err != nil {
+			return nil, err
+		}
+	}
 	currentSourcePeriod, sourcePeriodType := GetCurrentSourcePeriod(ctx.env)
 	return &MapRecordTransformationPipe{
 		span:                span,
+		window:              window,
 		source:              source,
 		outputCh:            outputCh,
 		columnEvaluators:    columnEvaluators,

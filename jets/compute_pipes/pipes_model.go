@@ -758,6 +758,23 @@ type MapRecordSpec struct {
 	// over the records it maps are the run's input span, shown on Pipeline
 	// Status (input_span.go).
 	CalculateSpanOf string `json:"calculate_span_of,omitempty"`
+	// RetainWindow keeps only the records whose date column falls within a
+	// window around the file's date, $DATE_FILE_KEY, and drops the rest,
+	// counting them by reason (retain_window.go).
+	RetainWindow *RetainWindowSpec `json:"retain_window,omitzero"`
+}
+
+// RetainWindowSpec is a map_record step's retain window. Column is an output
+// column, by its canonical name. A record is kept when its column carries a
+// date from the file date less DaysBeforeFileDate to the file date plus
+// DaysAfterFileDate, both inclusive; DaysAfterFileDate defaults to 0. Each day
+// count is an int or a string with env var substitution, e.g.
+// "${RETAIN_WINDOW_DAYS}", and must be a non-negative integer once
+// substituted.
+type RetainWindowSpec struct {
+	Column             string `json:"column"`
+	DaysBeforeFileDate any    `json:"days_before_file_date"`
+	DaysAfterFileDate  any    `json:"days_after_file_date,omitzero"`
 }
 
 // AnalyzeSpec configuration

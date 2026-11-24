@@ -38,8 +38,10 @@ session. What each status means is in
 | Session ID | the run's own session: every row it writes carries it |
 | Input Session | the session of the main input the run read |
 | Request ID | the request the input was registered under, when it came with one |
-| Input Count | the records read from the run's main input, counted at its first step (`reducing00`); filled in when the run ends |
+| Input Count | the records read from the run's main input, counted at its first step (`reducing00`), before the mapping step's retain window drops any; filled in when the run ends |
+| Dropped Count | the records the pipeline's mapping step dropped because they fell outside its `retain_window`, a window of days around the file's date, or had no date in the window's column (see [the operators](/docs/developer/compute-pipes/operators/)); filled in when the run ends, 0 when the window dropped nothing, and empty when the pipeline has no window |
 | Input Span | the days from the earliest to the latest date in one column of the mapped records, the column the pipeline's mapping step names in `calculate_span_of` (see [the operators](/docs/developer/compute-pipes/operators/)); filled in when the run ends, and empty when the pipeline names no such column or no record had a date in it |
+| Core Span | the days covered by the middle 98% of those dates, from the 1st percentile to the 99th: a feed that sends a few records far older than the rest has a long Input Span and a short Core Span. Like Input Span it is measured on the records as delivered, before the retain window drops any, so together they show how much more history a feed sent than the run kept; filled in when the run ends, and empty when Input Span is |
 | User | who started the run |
 | Duration | from the run's start to its last update; for a run still going, so far |
 | Loaded At | when the run's row was last updated; the tab sorts on it |

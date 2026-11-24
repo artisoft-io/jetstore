@@ -29,11 +29,32 @@ reference.
 
 | Type | What it does |
 |---|---|
-| [`map_record`](/docs/developer/reference/generated/pipeline-configuration/#transformationspecmaprecord) | Maps each input record onto the output channel's columns through its column transformations, optionally driven by a file-mapping table (`pipe_transformation_map_record.go`). With `map_record_config.calculate_span_of` naming an output column by its canonical name, such as a date of service, it also records the run's *input span*: the days from the earliest to the latest date it mapped into that column, over every node, shown on the Home screen's Pipelines Status tab (`input_span.go`). A step naming a column its output channel does not have is refused when the pipeline is built. |
+| [`map_record`](/docs/developer/reference/generated/pipeline-configuration/#transformationspecmaprecord) | Maps each input record onto the output channel's columns through its column transformations, optionally driven by a file-mapping table (`pipe_transformation_map_record.go`). With `map_record_config.calculate_span_of` naming an output column by its canonical name, such as a date of service, it also records the run's *input span*: the days from the earliest to the latest date it mapped into that column, over every node, shown on the Home screen's Pipelines Status tab (`input_span.go`). It also records the dates' *core span*, from the nearest-rank 1st percentile date to the 99th, shown beside it. With `map_record_config.retain_window`, `{"column": …, "days_before_file_date": n, "days_after_file_date": m}`, it keeps only the records whose column is dated from the file date (`$DATE_FILE_KEY`, from the file key) less *n* days to the file date plus *m* days, bounds included, and drops the rest: those with no date in the column, those before the window and those after it, counted by reason on each node and shown as the run's *Dropped Count* (`retain_window.go`). Each day count is an integer or a string taking env vars, such as `"${RETAIN_WINDOW_DAYS}"`; `days_after_file_date` defaults to 0. The spans are measured before the window decides, on the records as delivered. A step naming a span or window column its output channel does not have is refused when the pipeline is built, as is a window whose day count is not a non-negative integer once substituted, or a run with no `$DATE_FILE_KEY`. |
 | [`filter`](/docs/developer/reference/generated/pipeline-configuration/#transformationspecfilter) | Keeps the records for which its `filter_config.when` expression is true, drops rows without the input channel's number of columns when `row_length_strict` is set, and caps the records kept at `max_output_records` (`pipe_transformation_filter.go`). |
 | [`distinct`](/docs/developer/reference/generated/pipeline-configuration/#transformationspecdistinct) | Keeps one record per value of a composite key (`pipe_transformation_distinct.go`). |
 | [`sort`](/docs/developer/reference/generated/pipeline-configuration/#transformationspecsort) | Sorts the input records in memory on a composite key or a domain key, and sends them on in that order (`pipe_transformation_sort.go`). |
 | [`aggregate`](/docs/developer/reference/generated/pipeline-configuration/#transformationspecaggregate) | Reduces all its input records to one output record, with aggregate column functions such as `sum`, `count` and `max` (`pipe_transformation_aggregate.go`). |
+
+#### A retain window per feed
+
+The window's length is a pipeline parameter like any other, so one pipeline can default it and a feed can
+override it, with no mechanism of the window's own. The pipeline configuration names an env var for the
+day count and defaults it with a `context` entry of type `default_value`:
+
+```json
+"context": [{"type": "default_value", "key": "${RETAIN_WINDOW_DAYS}", "expr": "180"}],
+...
+"map_record_config": {"retain_window": {"column": "service_date", "days_before_file_date": "${RETAIN_WINDOW_DAYS}"}}
+```
+
+A feed that needs another length sets the same key in the `env` of its source configuration's
+`schema_provider_json`, for example `{"env": {"${RETAIN_WINDOW_DAYS}": "270"}}`. When a run starts, that
+env is merged into the main input's env, and the context entries are applied after it; `default_value`
+fills a key only when it is still unset, so the feed's value wins and every other feed gets the default
+(see [context and buckets](/docs/developer/compute-pipes/notes/context-and-buckets/)). A feed declared
+cumulative is the usual case: each delivery restates its history and the run reads the latest delivery
+only, so it needs a longer window than an incremental feed. The value is read when the pipeline is
+built, so a feed's override that is not a non-negative integer stops the run at its start.
 
 ### Bundle records
 
