@@ -9874,6 +9874,18 @@
           "default": null,
           "description": "What to do with a record whose column transformation failed. Range: pass_through (default, the record is sent to the output), drop, fail. fail_on_error is the legacy spelling of on_error: fail, honoured when on_error is not set. Engine default: pass_through (builder).",
           "title": "On Error"
+        },
+        "retain_window": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RetainWindowSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Keep only the records whose date column falls within a window around the file date ($DATE_FILE_KEY), and drop the rest, counted by reason on Pipeline Status."
         }
       },
       "title": "MapRecordSpec",
@@ -13563,6 +13575,51 @@
         "type"
       ],
       "title": "ReportCmdSpec",
+      "type": "object"
+    },
+    "RetainWindowSpec": {
+      "additionalProperties": false,
+      "description": "A map_record step's retain window: an output column and the days before and after the file date between which a record is kept.",
+      "properties": {
+        "column": {
+          "description": "Output column, by its canonical name, whose date decides whether a record is kept.",
+          "title": "Column",
+          "type": "string"
+        },
+        "days_after_file_date": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Days after the file date the window ends, inclusive; an int or a string with env var substitution, a non-negative integer once substituted. Engine default: 0 (builder).",
+          "title": "Days After File Date"
+        },
+        "days_before_file_date": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "description": "Days before the file date the window starts, inclusive; an int or a string with env var substitution, a non-negative integer once substituted.",
+          "title": "Days Before File Date"
+        }
+      },
+      "required": [
+        "column",
+        "days_before_file_date"
+      ],
+      "title": "RetainWindowSpec",
       "type": "object"
     },
     "S3CopyFileSpec": {

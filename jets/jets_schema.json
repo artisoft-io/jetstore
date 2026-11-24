@@ -1506,6 +1506,16 @@
         "columnName": "input_span_days",
         "description": "Days from the earliest to the latest value of the column a map_record step names in map_record_config.calculate_span_of, over the records that step mapped on every node. Written when the run ends; NULL when no step of the run names a span column or no mapped record carried a date in it.",
         "dataType": "int"
+      },
+      {
+        "columnName": "input_core_span_days",
+        "description": "Days from the nearest-rank 1st percentile to the 99th percentile date of the span column, over the records with a date that the run's map_record step mapped on every node, as delivered, before any retain window. Merged from the nodes' input_span_day_counts when the run ends; NULL when input_span_days is.",
+        "dataType": "int"
+      },
+      {
+        "columnName": "dropped_records_count",
+        "description": "The records the run's map_record retain window dropped: the sum, over the nodes not in progress, of dropped_no_date_count, dropped_before_window_count and dropped_after_window_count. Written when the run ends; NULL when no step of the run names a retain window, 0 when the window dropped nothing.",
+        "dataType": "long"
       }
     ],
     "indexes": [
@@ -1742,6 +1752,41 @@
         "columnName": "input_span_max",
         "description": "The latest date this node's map_record step mapped into input_span_column; NULL when none.",
         "dataType": "date"
+      },
+      {
+        "columnName": "input_span_day_counts",
+        "description": "How many dates this node's map_record step mapped into input_span_column on each day, as a JSON object from YYYY-MM-DD to a count; the run's input_core_span_days is read from it. NULL when none.",
+        "dataType": "jsonb"
+      },
+      {
+        "columnName": "retain_window_column",
+        "description": "The column this node's map_record step named in map_record_config.retain_window; NULL when none did.",
+        "dataType": "text"
+      },
+      {
+        "columnName": "retain_window_days_before",
+        "description": "The retain window's days before the file date, $DATE_FILE_KEY, once its env vars were substituted; NULL when no window.",
+        "dataType": "int"
+      },
+      {
+        "columnName": "retain_window_days_after",
+        "description": "The retain window's days after the file date, once its env vars were substituted; NULL when no window.",
+        "dataType": "int"
+      },
+      {
+        "columnName": "dropped_no_date_count",
+        "description": "The records this node's retain window dropped because retain_window_column carried no date; NULL when no window.",
+        "dataType": "int"
+      },
+      {
+        "columnName": "dropped_before_window_count",
+        "description": "The records this node's retain window dropped as dated before the window; NULL when no window.",
+        "dataType": "int"
+      },
+      {
+        "columnName": "dropped_after_window_count",
+        "description": "The records this node's retain window dropped as dated after the window; NULL when no window.",
+        "dataType": "int"
       },
       {
         "columnName": "user_email",
@@ -2713,6 +2758,16 @@
         "columnName": "input_span_days",
         "description": "As pipeline_execution_status.input_span_days.",
         "dataType": "int"
+      },
+      {
+        "columnName": "input_core_span_days",
+        "description": "As pipeline_execution_status.input_core_span_days.",
+        "dataType": "int"
+      },
+      {
+        "columnName": "dropped_records_count",
+        "description": "As pipeline_execution_status.dropped_records_count.",
+        "dataType": "long"
       },
       {
         "columnName": "archived_at",

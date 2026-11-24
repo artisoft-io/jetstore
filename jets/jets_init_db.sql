@@ -213,7 +213,7 @@ SELECT
   merged_input_registry_keys, client, process_name, main_object_type, input_session_id, request_id,
   session_id, source_period_key, status, failure_details, user_email, start_time, last_update,
   failure_class, failure_source, workspace_name, workspace_version,
-  main_input_records_count, input_span_days,
+  main_input_records_count, input_span_days, input_core_span_days, dropped_records_count,
   NULL::timestamp AS archived_at, NULL::text AS archive_reason
 FROM jetsapi.pipeline_execution_status
 UNION ALL
@@ -222,7 +222,7 @@ SELECT
   merged_input_registry_keys, client, process_name, main_object_type, input_session_id, request_id,
   session_id, source_period_key, status, failure_details, user_email, start_time, last_update,
   failure_class, failure_source, workspace_name, workspace_version,
-  main_input_records_count, input_span_days,
+  main_input_records_count, input_span_days, input_core_span_days, dropped_records_count,
   archived_at, archive_reason
 FROM jetsapi.pipeline_execution_status_archive
 ;

@@ -119,6 +119,10 @@ type ChannelResults struct {
 	// InputSpan is the node's input span, from the map_record steps that name
 	// a span column (input_span.go). Nil where no node context made one.
 	InputSpan *InputSpan
+	// RetainWindow is the node's retain window and the records it dropped,
+	// from the map_record steps that name one (retain_window.go). Nil where no
+	// node context made one.
+	RetainWindow *RetainWindowDrops
 }
 
 type SaveResultsContext struct {

@@ -771,6 +771,13 @@ class MapExpression(_Base):
     rdf_type: str | None = Field(default=None, description="Type conversion applied to the output value.")
 
 
+class RetainWindowSpec(_Base):
+    """A map_record step's retain window: an output column and the days before and after the file date between which a record is kept."""
+    column: str = Field(description="Output column, by its canonical name, whose date decides whether a record is kept.")
+    days_after_file_date: int | str | None = Field(default=None, description="Days after the file date the window ends, inclusive; an int or a string with env var substitution, a non-negative integer once substituted. Engine default: 0 (builder).")
+    days_before_file_date: int | str = Field(description="Days before the file date the window starts, inclusive; an int or a string with env var substitution, a non-negative integer once substituted.")
+
+
 class MapRecordSpec(_Base):
     """Optional configuration for map_record operator: log trace info, read column mapping from db table."""
     calculate_span_of: str | None = Field(default=None, description="Output column, by its canonical name, whose dates give the run's input span on Pipeline Status: the days from the earliest to the latest value over the records the step maps.")
@@ -781,6 +788,7 @@ class MapRecordSpec(_Base):
     is_debug: bool | None = Field(default=None, description="Log trace info.")
     max_error_count: int | None = Field(default=None, description="Cap on the errors reported to the log and the error channel. Errors are logged even when no error_channel is configured. Engine default: 20 (builder).")
     on_error: Literal["pass_through", "drop", "fail"] | None = Field(default=None, description="What to do with a record whose column transformation failed. Range: pass_through (default, the record is sent to the output), drop, fail. fail_on_error is the legacy spelling of on_error: fail, honoured when on_error is not set. Engine default: pass_through (builder).")
+    retain_window: RetainWindowSpec | None = Field(default=None, description="Keep only the records whose date column falls within a window around the file date ($DATE_FILE_KEY), and drop the rest, counted by reason on Pipeline Status.")
 
 
 class MergeFileSpec(_Base):

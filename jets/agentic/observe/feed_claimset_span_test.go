@@ -163,7 +163,9 @@ func TestClaimSetStatementCountsRowsOutsideTheSpan(t *testing.T) {
 	if _, err = pool.Exec(ctx, `CREATE SCHEMA jetsapi;
 		CREATE TABLE jetsapi.input_registry (key serial PRIMARY KEY, session_id text, source_type text);
 		CREATE TABLE jetsapi.pipeline_execution_status (key int PRIMARY KEY, main_input_registry_key int,
-		  input_session_id text, session_id text NOT NULL, status text NOT NULL);
+		  input_session_id text, session_id text NOT NULL, status text NOT NULL, input_span_days int,
+		  input_core_span_days int);
+		`+claimSetDetailsDDL+`;
 		CREATE TABLE public.claims (session_id text NOT NULL, k text, d date, m text);
 		INSERT INTO public.claims SELECT 'S', 'k' || i, DATE '2026-03-31' - i, 'm' || i FROM generate_series(0, 9) i;
 		INSERT INTO public.claims VALUES ('S', 'k30', DATE '2026-03-01', 'm'), ('S', 'k31', DATE '2026-02-28', 'm'),
@@ -223,5 +225,104 @@ func TestClaimSetStatementCountsRowsOutsideTheSpan(t *testing.T) {
 	outside, _ = cols[11].(int64)
 	if dated != 13 || outside != 2 || *spanDays != 300 {
 		t.Errorf("the rendered statement: span %d, %d dated, %d outside", *spanDays, dated, outside)
+	}
+}
+
+// claimSetDetailsDDL is the part of pipeline_execution_details the claim-set
+// statement reads.
+const claimSetDetailsDDL = `CREATE TABLE jetsapi.pipeline_execution_details (pipeline_execution_status_key int,
+	  status text, retain_window_column text, retain_window_days_before int, retain_window_days_after int,
+	  dropped_no_date_count int, dropped_before_window_count int, dropped_after_window_count int)`
+
+// The statement reads the drops and the spans of the run that read the
+// delivery: the run whose session holds the claims, over its nodes not in
+// progress; or, when no session holds a claim, the run that recorded a window.
+// A run with no window reads no drops.
+func TestClaimSetStatementReadsTheRunsDrops(t *testing.T) {
+	dsn := os.Getenv("JETS_TEST_DSN")
+	if dsn == "" {
+		t.Skip("JETS_TEST_DSN not set; needs a throwaway Postgres")
+	}
+	ctx := context.Background()
+	const database = "observe_claimset_drops_test"
+	admin, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	name := pgx.Identifier{database}.Sanitize()
+	if _, err = admin.Exec(ctx, "DROP DATABASE IF EXISTS "+name+" WITH (FORCE)"); err == nil {
+		_, err = admin.Exec(ctx, "CREATE DATABASE "+name)
+	}
+	admin.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, _ := url.Parse(dsn)
+	u.Path = "/" + database
+	pool, err := pgxpool.New(ctx, u.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	// R1 is read by two runs: P1 failed and wrote nothing, P2 wrote the claims
+	// and dropped records on two nodes (a third, in progress, is not read). R2
+	// was read by P3, whose window dropped every record, and by P4, with no
+	// window and no rows. R3 was read by P5, with no window.
+	if _, err = pool.Exec(ctx, `CREATE SCHEMA jetsapi;
+		CREATE TABLE jetsapi.input_registry (key serial PRIMARY KEY, session_id text, source_type text);
+		CREATE TABLE jetsapi.pipeline_execution_status (key int PRIMARY KEY, main_input_registry_key int,
+		  input_session_id text, session_id text NOT NULL, status text NOT NULL, input_span_days int,
+		  input_core_span_days int);
+		`+claimSetDetailsDDL+`;
+		CREATE TABLE public.claims (session_id text NOT NULL, k text, d date, m text);
+		INSERT INTO public.claims VALUES ('P2', 'a', DATE '2026-03-30', 'm'), ('P2', 'b', DATE '2026-03-01', 'm'),
+		  ('P5', 'c', DATE '2026-03-30', 'm');
+		INSERT INTO jetsapi.pipeline_execution_status VALUES
+		  (1, NULL, 'R1', 'P1', 'failed', NULL, NULL),
+		  (2, NULL, 'R1', 'P2', 'completed', 900, 40),
+		  (3, NULL, 'R2', 'P3', 'completed', 600, 600),
+		  (4, NULL, 'R2', 'P4', 'completed', NULL, NULL),
+		  (5, NULL, 'R3', 'P5', 'completed', 10, 3);
+		INSERT INTO jetsapi.pipeline_execution_details VALUES
+		  (2, 'completed', 'dos', 60, 2, 1, 10, 0),
+		  (2, 'completed', 'dos', 60, 2, 2, 20, 3),
+		  (2, 'in progress', 'dos', 60, 2, 100, 100, 100),
+		  (3, 'completed', 'dos', 60, 0, 0, 7, 0),
+		  (4, 'completed', NULL, NULL, NULL, NULL, NULL, NULL),
+		  (5, 'completed', NULL, NULL, NULL, NULL, NULL, NULL)`); err != nil {
+		t.Fatal(err)
+	}
+	cs := &feedprofile.ClaimSet{Table: "claims", KeyColumns: []string{"k"}, ServiceDateColumn: "d", MemberColumn: "m"}
+	stmt := ClaimSetStatement(pgx.Identifier{"public", "claims"}, cs, nil)
+	arrival := time.Date(2026, 4, 2, 0, 0, 0, 0, time.UTC)
+	span := 30
+	read := func(session string) *ClaimSetAggregates {
+		t.Helper()
+		a, err := claimSetAggregate(ctx, pool, stmt, claimSetDelivery{session: session, ordinal: 1, arrival: &arrival},
+			nil, nil, 11, &span)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return a
+	}
+	a := read("R1")
+	want := ClaimSetDropped{Column: "dos", DaysBefore: 60, DaysAfter: 2, NoDate: 3, BeforeWindow: 30, AfterWindow: 3}
+	if a.Rows != 2 || a.Run == nil || *a.Run != "P2" || a.Dropped == nil || *a.Dropped != want ||
+		a.InputSpanDays == nil || *a.InputSpanDays != 900 || a.CoreSpanDays == nil || *a.CoreSpanDays != 40 {
+		t.Errorf("R1: %d rows, run %v, dropped %+v, spans %v %v", a.Rows, deref(a.Run), a.Dropped,
+			a.InputSpanDays, a.CoreSpanDays)
+	}
+	a = read("R2")
+	want = ClaimSetDropped{Column: "dos", DaysBefore: 60, BeforeWindow: 7}
+	if a.Rows != 0 || a.Run == nil || *a.Run != "P3" || a.Dropped == nil || *a.Dropped != want {
+		t.Errorf("R2: %d rows, run %v, dropped %+v", a.Rows, deref(a.Run), a.Dropped)
+	}
+	a = read("R3")
+	if a.Rows != 1 || a.Run == nil || *a.Run != "P5" || a.Dropped != nil || *a.InputSpanDays != 10 {
+		t.Errorf("R3: %d rows, run %v, dropped %+v", a.Rows, deref(a.Run), a.Dropped)
+	}
+	a = read("R9")
+	if a.Rows != 0 || a.Run != nil || a.Dropped != nil || a.InputSpanDays != nil {
+		t.Errorf("R9, read by no run: %d rows, run %v, dropped %+v", a.Rows, deref(a.Run), a.Dropped)
 	}
 }

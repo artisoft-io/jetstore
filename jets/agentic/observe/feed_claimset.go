@@ -71,6 +71,44 @@ package observe
 //     hash of a key set is computed or stored;
 //   - whether the newest date of service advanced is a boolean.
 //
+// # Records a retain window dropped
+//
+// A mapping pipeline may drop records before they reach the domain table: a
+// map_record step's retain window keeps only the records dated within a window
+// around the file's date, and counts the rest by reason on the run's
+// pipeline_execution_details rows (no date, before the window, after it). The
+// records it drops are the ones the stale-claim and span checks exist to see,
+// so those two checks also read the dropped counts of the run that read the
+// delivery: the run whose session holds the delivery's claims, or else, as
+// when the window dropped every record, the run that read the registration and
+// recorded a window, completed runs first and the earliest first. The counts
+// come with the window's days before and after the file date, and the checks
+// count the drops only where the window is no wider than the profile's
+// declaration:
+//
+//   - service_date_stale: records dropped as before the window are stale when
+//     max_service_date_lag_days is at most the window's days before the file
+//     date. The check judges the newest date of service, so the drops change
+//     its verdict only when no record with a date of service reached the table,
+//     some were dropped as before the window, and none after it: every dated
+//     record of the delivery was older than the window, and the check fires
+//     where it would otherwise have read nothing;
+//   - service_date_span: records dropped as before or after the window are
+//     outside the span when max_service_date_span_days is at most the window's
+//     days before plus its days after. They are counted with the rows outside
+//     the span, and with the rows with a date of service, in its share.
+//
+// Both rules take the file date and the arrival to be close, and the
+// delivery's newest date of service to fall in the window; the detail names
+// the window and the drops so a reader can check. The span check's detail and
+// basis also quote the run's Input Span and Core Span, which are measured
+// before the window drops anything.
+//
+// A run with no retain window reads no drops, and its verdicts are the ones the
+// two checks reached before; so the detectors keep their generation. A new
+// generation would derive a second identifier for every finding already
+// written, on every feed, for a change no feed without a window can see.
+//
 // # Names from a profile
 //
 // A profile's table and column names are free text that anyone who can edit a
@@ -229,6 +267,40 @@ type ClaimSetAggregates struct {
 	// (see the file comment). Nil when no session holds a row.
 	ClaimSession            *string
 	PredecessorClaimSession *string
+	// Run is the session of the pipeline run whose drops and spans were read
+	// (see the file comment); nil when no run read the delivery.
+	Run *string
+	// InputSpanDays and CoreSpanDays are that run's Input Span and Core Span,
+	// measured on the records as delivered; nil when it recorded none.
+	InputSpanDays, CoreSpanDays *int64
+	// Dropped are the records that run's retain window dropped; nil when it
+	// had no window.
+	Dropped *ClaimSetDropped
+}
+
+// ClaimSetDropped are the records a run's map_record retain window dropped
+// before they reached the domain table, summed over its nodes, and the window
+// they were dropped from.
+type ClaimSetDropped struct {
+	Column                            string // the window's column, an output column of the mapping
+	DaysBefore, DaysAfter             int64  // the window, in days either side of the file date
+	NoDate, BeforeWindow, AfterWindow int64
+}
+
+// Total is every record the window dropped; 0 for no window.
+func (d *ClaimSetDropped) Total() int64 {
+	if d == nil {
+		return 0
+	}
+	return d.NoDate + d.BeforeWindow + d.AfterWindow
+}
+
+// describe says what the window of run dropped, for a verdict's detail.
+func (d *ClaimSetDropped) describe(run string) string {
+	return fmt.Sprintf("the run that read it, session %s, dropped %d records with its retain window on %s, from %d "+
+		"days before the file date to %d days after: %d with no date, %d before the window and %d after it",
+		run, d.Total(), pgx.Identifier{d.Column}.Sanitize(), d.DaysBefore, d.DaysAfter, d.NoDate, d.BeforeWindow,
+		d.AfterWindow)
 }
 
 // ClaimSetVerdict is one detector on one delivery.
@@ -504,7 +576,10 @@ func claimSetQuoteList(names []string) string {
 //
 // $1 and $2 are each resolved to the session holding its claims, the
 // registration's own or a pipeline run's that read it (claimSetSessionOf), and
-// the statement returns both resolved sessions after the aggregates.
+// the statement returns both resolved sessions after the aggregates. Then it
+// returns, for the run that read the delivery (claimSetRunOf), its session, its
+// input span and core span, and its retain window and drops, summed over its
+// nodes not in progress.
 //
 // Every name in it comes from the profile and is quoted by pgx.Identifier.
 // required are the required-field columns to count, in order.
@@ -541,7 +616,18 @@ func ClaimSetStatement(table pgx.Identifier, cs *feedprofile.ClaimSet, required 
          count(claimset_dos) AS n_dated,
          ARRAY[%[7]s]::bigint[] AS present
     FROM cur
-), p AS (SELECT count(*) AS n_rows, max(claimset_dos) AS newest FROM prev)
+), p AS (SELECT count(*) AS n_rows, max(claimset_dos) AS newest FROM prev
+), run AS (%[10]s
+), drops AS (
+  SELECT max(retain_window_column) AS col, max(retain_window_days_before)::bigint AS days_before,
+         max(retain_window_days_after)::bigint AS days_after,
+         coalesce(sum(dropped_no_date_count), 0)::bigint AS no_date,
+         coalesce(sum(dropped_before_window_count), 0)::bigint AS before_window,
+         coalesce(sum(dropped_after_window_count), 0)::bigint AS after_window
+    FROM jetsapi.pipeline_execution_details
+   WHERE pipeline_execution_status_key = (SELECT key FROM run) AND status != 'in progress'
+     AND retain_window_days_before IS NOT NULL
+)
 SELECT c.n_rows, c.n_members,
        (SELECT count(*) FROM cur_keys),
        p.n_rows,
@@ -559,10 +645,35 @@ SELECT c.n_rows, c.n_members,
        CASE WHEN p.n_rows = 0 THEN NULL ELSE c.newest > p.newest END,
        c.present,
        (SELECT s FROM cur_session),
-       (SELECT s FROM prev_session)
-  FROM c, p`, t, strings.Join(keys, ", "), dos, q(cs.MemberColumn),
+       (SELECT s FROM prev_session),
+       (SELECT session_id FROM run),
+       (SELECT input_span_days FROM run)::bigint,
+       (SELECT input_core_span_days FROM run)::bigint,
+       drops.col, drops.days_before, drops.days_after, drops.no_date, drops.before_window, drops.after_window
+  FROM c, p, drops`, t, strings.Join(keys, ", "), dos, q(cs.MemberColumn),
 		strings.Join(present, ""), keyList, strings.Join(presentCounts, ", "),
-		claimSetSessionOf(t, "$1"), claimSetSessionOf(t, "$2"))
+		claimSetSessionOf(t, "$1"), claimSetSessionOf(t, "$2"), claimSetRunOf("$1"))
+}
+
+// claimSetRunOf is the subquery that finds the pipeline run that read the
+// registration session param, for its drops and its spans: the run whose
+// session holds the delivery's claims (cur_session) first, then a run that
+// recorded a retain window, then completed runs, then the earliest. A run is
+// found by input_session_id or by its main input's registration, as in
+// claimSetSessionOf; it need not have written a row, since its window may have
+// dropped them all.
+func claimSetRunOf(param string) string {
+	return fmt.Sprintf(`
+  SELECT pe.key, pe.session_id, pe.input_span_days, pe.input_core_span_days
+    FROM jetsapi.pipeline_execution_status pe
+   WHERE %[1]s::text IN (pe.input_session_id,
+           (SELECT ir.session_id FROM jetsapi.input_registry ir
+             WHERE ir.key = pe.main_input_registry_key AND ir.source_type = '%[2]s'))
+   ORDER BY pe.session_id IS NOT DISTINCT FROM (SELECT s FROM cur_session) DESC,
+            EXISTS (SELECT 1 FROM jetsapi.pipeline_execution_details pd
+                     WHERE pd.pipeline_execution_status_key = pe.key AND pd.retain_window_days_before IS NOT NULL) DESC,
+            CASE WHEN pe.status = 'completed' THEN 1 ELSE 2 END, pe.key
+   LIMIT 1`, param, claimSetRegistrationSource)
 }
 
 // claimSetSessionOf is the subquery that resolves a registration's session,
@@ -599,12 +710,26 @@ func claimSetAggregate(ctx context.Context, db DB, stmt string, d claimSetDelive
 		arrival = &s
 	}
 	a := &ClaimSetAggregates{}
+	var col *string
+	var daysBefore, daysAfter *int64
+	var dropped ClaimSetDropped
 	err := db.QueryRow(ctx, stmt, d.session, prevSession, arrival, maxLag, minMembers, maxSpan).Scan(
 		&a.Rows, &a.Members, &a.DistinctKeys, &a.PredecessorRows, &a.PredecessorDistinctKeys, &a.SharedKeys,
 		&a.Lag, &a.LagInMonths, &a.LagExceeds, &a.SpanDays, &a.DatedRows, &a.OutOfSpanRows, &a.Advanced, &a.Present,
-		&a.ClaimSession, &a.PredecessorClaimSession)
+		&a.ClaimSession, &a.PredecessorClaimSession, &a.Run, &a.InputSpanDays, &a.CoreSpanDays,
+		&col, &daysBefore, &daysAfter, &dropped.NoDate, &dropped.BeforeWindow, &dropped.AfterWindow)
 	if err != nil {
 		return nil, fmt.Errorf("while aggregating session %s: %w", d.session, err)
+	}
+	if daysBefore != nil && a.Run != nil {
+		if col != nil {
+			dropped.Column = *col
+		}
+		dropped.DaysBefore = *daysBefore
+		if daysAfter != nil {
+			dropped.DaysAfter = *daysAfter
+		}
+		a.Dropped = &dropped
 	}
 	if arrival == nil {
 		a.Lag, a.LagExceeds = nil, nil
@@ -750,10 +875,16 @@ func claimSetJudge(v *ClaimSetVerdict, det string, f feedprofile.Feed, d claimSe
 			claimSetQuoteList(readable.absentRequired)))
 		return
 	}
-	if a.Rows == 0 {
+	readsDrops := det == ClaimSetServiceDateStale || det == ClaimSetServiceDateSpan
+	if a.Rows == 0 && !(readsDrops && a.Dropped.Total() > 0) {
+		dropNote := ""
+		if a.Dropped.Total() > 0 {
+			dropNote = "; " + a.Dropped.describe(*a.Run)
+		}
 		claimSetNotJudged(v, ClaimSetNoClaimRows, fmt.Sprintf(
 			"the claim-set table holds no row of session %s, nor of any pipeline run that read it, as when the "+
-				"pipeline skips the database load; not evaluable, which is not clean%s", d.session, claimSetReprocessedNote(d)))
+				"pipeline skips the database load; not evaluable, which is not clean%s%s", d.session, dropNote,
+			claimSetReprocessedNote(d)))
 		return
 	}
 	comparing := det == ClaimSetDeliveryOverlap || det == ClaimSetDeliveryUnchanged
@@ -822,11 +953,16 @@ func claimSetStale(v *ClaimSetVerdict, f feedprofile.Feed, d claimSetDelivery, a
 			"session %s is not a registration time, so the delivery has no arrival to measure a lag from", d.session))
 		return
 	}
+	max := *f.Profile.MaxServiceDateLagDays
+	stale, dropNote := claimSetStaleDrops(a, max)
 	if a.Lag == nil || a.LagExceeds == nil {
-		claimSetNotJudged(v, ClaimSetNoServiceDates, "no row of the delivery carries a date of service")
+		if stale > 0 && a.Dropped.AfterWindow == 0 {
+			claimSetStaleAllDropped(v, f, d, a, max, o)
+			return
+		}
+		claimSetNotJudged(v, ClaimSetNoServiceDates, "no row of the delivery carries a date of service"+dropNote)
 		return
 	}
-	max := *f.Profile.MaxServiceDateLagDays
 	unit := "days"
 	grain := "in days"
 	if a.LagInMonths {
@@ -835,7 +971,7 @@ func claimSetStale(v *ClaimSetVerdict, f feedprofile.Feed, d claimSetDelivery, a
 	}
 	observed := fmt.Sprintf("%d %s", *a.Lag, unit)
 	v.Detail = fmt.Sprintf("the newest date of service is %s behind the arrival, recorded %s; %s",
-		observed, grain, claimSetDeclaration(f.Profile, "max_service_date_lag_days", strconv.Itoa(max)))
+		observed, grain, claimSetDeclaration(f.Profile, "max_service_date_lag_days", strconv.Itoa(max))) + dropNote
 	if !*a.LagExceeds {
 		v.Verdict = ClaimSetSilent
 		return
@@ -850,7 +986,50 @@ func claimSetStale(v *ClaimSetVerdict, f feedprofile.Feed, d claimSetDelivery, a
 		"registration time; the lag is recorded %s and judged on the exact days inside the database, and it exceeds "+
 		"%s. Read over %d rows and %d distinct members of the declared claim set",
 		d.session, observed, grain, claimSetDeclaration(f.Profile, "max_service_date_lag_days", strconv.Itoa(max)),
-		a.Rows, a.Members)
+		a.Rows, a.Members) + dropNote
+	claimSetFire(v, an)
+}
+
+// claimSetStaleDrops is how many of the records the run's retain window
+// dropped count as stale, with a note for the detail ("" when the run had no
+// window): those dropped as before the window, when the declared lag is at
+// most the window's days before the file date.
+func claimSetStaleDrops(a *ClaimSetAggregates, maxLag int) (int64, string) {
+	if a.Dropped == nil {
+		return 0, ""
+	}
+	note := "; " + a.Dropped.describe(*a.Run)
+	switch {
+	case a.Dropped.BeforeWindow == 0:
+		return 0, note
+	case int64(maxLag) > a.Dropped.DaysBefore:
+		return 0, note + fmt.Sprintf("; those before it are not counted as stale, because "+
+			"max_service_date_lag_days %d reaches further back than the window", maxLag)
+	}
+	return a.Dropped.BeforeWindow, note + fmt.Sprintf("; the %d before it are stale, as max_service_date_lag_days %d "+
+		"is at most the window's %d days before the file date", a.Dropped.BeforeWindow, maxLag, a.Dropped.DaysBefore)
+}
+
+// claimSetStaleAllDropped fires on a delivery none of whose records with a
+// date of service reached the table, because the run's retain window dropped
+// them all as dated before it, which starts no later than the declared lag
+// allows: its newest date of service is older than the window.
+func claimSetStaleAllDropped(v *ClaimSetVerdict, f feedprofile.Feed, d claimSetDelivery, a *ClaimSetAggregates,
+	max int, o ClaimSetOptions) {
+	decl := claimSetDeclaration(f.Profile, "max_service_date_lag_days", strconv.Itoa(max))
+	dr := a.Dropped
+	v.Detail = fmt.Sprintf("no record with a date of service reached the claim-set table: %s; every record with a "+
+		"date of service is dated more than %d days before the file date, at least the %s",
+		dr.describe(*a.Run), dr.DaysBefore, decl)
+	an := claimSetAnomaly(ClaimSetServiceDateStale, f, d, "", o)
+	an.ObservedValue = fmt.Sprintf("more than %d days", dr.DaysBefore)
+	an.ExpectedMax = claimSetStrPtr(fmt.Sprintf("%d days", max))
+	an.ExpectedBasis = fmt.Sprintf("none of the %d records of delivery %s with a date of service reached the claim-set "+
+		"table: the run that read it, session %s, dropped them all as dated before its retain window on %s, which "+
+		"starts %d days before the file date. So the newest date of service is more than %d days behind the file "+
+		"date and, the delivery arriving on or after its file date, behind the arrival, which exceeds %s. The run "+
+		"also dropped %d records with no date", dr.BeforeWindow, d.session, *a.Run, pgx.Identifier{dr.Column}.Sanitize(),
+		dr.DaysBefore, dr.DaysBefore, decl, dr.NoDate)
 	claimSetFire(v, an)
 }
 
@@ -864,32 +1043,66 @@ func claimSetStale(v *ClaimSetVerdict, f feedprofile.Feed, d claimSetDelivery, a
 // the span in days against the declared span. Declared, the anomaly records
 // the share against the declared share, and its basis gives the span as well.
 func claimSetSpan(v *ClaimSetVerdict, f feedprofile.Feed, d claimSetDelivery, a *ClaimSetAggregates, o ClaimSetOptions) {
-	if a.SpanDays == nil || a.DatedRows == 0 {
-		claimSetNotJudged(v, ClaimSetNoServiceDates, "no row of the delivery carries a date of service")
-		return
-	}
 	max := *f.Profile.MaxServiceDateSpanDays
 	decl := claimSetDeclaration(f.Profile, "max_service_date_span_days", strconv.Itoa(max))
+	dropped, dropNote := claimSetSpanDrops(a, max)
+	runSpans := claimSetRunSpans(a)
+	maxShare := 0.0
+	if f.Profile.MaxOutOfSpanShare != nil {
+		maxShare = *f.Profile.MaxOutOfSpanShare
+	}
+	var declShare string
+	if f.Profile.MaxOutOfSpanShare != nil {
+		declShare = claimSetDeclaration(f.Profile, "max_out_of_span_share", strconv.FormatFloat(maxShare, 'f', -1, 64))
+	}
+	if a.SpanDays == nil || a.DatedRows == 0 {
+		if dropped == 0 {
+			claimSetNotJudged(v, ClaimSetNoServiceDates, "no row of the delivery carries a date of service"+dropNote+runSpans)
+			return
+		}
+		// Every record with a date that the window counted outside the span;
+		// the share outside is 1, which no declared share reaches.
+		v.Detail = fmt.Sprintf("no row with a date of service reached the claim-set table; %s%s%s", decl, dropNote, runSpans)
+		an := claimSetAnomaly(ClaimSetServiceDateSpan, f, d, "", o)
+		claimSetSpanDropsAnomaly(&an, f, d, a, dropped, dropped, maxShare, decl, declShare, runSpans)
+		claimSetFire(v, an)
+		return
+	}
 	var outside int64
 	if a.OutOfSpanRows != nil {
 		outside = *a.OutOfSpanRows
 	}
 	share := float64(outside) / float64(a.DatedRows)
-	maxShare := 0.0
-	if f.Profile.MaxOutOfSpanShare != nil {
-		maxShare = *f.Profile.MaxOutOfSpanShare
-	}
 	counts := fmt.Sprintf("%d of %d rows with a date of service (%.1f%%) are dated more than %d days before the "+
 		"newest", outside, a.DatedRows, 100*share, max)
-	v.Detail = fmt.Sprintf("the dates of service span %d days; %s; %s", *a.SpanDays, counts, decl)
-	if f.Profile.MaxOutOfSpanShare != nil {
-		v.Detail += "; " + claimSetDeclaration(f.Profile, "max_out_of_span_share", strconv.FormatFloat(maxShare, 'f', -1, 64))
+	dated := a.DatedRows + dropped
+	if dropped > 0 {
+		share = float64(outside+dropped) / float64(dated)
+		counts += fmt.Sprintf(", and with the %d records the retain window dropped outside it, %d of %d (%.1f%%) are "+
+			"outside the span", dropped, outside+dropped, dated, 100*share)
 	}
+	v.Detail = fmt.Sprintf("the dates of service span %d days; %s; %s", *a.SpanDays, counts, decl)
+	if declShare != "" {
+		v.Detail += "; " + declShare
+	}
+	v.Detail += dropNote + runSpans
 	if share <= maxShare {
 		v.Verdict = ClaimSetSilent
 		return
 	}
 	an := claimSetAnomaly(ClaimSetServiceDateSpan, f, d, "", o)
+	if f.Profile.MaxOutOfSpanShare == nil && *a.SpanDays <= int64(max) {
+		// Only records the window dropped are outside the span.
+		claimSetSpanDropsAnomaly(&an, f, d, a, dropped, dated, maxShare, decl, declShare, runSpans)
+		claimSetFire(v, an)
+		return
+	}
+	var droppedBasis string
+	if dropped > 0 {
+		droppedBasis = fmt.Sprintf(". The run that read it, session %s, also dropped %d records outside its retain "+
+			"window, from %d days before the file date to %d after; they never reached the claim-set table and are "+
+			"counted outside the span", *a.Run, dropped, a.Dropped.DaysBefore, a.Dropped.DaysAfter)
+	}
 	if f.Profile.MaxOutOfSpanShare == nil {
 		an.ObservedValue = fmt.Sprintf("%d days", *a.SpanDays)
 		an.ExpectedMax = claimSetStrPtr(fmt.Sprintf("%d days", max))
@@ -898,11 +1111,11 @@ func claimSetSpan(v *ClaimSetVerdict, f feedprofile.Feed, d claimSetDelivery, a 
 		}
 		an.ExpectedBasis = fmt.Sprintf("the dates of service of delivery %s span %d days, newest less oldest, which "+
 			"exceeds %s; the feed is incremental (source_config.is_cumulative), so one delivery should cover a "+
-			"short stretch of service. Read over %d rows of the declared claim set", d.session, *a.SpanDays, decl, a.Rows)
+			"short stretch of service. Read over %d rows of the declared claim set", d.session, *a.SpanDays, decl, a.Rows) +
+			droppedBasis + runSpans
 		claimSetFire(v, an)
 		return
 	}
-	declShare := claimSetDeclaration(f.Profile, "max_out_of_span_share", strconv.FormatFloat(maxShare, 'f', -1, 64))
 	an.ObservedValue = strconv.FormatFloat(share, 'f', 4, 64)
 	an.ExpectedMax = claimSetStrPtr(strconv.FormatFloat(maxShare, 'f', 4, 64))
 	if maxShare > 0 {
@@ -912,9 +1125,79 @@ func claimSetSpan(v *ClaimSetVerdict, f feedprofile.Feed, d claimSetDelivery, a 
 		"than %d days before its newest date of service, a share of %.4f, above %s. The dates of service span %d "+
 		"days, newest less oldest, against %s; the feed is incremental (source_config.is_cumulative), so one "+
 		"delivery should cover a short stretch of service, and the declared share lets a few rows outside it "+
-		"through. Read over %d rows of the declared claim set", outside, a.DatedRows, d.session, max, share,
-		declShare, *a.SpanDays, decl, a.Rows)
+		"through. Read over %d rows of the declared claim set", outside+dropped, dated, d.session, max, share,
+		declShare, *a.SpanDays, decl, a.Rows) + droppedBasis + runSpans
 	claimSetFire(v, an)
+}
+
+// claimSetSpanDrops is how many of the records the run's retain window
+// dropped count as outside the span, with a note for the detail ("" when the
+// run had no window): those dropped as before or after the window, when the
+// declared span is at most the window's width, its days before the file date
+// plus its days after.
+func claimSetSpanDrops(a *ClaimSetAggregates, maxSpan int) (int64, string) {
+	if a.Dropped == nil {
+		return 0, ""
+	}
+	dr := a.Dropped
+	note := "; " + dr.describe(*a.Run)
+	n := dr.BeforeWindow + dr.AfterWindow
+	width := dr.DaysBefore + dr.DaysAfter
+	switch {
+	case n == 0:
+		return 0, note
+	case int64(maxSpan) > width:
+		return 0, note + fmt.Sprintf("; those outside it are not counted outside the span, because "+
+			"max_service_date_span_days %d is wider than the window's %d days", maxSpan, width)
+	}
+	return n, note + fmt.Sprintf("; the %d outside it are outside the span, as max_service_date_span_days %d is at "+
+		"most the window's %d days", n, maxSpan, width)
+}
+
+// claimSetRunSpans quotes the Input Span and Core Span of the run that read
+// the delivery, or is "" when it recorded neither.
+func claimSetRunSpans(a *ClaimSetAggregates) string {
+	if a.Run == nil || (a.InputSpanDays == nil && a.CoreSpanDays == nil) {
+		return ""
+	}
+	var parts []string
+	if a.InputSpanDays != nil {
+		parts = append(parts, fmt.Sprintf("an Input Span of %d days", *a.InputSpanDays))
+	}
+	if a.CoreSpanDays != nil {
+		parts = append(parts, fmt.Sprintf("a Core Span of %d days, the 1st to the 99th percentile date", *a.CoreSpanDays))
+	}
+	return fmt.Sprintf(". The run that read it, session %s, recorded %s, over the records as delivered, before any "+
+		"retain window", *a.Run, strings.Join(parts, " and "))
+}
+
+// claimSetSpanDropsAnomaly is the span anomaly of a delivery whose only rows
+// outside the span are records the retain window dropped: outside of dated.
+// Without a declared share it records the count outside against none; with one,
+// the share against the share declared.
+func claimSetSpanDropsAnomaly(an *Anomaly, f feedprofile.Feed, d claimSetDelivery, a *ClaimSetAggregates,
+	outside, dated int64, maxShare float64, decl, declShare, runSpans string) {
+	dr := a.Dropped
+	share := float64(outside) / float64(dated)
+	basis := fmt.Sprintf("the run that read delivery %s, session %s, dropped %d records dated outside its retain "+
+		"window on %s, from %d days before the file date to %d after, %d before it and %d after it; they never "+
+		"reached the claim-set table. %d of the %d records with a date of service, read and dropped, a share of "+
+		"%.4f, are outside the span, against %s, which is at most the window's %d days; the feed is incremental "+
+		"(source_config.is_cumulative), so one delivery should cover a short stretch of service",
+		d.session, *a.Run, outside, pgx.Identifier{dr.Column}.Sanitize(), dr.DaysBefore, dr.DaysAfter,
+		dr.BeforeWindow, dr.AfterWindow, outside, dated, share, decl, dr.DaysBefore+dr.DaysAfter)
+	if f.Profile.MaxOutOfSpanShare == nil {
+		an.ObservedValue = fmt.Sprintf("%d records outside", outside)
+		an.ExpectedMax = claimSetStrPtr("0 records outside")
+	} else {
+		an.ObservedValue = strconv.FormatFloat(share, 'f', 4, 64)
+		an.ExpectedMax = claimSetStrPtr(strconv.FormatFloat(maxShare, 'f', 4, 64))
+		if maxShare > 0 {
+			an.DeviationMagnitude = claimSetFloatPtr((share - maxShare) / maxShare)
+		}
+		basis += ", above " + declShare
+	}
+	an.ExpectedBasis = basis + runSpans
 }
 
 func claimSetCompleteness(v *ClaimSetVerdict, f feedprofile.Feed, d claimSetDelivery, a *ClaimSetAggregates,
