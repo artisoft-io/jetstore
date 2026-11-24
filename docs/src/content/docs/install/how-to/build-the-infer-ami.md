@@ -9,7 +9,7 @@ sidebar:
 The Packer configuration is `tools/infer_ami_builder/infer-nvidia.pkr.hcl`; run the commands below
 from that folder.
 
-Create an Ubuntu-based AMI with NVIDIA drivers for a g5.xlarge instance using HashiCorp Packer,
+Create an Ubuntu-based AMI with NVIDIA drivers for the infer instance (by default a g6e.2xlarge) using HashiCorp Packer,
 using the Amazon EBS builder. The build must run on a GPU-enabled instance type such as
 g4dn.xlarge or g5.xlarge: the driver itself compiles against kernel headers and would not
 strictly need a GPU, but the build's verification step runs `nvidia-smi` on the host and inside a
@@ -85,7 +85,7 @@ An AMI is region-scoped, so `INFER_AMI_REGION` must match the region the JetStor
 into or the CDK `INFER_AMI_NAME` lookup will not find it.
 
 `INFER_AMI_BUILD_INSTANCE_TYPE` is the throwaway build instance and is **not** the runtime
-instance type — that is the CDK's `INFER_EC2_INSTANCE_TYPE` (default `g5.xlarge`). Both must be
+instance type — that is the CDK's `INFER_EC2_INSTANCE_TYPE` (default `g6e.2xlarge`). Both must be
 GPU-enabled; see the note at the top of this page.
 
 ### Build the AMI
@@ -132,7 +132,7 @@ Test your instant startup configuration using the cached layers without needing 
 docker run -d -p 11434:11434 -v ollama:/root/.ollama --name ollama-gpu ollama/ollama:latest
 ```
 
-Verify your container is leveraging the NVIDIA A10G hardware on your G5 host:
+Verify your container is using the host's NVIDIA GPU (an L40S on the default g6e.2xlarge):
 
 ```bash
 docker exec -it ollama-gpu nvidia-smi

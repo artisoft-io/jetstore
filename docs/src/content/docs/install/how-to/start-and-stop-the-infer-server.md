@@ -46,7 +46,7 @@ which cannot place a second task on the instance's one GPU: stop the server befo
 
 ## Stopping it completely
 
-Scaling the service to 0 stops the task but **leaves the `g5.xlarge` running**, which is where
+Scaling the service to 0 stops the task but **leaves the GPU instance running** (by default a `g6e.2xlarge`, `INFER_EC2_INSTANCE_TYPE`), which is where
 almost all of the cost is. The instance belongs to the `InferASG` auto-scaling group, not to the
 ECS service, so it has to be scaled down separately:
 
