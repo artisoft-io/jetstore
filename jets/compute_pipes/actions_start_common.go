@@ -2143,11 +2143,6 @@ func (cpss *CpipesStartup) validateOutputChConfig(outputChConfig *OutputChannelC
 	return nil
 }
 
-// Function to collect env settings from:
-//   - cpipes config context and main schema provider env;
-//   - file_key components, session_id, etc from args;
-//
-// Important for site specific configuration, in particular used in API gateway notification
 // schemaProviderSourceConfig is the sub-set of a main input schema provider
 // that a source_config row's schema_provider_json may set.
 type schemaProviderSourceConfig struct {
@@ -2197,6 +2192,11 @@ func mergeSourceConfigSchemaProvider(scJson string, sp *SchemaProviderSpec) erro
 	return nil
 }
 
+// Function to collect env settings from:
+//   - cpipes config context and main schema provider env;
+//   - file_key components, session_id, etc from args;
+//
+// Important for site specific configuration, in particular used in API gateway notification
 func prepareCpipesEnv(args *StartComputePipesArgs, cpipesStartup *CpipesStartup) (map[string]any, error) {
 
 	var fileKeyPath, fileKeyName string // Components extracted from File_Key based on is_part_file
