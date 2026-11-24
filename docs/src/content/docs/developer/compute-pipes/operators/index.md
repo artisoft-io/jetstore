@@ -35,6 +35,27 @@ reference.
 | [`sort`](/docs/developer/reference/generated/pipeline-configuration/#transformationspecsort) | Sorts the input records in memory on a composite key or a domain key, and sends them on in that order (`pipe_transformation_sort.go`). |
 | [`aggregate`](/docs/developer/reference/generated/pipeline-configuration/#transformationspecaggregate) | Reduces all its input records to one output record, with aggregate column functions such as `sum`, `count` and `max` (`pipe_transformation_aggregate.go`). |
 
+#### A retain window per feed
+
+The window's length is a pipeline parameter like any other, so one pipeline can default it and a feed can
+override it, with no mechanism of the window's own. The pipeline configuration names an env var for the
+day count and defaults it with a `context` entry of type `default_value`:
+
+```json
+"context": [{"type": "default_value", "key": "${RETAIN_WINDOW_DAYS}", "expr": "180"}],
+...
+"map_record_config": {"retain_window": {"column": "service_date", "days_before_file_date": "${RETAIN_WINDOW_DAYS}"}}
+```
+
+A feed that needs another length sets the same key in the `env` of its source configuration's
+`schema_provider_json`, for example `{"env": {"${RETAIN_WINDOW_DAYS}": "270"}}`. When a run starts, that
+env is merged into the main input's env, and the context entries are applied after it; `default_value`
+fills a key only when it is still unset, so the feed's value wins and every other feed gets the default
+(see [context and buckets](/docs/developer/compute-pipes/notes/context-and-buckets/)). A feed declared
+cumulative is the usual case: each delivery restates its history and the run reads the latest delivery
+only, so it needs a longer window than an incremental feed. The value is read when the pipeline is
+built, so a feed's override that is not a non-negative integer stops the run at its start.
+
 ### Bundle records
 
 | Type | What it does |

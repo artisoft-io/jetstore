@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 )
 
 func windowPipe(t *testing.T, config *MapRecordSpec, env map[string]any, results *ChannelResults) (*MapRecordTransformationPipe, error) {
@@ -216,5 +217,62 @@ func TestInputSpanDayCounts(t *testing.T) {
 	}
 	if (&InputSpan{}).DayCounts() != nil {
 		t.Error("a node with no span has day counts")
+	}
+}
+
+// One feed overrides the window a pipeline defaults, with no mechanism of the
+// window's own. The pipeline configuration gives the window's days as an env
+// var and defaults it with a context entry of type default_value; a feed's
+// source_config.schema_provider_json sets the same key in its env, which is
+// merged into the main input's env before the context entries run, and
+// default_value fills only a key still unset. Both arms through the run's own
+// code: the merge, prepareCpipesEnv, and the window's builder.
+func TestRetainWindowDefaultAndPerFeedOverride(t *testing.T) {
+	context := []ContextSpec{{Type: "default_value", Key: "${RETAIN_WINDOW_DAYS}", Expr: "180"}}
+	spec := &MapRecordSpec{RetainWindow: &RetainWindowSpec{Column: "dos", DaysBeforeFileDate: "${RETAIN_WINDOW_DAYS}"}}
+	for _, c := range []struct {
+		name         string
+		sourceConfig string // the feed's schema_provider_json, "" for none
+		want         int
+	}{
+		{"the pipeline's default", "", 180},
+		{"a feed with a schema provider that does not set it", `{"trim_columns": true}`, 180},
+		{"a feed that overrides it", `{"env": {"${RETAIN_WINDOW_DAYS}": "270"}}`, 270},
+	} {
+		// The run's start sets $DATE_FILE_KEY on the main input's env, then
+		// merges the feed's schema provider into it.
+		provider := map[string]any{"$DATE_FILE_KEY": "2024-08-02"}
+		if c.sourceConfig != "" {
+			sp := &SchemaProviderSpec{Env: provider}
+			if err := mergeSourceConfigSchemaProvider(c.sourceConfig, sp); err != nil {
+				t.Fatalf("%s: %v", c.name, err)
+			}
+			provider = sp.Env
+		}
+		env := envFor(t, provider, context)
+		pipe, err := windowPipe(t, spec, env, &ChannelResults{})
+		if err != nil {
+			t.Fatalf("%s: %v", c.name, err)
+		}
+		if pipe.window.daysBefore != c.want ||
+			!pipe.window.start.Equal(spanDay("2024-08-02").AddDate(0, 0, -c.want)) {
+			t.Errorf("%s: window %d days from %v, want %d days", c.name, pipe.window.daysBefore, pipe.window.start, c.want)
+		}
+	}
+}
+
+// The anchor reads $DATE_FILE_KEY as the run's start sets it, a YYYY-MM-DD
+// string, and as a date, which prepareCpipesEnv leaves when nothing set it.
+func TestRetainWindowAnchorReadsAStringOrADate(t *testing.T) {
+	for _, v := range []any{"2024-08-02", " 2024-08-02 ", time.Date(2024, 8, 2, 14, 0, 0, 0, time.UTC)} {
+		d, err := retainWindowAnchor(map[string]any{"$DATE_FILE_KEY": v})
+		if err != nil || !d.Equal(spanDay("2024-08-02")) {
+			t.Errorf("%#v: %v %v", v, d, err)
+		}
+	}
+	for _, v := range []any{nil, "", time.Time{}, 20240802} {
+		if _, err := retainWindowAnchor(map[string]any{"$DATE_FILE_KEY": v}); err == nil {
+			t.Errorf("%#v: accepted", v)
+		}
 	}
 }

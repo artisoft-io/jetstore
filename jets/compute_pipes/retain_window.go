@@ -118,14 +118,24 @@ func retainWindowDays(name string, value any, env map[string]any) (int, error) {
 	return n, nil
 }
 
-// retainWindowAnchor is the file's date, $DATE_FILE_KEY.
+// retainWindowAnchor is the file's date, $DATE_FILE_KEY: a YYYY-MM-DD string
+// as the run's start sets it, or a date when a caller leaves the file key's
+// date in place.
 func retainWindowAnchor(env map[string]any) (time.Time, error) {
-	raw, ok := env["$DATE_FILE_KEY"]
-	s, isString := raw.(string)
-	if !ok || !isString || strings.TrimSpace(s) == "" {
+	day := func(d time.Time) time.Time { return time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, time.UTC) }
+	raw := env["$DATE_FILE_KEY"]
+	var s string
+	switch v := raw.(type) {
+	case time.Time:
+		if !v.IsZero() {
+			return day(v), nil
+		}
+	case string:
+		s = strings.TrimSpace(v)
+	}
+	if s == "" {
 		return time.Time{}, fmt.Errorf("error: map_record_config retain_window is anchored on $DATE_FILE_KEY, which the run does not have (%v)", raw)
 	}
-	s = strings.TrimSpace(s)
 	if d, err := time.Parse(time.DateOnly, s); err == nil {
 		return d, nil
 	}
@@ -133,7 +143,7 @@ func retainWindowAnchor(env map[string]any) (time.Time, error) {
 	if err != nil || d == nil {
 		return time.Time{}, fmt.Errorf("error: map_record_config retain_window is anchored on $DATE_FILE_KEY, and '%s' is not a date", s)
 	}
-	return time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, time.UTC), nil
+	return day(*d), nil
 }
 
 // decide reads the window column of one mapped record and says whether to keep
