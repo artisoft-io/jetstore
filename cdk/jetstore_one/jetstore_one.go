@@ -766,9 +766,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // INFER_ECR_REPO_ARN (required when BUILD_INFER_SERVICE) ECR repo holding the infer image
 // INFER_IMAGE_TAG (required when BUILD_INFER_SERVICE) tag of the infer image
 // INFER_MEM_LIMIT_MB (optional) memory limit in MB for infer task, default 1024 * 51 = 51 GB (80% of g6e.2xlarge's 64 GiB)
-// INFER_DESIRED_COUNT (optional) desired task count for the infer service. Leave unset so a
-// deploy preserves the current scale; set to 0 on the first deploy of a new stack to avoid
-// starting a GPU instance right away
+// INFER_DESIRED_COUNT (optional) desired task count for the infer service. Leave unset: a
+// deploy then creates a new infer service stopped and leaves an existing one as it is
+// (stack.InferDesiredCount reads the deployed stack to tell which)
 // INFER_EC2_INSTANCE_TYPE (optional) EC2 instance type for infer task, default g6e.2xlarge
 // INFER_ROOT_VOLUME_GB (optional) size of the infer instance root volume in GB, default 50
 // OLLAMA_NUM_PARALLEL, OLLAMA_MAX_LOADED_MODELS, OLLAMA_KEEP_ALIVE, OLLAMA_CONTEXT_LENGTH

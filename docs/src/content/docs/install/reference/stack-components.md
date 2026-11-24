@@ -74,7 +74,8 @@ launch template, EBS volume, lifecycle hook) and `build_infer_service.go` (task 
 
 - **Deployment**: `BUILD_INFER_SERVICE` = TRUE/1. Then `INFER_ECR_REPO_ARN` and `INFER_IMAGE_TAG`
   are **required** — `log.Fatal` if absent. Tuning: `INFER_EC2_INSTANCE_TYPE` (default
-  `g6e.2xlarge`), `INFER_MEM_LIMIT_MB`, `INFER_ROOT_VOLUME_GB`, `INFER_DESIRED_COUNT`,
+  `g6e.2xlarge`), `INFER_MEM_LIMIT_MB`, `INFER_ROOT_VOLUME_GB`, `INFER_DESIRED_COUNT` (an override: by default a new service is created at
+  0 and an existing one keeps its scale),
   `INFER_AMI_NAME`/`_OWNER`/`_ROOT_DEVICE`, `JETS_INFER_PORT`, and the `OLLAMA_*` variables.
 - **IAM / SG**: `InstanceRole` on the instances, `LifecycleLambdaRole` on the hook Lambda,
   `InstanceSG` on the ASG. Private-with-egress subnets, pinned to `AvailabilityZones()[0]`.

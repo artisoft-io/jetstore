@@ -332,7 +332,9 @@ func (server *Server) checkDomainTablesVersion() error {
 	err := server.dbpool.QueryRow(context.Background(), stmt).Scan(&version)
 	switch {
 	case err != nil:
-		log.Println("JetStore version is not defined in jetstore_release table, rebuilding all tables and running workspace db init script")
+		// A new installation: the reset runs the base init (jets_init_db.sql, which
+		// seeds the roles) and the client scripts. See resetDomainTablesArgs.
+		log.Println("JetStore version is not defined in jetstore_release table, rebuilding all tables and running the base and workspace db init scripts")
 		_, _, err = server.ResetDomainTables(&PurgeDataAction{
 			Action:            "reset_domain_tables",
 			RunUiDbInitScript: true,
