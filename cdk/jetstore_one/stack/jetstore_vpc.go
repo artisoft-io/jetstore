@@ -10,7 +10,6 @@ import (
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/constructs-go/constructs/v10"
 	jsii "github.com/aws/jsii-runtime-go"
 )
@@ -161,46 +160,10 @@ func CreateJetStoreVPC(stack awscdk.Stack) awsec2.Vpc {
 	if descriptionTagName != nil {
 		awscdk.Tags_Of(vpc).Add(descriptionTagName, jsii.String("VPC for JetStore Platform"), nil)
 	}
-	// Add S3 Gateway Endpoint
-	s3Endpoint := vpc.AddGatewayEndpoint(jsii.String("s3Endpoint"), &awsec2.GatewayVpcEndpointOptions{
-		Service: awsec2.GatewayVpcEndpointAwsService_S3(),
-		Subnets: &[]*awsec2.SubnetSelection{
-			{
-				SubnetType: awsec2.SubnetType_PRIVATE_WITH_EGRESS,
-			}, {
-				SubnetType: awsec2.SubnetType_PRIVATE_ISOLATED,
-			}},
-	})
-	if phiTagName != nil {
-		awscdk.Tags_Of(s3Endpoint).Add(phiTagName, jsii.String("true"), nil)
-	}
-	if piiTagName != nil {
-		awscdk.Tags_Of(s3Endpoint).Add(piiTagName, jsii.String("true"), nil)
-	}
-	if descriptionTagName != nil {
-		awscdk.Tags_Of(s3Endpoint).Add(descriptionTagName, jsii.String("S3 Gateway Endpoint for JetStore Platform"), nil)
-	}
-	if os.Getenv("JETS_STACK_TAGS_JSON") != "" {
-		var tags map[string]string
-		err := json.Unmarshal([]byte(os.Getenv("JETS_STACK_TAGS_JSON")), &tags)
-		if err != nil {
-			log.Println("** Invalid JSON in JETS_STACK_TAGS_JSON:", err)
-			log.Panic("Terminated due to invalid JSON in JETS_STACK_TAGS_JSON")
-		}
-		for k, v := range tags {
-			awscdk.Tags_Of(s3Endpoint).Add(jsii.String(k), jsii.String(v), nil)
-		}
-	}
-	s3Endpoint.AddToPolicy(
-		awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-			Sid: jsii.String("bucketAccessPolicy"),
-			Principals: &[]awsiam.IPrincipal{
-				awsiam.NewAnyPrincipal(),
-			},
-			Actions:   jsii.Strings("s3:ListBucket", "s3:ListObjectsV2", "s3:GetObject", "s3:PutObject", "s3:GetObjectAttributes"),
-			Resources: jsii.Strings("*"),
-		}))
-
+	// The S3 gateway endpoint is S3GatewayEndpointv2, added by AddVpcEndpoints on every
+	// route table of the VPC. A second S3 gateway endpoint here would put a second route
+	// to the S3 prefix list on the private and isolated route tables, which EC2 refuses
+	// (AlreadyExists), so a new stack could not be created.
 	return vpc
 }
 
