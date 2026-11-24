@@ -36,7 +36,7 @@ var dropExisting = flag.Bool("drop", false, "drop existing domain table (ALL DOM
 var usingSshTunnel = flag.Bool("usingSshTunnel", false, "Connect  to DB using ssh tunnel (expecting the ssh open)")
 var clients = flag.String("clients", "", "list of clients to load config, alternate to -initWorkspaceDb")
 var migrateDb = flag.Bool("migrateDb", false, "migrate JetStore system table to latest version (default: false)")
-var initWorkspaceDb = flag.Bool("initWorkspaceDb", false, "initialize the jetsapi database with base and all client-specific scripts (default: false)")
+var initWorkspaceDb = flag.Bool("initWorkspaceDb", false, "initialize the jetsapi database with all client-specific scripts, not the base ones: pair it with -initBaseWorkspaceDb (default: false)")
 var initBaseWorkspaceDb = flag.Bool("initBaseWorkspaceDb", false, "initialize the jetsapi database, base init only (default: false)")
 var dsn, dsnJson, jetsDbInitPath, jetsDbInitScriptPath, awsRegion, awsDsnSecret string
 var dbPoolSize int = 5

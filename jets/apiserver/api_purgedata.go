@@ -193,13 +193,7 @@ func (server *Server) ResetDomainTables(purgeDataAction *PurgeDataAction) (*map[
 	// Clear and rebuild the domain table using the update_db command line
 	// Also migrate the system tables to latest schema
 	log.Println("Rebuild Domain Tables")
-	serverArgs := []string{"-drop", "-migrateDb"}
-	if purgeDataAction.RunUiDbInitScript {
-		serverArgs = append(serverArgs, "-initWorkspaceDb")
-	}
-	if *usingSshTunnel {
-		serverArgs = append(serverArgs, "-usingSshTunnel")
-	}
+	serverArgs := resetDomainTablesArgs(purgeDataAction.RunUiDbInitScript, *usingSshTunnel)
 	_, err = datatable.RunUpdateDb(purgeDataAction.getWorkspaceName(), &serverArgs)
 	if err != nil {
 		return nil, http.StatusInternalServerError, fmt.Errorf("while running updateDb: %v", err)
@@ -208,6 +202,29 @@ func (server *Server) ResetDomainTables(purgeDataAction *PurgeDataAction) (*map[
 		return nil, http.StatusInternalServerError, err
 	}
 	return &map[string]interface{}{}, http.StatusOK, nil
+}
+
+// resetDomainTablesArgs is the update_db command line of a reset.
+//
+// With the init scripts it runs the base init (-initBaseWorkspaceDb: JetStore's
+// jets_init_db.sql, then the workspace's base__workspace_init_db.sql) before the
+// client scripts (-initWorkspaceDb), which since 2024-10 skip the base file.
+// **The base init was missing, and a new installation had no roles**: on a
+// database with no jetstore_release row the apiserver's first start comes here
+// (checkDomainTablesVersion), records the release, and only the next release
+// would have applied jets_init_db.sql. So the roles, their capabilities, the
+// system user and the mapping functions were absent until then. update_db runs
+// the base init after the migration and before the client scripts, whatever the
+// order of the flags.
+func resetDomainTablesArgs(runInitScripts, usingSshTunnel bool) []string {
+	args := []string{"-drop", "-migrateDb"}
+	if runInitScripts {
+		args = append(args, "-initBaseWorkspaceDb", "-initWorkspaceDb")
+	}
+	if usingSshTunnel {
+		args = append(args, "-usingSshTunnel")
+	}
+	return args
 }
 
 // resetSessionTables clears the session tables of a reset, in one transaction:

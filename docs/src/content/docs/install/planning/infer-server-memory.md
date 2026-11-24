@@ -134,9 +134,10 @@ second request, not the first; see below.
 
 ## A deploy keeps the service's scale
 
-The infer service's `DesiredCount` is left out of the template unless `INFER_DESIRED_COUNT` is set
-(`InferDesiredCount`, `stack_model.go`). CloudFormation then leaves the count alone on an update, so a
-running service stays running, with its model still loaded, and a stopped one stays stopped.
+The infer service's `DesiredCount` is left out of the template once the stack holds the service, and
+is 0 when the service is new, unless `INFER_DESIRED_COUNT` is set (`InferDesiredCount`,
+`infer_desired_count.go`). CloudFormation then leaves the count alone on an update, so a running
+service stays running, with its model still loaded, and a stopped one stays stopped.
 
 ## Diagnosing memory problems
 

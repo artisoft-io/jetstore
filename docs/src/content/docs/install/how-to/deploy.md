@@ -59,12 +59,16 @@ built.
 
 ## First deploy of a new stack
 
-Three defaults are tuned for updating an existing stack and are wrong exactly once.
+Two defaults are tuned for updating an existing stack and are wrong exactly once.
 
-**Set `INFER_DESIRED_COUNT=0`** if `BUILD_INFER_SERVICE` is on. Leaving it unset omits `DesiredCount`
-from the template, which is what makes later deploys preserve whatever scale the service is at. But
-with the property absent, ECS defaults a *brand new* service to 1 — so a GPU instance launches as
-soon as the stack comes up. On an existing stack, leave it unset (`InferDesiredCount`, `cdk/jetstore_one/stack/stack_model.go`).
+**The infer service needs nothing set.** A deploy never starts or stops it: synth reads the deployed
+stack, creates a new infer service stopped (`DesiredCount` 0) and leaves an existing one out of the
+template, so it keeps whatever scale it is at (`InferDesiredCount`, `cdk/jetstore_one/stack/infer_desired_count.go`).
+Start it once the deploy completes ([Start and stop the inference server](/docs/install/how-to/start-and-stop-the-infer-server/)).
+Until 4.1.19 a new stack needed `INFER_DESIRED_COUNT=0`: without it the service was created at 1,
+its task could not be placed because the auto scaling group stays at 0 for an EC2 launch-type
+service, and the deploy waited on it until the count was set to 0 by hand. `INFER_DESIRED_COUNT`
+still overrides the choice.
 
 **The database and the stack are both protected from deletion on creation**:
 `TerminationProtection` on the stack and `DeletionProtection` on the Aurora cluster. A first deploy
@@ -75,7 +79,10 @@ creates a bucket with `RemovalPolicy_DESTROY` and `AutoDeleteObjects`; with it s
 imported and never destroyed. Switching later does not migrate data.
 
 After the first deploy, seed the database and the workspace through the UI or `update_db`; the stack
-creates the cluster but no JetStore schema.
+creates the cluster but no JetStore schema. The apiserver's first start on the empty database runs
+JetStore's base init, `jets_init_db.sql`, which seeds the roles, then the workspace's scripts. Before
+4.1.19 it ran only the workspace's scripts, so a new installation had no roles until the next
+release; compiling the workspace applies the base init and repairs it.
 
 ## Check the deployment
 

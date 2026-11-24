@@ -67,13 +67,13 @@ func (jsComp *JetStoreStackComponents) BuildInferService(scope constructs.Constr
 
 	jsComp.EcsInferService = awsecs.NewEc2Service(stack, jsii.String("jetstore-infer-service"), &awsecs.Ec2ServiceProps{
 		Cluster:        jsComp.EcsCluster,
-		ServiceName:    jsii.String("jetstore-infer-service"),
+		ServiceName:    jsii.String(InferServiceName),
 		TaskDefinition: jsComp.InferTaskDefinition,
 		VpcSubnets:     jsComp.PrivateSubnetSelection,
 		AssignPublicIp: jsii.Bool(false),
-		// Deliberately nil unless INFER_DESIRED_COUNT is set, so that deploying the stack
-		// leaves the service at whatever scale it is already running. See InferDesiredCount.
-		DesiredCount: jsComp.InferDesiredCount(),
+		// 0 when the service is new, left out when the stack already holds it, so that a
+		// deploy neither starts nor stops the infer server. See InferDesiredCount.
+		DesiredCount: InferDesiredCount(stack),
 		SecurityGroups: &[]awsec2.ISecurityGroup{
 			jsComp.VpcEndpointsSg,
 			// jsComp.RdsAccessSg,
