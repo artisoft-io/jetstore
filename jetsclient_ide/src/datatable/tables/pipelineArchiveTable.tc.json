@@ -106,10 +106,24 @@
       "isNumeric": true
     },
     {
+      "name": "dropped_records_count",
+      "table": "pipeline_execution_status_archive",
+      "label": "Dropped Count",
+      "tooltip": "Records the mapping step's retain window dropped, outside its window around the file date or with no date in its column, written when the run ends; empty when no step names a window",
+      "isNumeric": true
+    },
+    {
       "name": "input_span_days",
       "table": "pipeline_execution_status_archive",
       "label": "Input Span",
       "tooltip": "Days from the earliest to the latest date in the column a mapping step names in calculate_span_of, written when the run ends; empty when no step names one",
+      "isNumeric": true
+    },
+    {
+      "name": "input_core_span_days",
+      "table": "pipeline_execution_status_archive",
+      "label": "Core Span",
+      "tooltip": "Days covered by the middle 98% of the dates in the span column (nearest-rank 1st to 99th percentile), measured before any retain window drops a record, written when the run ends; empty when no step names a span column",
       "isNumeric": true
     },
     {

@@ -80,7 +80,7 @@ var statusColumns = []string{
 	"merged_input_registry_keys", "client", "process_name", "main_object_type", "input_session_id", "request_id",
 	"session_id", "source_period_key", "status", "failure_details", "user_email", "start_time", "last_update",
 	"failure_class", "failure_source", "workspace_name", "workspace_version",
-	"main_input_records_count", "input_span_days",
+	"main_input_records_count", "input_span_days", "input_core_span_days", "dropped_records_count",
 }
 
 var archiveStmt = func() string {

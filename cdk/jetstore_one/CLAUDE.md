@@ -202,7 +202,7 @@ graph: neither constructs a `BuilderContext`, so neither has anywhere to put a s
   surrounding Go, which is American and uses `jsii.String`/`jsii.Strings`/`jsii.Number` for every
   scalar.
 - Comments here carry **measured** facts with dates — the Ollama tuning block in
-  `build_infer_service.go` and `InferDesiredCount`/`InferMemLimitMB` in `stack_model.go` are the model.
+  `build_infer_service.go`, `InferDesiredCount` in `infer_desired_count.go` and `InferMemLimitMB` in `stack_model.go` are the model.
   When a value is a trade-off someone paid to discover, say what was measured and when, not what was
   reasoned.
 - PHI/PII/description tagging is opt-in per resource via `phiTagName`/`piiTagName`/`descriptionTagName`,

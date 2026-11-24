@@ -366,26 +366,64 @@ SELECT '1764583200402', 'CI', 'domain_table', sp.month_period, 'user', 'admin@lo
   FROM jetsapi.source_period sp WHERE sp.key = 102;
 
 -- ---------------------------------------------------------------------------
--- The run summary Pipelines Status shows, Input Count and Input Span. The Map
--- runs' mapping step names a span column, so their reducing00 node records the
--- earliest and latest date it mapped; then, for every run that ended, the
--- statement the status update runs (jets/datatable/run_input_summary.go).
+-- The run summary Pipelines Status shows: Input Count, Dropped Count, Input
+-- Span and Core Span. The Map runs' mapping step names a span column, so their
+-- reducing00 node records the earliest and latest date it mapped and how many
+-- dates fell on each day: one stray date at each end, and the bulk 30 days in
+-- from the earliest and 5 days in from the latest. The first two also name a
+-- retain window; the first one's dropped 13 records, the second's none. Then,
+-- for every run that ended, what the status update computes
+-- (jets/datatable/run_input_summary.go), here for every run at once.
 UPDATE jetsapi.pipeline_execution_details ped
    SET input_span_column = 'hc:coverage_start_date',
        input_span_min = date '2025-10-01' + (ped.pipeline_execution_status_key - 101) * 14,
        input_span_max = date '2026-01-01' - (ped.pipeline_execution_status_key - 101) * 3
  WHERE ped.pipeline_execution_status_key BETWEEN 101 AND 103 AND ped.cpipes_step_id = 'reducing00';
 
+UPDATE jetsapi.pipeline_execution_details ped
+   SET input_span_day_counts = jsonb_build_object(
+         to_char(input_span_min, 'YYYY-MM-DD'), 1,
+         to_char(input_span_min + 30, 'YYYY-MM-DD'), 100,
+         to_char(input_span_max - 5, 'YYYY-MM-DD'), 100,
+         to_char(input_span_max, 'YYYY-MM-DD'), 1)
+ WHERE ped.pipeline_execution_status_key BETWEEN 101 AND 103 AND ped.cpipes_step_id = 'reducing00';
+
+UPDATE jetsapi.pipeline_execution_details ped
+   SET retain_window_column = 'hc:coverage_start_date', retain_window_days_before = 60, retain_window_days_after = 0,
+       dropped_no_date_count = CASE ped.pipeline_execution_status_key WHEN 101 THEN 1 ELSE 0 END,
+       dropped_before_window_count = CASE ped.pipeline_execution_status_key WHEN 101 THEN 12 ELSE 0 END,
+       dropped_after_window_count = 0
+ WHERE ped.pipeline_execution_status_key IN (101, 102) AND ped.cpipes_step_id = 'reducing00';
+
 UPDATE jetsapi.pipeline_execution_status pe
-   SET main_input_records_count = d.n, input_span_days = d.span
+   SET main_input_records_count = d.n, input_span_days = d.span, dropped_records_count = d.dropped,
+       input_core_span_days = c.span
   FROM (
     SELECT pipeline_execution_status_key AS k,
            sum(input_records_count) FILTER (WHERE cpipes_step_id = 'reducing00')::bigint AS n,
-           (max(input_span_max) - min(input_span_min))::int AS span
+           (max(input_span_max) - min(input_span_min))::int AS span,
+           sum(coalesce(dropped_no_date_count, 0) + coalesce(dropped_before_window_count, 0)
+               + coalesce(dropped_after_window_count, 0))
+             FILTER (WHERE retain_window_days_before IS NOT NULL)::bigint AS dropped
       FROM jetsapi.pipeline_execution_details
      WHERE status != 'in progress'
      GROUP BY pipeline_execution_status_key
   ) d
+  LEFT JOIN (
+    SELECT k, (min(day) FILTER (WHERE c >= ceil(0.99 * total))
+               - min(day) FILTER (WHERE c >= ceil(0.01 * total)))::int AS span
+      FROM (
+        SELECT k, day, sum(n) OVER (PARTITION BY k ORDER BY day) AS c, sum(n) OVER (PARTITION BY k) AS total
+          FROM (
+            SELECT pd.pipeline_execution_status_key AS k, e.key::date AS day, sum(e.value::bigint) AS n
+              FROM jetsapi.pipeline_execution_details pd
+             CROSS JOIN LATERAL jsonb_each_text(pd.input_span_day_counts) e
+             WHERE pd.status != 'in progress'
+             GROUP BY 1, 2
+          ) days
+      ) running
+     GROUP BY k
+  ) c ON c.k = d.k
  WHERE pe.key = d.k AND pe.status NOT IN ('pending', 'submitted');
 
 -- ---------------------------------------------------------------------------

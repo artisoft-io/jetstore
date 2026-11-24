@@ -22,28 +22,31 @@ aws ecs update-service --cluster "$CLUSTER" \
   --service jetstore-infer-service --desired-count 1   # or 0 to stop
 ```
 
-**A stack deploy leaves this count alone.** `DesiredCount` is deliberately omitted from the
-CloudFormation template (see `InferDesiredCount` in `stack/stack_model.go`), because
-CloudFormation only manages the property when it is present. Running stays running, stopped
-stays stopped.
+**A stack deploy never starts or stops the service.** On a stack that already holds it,
+`DesiredCount` is left out of the CloudFormation template, because CloudFormation manages the
+property only when it is present: running stays running, stopped stays stopped. A new service is
+created at 0. Synth tells the two apart by reading the deployed stack (`InferDesiredCount` in
+`stack/infer_desired_count.go`); if it cannot read the stack it creates or sets the service at 0,
+and says so in the synth log. `INFER_DESIRED_COUNT` overrides it.
 
 It was previously pinned to `0`, which meant every stack update — including updates that had
 nothing to do with the infer service — reset the count and stopped a running task mid-use. The
 symptom is a 503 from the load balancer with no corresponding error anywhere in the infer logs,
 because the task was stopped deliberately rather than having failed.
 
-The one case that still needs an explicit value is the **first** deploy of a new stack: with the
-property absent, ECS defaults a brand new service to 1 and a GPU instance starts as soon as the
-stack comes up. Set `INFER_DESIRED_COUNT=0` for that initial deploy, then leave it unset.
+Left out on a **new** service, the property made ECS create it at 1. That did not launch a GPU
+instance, as this page used to say: the service uses the EC2 launch type rather than the capacity
+provider, so managed scaling never scales the auto scaling group up for it. The task could not be
+placed and the deploy waited on the service until its count was set to 0 by hand (seen on a new
+stack, 2026-11-24). Fixed in 4.1.19 by creating a new service at 0.
 
-> **Not yet verified.** The `INFER_DESIRED_COUNT=0` path has only been reasoned through, not
-> exercised — it can only be tested on a brand new stack, since ECS applies the "default a new
-> service to 1" behaviour at create time only. The preservation behaviour on *update* is
-> verified (see below). Confirm this the next time a new environment is stood up.
+**To run a new task definition, stop the server and start it again after the deploy.** A deploy
+that changes the task definition of a *running* service still asks ECS for a rolling replacement,
+which cannot place a second task on the instance's one GPU: stop the server before such a deploy.
 
 ## Stopping it completely
 
-Scaling the service to 0 stops the task but **leaves the `g5.xlarge` running**, which is where
+Scaling the service to 0 stops the task but **leaves the GPU instance running** (by default a `g6e.2xlarge`, `INFER_EC2_INSTANCE_TYPE`), which is where
 almost all of the cost is. The instance belongs to the `InferASG` auto-scaling group, not to the
 ECS service, so it has to be scaled down separately:
 
