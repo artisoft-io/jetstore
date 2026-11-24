@@ -63,6 +63,24 @@ Declaring `max_out_of_span_share` lets that share of rows through; the anomaly t
 of rows outside the span against the declared share, and its basis gives the span and the counts as
 well.
 
+**Records a retain window dropped still count.** A mapping step with a `retain_window` keeps only the
+records dated within a window around the file's date and counts the rest, by reason, on the run that
+read the delivery (see [the operators](/docs/developer/compute-pipes/operators/)). Those are the
+records these two checks exist to see, so both read the counts:
+
+- *Stale service dates* counts the records dropped as before the window as stale when
+  `max_service_date_lag_days` is at most the window's days before the file date. It changes the
+  verdict only when every dated record of the delivery was dropped as older than the window: the
+  check then fires where it would otherwise have had nothing to judge.
+- *Wide service-date span* counts the records dropped before or after the window as outside the span
+  when `max_service_date_span_days` is at most the window's width, with the rows outside the span and
+  with the rows carrying a date of service in its share.
+
+Both take the file date to be close to the arrival, and the anomaly's detail names the window and
+the drops so a reader can check. The span check's detail and basis also quote the run's *Input Span*
+and *Core Span* (see [Home](/docs/user/screens/home/)), which are measured before the window drops
+anything. A pipeline with no retain window drops nothing, and both checks judge as before.
+
 Whether a feed is **incremental** or **cumulative** is the source configuration's **Is each delivery
 cumulative?** setting, not part of the profile. It decides which half of *claims delivered again*
 applies, and *wide service-date span* does not judge a cumulative feed, whose deliveries are meant to
