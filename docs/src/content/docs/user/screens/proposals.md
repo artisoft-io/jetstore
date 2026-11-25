@@ -26,7 +26,7 @@ ones), or **All proposals**. **Refresh** reads the list again. The most recently
 |---|---|
 | **Proposal** | The proposal's id, linked to its page. **clinical** marks a proposal whose impact touches clinical relevance. |
 | **State** | Where the proposal is in its lifecycle; *terminal* when no further decision is possible. |
-| **Trigger** | What prompted it, such as an authoring run. |
+| **Trigger** | What prompted it. For a proposal an agent's run produced, the kind of run, such as *authoring_run*; the run itself is named on the proposal's page. For a proposal drafted from an incident, *incident* and the incident's id, linked to its page on the [Incidents](/docs/user/screens/incidents/) screen. |
 | **Tests** | How many tests the agent generated with it. A proposal with none is shown in a warning colour. |
 | **Pipelines** | How many pipelines it affects. |
 | **Last decision** | When it was last decided on, or *never*. |
@@ -47,11 +47,11 @@ A proposal no agent's run produced can also be **rejected** while it is a draft;
 | Section | What it shows |
 |---|---|
 | **The bar** | **← Proposals**, the current state, and one button per decision the state allows. A terminal proposal shows *No further decision* instead. |
-| **Facts** | The **trigger** and the run that produced the proposal, the **model version**, the **generated tests**, the **affected pipelines** and the **affected assets**. |
+| **Facts** | The **trigger** and what it names: the run that produced the proposal, or, for a proposal drafted from an incident, the incident, linked to its page. Then the **model version**, the **generated tests**, the **affected pipelines** and the **affected assets**. |
 | **What the run produced** | The agent's output: the change and its reasons, line by line as written. A run whose output is a JSON document shows it indented, one member per line. |
 | **Decision** | A **rationale**, optional, recorded with the decision you take. The decision is recorded under your account, and the autonomy tier is read from the agent's run rather than chosen here. |
 | **Decisions so far** | Every decision on the proposal: when, who, the tier, from which state to which, and why. The agent's own steps are listed as well as people's. |
-| **Run transcript** | The audit record of the agent's run, below. |
+| **Run transcript** | The audit record of the agent's run, below. A proposal drafted from an incident has no run, and the page says so instead. |
 
 **Recording a decision**: write the rationale if you have one, then press the decision's button. The
 screen confirms it, with the new state, your account, the tier and the decision's number in the run's
@@ -92,8 +92,9 @@ row** look so. One restated delivery does not draft it, nor do restatements spre
 feed's history, nor a stretch the feed has since left. A feed already declared cumulative is never
 proposed.
 
-**What it says.** In the list its trigger is **incident**. On its page, **What the run produced**
-holds the proposal's text:
+**What it says.** In the list its trigger is **incident**, followed by the incident's id, linked to
+the incident's page. On its page, the facts show the same, and **What it proposes** holds the
+proposal's text:
 
 - the change proposed, naming the feed, its client, org and object type;
 - the evidence, delivery by delivery: the overlap share or *unchanged*, the session, and the incident
@@ -124,8 +125,8 @@ Three things differ from a proposal an agent's run produced, all because no run 
   account, the time, the states and your rationale, and the proposal's state moves with it. No event
   is added to a hash-chained run transcript, so the confirmation reports *audit seq 0*. The
   decisions are durable and attributed to you; they are not tamper-evident.
-- **There is no run transcript.** The **Run transcript** section is empty, and the facts show the
-  incident's id where a run's would be.
+- **There is no run transcript.** In place of the **Run transcript** section the page says that no
+  agent run produced the proposal, and names the incident it was drafted from, linked to its page.
 
 **Approving it does not apply it.** Approval records your decision. Declaring the feed cumulative is
 still done on the source configuration, by a person. The incident on the

@@ -395,6 +395,81 @@ describe("the transcript", () => {
   });
 });
 
+// A proposal an incident prompted has trigger "incident" and the incident's id
+// as its triggerRef (`audit.TriggerIncident`). It was shown as "run <incident
+// id>" with an empty run transcript, as though a run's record were missing.
+describe("the trigger", () => {
+  const incidentId = "inc_42_delivery_departs_profile";
+  const incidentRow = {
+    ...draftRow,
+    proposalId: "chg_2",
+    trigger: "incident",
+    triggerRef: incidentId,
+    transitions: ["rejected", "superseded", "validated"],
+  };
+  const incidentView = {
+    ...awaitingView,
+    proposal: {
+      ...awaitingView.proposal,
+      proposalId: "chg_2",
+      trigger: "incident",
+      triggerRef: incidentId,
+      rationale: "Declare the feed cumulative.",
+      approvalState: "draft",
+    },
+    transitions: ["rejected", "superseded", "validated"],
+  };
+
+  it("names an incident in the list and links to its page", async () => {
+    const { api } = await clientWith({
+      list_proposals: { body: { proposals: [draftRow, incidentRow] } },
+    });
+    const { container } = renderAt(api, "/proposals");
+    const link = await screen.findByRole("link", { name: incidentId });
+    expect(link.getAttribute("href")).toBe(`/incidents/${incidentId}`);
+    // A run trigger keeps its display: the trigger alone, no run link.
+    const runRow = screen.getByRole("link", { name: "chg_1" }).closest("tr")!;
+    expect(runRow.querySelectorAll("td")[1]!.textContent).toBe("authoring_run");
+    expect(container.querySelectorAll('a[href^="/incidents/"]').length).toBe(1);
+  });
+
+  it("shows an incident trigger as an incident and asks for no run transcript", async () => {
+    const { api, sent } = await clientWith({ get_proposal: { body: incidentView } });
+    const { container } = renderAt(api, "/proposals/chg_2");
+    await screen.findByText("chg_2");
+    const facts = container.querySelector(".proposal-facts")!;
+    expect(facts.textContent).toContain(`incident · incident ${incidentId}`);
+    expect(facts.textContent).not.toContain("run ");
+    const links = [...container.querySelectorAll(`a[href="/incidents/${incidentId}"]`)];
+    expect(links.length).toBeGreaterThan(0);
+    // The request that used to come back empty is not sent at all.
+    expect(sent.some((r) => r["action"] === "read_transcript")).toBe(false);
+    // No empty run transcript is offered, and the screen says why.
+    expect(screen.queryByRole("heading", { name: "Run transcript" })).toBeNull();
+    expect(screen.queryByText(/No audit record for run/)).toBeNull();
+    await screen.findByText(/No agent run produced this proposal, so it has no run transcript/);
+    expect(screen.queryByLabelText("What the run produced")).toBeNull();
+    expect((await screen.findByLabelText("What it proposes")).textContent).toBe(
+      "Declare the feed cumulative.",
+    );
+    // What may be decided still comes from the server.
+    expect(await screen.findByRole("button", { name: "Rejected" })).toBeTruthy();
+  });
+
+  it("keeps a run trigger's run and transcript", async () => {
+    const { api, sent } = await clientWith({
+      get_proposal: { body: awaitingView },
+      read_transcript: { body: soundTranscript },
+    });
+    const { container } = renderAt(api, "/proposals/chg_1");
+    await screen.findByText(/Chain verified/);
+    expect(container.querySelector(".proposal-facts")!.textContent).toContain("authoring_run · run run_1");
+    expect(sent.find((r) => r["action"] === "read_transcript")?.["runId"]).toBe("run_1");
+    expect(screen.getByRole("heading", { name: "Run transcript" })).toBeTruthy();
+    expect(container.querySelector('a[href^="/incidents/"]')).toBeNull();
+  });
+});
+
 describe("stateLabel", () => {
   it("renders the vocabulary rather than translating it", () => {
     expect(stateLabel("approved_with_modification")).toBe("Approved with modification");
