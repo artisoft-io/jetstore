@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/agentic/audit"
 	"github.com/artisoft-io/jetstore/jets/sessionpurge/purgetest"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -133,15 +134,22 @@ func TestStatusColumnsAgree(t *testing.T) {
 // another session is untouched.
 func TestExecuteDeletesEverywhere(t *testing.T) {
 	pool := purgetest.DB(t, testDB)
+	// The agentic tables, for jetsapi.run_finding, the one of them keyed by
+	// session_id and deleted with the session.
+	if err := audit.InstallSchema(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
 	keys := purgetest.Seed(t, pool, purgetest.Session{ID: "s1", Client: "c1", Registered: true,
 		LastUpdate: days(200), DomainTables: []string{"DomainA", "Domain B"}, Runs: []string{"completed", "failed"}})
 	purgetest.Seed(t, pool, purgetest.Session{ID: "s2", Client: "c1", Registered: true, DomainTables: []string{"DomainA"}})
 	seedCpipes(t, pool, "s1", keys[0])
 	seedCpipes(t, pool, "s2", 0)
+	seedRunFindings(t, pool, "s1")
+	seedRunFindings(t, pool, "s2")
 	before := purgetest.SessionRows(t, pool, "s1")
 	for _, table := range []string{"public.DomainA", "public.Domain B", "jetsapi.input_registry", "jetsapi.input_loader_status",
 		"jetsapi.session_registry", "jetsapi.pipeline_execution_status", "jetsapi.pipeline_coordinator_map",
-		"jetsapi.cpipes_execution_status", "jetsapi.cpipes_execution_status_details"} {
+		"jetsapi.cpipes_execution_status", "jetsapi.cpipes_execution_status_details", "jetsapi.run_finding"} {
 		if before[table] == 0 {
 			t.Fatalf("seed wrote no %s row for s1: %v", table, before)
 		}
@@ -194,6 +202,17 @@ func TestExecuteDeletesEverywhere(t *testing.T) {
 	if d := deletion(t, pool, "s1"); d == nil || d.Status != StatusDone || !d.Completed || d.Error != nil {
 		t.Errorf("deletion row %+v, want done with completed_at and no error", d)
 	}
+}
+
+// seedRunFindings writes three of the verdicts shadow triage stores for a run:
+// a locus with no code, the per-record locus as a whole, and one code there.
+func seedRunFindings(t *testing.T, pool *pgxpool.Pool, id string) {
+	t.Helper()
+	purgetest.Exec(t, pool, `INSERT INTO jetsapi.run_finding
+		(session_id, locus, error_code, verdict, stored_rows, classifier_ref, classified_at) VALUES
+		($1, 'worker_failed', '', 'present', NULL, 'triage@1', now()),
+		($1, 'per_record_failures_reported', '', 'present', NULL, 'triage@1', now()),
+		($1, 'per_record_failures_reported', 'map_record: error mapping column', 'present', 3, 'triage@1', now())`, id)
 }
 
 // seedCpipes writes the two cpipes run tables' rows of a session: one

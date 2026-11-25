@@ -177,7 +177,7 @@ var Severities = []string{SeverityInfo, SeverityLow, SeverityMedium, SeverityHig
 // DataClassifiedProperties, not with the first caller to want it.
 const ModelVersion = "0.1.0"
 
-// Targets is which of the four tables this wiring writes and reads exist in a
+// Targets is which of the five tables this wiring writes and reads exist in a
 // database.
 //
 // **It is separate from triage.Extent on purpose.** That type answers *what can
@@ -196,6 +196,9 @@ type Targets struct {
 	// reported *zero remediations* against a database where the table does not
 	// exist would be reporting the migration rather than the posture.
 	Remediation bool
+	// RunFinding is where the writer stores each run locus's verdict, which a
+	// run condition is read from. The writer needs it; the attestation does not.
+	RunFinding bool
 }
 
 // Ready reports whether the three tables the writer needs are present.
@@ -212,6 +215,7 @@ func (t *Targets) Missing() []string {
 		{"jetsapi.hypothesis", t.Hypothesis},
 		{"jetsapi.incident_event", t.IncidentEvent},
 		{"jetsapi.remediation", t.Remediation},
+		{"jetsapi.run_finding", t.RunFinding},
 	} {
 		if !p.have {
 			out = append(out, p.name)
@@ -224,9 +228,10 @@ const targetsSQL = `SELECT
   to_regclass('jetsapi.incident') IS NOT NULL,
   to_regclass('jetsapi.hypothesis') IS NOT NULL,
   to_regclass('jetsapi.incident_event') IS NOT NULL,
-  to_regclass('jetsapi.remediation') IS NOT NULL`
+  to_regclass('jetsapi.remediation') IS NOT NULL,
+  to_regclass('jetsapi.run_finding') IS NOT NULL`
 
-// ReadTargets reports which of the four tables exist.
+// ReadTargets reports which of the five tables exist.
 //
 // to_regclass returns NULL rather than raising, which is the property
 // established as required of any report about a deployment: a precondition check
@@ -234,7 +239,7 @@ const targetsSQL = `SELECT
 func ReadTargets(ctx context.Context, db observe.DB) (*Targets, error) {
 	var t Targets
 	if err := db.QueryRow(ctx, targetsSQL).Scan(
-		&t.Incident, &t.Hypothesis, &t.IncidentEvent, &t.Remediation); err != nil {
+		&t.Incident, &t.Hypothesis, &t.IncidentEvent, &t.Remediation, &t.RunFinding); err != nil {
 		return nil, fmt.Errorf("while reading which agentic tables exist: %w", err)
 	}
 	return &t, nil

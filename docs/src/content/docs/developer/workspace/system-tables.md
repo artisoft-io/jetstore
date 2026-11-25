@@ -460,6 +460,13 @@ distinct message head its rules raise (`source = 'rules'`, the head being the li
 The key is (`operator_type`, `match_prefix`). Each workspace compile compares the rules' raises with
 the rows; see [Compiling a workspace](/docs/developer/workspace/compiling/).
 
+**Shadow triage reads the codes, per run.** Its per-record failures locus counts a run's rows by
+code (`jets/agentic/triage`, `ReadErrorCodes`), reports the codes whose stored rows reach their
+threshold, raises one incident per reporting code, and stores each code's verdict for the run in
+`jetsapi.run_finding`, from which a run condition is read (`jets/agentic/runcondition`). That table
+is installed with the agentic tables and deleted from with the session. A database without this
+catalogue reads as an empty catalogue, and the run's log says so once.
+
 Depend on `process_errors`
 
 ## See also

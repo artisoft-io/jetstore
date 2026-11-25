@@ -57,6 +57,10 @@ var fixedTables = []string{
 	"input_registry",
 	"input_loader_status",
 	"process_errors",
+	// The verdicts shadow triage stores per run locus (jets/agentic/audit's
+	// DDL): a deleted run is no position of any run condition, so nothing
+	// reads its verdict once its session is gone.
+	"run_finding",
 	"pipeline_execution_details",
 	"pipeline_execution_channel_details",
 	"cpipes_execution_status",
