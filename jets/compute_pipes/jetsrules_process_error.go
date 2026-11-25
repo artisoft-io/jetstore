@@ -28,14 +28,16 @@ type ProcessError struct {
 	CpipesStepId string
 	// OperatorType is the operator's type as the configuration spells it -- jetrules,
 	// map_record, ollama, embed, vllm. Taken from the construction site rather than
-	// recovered from the message prefix, which map_record does not write.
+	// recovered from the message prefix, which the jetrules sites do not write, and
+	// which map_record writes ("map_record: ") only on rows stored since it began to.
 	OperatorType string
 }
 
 // NewProcessError builds the row an operator reports a record-level failure on.
 // operatorType is the operator's configuration type; it is a parameter rather than
 // a derived value because it is the one discriminator no caller can recover later:
-// the four jetrules sites and the map_record site write no prefix of their own.
+// the four jetrules sites write no prefix of their own, and map_record's rows
+// carried none before it began writing "map_record: ".
 func (ctx *BuilderContext) NewProcessError(operatorType string) ProcessError {
 	peRow := ProcessError{
 		PEKey:            int64(ctx.peKey),

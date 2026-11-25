@@ -291,7 +291,7 @@ func (ctx *RenderTransformationPipe) failedRecord(input *[]any, err error) error
 // three violations spends three of the budget -- which is `map_record`'s
 // behaviour too, its own count being per column evaluator rather than per record
 // (`MapRecordTransformationPipe.Apply`,
-// `jets/compute_pipes/pipe_transformation_map_record.go:70`). It is a cap on what
+// `jets/compute_pipes/pipe_transformation_map_record.go:98`). It is a cap on what
 // reaches the error channel and on nothing else.
 //
 // The returned error is the one to fail the pipeline with, already carrying the
@@ -323,7 +323,7 @@ func (ctx *RenderTransformationPipe) reportError(input *[]any, err error) error 
 //
 // It returns a non-nil error only for `on_error: fail`, which is `map_record`'s
 // shape (`MapRecordTransformationPipe.Apply`,
-// `jets/compute_pipes/pipe_transformation_map_record.go:86`) rather than the
+// `jets/compute_pipes/pipe_transformation_map_record.go:115`) rather than the
 // infer operators' -- this operator is synchronous, so failing the pipeline is
 // returning an error from Apply rather than interrupting a pool.
 func (ctx *RenderTransformationPipe) applyOnError(input *[]any, err error) error {

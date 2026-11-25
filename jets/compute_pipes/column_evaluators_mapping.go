@@ -31,8 +31,35 @@ func markPerRecord(ce TransformationColumnEvaluator) {
 type mapColumnConfig struct {
 	inputPos     int
 	outputPos    int
+	outputName   string
 	defaultValue any
 	mapConfig    *MapExpression
+}
+
+// mappingColumnError is the error a map column returns for a value it rejects
+// with the configured err_msg or the cleansing function's message. Its Error is
+// the form every operator that reports a map column's error has always written,
+// and it stays that form: the inference operators store it inside their own
+// message. map_record, which stores the column's error as its whole message,
+// writes namedMessage instead (see mapRecordErrorMessage).
+type mappingColumnError struct {
+	outputName string
+	outputPos  int
+	detail     string
+}
+
+func (e *mappingColumnError) Error() string {
+	return fmt.Sprintf("error mapping column at output position %d: %s", e.outputPos, e.detail)
+}
+
+// namedMessage is Error with the output column's name, as configured, before
+// its position.
+func (e *mappingColumnError) namedMessage() string {
+	return fmt.Sprintf("error mapping column %s at output position %d: %s", e.outputName, e.outputPos, e.detail)
+}
+
+func (config *mapColumnConfig) columnError(detail string) error {
+	return &mappingColumnError{outputName: config.outputName, outputPos: config.outputPos, detail: detail}
 }
 
 // Update maps one column. The rules, in the order they apply:
@@ -90,7 +117,7 @@ func (ctx *mapColumnEval) Update(currentValue *[]any, input *[]any) error {
 		}
 		// No default: don't overrite currentValue with nil (fallback chains, see above)
 		if mapConfig.ErrMsg != "" {
-			return fmt.Errorf("error mapping column at output position %d: %s", config.outputPos, mapConfig.ErrMsg)
+			return config.columnError(mapConfig.ErrMsg)
 		}
 		return nil
 	}
@@ -112,7 +139,7 @@ func (ctx *mapColumnEval) Update(currentValue *[]any, input *[]any) error {
 				// Not logged here: the error is returned, and map_record logs and
 				// reports it under its max_error_count cap
 				outputVal = nil
-				err = fmt.Errorf("error mapping column at output position %d: %s", config.outputPos, errMsg)
+				err = config.columnError(errMsg)
 			}
 		}
 		outputVal = blankToNil(outputVal)
@@ -143,7 +170,7 @@ func (ctx *mapColumnEval) Update(currentValue *[]any, input *[]any) error {
 			}
 		}
 		if outputVal == nil && err == nil && mapConfig.ErrMsg != "" {
-			err = fmt.Errorf("error mapping column at output position %d: %s", config.outputPos, mapConfig.ErrMsg)
+			err = config.columnError(mapConfig.ErrMsg)
 		}
 	}
 	// Written even when nil, so the raw input does not pass through
@@ -281,6 +308,7 @@ func (ctx *BuilderContext) BuildMapTCEvaluator(source *InputChannel, outCh *Outp
 		mapConfig: &mapColumnConfig{
 			inputPos:     inputPos,
 			outputPos:    outputPos,
+			outputName:   spec.Name,
 			defaultValue: defaultValue,
 			mapConfig:    spec.MapExpr},
 		cleansingCtx: cleansingCtx,
