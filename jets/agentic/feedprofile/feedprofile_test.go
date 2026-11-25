@@ -266,6 +266,57 @@ func TestLoadReportsTheQueryError(t *testing.T) {
 	}
 }
 
+// A statement export identifies Load's query by a hash of its text, so a
+// results file pasted back from an earlier export is read against the text
+// below. Changing it is a decision, not a refactoring.
+func TestLoadsQueryTextIsUnchanged(t *testing.T) {
+	const want = `SELECT sc.client, sc.org, sc.object_type, sc.table_name,
+       COALESCE((to_jsonb(sc) ->> 'is_cumulative')::int, 0),
+       to_jsonb(sc) ->> 'feed_profile_json'
+  FROM jetsapi.source_config sc
+ WHERE sc.client = $1
+ ORDER BY sc.table_name`
+	if loadSQL != want {
+		t.Errorf("Load's query is\n%s\nwant\n%s", loadSQL, want)
+	}
+}
+
+// LoadTables reads every row naming the tables, in the order the query gives,
+// each parsed as Load parses it, and Profiled is Load's split.
+func TestLoadTablesReadsEveryRowAsLoadDoes(t *testing.T) {
+	db := &fakeDB{rows: &fakeRows{rows: [][]any{
+		{"c1", "o", "hc:Claim", "claims", 1, fullProfile},
+		{"c2", "o", "hc:Claim", "claims", 0, nil},
+		{"c1", "o", "hc:Provider", "providers", 0, `{"declared_by":"a"}`},
+	}}}
+	feeds, err := LoadTables(context.Background(), db, []string{"claims", "providers"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(db.client, []string{"claims", "providers"}) ||
+		!strings.Contains(db.sql, "sc.table_name = ANY($1)") ||
+		!strings.Contains(db.sql, "ORDER BY sc.table_name, sc.client, sc.org") {
+		t.Errorf("query %q with %v", db.sql, db.client)
+	}
+	if len(feeds) != 3 {
+		t.Fatalf("feeds %+v", feeds)
+	}
+	if f := feeds[0]; !f.Profiled() || !f.Cumulative || f.Client != "c1" || f.Profile.ClaimSet == nil {
+		t.Errorf("the first row of claims is profiled and cumulative: %+v", f)
+	}
+	if f := feeds[1]; f.Profiled() || f.Client != "c2" || len(f.Findings) != 0 {
+		t.Errorf("the second row of claims has no profile and no findings: %+v", f)
+	}
+	if f := feeds[2]; f.Profiled() || len(f.Findings) == 0 || f.Findings[0].Path != "/declared_at" {
+		t.Errorf("a refused stored profile is not profiled and says why: %+v", f)
+	}
+
+	none := &fakeDB{}
+	if feeds, err := LoadTables(context.Background(), none, nil); err != nil || feeds != nil || none.sql != "" {
+		t.Errorf("no table: %v, %v, query %q", feeds, err, none.sql)
+	}
+}
+
 func writeFile(t *testing.T, content string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "profiles.json")

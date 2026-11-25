@@ -316,3 +316,22 @@ func TestFeedDeliveryBackdatedSkipsAMissingPeriod(t *testing.T) {
 		t.Errorf("anomalies: %+v", res.Anomalies)
 	}
 }
+
+// A statement export identifies feedDeliverySQL by a hash of its text, so
+// stating its order through FeedRegistrationOrderSQL must leave the text as
+// it was.
+func TestFeedDeliveryQueryTextIsUnchanged(t *testing.T) {
+	const want = `SELECT ir.table_name, ir.session_id, ir.client, ir.org, COALESCE(ir.file_key, ''),
+       sp.year, sp.month, sp.day, sp.month_period, sp.week_period, sp.day_period,
+       fks.file_size
+  FROM jetsapi.input_registry ir
+  LEFT JOIN jetsapi.source_period sp ON sp.key = ir.source_period_key
+  LEFT JOIN jetsapi.file_key_staging fks ON fks.file_key = ir.file_key
+ WHERE ir.table_name = ANY($1) AND ir.source_type = 'file'
+ ORDER BY ir.table_name,
+          (CASE WHEN ir.session_id ~ '^[0-9]{1,18}$' THEN ir.session_id::bigint END) NULLS LAST,
+          ir.key`
+	if feedDeliverySQL != want {
+		t.Errorf("feedDeliverySQL is\n%s\nwant\n%s", feedDeliverySQL, want)
+	}
+}

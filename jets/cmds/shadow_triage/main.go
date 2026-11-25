@@ -123,7 +123,7 @@ var (
 	generation   = flag.Int("generation", 1, "classifier and ranker generation")
 
 	minRatio     = flag.Float64("min-ratio", 0.5, "locus rows_lost_silently fires below this output/input ratio (unsourced)")
-	minInput     = flag.Int64("min-input", 1000, "locus rows_lost_silently ignores workers that read fewer rows than this (unsourced)")
+	minInput     = flag.Int64("min-input", 1000, "locus rows_lost_silently ignores workers that read fewer rows than this, and runs of a step that read fewer in all (unsourced)")
 	minPriorRuns = flag.Int64("min-prior-runs", 3, "locus step_never_started needs at least this many prior runs in the baseline (unsourced)")
 
 	usingSshTunnel = flag.Bool("usingSshTunnel", false, "connect to the database through an open ssh tunnel")
