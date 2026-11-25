@@ -83,7 +83,17 @@ type RunHeader struct {
 	FailureDetails string
 	StartTime      time.Time
 	LastUpdate     time.Time
+	// ArchivedAt is set when the run's session was deleted and the header was
+	// read from the archive, with ArchiveReason (retention, orphan or user).
+	// The run's worker rows, channel details, process_errors and stored
+	// configuration were deleted with the session.
+	ArchivedAt    *time.Time
+	ArchiveReason string
 }
+
+// Deleted reports whether the run's session was deleted, so the header is all
+// that is left of its record.
+func (h *RunHeader) Deleted() bool { return h.ArchivedAt != nil }
 
 // The run header's terminal statuses. The list is WorkerRow.Stalled's
 // (observe/extract.go:204), which is the only other place in the tree that
@@ -105,19 +115,32 @@ func (h *RunHeader) Terminal() bool {
 }
 
 const headerSQL = `SELECT key, session_id, client, process_name, main_object_type,
-    status, coalesce(failure_details, ''), start_time, last_update
+    status, coalesce(failure_details, ''), start_time, last_update, NULL::timestamp, ''
   FROM jetsapi.pipeline_execution_status WHERE session_id = $1`
 
-// ReadHeader returns the run header, or nil when there is none. Nil is two
-// different things — a run that was never submitted and a run whose header the
-// six-month purge has taken — and the caller cannot tell them apart,
-// which is why every predicate that needs the header reports NotEvaluable
-// rather than Absent when it is missing.
-func ReadHeader(ctx context.Context, db observe.DB, sessionId string) (*RunHeader, error) {
+const headerHistorySQL = `SELECT key, session_id, client, process_name, main_object_type,
+    status, coalesce(failure_details, ''), start_time, last_update, archived_at, coalesce(archive_reason, '')
+  FROM jetsapi.pipeline_execution_history WHERE session_id = $1`
+
+// ReadHeader returns the run header, or nil when there is none. With history
+// set it reads jetsapi.pipeline_execution_history, so the header of a run whose
+// session was deleted is found, marked Deleted; without it, the live table of a
+// database that predates the archive.
+//
+// Nil is still more than one thing — a run that was never submitted, a deleted
+// session's run whose archived header has aged out, and a header the purge
+// before the session purge deleted at six months — and the caller cannot tell
+// them apart, which is why every predicate that needs the header reports
+// NotEvaluable rather than Absent when it is missing.
+func ReadHeader(ctx context.Context, db observe.DB, sessionId string, history bool) (*RunHeader, error) {
 	var h RunHeader
-	err := db.QueryRow(ctx, headerSQL, sessionId).Scan(
+	stmt := headerSQL
+	if history {
+		stmt = headerHistorySQL
+	}
+	err := db.QueryRow(ctx, stmt, sessionId).Scan(
 		&h.Key, &h.SessionId, &h.Client, &h.ProcessName, &h.MainObjectType,
-		&h.Status, &h.FailureDetails, &h.StartTime, &h.LastUpdate)
+		&h.Status, &h.FailureDetails, &h.StartTime, &h.LastUpdate, &h.ArchivedAt, &h.ArchiveReason)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		return nil, nil
@@ -520,7 +543,7 @@ func Gather(ctx context.Context, db observe.DB, sessionId string, baselineFor ti
 		// absent ones.
 		return ev, nil
 	}
-	if ev.Header, err = ReadHeader(ctx, db, sessionId); err != nil {
+	if ev.Header, err = ReadHeader(ctx, db, sessionId, ev.Extent.History); err != nil {
 		return nil, err
 	}
 	if ev.Workers, err = observe.Workers(ctx, db, observe.Window{

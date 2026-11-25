@@ -75,6 +75,12 @@ archived when their sessions were deleted. A deleted session keeps its run in th
 loses its worker counts, so a step whose history was deleted looks new. Such an anomaly carries the
 confounder *history truncated*.
 
+**Step regression reads its history from the worker rows too.** A run whose session was deleted is
+not among a step's earlier runs, because its worker rows were deleted with the session. Its run is
+still in the pipeline history, so the detector counts, for each client, process and object type, the
+runs in its window that were deleted. An anomaly about a step of a source that lost runs carries the
+confounder *history truncated*, and its basis says how many runs were deleted.
+
 **The numbers are starting points, not measured values.** The 10 runs, the 3 runs, the halving and the
 floor are the detection command's defaults: `-volume-history-runs`, `-volume-min-prior-runs`,
 `-volume-drop`, `-min-ratio` and `-min-input`. Nothing has yet measured how much a step's ratio varies

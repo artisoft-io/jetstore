@@ -662,6 +662,13 @@ SELECT c.n_rows, c.n_members,
 // found by input_session_id or by its main input's registration, as in
 // claimSetSessionOf; it need not have written a row, since its window may have
 // dropped them all.
+//
+// Both subqueries read the live pipeline_execution_status, not the history.
+// What they read a run for, its rows in the domain table and its drop counts on
+// pipeline_execution_details, is deleted with its session, so a run whose
+// session was deleted has nothing left to read: claimSetSessionOf could never
+// choose it, and here it could only displace a live run and name spans the
+// claims no longer reflect.
 func claimSetRunOf(param string) string {
 	return fmt.Sprintf(`
   SELECT pe.key, pe.session_id, pe.input_span_days, pe.input_core_span_days

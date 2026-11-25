@@ -43,6 +43,15 @@ The picker chooses **Open incidents** (the default), **Adjudicated**, or **All i
 **An empty list is not evidence that nothing went wrong.** Incidents are written by shadow triage,
 which runs where the detection task is deployed; the Detection screen says whether it has run.
 
+**A run whose session was deleted is not judged.** Deleting a session keeps its run's status on the
+*Archived Pipelines* tab and deletes everything the run loci read: its worker rows, its process
+errors and its stored configuration. Shadow triage selects only the runs of sessions that exist. A
+run it is asked about by session, or whose session is deleted while it runs, is found in the pipeline
+history and counted *not evaluable* at every run locus, with when and why the session was deleted,
+so it raises no incident; the deleted records' absence is not read as a run that never started or
+reported no failure. A later run of the same source carries *history truncated* when a deleted run
+falls in the history it is compared with.
+
 ### Incidents about a feed's deliveries
 
 Two loci are about a feed rather than a run. They come from feed detection, which compares each

@@ -385,8 +385,9 @@ func run(ctx context.Context, db *pgxpool.Pool, sum *summary) error {
 	}
 	sum.Regime = extent.Regime()
 	sum.ChannelDetails = extent.ChannelDetails
-	log.Printf("record: %d run headers, oldest %s; oldest worker row %s; purge regime %q",
-		extent.Headers, stamp(extent.OldestHeader), stamp(extent.OldestWorker), extent.Regime())
+	log.Printf("record: %d run headers, %d of them archived with their deleted sessions, oldest %s; "+
+		"oldest worker row %s; purge regime %q",
+		extent.Headers, extent.Archived, stamp(extent.OldestHeader), stamp(extent.OldestWorker), extent.Regime())
 	if !extent.ChannelDetails {
 		log.Printf("record: jetsapi.pipeline_execution_channel_details is absent, so locus " +
 			"sink_failed_under_completed_worker is not_evaluable on every run here")

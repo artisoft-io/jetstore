@@ -79,6 +79,7 @@ func (c Classifier) Classify(ev *Evidence) *Report {
 		c.deliveryOverdue(ev),
 		c.deliveryDepartsProfile(ev),
 	}
+	ev.judgeDeletedRun(r.Findings)
 	for i := range r.Findings {
 		r.Findings[i].SessionId = ev.SessionId
 		r.Findings[i].ClassifierRef = c.Ref()
@@ -127,7 +128,8 @@ func (c Classifier) runNotStarted(ev *Evidence) Finding {
 		return notEvaluable(locus,
 			fmt.Sprintf("no pipeline_execution_status row for session %q. The header is this locus's only "+
 				"evidence, and its absence is two things the record does not separate: a run that was "+
-				"never submitted, and a run whose header the six-month purge has taken", ev.SessionId))
+				"never submitted, and a run whose header is gone: archived when its session was deleted and "+
+				"aged out of the archive, or deleted at six months by the purge before the session purge", ev.SessionId))
 	}
 	rows := ev.workerRows()
 	if !ev.Header.Terminal() {
