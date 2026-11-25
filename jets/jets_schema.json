@@ -2062,6 +2062,65 @@
   },
   {
     "schemaName": "jetsapi",
+    "tableName": "error_code_catalogue",
+    "description": "A workspace's error codes: one row per code a process_errors message gets, matched on the message's head once the operator's fixed prefix is stripped (jets:exception caught: for a rule exception, map_record: for map_record). Filled by the workspace's base init script, never by JetStore. JetStore's own messages have fixed codes in jets/errorcode and need no row; a row with source jetstore and a fixed code's operator_type and match_prefix overrides its threshold or kind. The row with operator_type '*' and an empty match_prefix is the workspace default.",
+    "columns": [
+      {
+        "columnName": "operator_type",
+        "dataType": "text",
+        "isNotNull": true,
+        "description": "The operator whose messages the row matches, as process_errors.operator_type spells it (jetrules, map_record, ...), or * for the workspace default row."
+      },
+      {
+        "columnName": "match_prefix",
+        "dataType": "text",
+        "isNotNull": true,
+        "default": "''",
+        "description": "The head a message starts with after the operator's fixed prefix: for a rule, the literal before + ?value. Literal; the longest matching row wins. For map_record it may also name a configured err_msg, which follows the column and its position. Empty in the default row."
+      },
+      {
+        "columnName": "code",
+        "dataType": "text",
+        "description": "The short name shown for the message. Null takes match_prefix trimmed of trailing colons, commas and spaces."
+      },
+      {
+        "columnName": "kind",
+        "dataType": "text",
+        "isNotNull": true,
+        "default": "'error'",
+        "description": "error, or debug for a raise made only while debugging, which is counted and never reported."
+      },
+      {
+        "columnName": "report_threshold",
+        "dataType": "int",
+        "description": "Stored rows of the code in one run at or above which it is reported; a lower bound, since an operator instance stops storing rows at its max_error_count. Null takes the default row's, else 1."
+      },
+      {
+        "columnName": "source",
+        "dataType": "text",
+        "isNotNull": true,
+        "description": "rules, pipeline_config, or jetstore for a row overriding one of JetStore's fixed codes."
+      },
+      {
+        "columnName": "source_ref",
+        "dataType": "text",
+        "description": "Where the code comes from: the rule file and rule name, or the pipeline configuration key."
+      },
+      {
+        "columnName": "description",
+        "dataType": "text",
+        "description": "Optional text for the person reading the failure."
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "error_code_catalogue_unique_cstraint",
+        "definition": "CONSTRAINT error_code_catalogue_unique_cstraint UNIQUE (operator_type, match_prefix)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
     "tableName": "compute_pipes_shard_registry",
     "description": "Assignment of files to node for processing. Shard (legacy name) makes reference to a node in the cluster.",
     "columns": [

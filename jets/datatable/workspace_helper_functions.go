@@ -13,6 +13,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/datatable/git"
 	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
+	"github.com/artisoft-io/jetstore/jets/errorcode"
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/artisoft-io/jetstore/jets/workspace"
@@ -163,9 +164,12 @@ func compileWorkspaceAction(ctx *DataTableContext, dataTableAction *DataTableAct
 		// in place, so compiling again after a restart repairs it.
 		syncLog := syncOverridesToLocal(ctx.Dbpool, workspaceName)
 
-		// Compile workspace
+		// Compile workspace, collecting the rules' jets:exception raises for the
+		// error code catalogue's check below
 		log.Println("Compiling workspace", workspaceName)
-		gitLog, err = workspace.CompileWorkspace(ctx.Dbpool, workspaceName, strconv.FormatInt(time.Now().Unix(), 10))
+		var raises []errorcode.Raise
+		gitLog, err = workspace.CompileWorkspace(ctx.Dbpool, workspaceName, strconv.FormatInt(time.Now().Unix(), 10),
+			workspace.CollectExceptionRaises(&raises))
 		gitLog = syncLog + gitLog
 		if err != nil {
 			status = "error"
@@ -188,6 +192,14 @@ func compileWorkspaceAction(ctx *DataTableContext, dataTableAction *DataTableAct
 			gitLog, err = RunUpdateDb(dataTableAction.WorkspaceName, &serverArgs)
 			if err != nil {
 				status = "error"
+			} else {
+				// Compare the raises with the error code catalogue here rather than
+				// inside the compile: the base init just run loaded the catalogue
+				// rows from the workspace's base script, so the check reads the rows
+				// this compile goes with, not the previous compile's. It writes to
+				// the log only, and never fails the compile.
+				workspace.SortRaises(raises)
+				gitLog += "\n" + workspace.CheckErrorCodeCatalogue(context.Background(), ctx.Dbpool, raises)
 			}
 			lastLog = dataTableAction.Data[irow]["last_git_log"]
 			if lastLog != nil {
