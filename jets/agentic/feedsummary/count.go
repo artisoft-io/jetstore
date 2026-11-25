@@ -91,7 +91,53 @@ var (
 	emailToken  = regexp.MustCompile(`[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}`)
 	incToken    = regexp.MustCompile(`\binc_[A-Za-z0-9_]+`)
 	snakeToken  = regexp.MustCompile(`\b[a-z]+(?:_[a-z]+)+\b`)
+	// overdueRule is a statement of an overdue threshold, in lower case: the
+	// word before it, if any, then "overdue after N days", "overdue threshold
+	// of N days" or "overdue grace of N days", or "N-day overdue threshold".
+	overdueRule = regexp.MustCompile(`(?:\b([a-z]+)\s+)?\boverdue\s+(?:after|(?:threshold|grace)(?:\s+(?:of|is))?:?)\s+([0-9]+)[\s-]+days?\b|\b([0-9]+)-day\s+overdue\s+(?:threshold|grace)\b`)
 )
+
+// claimWords are the words that, written just before "overdue after N days",
+// make it a statement that the feed became overdue rather than the rule.
+var claimWords = []string{"been", "became", "was", "were", "went", "now", "already", "still"}
+
+// withoutDeclaredThreshold blanks every statement of the declared overdue
+// threshold from lower, so that what is left says overdue only as a claim. A
+// threshold other than the declared one is left in place, and so is one written
+// just after a claim word ("became overdue after 3 days"). With no threshold
+// declared, nothing is blanked.
+func withoutDeclaredThreshold(lower string, declared *int) string {
+	if declared == nil {
+		return lower
+	}
+	want := strconv.Itoa(*declared)
+	var b strings.Builder
+	last := 0
+	for _, m := range overdueRule.FindAllStringSubmatchIndex(lower, -1) {
+		sub := func(i int) string {
+			if m[2*i] < 0 {
+				return ""
+			}
+			return lower[m[2*i]:m[2*i+1]]
+		}
+		days, start := sub(2)+sub(3), m[0]
+		if days != want {
+			continue
+		}
+		if m[2] >= 0 {
+			if slices.Contains(claimWords, sub(1)) {
+				continue
+			}
+			// The word before is kept: it belongs to the sentence, not the rule.
+			start = m[3]
+		}
+		b.WriteString(lower[last:start])
+		b.WriteString(" ")
+		last = m[1]
+	}
+	b.WriteString(lower[last:])
+	return b.String()
+}
 
 // facts is the fact set, as the counter compares against it.
 type facts struct {
@@ -315,13 +361,23 @@ func CountUntrue(text string, in *Input) *Count {
 		"undercounts: a number spelled in words is not read, and a wrong number that equals another fact passes",
 		found)
 
+	// The overdue category. A sentence restating the declared threshold
+	// ("overdue after 3 days") says what the declaration says and is not a
+	// claim that the feed is overdue, so it is taken out before the word is
+	// looked for; a claim beside it in the same draft is still found.
 	found = nil
 	overdue := slices.Contains(f.detectors, feedprofile.FeedOverdue)
-	if !overdue && strings.Contains(lower, "overdue") {
+	if !overdue && strings.Contains(withoutDeclaredThreshold(lower, in.Declaration.OverdueAfterDays), "overdue") {
 		found = append(found, "overdue")
 	}
-	cat(CatOverdue, Approximate, "the word overdue appears only when the overdue check fired",
-		"overcounts a sentence that says the feed is not overdue", found)
+	cat(CatOverdue, Approximate,
+		"the word overdue appears only when the overdue check fired, or in a statement of the declared "+
+			"threshold: overdue after N days, overdue threshold or grace of N days, or N-day overdue threshold, "+
+			"with N in digits and equal to the declaration's, and no claim word (been, became, was, were, went, "+
+			"now, already, still) just before overdue",
+		"overcounts a sentence that says the feed is not overdue, and a declared threshold spelled in words "+
+			"or phrased otherwise; undercounts a claim worded as the rule (the feed is overdue after N days)",
+		found)
 
 	cat(CatOrder, NotAutomatable, "none",
 		"whether the readings are given in their ranked order needs a reader; no finding is reported", nil)

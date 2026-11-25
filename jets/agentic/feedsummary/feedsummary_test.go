@@ -358,6 +358,62 @@ func TestTheCounterFindsWhatIsUntrue(t *testing.T) {
 	}
 }
 
+// TestARestatedThresholdIsNotAnOverdueClaim: a draft that restates the
+// declared overdue threshold says what the declaration says, and is not a
+// claim that the feed is overdue. The restatements are phrasings a model
+// produced when drafting a summary for a delivery the overdue check did not
+// fire on; a claim beside one is still found.
+func TestARestatedThresholdIsNotAnOverdueClaim(t *testing.T) {
+	declared := departs()
+	declared.Declaration.OverdueAfterDays = i(3)
+	none := departs()
+	fired := departs()
+	fired.Declaration.OverdueAfterDays = i(3)
+	fired.Findings = append(fired.Findings, Finding{Detector: feedprofile.FeedOverdue, Generation: 1,
+		Signal: observe.SignalArrival, ObservedPeriod: day(2026, 4, 27), OverdueFrom: day(2026, 5, 7)})
+	for _, tc := range []struct {
+		name  string
+		in    *Input
+		draft string
+		want  int
+	}{
+		// The restatements, as a model wrote them.
+		{"per period", declared, "Locus is delivery_departs_profile. Overdue after 3 days per period (week).", 0},
+		{"per week", declared, "Declaration authored by ops@example.com. Overdue after 3 days per week.", 0},
+		{"in a list", declared, "Period: weekly, overdue after 3 days.", 0},
+		{"with the cadence", declared, "Overdue after 3 days, with 1 period per delivery.", 0},
+		{"attached to a finding", declared, "Declaration configured but paid_amount had overdue after 3 days.", 0},
+		// Other ways of stating the same threshold.
+		{"threshold of", declared, "The declaration sets an overdue threshold of 3 days.", 0},
+		{"threshold is", declared, "The overdue threshold is 3 days.", 0},
+		{"grace", declared, "The overdue grace is 3 days.", 0},
+		{"n-day", declared, "The feed has a 3-day overdue threshold.", 0},
+		{"one day", func() *Input { in := departs(); in.Declaration.OverdueAfterDays = i(1); return in }(),
+			"Overdue after 1 day.", 0},
+		// Claims that the feed is overdue, which it is not.
+		{"has been overdue", declared, "It was declared on 15 January 2026 and has been overdue for 137 days.", 1},
+		{"is overdue", declared, "Feed acme_pharmacy is overdue.", 1},
+		{"became overdue after", declared, "The feed became overdue after 3 days.", 1},
+		{"has been overdue after", declared, "The feed has been overdue after 3 days without a delivery.", 1},
+		{"claim beside a restatement", declared,
+			"It has been overdue for 137 days. Overdue after 3 days, with 1 period per delivery.", 1},
+		// A threshold that is not the declared one is not a restatement.
+		{"another threshold", declared, "Overdue after 5 days per week.", 1},
+		{"none declared", none, "Overdue after 3 days per week.", 1},
+		// The check fired: every mention is true.
+		{"fired, claim", fired, "Feed acme_pharmacy is overdue and has been overdue for 25 days.", 0},
+		{"fired, restatement", fired, "Overdue after 3 days per week.", 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, cat := range CountUntrue(tc.draft, tc.in).Categories {
+				if cat.Name == CatOverdue && len(cat.Findings) != tc.want {
+					t.Errorf("%q: %d findings %v, want %d", tc.draft, len(cat.Findings), cat.Findings, tc.want)
+				}
+			}
+		})
+	}
+}
+
 func TestThePromptIsTheDocument(t *testing.T) {
 	in := departs()
 	_, user, err := Prompt(in)
