@@ -92,6 +92,48 @@ func TestReadExtentCountsTheArchivedRuns(t *testing.T) {
 	}
 }
 
+// Regime reads the record by key. A live run's worker row starts after its
+// header was written, so the oldest header is older than the oldest worker row
+// in every live record; that alone is aligned. A worker row whose header is in
+// neither table is detail-outlives-header, and adding a deleted session's
+// header older than every worker row makes the record mixed.
+func TestRegimeReadsKeysNotTimes(t *testing.T) {
+	pool := purgeablePool(t, "agentic_observe_extent_regime")
+	ctx := context.Background()
+	start := time.Date(2026, 10, 1, 8, 0, 0, 0, time.UTC)
+	done := []worker{{stepId: "reducing00", status: StatusCompleted, in: i64(100), out: i64(100)}}
+	read := func() *Extent {
+		t.Helper()
+		e, err := ReadExtent(ctx, pool)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return e
+	}
+
+	insertRun(t, pool, "c1", "p", "obj", "s-live", "completed", false, start, done)
+	insertRun(t, pool, "c1", "p", "obj", "s-next", "completed", false, start.Add(time.Hour), done)
+	if _, err := pool.Exec(ctx, `UPDATE jetsapi.pipeline_execution_details
+		SET start_time = start_time + interval '1 minute'`); err != nil {
+		t.Fatal(err)
+	}
+	if e := read(); e.Regime() != "aligned" || e.HeaderlessWorkers != 0 || e.BareHeaders != 0 {
+		t.Errorf("two live runs whose workers start a minute after their headers: Regime() = %q, %+v; want aligned",
+			e.Regime(), e)
+	}
+
+	insertRun(t, pool, "c1", "p", "obj", "s-legacy", "", true, start.Add(2*time.Hour), done)
+	if e := read(); e.Regime() != "detail-outlives-header" || e.HeaderlessWorkers != 1 || e.BareHeaders != 0 {
+		t.Errorf("with a worker row whose header is gone: Regime() = %q, %+v; want detail-outlives-header",
+			e.Regime(), e)
+	}
+
+	deleteSessions(t, pool, "c1", "s-live")
+	if e := read(); e.Regime() != "mixed" || e.HeaderlessWorkers != 1 || e.BareHeaders != 1 {
+		t.Errorf("with the oldest run deleted as well: Regime() = %q, %+v; want mixed", e.Regime(), e)
+	}
+}
+
 // A step baseline cannot hold a deleted session's run, whose worker rows are
 // gone, but it reads the run's header from the history and says the baseline of
 // that source is short. Another source in the same window is not qualified.
