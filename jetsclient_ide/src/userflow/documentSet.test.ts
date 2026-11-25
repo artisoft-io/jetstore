@@ -380,7 +380,7 @@ describe("a table action naming something the set does not define", () => {
       ).map((f) => [f.code, f.path]),
     ).toEqual([
       ["missingForm", "/pipelineExecStatusTable/secondRowActions/2/configForm"],
-      ["missingAction", "/pipelineExecStatusTable/secondRowActions/4/actionName"],
+      ["missingAction", "/pipelineExecStatusTable/secondRowActions/5/actionName"],
     ]);
   });
 });

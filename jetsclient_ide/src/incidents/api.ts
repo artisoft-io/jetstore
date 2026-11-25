@@ -178,6 +178,105 @@ export interface IncidentDetail extends IncidentRow {
    * server older than this field.
    */
   inputs?: IncidentInput[];
+  /**
+   * A feed incident's condition: the run of consecutive deliveries of one feed
+   * with a finding at this locus, which the incident stands for. Read live by
+   * the server through the same resolver shadow triage writes by, so it lists
+   * the deliveries that joined since the incident was raised, which its basis
+   * cannot. Absent on a run incident, and on a feed incident no single feed's
+   * condition holds (`conditionNote` says why) or whose condition could not be
+   * read (`conditionError`); absent from a server older than this field.
+   */
+  condition?: IncidentCondition;
+  conditionNote?: string;
+  conditionError?: string;
+}
+
+/**
+ * A feed incident's condition, from `conditionPayload` in
+ * `jets/apiserver/api_agentic_condition.go`.
+ */
+export interface IncidentCondition {
+  feed: string;
+  locus: string;
+  /** In the feed's delivery order. */
+  deliveries: ConditionDelivery[];
+  /** How many of the deliveries are placed in this incident. */
+  standsFor: number;
+  /** The feed's latest delivery carries a finding here. */
+  open: boolean;
+  /** The session after the last delivery, and why it ended the condition; "" while open. */
+  endedBy: string;
+  /** `no_finding`, `other_feed` or `day_boundary`; "" while open. */
+  end: string;
+  /** Part of it lies before the feed's earliest remaining registration. */
+  sameDay: boolean;
+  unordered: boolean;
+  shared: boolean;
+  /** The server's sentence for the condition, as the basis words it. */
+  described: string;
+  previous: PreviousIncident | null;
+}
+
+/** One delivery of a condition, and the incident the resolver places it in. */
+export interface ConditionDelivery {
+  sessionId: string;
+  /** "" for a session with a finding of the feed and no registration of it. */
+  fileKey: string;
+  registered: boolean;
+  /** RFC3339, "" when the session id is not a time. */
+  arrival: string;
+  firstDetectedAt: string;
+  detectors: string[];
+  /** `already_raised`, `join`, `write_here` or `raise_anchor`. */
+  placement: string;
+  /** "" when the delivery's incident is not written yet. */
+  incidentId: string;
+}
+
+/**
+ * The previous incident at the locus: on an earlier delivery of the same
+ * condition (a judged incident this one was raised after), or the incident of
+ * the feed's previous condition, which may not be written yet.
+ */
+export interface PreviousIncident {
+  inSameCondition: boolean;
+  incident: {
+    incidentId: string;
+    sessionId: string;
+    status: string;
+    /** A person's first verdict on it, or null. */
+    verdict: { toStatus: string; actor: string; transitionedAt: string } | null;
+  } | null;
+  condition: { deliveries: number; firstSessionId: string; lastSessionId: string } | null;
+}
+
+/** How a session belongs to an incident. */
+export type SessionIncidentHow = "own" | "condition" | "not_raised";
+
+/** One answer of `find_session_incidents`. */
+export interface SessionIncidentMatch {
+  /** The session asked for, or the input session of a run asked for. */
+  sessionId: string;
+  locus: string;
+  how: SessionIncidentHow;
+  /** "" when `how` is `not_raised`. */
+  incidentId: string;
+  incidentSessionId: string;
+  status: string;
+  /** The feed whose condition placed the session; "" for an own incident. */
+  feed: string;
+  /** For `not_raised`: where the condition's incident will be written. */
+  anchorSessionId: string;
+  /** The resolver's sentence, for a condition's placement. */
+  why: string;
+}
+
+export interface SessionIncidents {
+  sessionId: string;
+  /** The input sessions of the pipeline runs whose own session was asked for. */
+  inputSessions: string[];
+  matches: SessionIncidentMatch[];
 }
 
 /** One input registered under an incident's session, from `jetsapi.input_registry`. */
@@ -358,6 +457,23 @@ export class IncidentsApi {
   async get(incidentId: string): Promise<IncidentDetailResponse> {
     return this.wrap(
       this.api.agentic<IncidentDetailResponse>({ action: "get_incident", incidentId }),
+    );
+  }
+
+  /**
+   * The incidents a session belongs to: its own, and, for a later delivery of
+   * a feed's standing condition, which has none of its own, the condition's
+   * incident on another delivery. A pipeline run's session brings its input
+   * sessions with it.
+   *
+   * **The join is the server's, never this file's.** Which incident a delivery
+   * joined is derived on the server by the resolver shadow triage writes by, and
+   * nothing records it; a second reading of the rule here would be a second
+   * answer that could disagree with the first.
+   */
+  async findSessionIncidents(sessionId: string): Promise<SessionIncidents> {
+    return this.wrap(
+      this.api.agentic<SessionIncidents>({ action: "find_session_incidents", sessionId }),
     );
   }
 
