@@ -39,6 +39,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiClient } from "../api/client";
 import { ApiProvider } from "../shell/capabilities";
 import { NotificationsProvider, useNotifications } from "../shell/notifications";
+import { resetSelectedClient, setSelectedClient } from "../shell/selectedClient";
 import { IncidentScreen } from "./IncidentScreen";
 import { IncidentsScreen } from "./IncidentsScreen";
 import { SessionIncidentsScreen } from "./SessionIncidentsScreen";
@@ -274,6 +275,65 @@ describe("the incident list", () => {
     renderAt(api, "/incidents");
     await screen.findByText("The incident tables are not installed in this database.");
     expect(screen.getByText(/update_db -migrateDb/)).toBeTruthy();
+  });
+});
+
+// The list is paged on the server and carries the shell's client filter, and
+// each row says what it stands for: a feed incident's condition, counted and
+// dated by its deliveries.
+describe("the incident list's pages, client and span", () => {
+  afterEach(resetSelectedClient);
+
+  const listed = (i: number) => ({
+    ...triagedRow,
+    incidentId: `inc_${i}`,
+    client: "client_a",
+    objectType: "MedicalClaim",
+    firstSeen: "2026-08-01T00:00:00Z",
+    lastSeen: "2026-09-01T00:00:00Z",
+    count: 5,
+    fromCondition: true,
+  });
+  const pageOf = (req: Record<string, unknown>) => {
+    const limit = Number(req["limit"]);
+    const offset = Number(req["offset"]);
+    const rows = Array.from({ length: Math.max(0, Math.min(limit, 120 - offset)) }, (_, k) => listed(offset + k));
+    return { body: { incidents: rows, total: 120, ...vocabularies } };
+  };
+
+  it("starts at 50 rows, offers 50, 100 and 150, and asks the server for each page", async () => {
+    const { api, sent } = await clientWith({ list_incidents: pageOf });
+    renderAt(api, "/incidents");
+    await screen.findByRole("link", { name: "inc_0" });
+    expect(sent[sent.length - 1]).toMatchObject({ limit: 50, offset: 0, client: "" });
+    const size = screen.getByLabelText("Rows per page") as HTMLSelectElement;
+    expect([...size.options].map((o) => o.value)).toEqual(["50", "100", "150"]);
+    expect(screen.getByText("1–50 of 120")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    await screen.findByRole("link", { name: "inc_50" });
+    expect(sent[sent.length - 1]).toMatchObject({ limit: 50, offset: 50 });
+
+    fireEvent.change(size, { target: { value: "150" } });
+    await screen.findByText("1–120 of 120");
+    expect(sent[sent.length - 1]).toMatchObject({ limit: 150, offset: 0 });
+  });
+
+  it("sends the shell's client and shows each row's client, object type and span", async () => {
+    setSelectedClient("client_a");
+    const { api, sent } = await clientWith({ list_incidents: pageOf });
+    const { container } = renderAt(api, "/incidents");
+    await screen.findByRole("link", { name: "inc_0" });
+    expect(sent.every((r) => r["client"] === "client_a")).toBe(true);
+    const headers = [...container.querySelectorAll("thead th")].map((th) => th.textContent);
+    for (const h of ["Client", "Object type", "First seen", "Last seen", "Count"]) {
+      expect(headers).toContain(h);
+    }
+    const row = screen.getByRole("link", { name: "inc_0" }).closest("tr")!;
+    const cells = [...row.querySelectorAll("td")].map((td) => td.textContent);
+    expect(cells).toEqual(
+      expect.arrayContaining(["client_a", "MedicalClaim", "2026-08-01T00:00:00Z", "2026-09-01T00:00:00Z", "5"]),
+    );
   });
 });
 

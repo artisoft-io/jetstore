@@ -223,13 +223,10 @@ func readIncidentCondition(ctx context.Context, db observe.DB, inc *audit.Incide
 	out := &IncidentCondition{Feed: c.Feed, Locus: c.Locus, Open: c.Open(), EndedBy: c.EndedBy, End: c.End,
 		SameDay: c.SameDay, Unordered: c.Unordered, Shared: c.Shared, Described: c.Describe()}
 	for _, m := range c.Members {
-		q := f.Resolve(m.SessionId, c.Locus)
+		kind, placedIn := placement(f, c, m.SessionId)
 		d := ConditionDelivery{SessionId: m.SessionId, FileKey: fileKeys[m.SessionId], Registered: m.Delivery,
 			Arrival: m.Arrival, FirstDetected: m.FirstDetected, Detectors: slices.Clone(m.Detectors),
-			Placement: string(q.Kind)}
-		if q.Target != nil && (q.Kind == feedcondition.Join || q.Kind == feedcondition.AlreadyRaised) {
-			d.IncidentId = q.Target.IncidentId
-		}
+			Placement: string(kind), IncidentId: placedIn}
 		if d.IncidentId == inc.IncidentId {
 			out.StandsFor++
 		}
@@ -248,6 +245,103 @@ func readIncidentCondition(ctx context.Context, db observe.DB, inc *audit.Incide
 		out.Previous = f.IncidentOf(out.PreviousCondition)
 	}
 	return out, "", nil
+}
+
+// placement is where the resolver places a member's finding, and the incident
+// it is in, "" when that incident is not written. It is the one reading of a
+// delivery's incident that the incident's page and the list both use.
+func placement(f *feedcondition.Feed, c *triage.Condition, session string) (feedcondition.Kind, string) {
+	q := f.Resolve(session, c.Locus)
+	if q.Target != nil && (q.Kind == feedcondition.Join || q.Kind == feedcondition.AlreadyRaised) {
+		return q.Kind, q.Target.IncidentId
+	}
+	return q.Kind, ""
+}
+
+// IncidentSpan is when an incident was first and last seen, and how many
+// deliveries it stands for, as the incident list shows them.
+type IncidentSpan struct {
+	First, Last time.Time
+	Count       int
+	// FromCondition reports that the span was read from the incident's feed
+	// condition: the deliveries placed in the incident, by arrival. Otherwise
+	// the incident stands for its own session alone.
+	FromCondition bool
+}
+
+// readIncidentSpans reads the span of each incident of one list page.
+//
+// **A feed incident's span is its condition's**, read through the resolver
+// as get_incident's condition is: Count is the deliveries placed in this
+// incident (StandsFor), so a delivery placed in a later incident of the same
+// condition is not counted, and First and Last are the earliest and latest of
+// their arrivals, the session id read as a time, as the condition orders them.
+// A member with no arrival (an id that is not a time) is dated by when it was
+// first detected.
+//
+// **Any other incident stands for one session**: Count is 1, and First and
+// Last are that session's arrival, or the incident's detection time when its
+// session id is not a time. So both kinds are dated by when the delivery or
+// the run happened, not by when triage got to it.
+//
+// The conditions are read with feedcondition.ResolveSessions: one statement
+// for the page's anomalies, and each feed once.
+func readIncidentSpans(ctx context.Context, db pgxPool, incs []audit.IncidentSummary) (map[string]IncidentSpan, error) {
+	out := make(map[string]IncidentSpan, len(incs))
+	var places []feedcondition.SessionLocus
+	for _, inc := range incs {
+		if slices.Contains(triage.DeliveryLoci, inc.Locus) {
+			places = append(places, feedcondition.SessionLocus{Session: inc.SessionId, Locus: inc.Locus})
+		}
+	}
+	resolved := map[feedcondition.SessionLocus]feedcondition.Resolved{}
+	if len(places) > 0 {
+		var anomalies bool
+		if err := db.QueryRow(ctx, `SELECT to_regclass('jetsapi.anomaly') IS NOT NULL`).Scan(&anomalies); err != nil {
+			return nil, fmt.Errorf("while asking whether the anomaly table exists: %w", err)
+		}
+		if anomalies {
+			var err error
+			if resolved, err = feedcondition.ResolveSessions(ctx, db, places); err != nil {
+				return nil, err
+			}
+		}
+	}
+	for _, inc := range incs {
+		own := inc.DetectedAt
+		if t, ok := triage.SessionArrival(inc.SessionId); ok {
+			own = t
+		}
+		span := IncidentSpan{First: own, Last: own, Count: 1}
+		r := resolved[feedcondition.SessionLocus{Session: inc.SessionId, Locus: inc.Locus}]
+		if r.Feed != nil {
+			if c := triage.ConditionAt(r.Feed.Conditions, inc.SessionId, inc.Locus); c != nil {
+				var cs IncidentSpan
+				for _, m := range c.Members {
+					if _, in := placement(r.Feed, c, m.SessionId); in != inc.IncidentId {
+						continue
+					}
+					at := m.Arrival
+					if at.IsZero() {
+						at = m.FirstDetected
+					}
+					if cs.Count == 0 || at.Before(cs.First) {
+						cs.First = at
+					}
+					if cs.Count == 0 || at.After(cs.Last) {
+						cs.Last = at
+					}
+					cs.Count++
+				}
+				if cs.Count > 0 {
+					cs.FromCondition = true
+					span = cs
+				}
+			}
+		}
+		out[inc.IncidentId] = span
+	}
+	return out, nil
 }
 
 // conditionPayload is the condition as the incident screen reads it.

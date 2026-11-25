@@ -142,10 +142,18 @@ export interface RunResult {
   recordError?: string;
 }
 
+/** How many command rows the Detection screen reads, the server's ceiling. */
+export const DETECTION_ROW_LIMIT = 500;
+
 export class DetectionApi {
   constructor(private readonly api: ApiClient) {}
 
-  list(limit = 60): Promise<DetectionList> {
+  /**
+   * The runs, newest first. The screen pages them itself, by task: a task is up
+   * to three command rows, so a server page of rows would split one. 500 is the
+   * server's ceiling, about five months of daily runs.
+   */
+  list(limit = DETECTION_ROW_LIMIT): Promise<DetectionList> {
     return this.api.agentic<DetectionList>({
       action: "list_detection_runs",
       limit,

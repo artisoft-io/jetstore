@@ -43,11 +43,14 @@
  * what it shows today is that count.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { SessionExpiredError, type ApiClient } from "../api/client";
+import { Pager, showsPager, usePaging } from "../datatable/Pager";
+import { lastPageIndex } from "../datatable/model";
 import { useNotifications } from "../shell/notifications";
+import { selectedClient, subscribeToClient } from "../shell/selectedClient";
 import "./incidents.css";
 import {
   ADJUDICATED_STATUSES,
@@ -58,10 +61,16 @@ import {
   locusLabel,
   OPEN_STATUSES,
   vocabLabel,
-  type IncidentRow,
+  type ListedIncident,
 } from "./api";
 
 type Filter = "open" | "adjudicated" | "all";
+
+/**
+ * The page sizes offered, the first being where the list starts. The list is
+ * paged on the server: a deployment's incidents run to hundreds.
+ */
+export const INCIDENT_PAGE_SIZES = [50, 100, 150] as const;
 
 const STATUSES_FOR: Record<Filter, string[]> = {
   open: OPEN_STATUSES,
@@ -87,7 +96,19 @@ export function IncidentsScreen({ api }: { api: ApiClient }) {
   const { setError } = useNotifications();
 
   const [filter, setFilter] = useState<Filter>("open");
-  const [rows, setRows] = useState<IncidentRow[]>([]);
+  const [rows, setRows] = useState<ListedIncident[]>([]);
+  const [total, setTotal] = useState(0);
+  const paging = usePaging(INCIDENT_PAGE_SIZES);
+  // The shell's client filter, as every table with a client column applies it:
+  // an incident whose session no registry names has no client, and is shown
+  // only when no client is selected.
+  const client = useSyncExternalStore(subscribeToClient, selectedClient) ?? "";
+  const { page, rowsPerPage, offset, setPage } = paging;
+  // A new filter or client is a new list, read from its first page.
+  useEffect(() => setPage(0), [filter, client, setPage]);
+  // Only the latest read is shown: a filter change and the reset to page one
+  // are two reads, and the first must not land over the second.
+  const latest = useRef(0);
   const [notMigrated, setNotMigrated] = useState("");
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -108,11 +129,22 @@ export function IncidentsScreen({ api }: { api: ApiClient }) {
     }
     setBusy(true);
     setNotMigrated("");
+    const ticket = ++latest.current;
     try {
-      const list = await incidents.list(STATUSES_FOR[filter]);
+      const list = await incidents.list(STATUSES_FOR[filter], { limit: rowsPerPage, offset, client });
+      if (ticket !== latest.current) return;
+      const n = list.total ?? 0;
+      if ((list.incidents ?? []).length === 0 && page > 0 && n > 0) {
+        // The page is past the end (the list shrank since it was read): show
+        // the last page that has rows.
+        setPage(lastPageIndex(n, rowsPerPage));
+        return;
+      }
       setRows(list.incidents ?? []);
+      setTotal(n);
       setLoaded(true);
     } catch (err) {
+      if (ticket !== latest.current) return;
       if (err instanceof DeploymentNotMigratedError) {
         // Not an error banner: a missing migration is a state of the
         // deployment, not a failure of the request, and it has a remedy the
@@ -122,11 +154,12 @@ export function IncidentsScreen({ api }: { api: ApiClient }) {
         setError(err instanceof Error ? err.message : String(err));
       }
       setRows([]);
+      setTotal(0);
       setLoaded(true);
     } finally {
-      setBusy(false);
+      if (ticket === latest.current) setBusy(false);
     }
-  }, [incidents, filter, canSupervise, setError]);
+  }, [incidents, filter, canSupervise, setError, rowsPerPage, offset, client, page, setPage]);
 
   useEffect(() => {
     void load();
@@ -208,7 +241,15 @@ export function IncidentsScreen({ api }: { api: ApiClient }) {
               <thead>
                 <tr>
                   <th scope="col">Incident</th>
+                  <th scope="col">Client</th>
+                  <th scope="col">Object type</th>
                   <th scope="col">Detected</th>
+                  {/* What the incident stands for: a feed incident, the
+                      deliveries its condition places in it, by arrival; any
+                      other, its own session. */}
+                  <th scope="col">First seen</th>
+                  <th scope="col">Last seen</th>
+                  <th scope="col">Count</th>
                   {/* The two headings keep a locus from being read as a cause. A locus is
                       where the evidence sits; a classification is a claim about
                       what produced it, and the record does not determine the
@@ -233,7 +274,20 @@ export function IncidentsScreen({ api }: { api: ApiClient }) {
                       </Link>
                       <span className="empty-sub"> · {r.sessionId}</span>
                     </th>
+                    <td>{r.client}</td>
+                    <td>{r.objectType}</td>
                     <td>{r.detectedAt}</td>
+                    <td>{r.firstSeen}</td>
+                    <td>{r.lastSeen}</td>
+                    <td
+                      title={
+                        r.fromCondition
+                          ? "Deliveries of the feed's condition placed in this incident"
+                          : "The incident's own session"
+                      }
+                    >
+                      {r.count}
+                    </td>
                     <td>
                       <span className="pill" title={LOCUS_GLOSS[r.locus]?.meaning ?? ""}>
                         {locusLabel(r.locus)}
@@ -258,6 +312,17 @@ export function IncidentsScreen({ api }: { api: ApiClient }) {
                 ))}
               </tbody>
             </table>
+          )}
+          {notMigrated === "" && showsPager(paging, total) && (
+            <Pager
+              page={page}
+              rowsPerPage={rowsPerPage}
+              sizes={paging.sizes}
+              totalRowCount={total}
+              rowsOnPage={rows.length}
+              onPage={setPage}
+              onRowsPerPage={paging.setRowsPerPage}
+            />
           )}
         </main>
       </div>

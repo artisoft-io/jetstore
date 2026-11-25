@@ -21,6 +21,8 @@ import { Link } from "react-router-dom";
 
 import { SessionExpiredError, type ApiClient } from "../api/client";
 import { AGENT_SUPERVISION } from "../incidents/api";
+import { Pager, showsPager, usePaging } from "../datatable/Pager";
+import { lastPageIndex } from "../datatable/model";
 import { useNotifications } from "../shell/notifications";
 import "./detection.css";
 import {
@@ -36,6 +38,12 @@ import {
   type TaskState,
   type TriageSummary,
 } from "./api";
+
+/**
+ * The page sizes offered, the first being where the list starts. A row is one
+ * task, and the screen pages them in memory.
+ */
+export const DETECTION_PAGE_SIZES = [10, 20, 50] as const;
 
 /** How often the screen re-reads while a run is in flight. */
 const POLL_MS = 10_000;
@@ -72,6 +80,13 @@ export function DetectionScreen({ api }: { api: ApiClient }) {
 
   const tasks = useMemo(() => groupByTask(list?.runs ?? []), [list]);
   const anyInFlight = tasks.some(inFlight);
+  const paging = usePaging(DETECTION_PAGE_SIZES);
+  const { page, rowsPerPage, offset, setPage } = paging;
+  const shown = tasks.slice(offset, offset + rowsPerPage);
+  // A re-read can shorten the list under the page shown; stay on a page with rows.
+  useEffect(() => {
+    if (page > 0 && offset >= tasks.length) setPage(lastPageIndex(tasks.length, rowsPerPage));
+  }, [page, offset, tasks.length, rowsPerPage, setPage]);
 
   // Re-read while something is running, so a manual run is watched to its end
   // without pressing Refresh. Stops on its own when nothing is in flight.
@@ -198,11 +213,22 @@ export function DetectionScreen({ api }: { api: ApiClient }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {tasks.map((t) => (
+                  {shown.map((t) => (
                     <TaskRow key={t.taskRef} task={t} ecs={list?.taskStates?.[t.taskRef]} />
                   ))}
                 </tbody>
               </table>
+              {showsPager(paging, tasks.length) && (
+                <Pager
+                  page={page}
+                  rowsPerPage={rowsPerPage}
+                  sizes={paging.sizes}
+                  totalRowCount={tasks.length}
+                  rowsOnPage={shown.length}
+                  onPage={setPage}
+                  onRowsPerPage={paging.setRowsPerPage}
+                />
+              )}
             </div>
           )}
           <p className="empty-sub detection-note">

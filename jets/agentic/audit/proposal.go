@@ -151,6 +151,11 @@ type ProposalSummary struct {
 	// here that is not on change_proposal, and it is the column a reviewer
 	// sorts by in their head.
 	LastDecisionAt time.Time
+	// Client and ObjectType are those of the incident an incident-triggered
+	// proposal names, read as ListIncidentPage reads an incident's; "" for an
+	// authoring run's proposal, which no session registers.
+	Client     string
+	ObjectType string
 }
 
 // ListProposals returns the staging list, newest decision first and never
@@ -160,57 +165,13 @@ type ProposalSummary struct {
 // views are "everything still open" and "everything at all", and neither is one
 // state. An empty filter means every state.
 func ListProposals(ctx context.Context, db Querier, states []string, limit int) ([]ProposalSummary, error) {
-	if limit <= 0 || limit > maxProposalPage {
-		limit = maxProposalPage
-	}
-	for _, s := range states {
-		if !KnownState(s) {
-			return nil, fmt.Errorf("%q is not an approval state; the vocabulary has nine states", s)
-		}
-	}
-	// The LEFT JOIN is over a max, not the rows: a proposal with three
-	// decisions must still produce one row here, and approval_event_subject_idx
-	// covers (subject_ref, decided_at).
-	rows, err := db.Query(ctx,
-		`SELECT p.proposal_id, p.trigger, coalesce(p.trigger_ref, ''), p.approval_state,
-		        p.proposal_model_version, p.impact_clinical_relevance_touched,
-		        coalesce(array_length(p.affected_pipelines, 1), 0),
-		        coalesce(array_length(p.generated_tests, 1), 0),
-		        a.last_decision_at
-		   FROM jetsapi.change_proposal p
-		   LEFT JOIN (
-		         SELECT subject_ref, max(decided_at) AS last_decision_at
-		           FROM jetsapi.approval_event
-		          GROUP BY subject_ref) a
-		     ON a.subject_ref = p.proposal_id
-		  WHERE cardinality($1::text[]) = 0 OR p.approval_state = ANY($1::text[])
-		  ORDER BY a.last_decision_at DESC NULLS LAST, p.proposal_id
-		  LIMIT $2`, nonNil(states), limit)
-	if err != nil {
-		return nil, fmt.Errorf("while listing proposals: %w", err)
-	}
-	defer rows.Close()
-	var out []ProposalSummary
-	for rows.Next() {
-		var p ProposalSummary
-		var decided *time.Time
-		if err := rows.Scan(&p.ProposalId, &p.Trigger, &p.TriggerRef, &p.ApprovalState,
-			&p.ModelVersion, &p.ClinicalRelevanceTouched, &p.AffectedPipelineCount,
-			&p.GeneratedTestCount, &decided); err != nil {
-			return nil, fmt.Errorf("while scanning a proposal summary: %w", err)
-		}
-		if decided != nil {
-			p.LastDecisionAt = *decided
-		}
-		out = append(out, p)
-	}
-	return out, rows.Err()
+	rows, _, err := ListProposalPage(ctx, db, states, ListPage{Limit: limit})
+	return rows, err
 }
 
-// maxProposalPage bounds a staging list. There is no paging cursor and this is
-// not one: it is a ceiling on a screen that is meant to be worked through, and
-// a deployment that reaches it has a triage problem rather than a paging
-// problem. Named so the number is arguable.
+// maxProposalPage bounds one page of the staging list. The screen pages by
+// offset (ListProposalPage) at 50 to 150 rows; this is the ceiling on a page,
+// named so the number is arguable.
 const maxProposalPage = 500
 
 // ErrNoProposal is returned when no such proposal exists. Distinct because it

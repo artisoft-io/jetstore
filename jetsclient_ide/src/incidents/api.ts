@@ -419,8 +419,38 @@ export class IncidentStateConflictError extends ApiError {
   }
 }
 
+/**
+ * A row of the incident list: the incident, with what the list adds to it.
+ *
+ * `client` and `objectType` are the registration of the incident's session,
+ * "" when no registry names it (a purged session, say). `count`, `firstSeen`
+ * and `lastSeen` are what the incident stands for: for a feed incident, the
+ * deliveries its condition places in it, dated by arrival
+ * (`fromCondition`); for any other, its own session, counted once.
+ */
+export interface ListedIncident extends IncidentRow {
+  client: string;
+  objectType: string;
+  /** RFC3339. */
+  firstSeen: string;
+  /** RFC3339. */
+  lastSeen: string;
+  count: number;
+  fromCondition: boolean;
+}
+
+/** One page of a supervision list: which rows, and the IDE's client filter. */
+export interface ListPage {
+  limit: number;
+  offset: number;
+  /** "" for every client. */
+  client: string;
+}
+
 export interface IncidentList {
-  incidents: IncidentRow[];
+  incidents: ListedIncident[];
+  /** How many incidents the filters keep, across every page. */
+  total: number;
   statuses: string[];
   /** The loci, from the server. See `LOCUS_GLOSS` for why they are not a constant here. */
   loci: string[];
@@ -448,9 +478,9 @@ export class DeploymentNotMigratedError extends ApiError {
 export class IncidentsApi {
   constructor(private readonly api: ApiClient) {}
 
-  async list(statuses: string[] = []): Promise<IncidentList> {
+  async list(statuses: string[] = [], page?: ListPage): Promise<IncidentList> {
     return this.wrap(
-      this.api.agentic<IncidentList>({ action: "list_incidents", statuses }),
+      this.api.agentic<IncidentList>({ action: "list_incidents", statuses, ...page }),
     );
   }
 
