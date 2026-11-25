@@ -115,20 +115,22 @@ func TestEveryMemberAndKeyCarriesItsCanary(t *testing.T) {
 // that is not one.
 func TestTheCanariesAreNowhereButInTheValues(t *testing.T) {
 	var docs []string
-	for _, name := range []string{"testdata/expected.json", "testdata/feed_profiles.json"} {
+	for _, name := range []string{"testdata/expected.json", "testdata/feed_profiles.json",
+		"testdata/reprocessing_profiles.json", "testdata/not_judged_profiles.json"} {
 		buf, err := testdata.ReadFile(name)
 		if err != nil {
 			t.Fatal(err)
 		}
 		docs = append(docs, string(buf))
 	}
-	for _, f := range Feeds() {
+	for _, f := range AllFeeds() {
 		docs = append(docs, f.Client, f.ObjectType, f.TableName, f.ClaimTable)
 		for _, d := range f.Deliveries {
 			docs = append(docs, d.FileKey, d.SessionID)
 		}
 	}
-	docs = append(docs, ColClaimID, ColLineNumber, ColServiceDate, ColMember, ColPaidAmount, ColLoadBatch, DomainKey)
+	docs = append(docs, ColClaimID, ColLineNumber, ColServiceDate, ColMember, ColPaidAmount, ColLoadBatch, DomainKey,
+		ColAbsentMember, ColAbsentRequired)
 	for _, doc := range docs {
 		for _, c := range Canaries() {
 			if strings.Contains(doc, c) {
@@ -381,5 +383,124 @@ func TestTheReprocessingExpectationIsComplete(t *testing.T) {
 	first, last := regs[7], regs[7+len(back.Reregistrations)+2]
 	if last.Registered.Sub(first.Registered) > 15*time.Second {
 		t.Errorf("the backfill spans %s, want seconds", last.Registered.Sub(first.Registered))
+	}
+}
+
+// The not-judged section names the not-judged feeds, with a verdict per
+// detector and feed, their profiles are theirs, and the feeds have the shapes
+// their comments give.
+func TestTheNotJudgedExpectationIsComplete(t *testing.T) {
+	e, err := LoadExpected()
+	if err != nil {
+		t.Fatal(err)
+	}
+	feeds := NotJudgedFeeds()
+	if len(e.NotJudged.Feeds) != len(feeds) {
+		t.Fatalf("the not-judged section names %d feeds, the fixture has %d", len(e.NotJudged.Feeds), len(feeds))
+	}
+	profiles, err := NotJudgedProfiles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(profiles) != len(feeds) {
+		t.Errorf("%d not-judged profiles for %d feeds", len(profiles), len(feeds))
+	}
+	for i, f := range feeds {
+		ef := e.NotJudged.Feeds[i]
+		if ef.TableName != f.TableName || ef.Client != f.Client || ef.Cumulative != f.Cumulative ||
+			ef.Deliveries != len(f.Deliveries) {
+			t.Errorf("feed %d: expected.json says %+v, the fixture %s with %d deliveries", i, ef, f.TableName,
+				len(f.Deliveries))
+		}
+		if _, ok := profiles[f.TableName]; !ok || !f.Profiled {
+			t.Errorf("%s has no profile", f.TableName)
+		}
+		for _, det := range Detectors {
+			v, ok := e.Of(det, f.TableName)
+			if !ok {
+				t.Errorf("no verdict for %s over %s", det, f.TableName)
+			}
+			for _, o := range v.NotJudgedOn {
+				if _, known := e.NotJudgedReasons[o.Reason]; !known {
+					t.Errorf("%s over %s: delivery %d has unknown reason %q", det, f.TableName, o.Delivery, o.Reason)
+				}
+			}
+			if _, known := e.NotJudgedReasons[v.NotJudged]; v.NotJudged != "" && !known {
+				t.Errorf("%s over %s: unknown reason %q", det, f.TableName, v.NotJudged)
+			}
+		}
+	}
+	if want := len(Detectors) * len(feeds); len(e.NotJudged.Verdicts) != want {
+		t.Errorf("%d not-judged verdicts, want %d", len(e.NotJudged.Verdicts), want)
+	}
+	if e.Rules["not_judged"] == "" {
+		t.Error("no rule written for the not-judged section")
+	}
+	if got, want := len(e.NotJudgedRows()), (len(Detectors)-1)*e.NotJudged.Install.InputRegistry; got != want {
+		t.Errorf("NotJudgedRows expands to %d, want one per detector and delivery, %d", got, want)
+	}
+
+	// The unloaded delivery has no claims and its file its usual size; the
+	// undated one has claims and no date of service; the small file is the
+	// last.
+	partly, _ := FeedByTable(PartlyLoadedIncremental)
+	for _, d := range partly.Deliveries {
+		if (len(d.Claims) == 0) != (d.Ordinal == unloadedAt) || d.FileSize < 120*bytesPerRow-450 {
+			t.Errorf("%s #%d: %d claims, %d bytes", partly.TableName, d.Ordinal, len(d.Claims), d.FileSize)
+		}
+	}
+	undated, _ := FeedByTable(UndatedDeliveryIncremental)
+	for _, d := range undated.Deliveries {
+		for _, c := range d.Claims {
+			if c.ServiceDate.IsZero() != (d.Ordinal == undatedAt) {
+				t.Fatalf("%s #%d: a claim dated %s", undated.TableName, d.Ordinal, c.ServiceDate)
+			}
+		}
+	}
+	small, _ := FeedByTable(AbsentRequiredField)
+	if last := small.Deliveries[len(small.Deliveries)-1]; len(last.Claims) != smallFileRows {
+		t.Errorf("%s's last delivery has %d claims, want %d", small.TableName, len(last.Claims), smallFileRows)
+	}
+}
+
+// uncasedReasons are the not-judged reasons expected.json lists that no
+// fixture feed produces. Each is a reason of the delivery-grain detectors or
+// of the profile, decided before any claim is read: a refused profile, a
+// profiled feed with no delivery, a delivery with no period and one with no
+// staging row. The content checks' reasons are all cased.
+var uncasedReasons = []string{"no_delivery", "no_period", "no_size", "profile_refused"}
+
+// Every reason expected.json lists has a case in one of its sections, except
+// uncasedReasons; and each of those has none, so the list is kept true when a
+// case is added.
+func TestEveryListedReasonHasACase(t *testing.T) {
+	e, err := LoadExpected()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cased := map[string]bool{}
+	for _, v := range append(append(append([]ExpectedVerdict(nil), e.Verdicts...), e.Reprocessing.Verdicts...),
+		e.NotJudged.Verdicts...) {
+		if v.NotJudged != "" {
+			cased[v.NotJudged] = true
+		}
+		for _, o := range v.NotJudgedOn {
+			cased[o.Reason] = true
+		}
+	}
+	for r := range cased {
+		if strings.HasPrefix(r, "field_absent:") {
+			cased["field_absent:<field>"] = true
+		}
+	}
+	var missing []string
+	for r := range e.NotJudgedReasons {
+		if cased[r] == slices.Contains(uncasedReasons, r) {
+			missing = append(missing, r)
+		}
+	}
+	slices.Sort(missing)
+	if len(missing) > 0 {
+		t.Errorf("these reasons are cased when listed as uncased, or uncased when not listed: %v", missing)
 	}
 }
