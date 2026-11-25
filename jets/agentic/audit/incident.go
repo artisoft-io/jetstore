@@ -367,6 +367,56 @@ func ListIncidents(ctx context.Context, db Querier, statuses []string, limit int
 	return out, nil
 }
 
+// IncidentsOnSessions returns the incidents written on the given sessions, at
+// any locus, by session and then by locus. It is what a person who holds a
+// session, such as a pipeline run's or a delivery's, asks first: which
+// incidents are on it. A session with none has no row, and no session is an
+// empty list.
+//
+// **It answers only for the session itself.** A later delivery of a feed's
+// standing condition carries no incident of its own: the condition's incident
+// is on another session, and which one is derived by the feedcondition
+// package, not read here.
+func IncidentsOnSessions(ctx context.Context, db Querier, sessions []string) ([]IncidentSummary, error) {
+	if len(sessions) == 0 {
+		return nil, nil
+	}
+	rows, err := db.Query(ctx,
+		`SELECT i.incident_id, i.incident_session_id, coalesce(i.incident_run_ref, ''),
+		        i.incident_detected_at,
+		        i.incident_locus, coalesce(i.classification, ''), i.severity, i.status,
+		        coalesce(i.incident_step_ref, ''), i.incident_shard_ref,
+		        i.incident_confounders, i.incident_model_version,
+		        coalesce(h.n, 0)
+		   FROM jetsapi.incident i
+		   LEFT JOIN (
+		         SELECT hypothesis_incident_ref, count(*) AS n
+		           FROM jetsapi.hypothesis
+		          GROUP BY hypothesis_incident_ref) h
+		     ON h.hypothesis_incident_ref = i.incident_id
+		  WHERE i.incident_session_id = ANY($1::text[])
+		  ORDER BY i.incident_session_id, i.incident_locus, i.incident_id
+		  LIMIT $2`, sessions, maxIncidentPage)
+	if err != nil {
+		return nil, fmt.Errorf("while reading the incidents on sessions %v: %w", sessions, notDeployed(err))
+	}
+	defer rows.Close()
+	var out []IncidentSummary
+	for rows.Next() {
+		var s IncidentSummary
+		if err := rows.Scan(&s.IncidentId, &s.SessionId, &s.RunRef, &s.DetectedAt, &s.Locus,
+			&s.Classification, &s.Severity, &s.Status, &s.StepRef, &s.ShardRef,
+			&s.Confounders, &s.ModelVersion, &s.HypothesisCount); err != nil {
+			return nil, fmt.Errorf("while scanning an incident summary: %w", err)
+		}
+		out = append(out, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("while reading the incidents on sessions %v: %w", sessions, notDeployed(err))
+	}
+	return out, nil
+}
+
 // ReadIncident returns one incident with its hypotheses in rank order.
 //
 // **The hypotheses come back with the incident and not behind a second call**,

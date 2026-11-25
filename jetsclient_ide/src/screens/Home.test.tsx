@@ -28,7 +28,7 @@
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useParams } from "react-router-dom";
 
 import { ApiClient } from "../api/client";
 import { ApiProvider } from "../shell/capabilities";
@@ -283,6 +283,7 @@ async function mount(entry = "/home", marker = PIPELINES_MARKER) {
             <Routes>
               <Route path="/home" element={<Home api={api} />} />
               <Route path="/executionStatusDetails/:session_id" element={<div>details screen</div>} />
+              <Route path="/incidents/session/:session_id" element={<SessionIncidentsProbe />} />
             </Routes>
           </MemoryRouter>
         </PromptsProvider>
@@ -572,7 +573,7 @@ describe("the three filters, none of which is visible on the screen", () => {
 });
 
 describe("the table's buttons", () => {
-  it("draws both action rows — eight above and five below", async () => {
+  it("draws both action rows — eight above and six below", async () => {
     // The other half: `secondRowActions` was authored and nothing drew it.
     // `TableView` draws both bars, and this table is the reason it has to.
     await mount();
@@ -590,6 +591,7 @@ describe("the table's buttons", () => {
       "View Process Errors",
       "View Failure Details",
       "View Execution Stats",
+      "View Incident",
       "Resubmit",
     ]) {
       expect(button(label)).toBeTruthy();
@@ -672,6 +674,26 @@ describe("the table's buttons", () => {
     // describing behaviour nothing checked.
     fireEvent.click(button("View Execution Details"));
     await screen.findByText("details screen");
+  });
+
+  it("opens the incidents of the selected run's session, for a holder of agent_supervision", async () => {
+    // *View Incident*: the incidents page for the run's session, where the
+    // server adds the run's input session, and so the incident of a feed
+    // condition the delivery it read joined. Disabled, never hidden, without
+    // the capability.
+    await mount();
+    await openTab("Pipelines Status", "00:01:12");
+    await selectRow("00:01:12");
+    expect(button("View Incident").hasAttribute("disabled")).toBe(true);
+    cleanup();
+
+    loginCapabilities = ["run_pipelines", "agent_supervision"];
+    await mount();
+    await openTab("Pipelines Status", "00:01:12");
+    expect(button("View Incident").hasAttribute("disabled")).toBe(true);
+    await selectRow("00:01:12");
+    fireEvent.click(button("View Incident"));
+    expect(await screen.findByText("incidents of sess-1")).toBeTruthy();
   });
 
   it("asks for a session id list with a prompt, and filters on the answer", async () => {
@@ -1015,6 +1037,12 @@ function seedStatusFilterOnly() {
 }
 
 /** Selects the row containing the given text and waits for the tick to settle. */
+/** Stands where the incidents page of a session would render. */
+function SessionIncidentsProbe() {
+  const { session_id: sessionId = "" } = useParams();
+  return <div>incidents of {sessionId}</div>;
+}
+
 async function selectRow(text: string) {
   const row = screen.getByText(text).closest("tr")!;
   const box = within(row).getByRole("checkbox") as HTMLInputElement;

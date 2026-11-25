@@ -292,6 +292,18 @@
       }
     },
     {
+      "key": "viewIncident",
+      "label": "View Incident",
+      "action": "showScreen",
+      "style": "secondary",
+      "configScreenPath": "/incidents/session/:session_id",
+      "capability": "agent_supervision",
+      "isEnabledWhenHavingSelectedRows": true,
+      "navigationParams": {
+        "session_id": 10
+      }
+    },
+    {
       "key": "resubmitPipeline",
       "label": "Resubmit",
       "action": "doAction",

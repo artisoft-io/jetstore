@@ -58,6 +58,7 @@ import {
   vocabLabel,
   type Evidence,
   type HypothesisRow,
+  type IncidentCondition,
   type IncidentDetailResponse,
   type IncidentSummaryText,
   type IncidentTransitionRow,
@@ -316,6 +317,20 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
             </dd>
           </dl>
 
+          {incident.condition && (
+            <ConditionSection condition={incident.condition} incidentId={incident.incidentId} />
+          )}
+          {!incident.condition && (incident.conditionNote || incident.conditionError) && (
+            <section className="incident-condition" aria-label="Condition">
+              <h3>Condition</h3>
+              <p className="empty-sub">
+                {incident.conditionError
+                  ? `The condition could not be read: ${incident.conditionError}`
+                  : `No feed condition holds this incident: ${incident.conditionNote}`}
+              </p>
+            </section>
+          )}
+
           <h3>What has been claimed</h3>
           <dl className="incident-facts">
             <dt>Cause</dt>
@@ -467,6 +482,135 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
  * screen keeps them and adds nothing. A summary that could not be rendered is
  * said to be missing, with the server's reason, rather than left out.
  */
+/** Why a condition ended, in words. */
+function endText(c: IncidentCondition): string {
+  if (c.unordered) return "Its session id is not a time, so it has no place in the feed's order: a condition of one.";
+  if (c.shared)
+    return "Its session carries findings of another feed at this locus too, so it is a condition of one.";
+  if (c.open) return "Open: the feed's latest delivery carries a finding here, so the next one may join it.";
+  switch (c.end) {
+    case "other_feed":
+      return `Ended at session ${c.endedBy}, which carries findings of another feed at this locus too.`;
+    case "day_boundary":
+      return `Ended before session ${c.endedBy}, the next with a finding: both fall before the feed's earliest remaining registration and on different days, so the deliveries between them cannot be seen.`;
+    default:
+      return `Ended at session ${c.endedBy}, the feed's next delivery, which carries no finding here (it was checked and passed, or could not be checked).`;
+  }
+}
+
+/**
+ * The incident's condition: every delivery it stands for, read live.
+ *
+ * **Live, because the basis cannot be.** The basis on the `detected -> triaged`
+ * transition is the condition as known when the incident was raised and is
+ * never updated: deliveries that joined since are recorded nowhere, and a
+ * previous condition's incident it said was not yet written may be written now.
+ * The server derives both again on every read, with the resolver shadow triage
+ * writes by, and this section renders what it said. Each delivery links to its
+ * session's incidents, so a delivery placed elsewhere (an incident written per
+ * delivery before conditions, or a new one after a person's verdict) is one
+ * click from its own.
+ */
+function ConditionSection({ condition: c, incidentId }: { condition: IncidentCondition; incidentId: string }) {
+  const first = c.deliveries[0];
+  const last = c.deliveries[c.deliveries.length - 1];
+  const prev = c.previous;
+  return (
+    <section className="incident-condition" aria-label="Condition">
+      <h3>Condition</h3>
+      <p>
+        Feed <code>{c.feed}</code>: {c.deliveries.length}{" "}
+        {c.deliveries.length === 1 ? "delivery" : "consecutive deliveries"} with a finding at this locus
+        {first && last && first !== last && (
+          <>
+            , from session {first.sessionId} to session {last.sessionId}
+          </>
+        )}
+        . This incident stands for {c.standsFor} of {c.deliveries.length}.
+      </p>
+      <p className="condition-end">{endText(c)}</p>
+      {c.sameDay && (
+        <p className="empty-sub">
+          Part of it falls before the feed's earliest remaining registration, where two findings belong to one
+          condition only when they were registered the same day.
+        </p>
+      )}
+      <table className="incident-table condition-deliveries">
+        <caption className="sr-only">The condition's deliveries, in the feed's order</caption>
+        <thead>
+          <tr>
+            <th scope="col">#</th>
+            <th scope="col">Session</th>
+            <th scope="col">File key</th>
+            <th scope="col">Detected</th>
+            <th scope="col">Checks</th>
+            <th scope="col">Incident</th>
+          </tr>
+        </thead>
+        <tbody>
+          {c.deliveries.map((d, i) => (
+            <tr key={d.sessionId}>
+              <td>{i + 1}</td>
+              <td>
+                <Link to={`/incidents/session/${encodeURIComponent(d.sessionId)}`}>{d.sessionId}</Link>
+              </td>
+              <td>
+                {d.fileKey !== "" ? (
+                  <code className="incident-file-key">{d.fileKey}</code>
+                ) : (
+                  <em className="unclaimed">no registration of the feed</em>
+                )}
+              </td>
+              <td>{d.firstDetectedAt}</td>
+              <td>{d.detectors.join(", ")}</td>
+              <td>
+                {d.incidentId === incidentId ? (
+                  <em>this incident</em>
+                ) : d.incidentId !== "" ? (
+                  <Link to={`/incidents/${encodeURIComponent(d.incidentId)}`}>{d.incidentId}</Link>
+                ) : (
+                  <em className="unclaimed">not raised yet</em>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="condition-previous">
+        <strong>Previous incident at this locus:</strong>{" "}
+        {prev === null ? (
+          "none. No earlier delivery of the feed has a finding here."
+        ) : prev.incident !== null ? (
+          <>
+            <Link to={`/incidents/${encodeURIComponent(prev.incident.incidentId)}`}>
+              {prev.incident.incidentId}
+            </Link>
+            , on session {prev.incident.sessionId}
+            {prev.inSameCondition
+              ? ", an earlier delivery of this condition"
+              : prev.condition
+                ? `, the feed's previous condition of ${prev.condition.deliveries} ${
+                    prev.condition.deliveries === 1 ? "delivery" : "deliveries"
+                  }`
+                : ""}
+            ,{" "}
+            {prev.incident.verdict === null
+              ? "with no verdict"
+              : `${vocabLabel(prev.incident.verdict.toStatus).toLowerCase()} by ${prev.incident.verdict.actor} at ${prev.incident.verdict.transitionedAt}`}
+            .
+          </>
+        ) : prev.condition !== null ? (
+          `the feed's previous condition, ${prev.condition.deliveries} ${
+            prev.condition.deliveries === 1 ? "delivery" : "deliveries"
+          } from session ${prev.condition.firstSessionId} to session ${prev.condition.lastSessionId}, has no incident yet; when it is raised it is written on its first delivery, session ${prev.condition.firstSessionId}.`
+        ) : (
+          "none."
+        )}
+      </p>
+    </section>
+  );
+}
+
 function FeedSummary({ summary, error }: { summary?: IncidentSummaryText; error?: string }) {
   return (
     <section className="feed-summary" aria-label="Summary">

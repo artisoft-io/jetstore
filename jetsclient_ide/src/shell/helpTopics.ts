@@ -54,6 +54,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
   { route: "proposals/:proposalId", page: "user/screens/proposals/" },
   { route: "incidents", page: "user/screens/incidents/" },
   { route: "incidents/:incidentId", page: "user/screens/incidents/" },
+  { route: "incidents/session/:session_id", page: "user/screens/incidents/" },
   { route: "detection", page: "user/screens/detection/" },
   { route: "runbooks", page: "user/screens/runbooks/" },
   { route: "workspaces/:workspace_name/runbooks", page: "user/screens/runbooks/" },

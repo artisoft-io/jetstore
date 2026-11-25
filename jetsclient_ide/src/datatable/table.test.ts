@@ -727,6 +727,7 @@ describe("pipelineExecStatusTable, the table a flow and a screen share", () => {
       "viewProcessErrors",
       "viewFailureDetails",
       "viewExecStatsDetails",
+      "viewIncident",
       "resubmitPipeline",
     ]);
   });

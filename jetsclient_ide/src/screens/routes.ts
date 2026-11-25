@@ -121,6 +121,14 @@ export const SERVED_SCREENS: Readonly<Record<string, ServedScreen>> = {
    * resolves through this table and a path not in it falls through to `returnTo`.
    */
   "/home": { reactPath: "/home" },
+  /**
+   * **The third key with no Flutter predecessor**, for *View Incident* on Home's
+   * *Pipelines Status* (2026-11-24): the incidents a run's session belongs to,
+   * its own and those of the delivery it read, including the incident of a feed
+   * condition whose later deliveries carry none of their own. The incident list's
+   * session search lands on the same page.
+   */
+  "/incidents/session/:session_id": { reactPath: "/incidents/session/:session_id" },
 };
 
 /**
