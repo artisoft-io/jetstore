@@ -29,6 +29,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/artisoft-io/jetstore/jets/errorcode"
 )
 
 // ValidatorScriptName is the bundled validator's file name. The images copy it
@@ -56,6 +58,9 @@ type CompileOption func(*compileOptions)
 type compileOptions struct {
 	skipAssetValidation bool
 	skipReason          string
+	// raises, when set, receives the rules' jets:exception raises
+	// (CollectExceptionRaises)
+	raises *[]errorcode.Raise
 }
 
 // SkipAssetValidation is the one way past the asset validation step, and the

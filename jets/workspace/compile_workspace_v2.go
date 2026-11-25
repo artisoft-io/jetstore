@@ -20,7 +20,12 @@ import (
 
 // Workspace compilation function v2
 
-func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceControl, version string) (string, error) {
+func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceControl, version string, opts ...CompileOption) (string, error) {
+
+	var options compileOptions
+	for _, opt := range opts {
+		opt(&options)
+	}
 
 	var jrCompiler *compiler.Compiler
 	var err error
@@ -127,6 +132,10 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 		classes = append(classes, jrCompiler.JetRuleModel().Classes...)
 		tables = append(tables, jrCompiler.JetRuleModel().Tables...)
 		lookupTables = append(lookupTables, jrCompiler.JetRuleModel().LookupTables...)
+		// And the exceptions its rules raise, for the error code catalogue's check
+		if options.raises != nil {
+			addRaises(options.raises, ExceptionRaises(jrCompiler.JetRuleModel()))
+		}
 
 		// Split the compiled model into '.rete.json',  '.model.json' and  '.triples.json '
 		// into the build directory

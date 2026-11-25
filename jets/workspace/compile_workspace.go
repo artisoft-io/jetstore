@@ -39,7 +39,7 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string, opts 
 	}
 
 	log.Println("Using workspace compiler v2 with WORKSPACE_HOME=", WorkspacesHome())
-	compileLog, err := compileWorkspaceV2(dbpool, workspaceControl, version)
+	compileLog, err := compileWorkspaceV2(dbpool, workspaceControl, version, opts...)
 	return validationLog + compileLog, err
 }
 
