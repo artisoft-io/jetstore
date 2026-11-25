@@ -85,17 +85,32 @@ func TestIncidentListPagesAndFiltersByClient(t *testing.T) {
 }
 
 // A feed incident's count and span are its condition's, as get_incident
-// reads it: the deliveries placed in this incident, by arrival.
+// reads it: the deliveries placed in this incident, by arrival. A run
+// incident's are its run condition's, as get_incident reads it: the runs still
+// held placed in it, from its position to its latest member. The feed fixture
+// writes no run incident, so three runs of one process are planted beside it.
 func TestIncidentListSpansAreTheConditions(t *testing.T) {
 	pool := conditionDB(t, "agentic_list_spans")
+	_, starts := plantRunCondition(t, pool, "client_r", "loader")
 	list := listIncidentsPage(t, pool, AgenticAction{})
-	feedRows := 0
+	feedRows, runRows := 0, 0
 	for _, r := range list["incidents"].([]any) {
 		row := r.(map[string]any)
 		id := row["incidentId"].(string)
 		if !slices.Contains(triage.DeliveryLoci, row["locus"].(string)) {
-			if row["count"].(float64) != 1 || row["firstSeen"] != row["lastSeen"] {
-				t.Errorf("run incident %s: count %v, %v to %v; want one session", id, row["count"],
+			runRows++
+			c, ok := readIncident(t, pool, id)["runCondition"].(map[string]any)
+			if !ok {
+				t.Errorf("run incident %s carries no run condition", id)
+				continue
+			}
+			if row["count"] != c["runsHeld"] || row["firstSeen"] != c["firstSeen"] || row["lastSeen"] != c["lastSeen"] ||
+				row["fromRunCondition"] != true {
+				t.Errorf("run incident %s: count %v, %v to %v; its run condition holds %v, %v to %v", id,
+					row["count"], row["firstSeen"], row["lastSeen"], c["runsHeld"], c["firstSeen"], c["lastSeen"])
+			}
+			if row["count"].(float64) != 3 || row["firstSeen"] != rfc(starts[0]) || row["lastSeen"] != rfc(starts[2]) {
+				t.Errorf("run incident %s: count %v, %v to %v; want the three planted runs", id, row["count"],
 					row["firstSeen"], row["lastSeen"])
 			}
 			continue
@@ -135,6 +150,9 @@ func TestIncidentListSpansAreTheConditions(t *testing.T) {
 	}
 	if feedRows == 0 {
 		t.Fatal("no feed incident with a condition on the fixture")
+	}
+	if runRows == 0 {
+		t.Fatal("no run incident on the list, so its spans are not tested")
 	}
 	// The weekly repeat's condition is eight deliveries in one incident.
 	weekly := listIncidentsPage(t, pool, AgenticAction{})

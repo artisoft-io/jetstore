@@ -54,6 +54,7 @@ import {
   IncidentsApi,
   LOCUS_GLOSS,
   locusLabel,
+  processErrorsPath,
   RECLASSIFIED,
   vocabLabel,
   type Evidence,
@@ -62,6 +63,8 @@ import {
   type IncidentDetailResponse,
   type IncidentSummaryText,
   type IncidentTransitionRow,
+  type RunCodeCount,
+  type RunCondition,
 } from "./api";
 
 export function IncidentScreen({ api }: { api: ApiClient }) {
@@ -190,6 +193,11 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
   // rather than offering buttons the server would refuse.
   const permitted = detail.permittedTransitions ?? [];
   const causes = detail.classifications ?? [];
+  // A per-record failure is read by its code and its counts, and its text on
+  // the session's Process Errors rows, which the screen links to rather than
+  // quoting: a message's tail can carry a record's values.
+  const perRecord = incident.locus === "per_record_failures_reported";
+  const codes = incident.codes ?? [];
 
   return (
     <>
@@ -228,8 +236,37 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
                 </p>
               )}
             </dd>
+            {incident.errorCode !== undefined && incident.errorCode !== "" && (
+              <>
+                <dt>Error code</dt>
+                <dd>
+                  <code className="incident-code">{incident.errorCode}</code>
+                  <p className="empty-sub">
+                    Read from the rule or operator that raised the rows, never from their values. Each
+                    code is an incident of its own.
+                  </p>
+                </dd>
+              </>
+            )}
+            {perRecord && (
+              <>
+                <dt>Error codes in this run</dt>
+                <dd>
+                  <RunCodes codes={codes} />
+                </dd>
+              </>
+            )}
             <dt>Session</dt>
-            <dd>{incident.sessionId}</dd>
+            <dd>
+              {incident.sessionId}
+              {perRecord && (
+                <p className="empty-sub">
+                  <Link to={processErrorsPath(incident.sessionId)}>View the session's process errors</Link>{" "}
+                  for the rows and their messages. This page shows no message, because a message can carry a
+                  record's values.
+                </p>
+              )}
+            </dd>
             {/* What the session registered, so the incident's runs can be found
                 on Pipeline Status: a file's runs carry this session as their
                 input session, a domain table's as their own. */}
@@ -327,6 +364,20 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
                 {incident.conditionError
                   ? `The condition could not be read: ${incident.conditionError}`
                   : `No feed condition holds this incident: ${incident.conditionNote}`}
+              </p>
+            </section>
+          )}
+
+          {incident.runCondition && (
+            <RunConditionSection condition={incident.runCondition} incidentSessionId={incident.sessionId} />
+          )}
+          {!incident.runCondition && (incident.runConditionNote || incident.runConditionError) && (
+            <section className="incident-condition" aria-label="Run condition">
+              <h3>Run condition</h3>
+              <p className="empty-sub">
+                {incident.runConditionError
+                  ? `The run condition could not be read: ${incident.runConditionError}`
+                  : `No run condition holds this incident: ${incident.runConditionNote}`}
               </p>
             </section>
           )}
@@ -607,6 +658,150 @@ function ConditionSection({ condition: c, incidentId }: { condition: IncidentCon
           "none."
         )}
       </p>
+    </section>
+  );
+}
+
+/**
+ * A run's error codes and the rows stored for each.
+ *
+ * **Counts, never a message.** A message's tail can carry a record's values, so
+ * the screen shows what the code says and how many rows carry it, and links to
+ * the session's Process Errors rows for the text. **The counts are a lower
+ * bound**: each operator stops storing rows at its maximum error count.
+ */
+function RunCodes({ codes }: { codes: RunCodeCount[] }) {
+  if (codes.length === 0) {
+    return (
+      <em className="unclaimed">
+        none stored: the run has been deleted, or it was triaged before error codes were stored
+      </em>
+    );
+  }
+  return (
+    <>
+      <table className="incident-table run-codes">
+        <caption className="sr-only">The run's error codes and the rows stored for each</caption>
+        <thead>
+          <tr>
+            <th scope="col">Code</th>
+            <th scope="col">
+              Rows <span className="col-note">at least</span>
+            </th>
+            <th scope="col">Reports</th>
+          </tr>
+        </thead>
+        <tbody>
+          {codes.map((c) => (
+            <tr key={c.code}>
+              <td>
+                <code className="incident-code">{c.code}</code>
+              </td>
+              <td>{c.storedRows}</td>
+              <td>{c.verdict === "present" ? "yes" : "no: below its threshold, or a debug code"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="empty-sub">
+        Rows stored, a lower bound: each operator stops storing rows at its maximum error count, so the run may
+        have failed more records than these.
+      </p>
+    </>
+  );
+}
+
+/**
+ * A run incident's run condition: the runs still held that it stands for, read
+ * live.
+ *
+ * **The count is of runs still held**, and the screen says so: retention deletes
+ * runs, and a deleted run is no member of any condition, so the count falls as
+ * the condition ages while first seen stays at the run the incident was written
+ * on. Each run links to its session's incidents, and, for per-record failures,
+ * to its Process Errors rows.
+ */
+function RunConditionSection({
+  condition: c,
+  incidentSessionId,
+}: {
+  condition: RunCondition;
+  incidentSessionId: string;
+}) {
+  const later = c.conditionRuns - c.runsHeld;
+  const coded = c.errorCode !== undefined && c.errorCode !== "";
+  const perRecord = c.locus === "per_record_failures_reported";
+  return (
+    <section className="incident-condition" aria-label="Run condition">
+      <h3>Run condition</h3>
+      <p>
+        Process <code>{c.process}</code> for client <code>{c.client}</code>
+        {coded && (
+          <>
+            , error code <code className="incident-code">{c.errorCode}</code>
+          </>
+        )}
+        : this incident stands for {c.runsHeld} {c.runsHeld === 1 ? "run" : "runs"} still held, first seen{" "}
+        {c.firstSeen}
+        {c.lastSeen !== "" && <>, last seen {c.lastSeen}</>}.
+      </p>
+      <p className="empty-sub">
+        The count is of runs still held: it falls as retention deletes runs. First seen stays at the run this
+        incident was written on
+        {c.ownRunHeld ? "" : ", which has been deleted"}.
+      </p>
+      <p className="condition-end">
+        {c.open
+          ? "Open: no later run of the process has this finding absent, so the next run may join it."
+          : `Ended at session ${c.endedBy}, a later run of the process whose finding here is absent.`}
+      </p>
+      {later > 0 && (
+        <p className="empty-sub">
+          {later} later {later === 1 ? "run" : "runs"} of the condition{" "}
+          {later === 1 ? "is" : "are"} placed in a later incident, raised after a person's verdict.
+        </p>
+      )}
+      <table className="incident-table condition-runs">
+        <caption className="sr-only">The condition's runs placed in this incident, in start order</caption>
+        <thead>
+          <tr>
+            <th scope="col">#</th>
+            <th scope="col">Session</th>
+            <th scope="col">Started</th>
+            {coded && (
+              <th scope="col">
+                Rows <span className="col-note">at least</span>
+              </th>
+            )}
+            {perRecord && <th scope="col">Process errors</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {c.runs.map((r, i) => (
+            <tr key={r.sessionId}>
+              <td>{i + 1}</td>
+              <td>
+                {r.sessionId === incidentSessionId ? (
+                  <>
+                    {r.sessionId} <em>this incident's run</em>
+                  </>
+                ) : (
+                  <Link to={`/incidents/session/${encodeURIComponent(r.sessionId)}`}>{r.sessionId}</Link>
+                )}
+              </td>
+              <td>{r.startTime}</td>
+              {coded && <td>{r.storedRows ?? ""}</td>}
+              {perRecord && (
+                <td>
+                  <Link to={processErrorsPath(r.sessionId)} aria-label={`Process errors of session ${r.sessionId}`}>
+                    View
+                  </Link>
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </section>
   );
 }
