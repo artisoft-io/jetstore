@@ -224,6 +224,10 @@ type agenticOps interface {
 	// the same resolver: nil with a reason when no single feed's condition
 	// holds the incident's session.
 	IncidentCondition(ctx context.Context, inc *audit.Incident) (*IncidentCondition, string, error)
+	// RunIncident returns what a run incident adds to its page: its error
+	// code, the codes of its run with their stored rows, and its run condition,
+	// read live through the runcondition package. Nil for a feed incident.
+	RunIncident(ctx context.Context, inc *audit.Incident) (*RunIncidentDetail, error)
 	// The Detection screen: the runs the detection commands recorded,
 	// the deployed task those runs come from, and starting it now. The ECS half
 	// is behind the same seam so the dispatch is testable without AWS.
@@ -292,6 +296,9 @@ func (o pgOps) SessionIncidents(ctx context.Context, sessionID string) (*Session
 }
 func (o pgOps) IncidentCondition(ctx context.Context, inc *audit.Incident) (*IncidentCondition, string, error) {
 	return readIncidentCondition(ctx, o.db, inc)
+}
+func (o pgOps) RunIncident(ctx context.Context, inc *audit.Incident) (*RunIncidentDetail, error) {
+	return readRunIncident(ctx, o.db, inc)
 }
 
 // DoAgenticAction ----------------------------------------------------------
@@ -616,8 +623,12 @@ func listIncidents(ctx context.Context, ops agenticOps, a *AgenticAction) (*map[
 		// "" when no registry names the session; only the list reads them.
 		row["client"], row["objectType"] = i.Client, i.ObjectType
 		sp := spans[i.IncidentId]
-		row["firstSeen"], row["lastSeen"], row["count"], row["fromCondition"] =
-			timeOrEmpty(sp.First), timeOrEmpty(sp.Last), sp.Count, sp.FromCondition
+		row["firstSeen"], row["lastSeen"], row["count"], row["fromCondition"], row["fromRunCondition"] =
+			timeOrEmpty(sp.First), timeOrEmpty(sp.Last), sp.Count, sp.FromCondition, sp.FromRunCondition
+		// Only where set: an incident with no error code carries none.
+		if sp.ErrorCode != "" {
+			row["errorCode"] = sp.ErrorCode
+		}
 		out = append(out, row)
 	}
 	return &map[string]any{
@@ -728,6 +739,19 @@ func getIncident(ctx context.Context, ops agenticOps, a *AgenticAction, phi audi
 			row["condition"] = conditionPayload(c)
 		} else {
 			row["conditionNote"] = why
+		}
+	} else {
+		// A run incident's error code, its run's codes with their stored rows,
+		// and its run condition, read live, on the feed condition's argument:
+		// later runs join without a record. **Never a message**: a message's
+		// tail can carry a record's values, and the session's Process Errors
+		// rows hold the text. Not a failure of the screen when it cannot be
+		// read.
+		if d, err := ops.RunIncident(ctx, inc); err != nil {
+			log.Printf("while reading the run condition of incident %s: %v", a.IncidentId, err)
+			row["runConditionError"] = err.Error()
+		} else if d != nil {
+			addRunIncident(row, d)
 		}
 	}
 

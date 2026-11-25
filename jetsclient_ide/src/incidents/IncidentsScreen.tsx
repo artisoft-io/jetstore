@@ -91,6 +91,18 @@ const EMPTY_SUB_FOR: Record<Filter, string> = {
   all: "Incidents are written by shadow triage, which runs where the detection task is deployed; the Detection screen says whether it has run. An empty list is not evidence that nothing went wrong.",
 };
 
+/**
+ * What a row's count is of. **A run condition's count is of runs still held**:
+ * retention deletes runs, and the count falls with them while first seen stays
+ * at the run the incident was written on.
+ */
+function countTitle(r: ListedIncident): string {
+  if (r.fromCondition) return "Deliveries of the feed's condition placed in this incident";
+  if (r.fromRunCondition)
+    return "Runs of the process's run condition still held and placed in this incident; the count falls as retention deletes runs";
+  return "The incident's own session";
+}
+
 export function IncidentsScreen({ api }: { api: ApiClient }) {
   const incidents = useMemo(() => new IncidentsApi(api), [api]);
   const { setError } = useNotifications();
@@ -245,8 +257,9 @@ export function IncidentsScreen({ api }: { api: ApiClient }) {
                   <th scope="col">Object type</th>
                   <th scope="col">Detected</th>
                   {/* What the incident stands for: a feed incident, the
-                      deliveries its condition places in it, by arrival; any
-                      other, its own session. */}
+                      deliveries its condition places in it, by arrival; a run
+                      incident, the runs of its run condition still held, from
+                      the run it was written on; any other, its own session. */}
                   <th scope="col">First seen</th>
                   <th scope="col">Last seen</th>
                   <th scope="col">Count</th>
@@ -278,20 +291,19 @@ export function IncidentsScreen({ api }: { api: ApiClient }) {
                     <td>{r.objectType}</td>
                     <td>{r.detectedAt}</td>
                     <td>{r.firstSeen}</td>
-                    <td>{r.lastSeen}</td>
-                    <td
-                      title={
-                        r.fromCondition
-                          ? "Deliveries of the feed's condition placed in this incident"
-                          : "The incident's own session"
-                      }
-                    >
-                      {r.count}
+                    <td>
+                      {r.lastSeen === "" ? <em className="unclaimed">no run held</em> : r.lastSeen}
                     </td>
+                    <td title={countTitle(r)}>{r.count}</td>
                     <td>
                       <span className="pill" title={LOCUS_GLOSS[r.locus]?.meaning ?? ""}>
                         {locusLabel(r.locus)}
                       </span>
+                      {r.errorCode !== undefined && r.errorCode !== "" && (
+                        // The code beside the locus: a per-record failure is one
+                        // incident per code, so the locus alone does not say which.
+                        <code className="incident-code incident-list-code">{r.errorCode}</code>
+                      )}
                     </td>
                     <td>
                       {r.classification === "" ? (
