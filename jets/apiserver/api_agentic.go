@@ -106,6 +106,12 @@ type AgenticAction struct {
 	States []string `json:"states"`
 	Limit  int      `json:"limit"`
 
+	// list_proposals and list_incidents: the page asked for, and the IDE's
+	// client filter, "" for every client. A row whose session no registry
+	// names has no client, and a client filter does not show it.
+	Offset int    `json:"offset"`
+	Client string `json:"client"`
+
 	// get_proposal, record_approval
 	ProposalId string `json:"proposalId"`
 
@@ -169,7 +175,7 @@ type AgenticAction struct {
 // fake that returns a damaged chain is the only cheap way to assert that,
 // because the append-only trigger makes a real one impossible to produce.
 type agenticOps interface {
-	ListProposals(ctx context.Context, states []string, limit int) ([]audit.ProposalSummary, error)
+	ListProposals(ctx context.Context, states []string, page audit.ListPage) ([]audit.ProposalSummary, int, error)
 	ReadProposal(ctx context.Context, proposalId string) (*audit.Proposal, error)
 	ApprovalsFor(ctx context.Context, subjectRef string) ([]audit.Approval, error)
 	ReadTranscript(ctx context.Context, runId string) (*audit.Transcript, error)
@@ -181,7 +187,10 @@ type agenticOps interface {
 	// verdict, and `RecordIncidentTransition` below is what finally writes one.
 	// Until it existed, `HumanVerdicts` — *the labelled population, as a query*
 	// — had no writer that could put a row in it.
-	ListIncidents(ctx context.Context, statuses []string, limit int) ([]audit.IncidentSummary, error)
+	ListIncidents(ctx context.Context, statuses []string, page audit.ListPage) ([]audit.IncidentSummary, int, error)
+	// IncidentSpans reads, for the incidents of one list page, when each was
+	// first and last seen and how many deliveries it stands for.
+	IncidentSpans(ctx context.Context, incidents []audit.IncidentSummary) (map[string]IncidentSpan, error)
 	// ReadIncident takes the PHI decision rather than making it: the audit
 	// package redacts inside the read, so a handler cannot obtain an
 	// unredacted Evidence without having passed audit.DisclosePHI.
@@ -239,8 +248,8 @@ type pgxPool interface {
 	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 }
 
-func (o pgOps) ListProposals(ctx context.Context, states []string, limit int) ([]audit.ProposalSummary, error) {
-	return audit.ListProposals(ctx, o.db, states, limit)
+func (o pgOps) ListProposals(ctx context.Context, states []string, page audit.ListPage) ([]audit.ProposalSummary, int, error) {
+	return audit.ListProposalPage(ctx, o.db, states, page)
 }
 func (o pgOps) ReadProposal(ctx context.Context, id string) (*audit.Proposal, error) {
 	return audit.ReadProposal(ctx, o.db, id)
@@ -257,8 +266,11 @@ func (o pgOps) RunTier(ctx context.Context, runId string) (string, error) {
 func (o pgOps) RecordApproval(ctx context.Context, a *audit.Approval) (int, error) {
 	return audit.RecordApproval(ctx, o.db, a)
 }
-func (o pgOps) ListIncidents(ctx context.Context, statuses []string, limit int) ([]audit.IncidentSummary, error) {
-	return audit.ListIncidents(ctx, o.db, statuses, limit)
+func (o pgOps) ListIncidents(ctx context.Context, statuses []string, page audit.ListPage) ([]audit.IncidentSummary, int, error) {
+	return audit.ListIncidentPage(ctx, o.db, statuses, page)
+}
+func (o pgOps) IncidentSpans(ctx context.Context, incidents []audit.IncidentSummary) (map[string]IncidentSpan, error) {
+	return readIncidentSpans(ctx, o.db, incidents)
 }
 func (o pgOps) ReadIncident(ctx context.Context, id string, phi audit.PHIAccess) (*audit.Incident, error) {
 	return audit.ReadIncident(ctx, o.db, id, phi)
@@ -365,7 +377,7 @@ func agenticDispatch(ctx context.Context, ops agenticOps, a *AgenticAction, acto
 }
 
 func listProposals(ctx context.Context, ops agenticOps, a *AgenticAction) (*map[string]any, int, error) {
-	rows, err := ops.ListProposals(ctx, a.States, a.Limit)
+	rows, total, err := ops.ListProposals(ctx, a.States, audit.ListPage{Client: a.Client, Limit: a.Limit, Offset: a.Offset})
 	if err != nil {
 		return nil, http.StatusBadRequest, err
 	}
@@ -381,6 +393,8 @@ func listProposals(ctx context.Context, ops agenticOps, a *AgenticAction) (*map[
 			"affectedPipelineCount":    p.AffectedPipelineCount,
 			"generatedTestCount":       p.GeneratedTestCount,
 			"lastDecisionAt":           timeOrEmpty(p.LastDecisionAt),
+			"client":                   p.Client,
+			"objectType":               p.ObjectType,
 			// The transitions travel with each row so the list can show which
 			// proposals are still movable without a request per row. It is the
 			// same table the detail screen decides its buttons from.
@@ -390,7 +404,8 @@ func listProposals(ctx context.Context, ops agenticOps, a *AgenticAction) (*map[
 	// `states` is echoed back because the screen renders it as the active
 	// filter, and echoing what the server understood is cheaper than trusting
 	// that the request and the response agree.
-	return &map[string]any{"proposals": out, "states": nonEmptyStrings(a.States)}, http.StatusOK, nil
+	return &map[string]any{"proposals": out, "states": nonEmptyStrings(a.States), "total": total,
+		"offset": a.Offset, "client": a.Client}, http.StatusOK, nil
 }
 
 func getProposal(ctx context.Context, ops agenticOps, a *AgenticAction) (*map[string]any, int, error) {
@@ -585,16 +600,31 @@ func recordApproval(ctx context.Context, ops agenticOps, a *AgenticAction, actor
 // is the risk arriving through the wire rather than through the prose.
 
 func listIncidents(ctx context.Context, ops agenticOps, a *AgenticAction) (*map[string]any, int, error) {
-	rows, err := ops.ListIncidents(ctx, a.Statuses, a.Limit)
+	rows, total, err := ops.ListIncidents(ctx, a.Statuses, audit.ListPage{Client: a.Client, Limit: a.Limit, Offset: a.Offset})
+	if err != nil {
+		return nil, incidentErrorCode(err), err
+	}
+	// Read for the page only: the spans of a feed incident come from its
+	// condition, which is read per feed, so the cost is bounded by the page.
+	spans, err := ops.IncidentSpans(ctx, rows)
 	if err != nil {
 		return nil, incidentErrorCode(err), err
 	}
 	out := make([]map[string]any, 0, len(rows))
 	for _, i := range rows {
-		out = append(out, incidentRow(i))
+		row := incidentRow(i)
+		// "" when no registry names the session; only the list reads them.
+		row["client"], row["objectType"] = i.Client, i.ObjectType
+		sp := spans[i.IncidentId]
+		row["firstSeen"], row["lastSeen"], row["count"], row["fromCondition"] =
+			timeOrEmpty(sp.First), timeOrEmpty(sp.Last), sp.Count, sp.FromCondition
+		out = append(out, row)
 	}
 	return &map[string]any{
 		"incidents": out,
+		"total":     total,
+		"offset":    a.Offset,
+		"client":    a.Client,
 		// Echoed for the same reason `list_proposals` echoes its states: what
 		// the server understood is cheaper to render than what the request
 		// hoped it would.

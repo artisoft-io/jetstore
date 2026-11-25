@@ -39,6 +39,26 @@ export interface ProposalRow {
   /** RFC3339, or "" when nobody has decided it yet. */
   lastDecisionAt: string;
   transitions: string[];
+  /**
+   * The client and object type of the incident an incident trigger names, ""
+   * for a proposal an authoring run produced, which no session registers.
+   */
+  client: string;
+  objectType: string;
+}
+
+/** One page of the staging list: which rows, and the IDE's client filter. */
+export interface ProposalPage {
+  limit: number;
+  offset: number;
+  /** "" for every client. */
+  client: string;
+}
+
+export interface ProposalList {
+  proposals: ProposalRow[];
+  /** How many proposals the filters keep, across every page. */
+  total: number;
 }
 
 /** Mirrors audit.Proposal, in the subset the Go read path carries. */
@@ -130,12 +150,14 @@ export class StateConflictError extends ApiError {
 export class ProposalsApi {
   constructor(private readonly api: ApiClient) {}
 
-  async list(states: string[] = []): Promise<ProposalRow[]> {
-    const body = await this.api.agentic<{ proposals?: ProposalRow[] }>({
+  async list(states: string[] = [], page?: ProposalPage): Promise<ProposalList> {
+    const body = await this.api.agentic<{ proposals?: ProposalRow[]; total?: number }>({
       action: "list_proposals",
       states,
+      ...page,
     });
-    return body.proposals ?? [];
+    const proposals = body.proposals ?? [];
+    return { proposals, total: body.total ?? proposals.length };
   }
 
   async get(proposalId: string): Promise<ProposalView> {

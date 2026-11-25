@@ -20,16 +20,15 @@
  * action grammar; the widget renders a slot and the interpreter fills it.
  */
 
-import { type CSSProperties, type ReactNode, useEffect, useId, useRef } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useRef } from "react";
 
 import "./datatable.css";
+import { Pager } from "./Pager";
 import {
   availableRowsPerPage,
   cellFullText,
   cellText,
-  isLastPage,
   lastPageIndex,
-  pageRowsInfo,
   visibleColumns,
 } from "./model";
 import type { TableModes } from "./modes";
@@ -229,16 +228,9 @@ export function DataTable({
 }: DataTableProps): React.JSX.Element {
   const columns = visibleColumns(state.columns);
   const checkboxes = modes ? modes.checkboxVisible : config.isCheckboxVisible;
-  const rowsPerPageId = useId();
 
   const rowBand = rowStyle(config);
   const lastPage = lastPageIndex(state.totalRowCount, state.rowsPerPage);
-  const onLastPage = isLastPage(
-    state.currentDataPage,
-    state.rowsPerPage,
-    state.totalRowCount,
-  );
-  const onFirstPage = state.currentDataPage === 0;
 
   /**
    * **The footer is paging apparatus, and a table that does not page has none.**
@@ -422,55 +414,15 @@ export function DataTable({
       </div>
 
       {!config.noFooter && paged && (
-        <div className="jets-datatable__footer">
-          <label htmlFor={rowsPerPageId}>Rows per page</label>
-          <select
-            id={rowsPerPageId}
-            value={state.rowsPerPage}
-            onChange={(e) => state.setRowsPerPage(Number(e.target.value))}
-          >
-            {availableRowsPerPage(config.rowsPerPage).map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-          <span className="jets-datatable__range">
-            {pageRowsInfo(
-              state.currentDataPage,
-              state.rowsPerPage,
-              state.totalRowCount,
-              state.rows.length,
-            )}
-          </span>
-          <button type="button" aria-label="First page" disabled={onFirstPage} onClick={() => state.setPage(0)}>
-            {"«"}
-          </button>
-          <button
-            type="button"
-            aria-label="Previous page"
-            disabled={onFirstPage}
-            onClick={() => state.setPage(state.currentDataPage - 1)}
-          >
-            {"‹"}
-          </button>
-          <button
-            type="button"
-            aria-label="Next page"
-            disabled={onLastPage}
-            onClick={() => state.setPage(state.currentDataPage + 1)}
-          >
-            {"›"}
-          </button>
-          <button
-            type="button"
-            aria-label="Last page"
-            disabled={onLastPage}
-            onClick={() => state.setPage(lastPage)}
-          >
-            {"»"}
-          </button>
-        </div>
+        <Pager
+          page={state.currentDataPage}
+          rowsPerPage={state.rowsPerPage}
+          sizes={availableRowsPerPage(config.rowsPerPage)}
+          totalRowCount={state.totalRowCount}
+          rowsOnPage={state.rows.length}
+          onPage={(p) => state.setPage(p)}
+          onRowsPerPage={(n) => state.setRowsPerPage(n)}
+        />
       )}
     </div>
   );

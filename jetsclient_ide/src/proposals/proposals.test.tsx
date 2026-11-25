@@ -25,6 +25,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiClient } from "../api/client";
 import { ApiProvider } from "../shell/capabilities";
 import { NotificationsProvider } from "../shell/notifications";
+import { resetSelectedClient, setSelectedClient } from "../shell/selectedClient";
 import { ProposalScreen, artifactText } from "./ProposalScreen";
 import { ProposalsScreen } from "./ProposalsScreen";
 import { stateLabel } from "./api";
@@ -429,7 +430,8 @@ describe("the trigger", () => {
     expect(link.getAttribute("href")).toBe(`/incidents/${incidentId}`);
     // A run trigger keeps its display: the trigger alone, no run link.
     const runRow = screen.getByRole("link", { name: "chg_1" }).closest("tr")!;
-    expect(runRow.querySelectorAll("td")[1]!.textContent).toBe("authoring_run");
+    // The trigger is the fourth cell, after the client, the object type and the state.
+    expect(runRow.querySelectorAll("td")[3]!.textContent).toBe("authoring_run");
     expect(container.querySelectorAll('a[href^="/incidents/"]').length).toBe(1);
   });
 
@@ -475,5 +477,45 @@ describe("stateLabel", () => {
     expect(stateLabel("approved_with_modification")).toBe("Approved with modification");
     expect(stateLabel("draft")).toBe("Draft");
     expect(stateLabel("")).toBe("");
+  });
+});
+
+// The staging list is paged on the server and carries the shell's client
+// filter; a row shows the client and object type of the incident it names.
+describe("the staging list's pages and client", () => {
+  afterEach(resetSelectedClient);
+  const pageOf = (req: Record<string, unknown>) => {
+    const limit = Number(req["limit"]);
+    const offset = Number(req["offset"]);
+    const n = Math.max(0, Math.min(limit, 70 - offset));
+    return {
+      body: {
+        proposals: Array.from({ length: n }, (_, k) => ({
+          ...draftRow,
+          proposalId: `chg_p${offset + k}`,
+          client: "client_a",
+          objectType: "MedicalClaim",
+        })),
+        total: 70,
+      },
+    };
+  };
+
+  it("starts at 50, offers 50, 100 and 150, and sends the shell's client", async () => {
+    setSelectedClient("client_a");
+    const { api, sent } = await clientWith({ list_proposals: pageOf });
+    const { container } = renderAt(api, "/proposals");
+    await screen.findByRole("link", { name: "chg_p0" });
+    expect(sent[sent.length - 1]).toMatchObject({ limit: 50, offset: 0, client: "client_a" });
+    const size = screen.getByLabelText("Rows per page") as HTMLSelectElement;
+    expect([...size.options].map((o) => o.value)).toEqual(["50", "100", "150"]);
+    const headers = [...container.querySelectorAll("thead th")].map((th) => th.textContent);
+    expect(headers.slice(0, 3)).toEqual(["Proposal", "Client", "Object type"]);
+    const cells = [...screen.getByRole("link", { name: "chg_p0" }).closest("tr")!.querySelectorAll("td")];
+    expect(cells.slice(0, 2).map((td) => td.textContent)).toEqual(["client_a", "MedicalClaim"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    await screen.findByRole("link", { name: "chg_p50" });
+    expect(sent[sent.length - 1]).toMatchObject({ limit: 50, offset: 50, client: "client_a" });
   });
 });

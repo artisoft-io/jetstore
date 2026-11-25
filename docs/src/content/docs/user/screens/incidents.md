@@ -28,10 +28,22 @@ that session belongs to (see [Finding a session's incidents](#finding-a-sessions
 the list shows each incident once, on the session it is written on, so a delivery that joined
 another delivery's incident has no row of its own here.
 
+**The list is paged**, newest first: 50 incidents a page to start with, and **Rows per page** offers
+50, 100 or 150. The footer says which rows are shown out of how many, with buttons for the first,
+previous, next and last page. Changing the picker or the client goes back to the first page.
+
+**The client filter in the menu applies.** With a client selected, the list keeps the incidents whose
+session is registered to that client. An incident whose session no longer has a registration (its
+session was deleted or purged) has no client, so it is listed only when no client is selected.
+
 | Column | What it shows |
 |---|---|
 | **Incident** | The incident's id, linked to its page, and the session it concerns: a run's, or, for a feed incident, the session in which a delivery was registered. |
+| **Client** | The client the incident's session is registered to: the run's, or the delivery's. Blank when no registration remains. |
+| **Object type** | The object type of that registration: the run's main object type, or the delivery's. Blank when no registration remains. |
 | **Detected** | When it was raised. |
+| **First seen**, **Last seen** | For a feed incident, the earliest and the latest of the deliveries it stands for, by when each was registered. For any other incident, the time of its own session, in both. |
+| **Count** | For a feed incident, how many deliveries of its condition it stands for: the deliveries placed in it, as its page's [Condition](#the-condition-of-a-feed-incident) section counts them, so a delivery that went to a later incident of the same condition is not counted. For any other incident, 1. Hover to see which. |
 | **Locus** *evidence* | Where the evidence sits, such as *Worker failed*. Hover for what the locus means. |
 | **Cause** *claim* | The cause claimed, or *not claimed*. |
 | **Severity** | *info*, *low*, *medium*, *high* or *critical*. |

@@ -22,9 +22,19 @@ The picker chooses what is listed: **Awaiting a decision** (the default: draft, 
 agent-reviewed and awaiting human approval), **Open proposals** (those, and the approved and deployed
 ones), or **All proposals**. **Refresh** reads the list again. The most recently decided come first.
 
+**The list is paged**: 50 proposals a page to start with, and **Rows per page** offers 50, 100 or
+150, with the same footer as the [Incidents](/docs/user/screens/incidents/) list. Changing the picker
+or the client goes back to the first page.
+
+**The client filter in the menu applies.** A proposal drafted from an incident has that incident's
+client; a proposal an agent's run produced has none, so it is listed only when no client is
+selected.
+
 | Column | What it shows |
 |---|---|
 | **Proposal** | The proposal's id, linked to its page. **clinical** marks a proposal whose impact touches clinical relevance. |
+| **Client** | For a proposal drafted from an incident, the client of that incident's session. Blank for a proposal an agent's run produced, or when the session's registration no longer exists. |
+| **Object type** | The object type of the same registration. Blank in the same cases. |
 | **State** | Where the proposal is in its lifecycle; *terminal* when no further decision is possible. |
 | **Trigger** | What prompted it. For a proposal an agent's run produced, the kind of run, such as *authoring_run*; the run itself is named on the proposal's page. For a proposal drafted from an incident, *incident* and the incident's id, linked to its page on the [Incidents](/docs/user/screens/incidents/) screen. |
 | **Tests** | How many tests the agent generated with it. A proposal with none is shown in a warning colour. |
