@@ -580,6 +580,10 @@ func raisedLoci(ctx context.Context, db DB, sessionId string) (map[string]string
 // have been purged is selected too, which is the partial-purge ambiguity — and the
 // classifier answers `not_evaluable` there rather than `present`, so the cost is
 // a wasted read rather than a wrong incident.
+//
+// It reads the live table rather than pipeline_execution_history on purpose: a
+// run whose session was deleted has lost the record every run locus reads, so
+// selecting it would cost a read and return nine not-evaluable findings.
 func RecentSessions(ctx context.Context, db DB, since time.Time, client, process string, limit int) ([]string, error) {
 	if limit <= 0 {
 		limit = 200

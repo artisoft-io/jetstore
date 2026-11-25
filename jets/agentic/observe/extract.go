@@ -44,16 +44,68 @@ func (w Window) until() time.Time {
 	return w.Until
 }
 
-// Extent is what a deployment's own retention settings have left of the
-// record. It is the code form of the first of the extraction's six queries, and it exists
-// because RETENTION_DAYS is a site-global environment variable with no default
-// (DoPurgeSessions, jets/purge_database/delegate/delegate.go:26): which of its
-// three regimes a deployment is in has to be read off the deployment, not off
-// this repository.
+// Extent is what a deployment's own retention has left of the record. It is the
+// code form of the first of the extraction's six queries.
+//
+// # The regimes, against the session purge
+//
+// A session is deleted whole, by one path (jets/sessionpurge): by the scheduled
+// purge once its session_registry.last_update is RETENTION_DAYS old
+// (RetentionCandidates, jets/sessionpurge/sessionpurge.go:174), as an orphan by
+// the same age (OrphanCandidates, jets/sessionpurge/sessionpurge.go:217), or by
+// a user's Delete at any age, together with every session derived from it. One
+// transaction deletes the session's pipeline_execution_details,
+// pipeline_execution_channel_details, process_errors and cpipes_execution_status
+// rows, and moves its pipeline_execution_status rows, key included, to
+// pipeline_execution_status_archive (deleteRows,
+// jets/sessionpurge/execute.go:356). An archived run is kept until 180 days
+// after its own last_update (archiveDays,
+// jets/purge_database/delegate/delegate.go:34), and the view
+// pipeline_execution_history is the union of the live table and the archive. A
+// run's header no longer ages out while its session lives.
+//
+// RETENTION_DAYS is a site-global environment variable of the purge lambda
+// with no default (DoPurgeSessions, jets/purge_database/delegate/delegate.go:49):
+// unset, the purge deletes nothing, and unless PURGE_DRY_RUN is exactly "false"
+// it only reports. So which regime a deployment is in is read off the
+// deployment, not off this repository. Regime compares the oldest worker row
+// with the oldest header in the history:
+//
+//   - header-outlives-detail is what a live record reads as, because a run's
+//     header is written when the run is submitted and its first worker row
+//     later, and Regime compares the two exact timestamps. Beyond that, the
+//     history holds headers with no worker row where RETENTION_DAYS is below
+//     180 (the archive keeps a session deleted for retention until its runs
+//     are 180 days old) and, at any RETENTION_DAYS, for every session a user
+//     deleted. The second kind lies inside the window rather than at its start,
+//     so the two oldest timestamps cannot show it; Archived counts it.
+//   - aligned is the two oldest timestamps equal. Where RETENTION_DAYS is 180
+//     or more, the purge run that archives a session past retention also
+//     purges the archived runs older than 180 days, so the archive keeps
+//     nothing older than the live record and the record is aligned in all but
+//     the minutes above.
+//   - detail-outlives-header is a legacy of the purge before the session purge,
+//     which deleted every header at six months while the worker rows followed
+//     RETENTION_DAYS. Those headers were deleted, not archived. The worker
+//     rows they left drain as their sessions reach RETENTION_DAYS, and never
+//     at a site whose purge has not run for real.
 type Extent struct {
+	// Headers counts the run headers in the record: the live table's and, where
+	// the history view exists, the archive's. OldestHeader is the earliest
+	// start_time among them, zero when there are none.
 	Headers      int64
-	OldestHeader time.Time // zero when there are none
+	OldestHeader time.Time
 	OldestWorker time.Time // zero when there are none
+
+	// History reports whether jetsapi.pipeline_execution_history exists. Where
+	// it does not, the database predates the archive, and Headers and
+	// OldestHeader are the live table's.
+	History bool
+	// Archived counts the headers in the archive: runs whose session was
+	// deleted. Each has lost its worker rows, so a reader of the worker grain
+	// cannot see it, and a baseline that should have held it is shorter than
+	// its window says. Zero where History is false.
+	Archived int64
 
 	// ExecutionRecord reports whether jetsapi.pipeline_execution_status and
 	// jetsapi.pipeline_execution_details both exist. When it is false the three
@@ -80,9 +132,10 @@ type Extent struct {
 	Anomalies bool
 }
 
-// Regime names which of the three purge regimes the deployment is in, from the
-// two oldest timestamps. It is a description rather than a setting: nothing
-// here can read RETENTION_DAYS, which lives in the purge lambda's environment.
+// Regime names which of the three regimes the deployment is in, from the two
+// oldest timestamps; see Extent. It is a description rather than a setting:
+// nothing here can read RETENTION_DAYS, which lives in the purge lambda's
+// environment.
 func (e *Extent) Regime() string {
 	switch {
 	case e.OldestWorker.IsZero() || e.OldestHeader.IsZero():
@@ -107,28 +160,42 @@ const tablesSQL = `SELECT
   to_regclass('jetsapi.pipeline_execution_status') IS NOT NULL
     AND to_regclass('jetsapi.pipeline_execution_details') IS NOT NULL,
   to_regclass('jetsapi.pipeline_execution_channel_details') IS NOT NULL,
-  to_regclass('jetsapi.anomaly') IS NOT NULL`
+  to_regclass('jetsapi.anomaly') IS NOT NULL,
+  to_regclass('jetsapi.pipeline_execution_history') IS NOT NULL`
 
+// extentSQL is for a database that predates the archive.
 const extentSQL = `SELECT
   (SELECT count(*) FROM jetsapi.pipeline_execution_status),
+  0::bigint,
   (SELECT min(start_time) FROM jetsapi.pipeline_execution_status),
   (SELECT min(start_time) FROM jetsapi.pipeline_execution_details)`
 
-// ReadExtent reports which of the four tables exist and what the deployment's
+// extentHistorySQL counts the headers in the history, live and archived.
+const extentHistorySQL = `SELECT
+  (SELECT count(*) FROM jetsapi.pipeline_execution_history),
+  (SELECT count(*) FROM jetsapi.pipeline_execution_history WHERE archived_at IS NOT NULL),
+  (SELECT min(start_time) FROM jetsapi.pipeline_execution_history),
+  (SELECT min(start_time) FROM jetsapi.pipeline_execution_details)`
+
+// ReadExtent reports which of the tables exist and what the deployment's
 // retention has left of the record. The two questions are two statements
 // because the second cannot be asked of a database that has not been migrated,
 // and reporting the first is the whole point of the function.
 func ReadExtent(ctx context.Context, db DB) (*Extent, error) {
 	var e Extent
 	if err := db.QueryRow(ctx, tablesSQL).Scan(
-		&e.ExecutionRecord, &e.ChannelDetails, &e.Anomalies); err != nil {
+		&e.ExecutionRecord, &e.ChannelDetails, &e.Anomalies, &e.History); err != nil {
 		return nil, fmt.Errorf("while reading which execution tables exist: %w", err)
 	}
 	if !e.ExecutionRecord {
 		return &e, nil
 	}
+	stmt := extentSQL
+	if e.History {
+		stmt = extentHistorySQL
+	}
 	var oldestHeader, oldestWorker *time.Time
-	err := db.QueryRow(ctx, extentSQL).Scan(&e.Headers, &oldestHeader, &oldestWorker)
+	err := db.QueryRow(ctx, stmt).Scan(&e.Headers, &e.Archived, &oldestHeader, &oldestWorker)
 	if err != nil {
 		return nil, fmt.Errorf("while reading the execution record's extent: %w", err)
 	}
@@ -353,28 +420,68 @@ const headerlessSQL = `SELECT count(*)
    AND ($3 = '' OR d.client = $3)
    AND ($4 = '' OR d.process_name = $4)`
 
-// BaselineSet is the result of StepBaselines: the aggregate, and the two
-// numbers that say how much of the window it could not see.
+// The runs in the window whose session was deleted, by source. Their worker
+// rows were deleted with the session, so no baseline above can hold them; their
+// headers survive in the history and say which source lost a run. A header's
+// start_time is the run's submission, a little before its first worker's, so a
+// run submitted just before the window opens is not counted; it is the same
+// bound the worker rows are read with, applied to the header.
+const archivedInWindowSQL = `SELECT client, process_name, main_object_type, count(*)
+  FROM jetsapi.pipeline_execution_history
+ WHERE archived_at IS NOT NULL
+   AND start_time >= $1 AND start_time < $2
+   AND ($3 = '' OR client = $3)
+   AND ($4 = '' OR process_name = $4)
+ GROUP BY 1, 2, 3`
+
+// BaselineSet is the result of StepBaselines: the aggregate, and the numbers
+// that say how much of the window it could not see.
 type BaselineSet struct {
 	Window    Window
 	Baselines []StepBaseline
 	// Headerless is the count of worker rows in the window whose header has
 	// been purged. They are excluded from every baseline above, because a
 	// source identity needs main_object_type and it is only on the header.
+	// The session purge deletes a session's worker rows with its header, so
+	// these are left by the purge before it, which deleted headers at six
+	// months on their own clock.
 	Headerless int64
+	// Archived counts the runs in the window whose session was deleted, keyed
+	// by archivedKey(client, process, main_object_type). Their worker rows
+	// went with the session, so every baseline of that source is over fewer
+	// runs than the window held, and says so with history_truncated. Empty
+	// where the history view does not exist.
+	Archived map[string]int64
 	// Extent is the deployment's retention state, read in the same call so a
 	// caller can tell a genuinely quiet window from a purged one.
 	Extent *Extent
 }
 
-// Truncated reports whether the window reaches further back than the record
-// does, in which case every baseline in the set is over less history than it
-// was asked for.
+// Truncated reports whether the set is over less history than it was asked
+// for: the window reaches further back than the record does, or runs in it
+// were deleted with their sessions. A caller with one source in the window,
+// as triage has, reads it whole; a detector over many sources reads
+// ArchivedFor per baseline instead.
 func (s *BaselineSet) Truncated() bool {
+	return s.reachesPastRecord() || len(s.Archived) > 0
+}
+
+func (s *BaselineSet) reachesPastRecord() bool {
 	if s.Extent == nil || s.Extent.OldestWorker.IsZero() {
 		return false
 	}
 	return s.Window.Since.Before(s.Extent.OldestWorker)
+}
+
+func archivedKey(client, process, objectType string) string {
+	return client + "\x00" + process + "\x00" + objectType
+}
+
+// ArchivedFor is how many runs of b's source in the window were deleted with
+// their sessions. The source is (client, process_name, main_object_type): the
+// step is on the worker rows only, and they are gone.
+func (s *BaselineSet) ArchivedFor(b *StepBaseline) int64 {
+	return s.Archived[archivedKey(b.Client, b.ProcessName, b.MainObjectType)]
 }
 
 // StepBaselines extracts the windowed aggregate that section 12.2's row 3
@@ -394,6 +501,11 @@ func StepBaselines(ctx context.Context, db DB, w Window) (*BaselineSet, error) {
 	if err := db.QueryRow(ctx, headerlessSQL,
 		w.Since, w.until(), w.Client, w.ProcessName).Scan(&set.Headerless); err != nil {
 		return nil, fmt.Errorf("while counting worker rows with no header: %w", err)
+	}
+	if extent.History {
+		if set.Archived, err = readArchivedInWindow(ctx, db, w); err != nil {
+			return nil, err
+		}
 	}
 
 	rows, err := db.Query(ctx, stepBaselineSQL, w.Since, w.until(), w.Client, w.ProcessName)
@@ -419,6 +531,24 @@ func StepBaselines(ctx context.Context, db DB, w Window) (*BaselineSet, error) {
 	return set, nil
 }
 
+func readArchivedInWindow(ctx context.Context, db DB, w Window) (map[string]int64, error) {
+	rows, err := db.Query(ctx, archivedInWindowSQL, w.Since, w.until(), w.Client, w.ProcessName)
+	if err != nil {
+		return nil, fmt.Errorf("while counting the archived runs in the window: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]int64{}
+	for rows.Next() {
+		var client, process, objectType string
+		var n int64
+		if err := rows.Scan(&client, &process, &objectType, &n); err != nil {
+			return nil, fmt.Errorf("while scanning the archived runs in the window: %w", err)
+		}
+		out[archivedKey(client, process, objectType)] = n
+	}
+	return out, rows.Err()
+}
+
 // baselineConfounders sets only what this baseline's own rows establish. A
 // confounder the record cannot see is not set here and is not silently
 // assumed absent — see the package comment.
@@ -429,7 +559,7 @@ func baselineConfounders(b *StepBaseline, set *BaselineSet) []string {
 		// the corpus carry an empty one, so this baseline may be two steps.
 		out = append(out, ConfounderStepLabelAmbiguous)
 	}
-	if set.Headerless > 0 || set.Truncated() {
+	if set.Headerless > 0 || set.reachesPastRecord() || set.ArchivedFor(b) > 0 {
 		out = append(out, ConfounderHistoryTruncated)
 	}
 	if set.Extent != nil && !set.Extent.ChannelDetails {
@@ -449,6 +579,11 @@ func (s *BaselineSet) Describe(b *StepBaseline) string {
 		b.Completed, b.Failed)
 	if s.Headerless > 0 {
 		fmt.Fprintf(&sb, "; %d worker rows in the window have no run header and are excluded", s.Headerless)
+	}
+	if n := s.ArchivedFor(b); n > 0 {
+		fmt.Fprintf(&sb, "; %d runs of %s/%s/%s in the window were deleted with their sessions, "+
+			"and their worker rows with them, so they are not in this count", n, b.Client, b.ProcessName,
+			b.MainObjectType)
 	}
 	return sb.String()
 }

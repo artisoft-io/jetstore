@@ -139,8 +139,9 @@ func doJob(ctx context.Context, db *pgxpool.Pool, sum *summary) error {
 
 	// What the deployment's own retention has left, said before anything is
 	// judged: a quiet window and a purged one look the same in the output.
-	log.Printf("record: %d run headers, oldest %s; oldest worker row %s; purge regime %q",
-		ev.Extent.Headers, stamp(ev.Extent.OldestHeader), stamp(ev.Extent.OldestWorker), ev.Extent.Regime())
+	log.Printf("record: %d run headers, %d of them archived with their deleted sessions, oldest %s; "+
+		"oldest worker row %s; purge regime %q",
+		ev.Extent.Headers, ev.Extent.Archived, stamp(ev.Extent.OldestHeader), stamp(ev.Extent.OldestWorker), ev.Extent.Regime())
 	log.Printf("window: %d worker rows since %s, %d of them with no surviving run header",
 		len(ev.Workers.Rows), detect.Since.Format(time.RFC3339), ev.Workers.Headerless)
 	if ev.Workers.Truncated {
