@@ -8,6 +8,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/agentic/feedprofile"
 	"github.com/artisoft-io/jetstore/jets/agentic/observe"
+	"github.com/artisoft-io/jetstore/jets/errorcode"
 )
 
 // The nine predicates over the execution record, and the two over a feed's
@@ -629,20 +630,24 @@ func (c Classifier) rowsLostSilently(ev *Evidence) Finding {
 // --- Locus 7 -----------------------------------------------------------------
 
 // perRecordFailuresReported is section 9.4 row 7: process_errors rows exist for
-// the run.
+// the run, and one of their error codes reports.
 //
-// Row 7's *cannot see* is dense and none of it is expressible as a confounder.
-// The table carries no cpipes_step_id and no pipeline_execution_details_key,
-// so an error row joins to one row per step of the run; six sites
-// construct one and no column says which; a single configuration can
-// route two operators into it; the count is censored at a cap that
-// differs by operator, 20 for jetrules and map_record and 50 for the inference
-// operators; and grouping_key is written by the jetrules operator only,
-// and by nothing before 2026-10-13.
+// **The rows are read for their codes and counted, and no message is kept or
+// quoted.** Each row is given its code (ReadErrorCodes, jets/errorcode), and a
+// code reports when its stored rows in the run reach its threshold and it is
+// not a debug raise. The locus is present when any code reports, and absent
+// when the run has rows and every code is quiet; either way the basis names
+// every code with its count, so a code below its threshold is still seen.
 //
-// The count is therefore reported as the lower bound it is, with the two
-// columns a single operator family writes counted separately so a reader can
-// see how much of the run's per-record evidence can say which column failed.
+// Row 7's *cannot see* is still dense. The table carries cpipes_step_id,
+// error_channel and operator_type only where the error channel's spec declares
+// them, so a row can lack all three, and it has no
+// pipeline_execution_details_key, so a row cannot be joined to one worker. The
+// count is censored at a cap that differs by operator, 20 for jetrules and
+// map_record unless configured and 50 for the inference operators, and past the
+// cap an operator stops storing rows, so a code's count is a lower bound; and
+// grouping_key is written by the jetrules operator only, and by nothing before
+// 2026-10-13.
 func (c Classifier) perRecordFailuresReported(ev *Evidence) Finding {
 	const locus = LocusPerRecordFailuresReported
 	if ev.Extent == nil || !ev.Extent.ExecutionRecord {
@@ -670,22 +675,62 @@ func (c Classifier) perRecordFailuresReported(ev *Evidence) Finding {
 				"channel to report through at all",
 			ev.SessionId, LocusPerRecordFailuresUnreportable)}
 	}
+	e := ev.Errors
+	var codes string
+	reporting := 0
+	switch {
+	case len(e.Codes) == 0:
+		// Rows read without their codes, which Gather does not produce: the
+		// rows are reported, as before codes, rather than hidden.
+		codes = "The rows were not read for their error codes, so they are reported as they stand"
+		reporting = -1
+	default:
+		parts := make([]string, len(e.Codes))
+		for i, cc := range e.Codes {
+			parts[i] = cc.Describe()
+			if cc.Reports() {
+				reporting++
+			}
+		}
+		codes = fmt.Sprintf("Its rows have %d error %s: %s", len(e.Codes), plural(len(e.Codes), "code", "codes"),
+			strings.Join(parts, "; "))
+		switch {
+		case reporting == 0:
+			codes += ". None reports, so the locus is absent for this run, and every code is counted here"
+		case reporting < len(e.Codes):
+			codes += fmt.Sprintf(". %d of them %s; the others are counted here and raise nothing", reporting,
+				plural(reporting, "reports", "report"))
+		}
+		if !e.Catalogue {
+			codes += ". The workspace's catalogue (jetsapi.error_code_catalogue) is absent from this database, " +
+				"so every workspace message reads uncatalogued"
+		}
+	}
 	basis := fmt.Sprintf(
-		"jetsapi.process_errors holds %d rows for session %q over %d shards, between %s and %s. "+
-			"**Read the count as a lower bound**: reporting is capped per operator instance at 20 for "+
-			"jetrules and map_record and 50 for the inference operators, and past the cap the "+
-			"operator logs once and keeps counting silently, so the censoring point varies with the "+
-			"cluster size. The rows cannot be attributed to a step or an operator: the table carries no "+
-			"cpipes_step_id and no pipeline_execution_details_key, six sites construct a row and no "+
-			"column says which, and one configuration in the corpus routes two operators' error "+
-			"channels into this same table. %d rows name an input_column and %d carry a saved rete "+
-			"session, which is as close as the table comes to saying which operator family wrote them; "+
-			"grouping_key is written by the jetrules operator only, and by nothing before 2026-10-13",
-		ev.Errors.Rows, ev.SessionId, ev.Errors.Shards,
-		ev.Errors.First.Format(timeFmt), ev.Errors.Last.Format(timeFmt),
-		ev.Errors.WithInputColumn, ev.Errors.WithReteSession)
-	return Finding{Locus: locus, Verdict: Present, Basis: basis,
-		Subjects: []string{fmt.Sprintf("%d process_errors rows", ev.Errors.Rows)}}
+		"jetsapi.process_errors holds %d rows for session %q over %d shards, between %s and %s. %s. "+
+			"**Read the counts as a lower bound**: reporting is capped per operator instance, at %d for "+
+			"jetrules and map_record unless their max_error_count says otherwise and 50 for the inference "+
+			"operators, and past the cap the operator stops storing rows and keeps counting silently, so "+
+			"the censoring point varies with the cluster size. A code is the head its catalogue entry or "+
+			"JetStore names, and no message is quoted here, because a message's tail can carry a record's "+
+			"values. The table names a row's cpipes_step_id, error_channel and operator_type only where the "+
+			"error channel's spec declares them, %d of these rows naming their operator type, and has no "+
+			"pipeline_execution_details_key, so a row cannot be joined to one worker. %d rows name an "+
+			"input_column and %d carry a saved rete session; grouping_key is written by the jetrules "+
+			"operator only, and by nothing before 2026-10-13",
+		e.Rows, ev.SessionId, e.Shards,
+		e.First.Format(timeFmt), e.Last.Format(timeFmt), codes,
+		errorcode.DefaultMaxErrorCount, e.WithOperatorType,
+		e.WithInputColumn, e.WithReteSession)
+	verdict := Present
+	if reporting == 0 {
+		verdict = Absent
+	}
+	f := Finding{Locus: locus, Verdict: verdict, Basis: basis, Codes: e.Codes}
+	if verdict == Present {
+		f.Subjects = []string{fmt.Sprintf("%d process_errors rows", e.Rows)}
+	}
+	return f
 }
 
 // --- Locus 8 -----------------------------------------------------------------

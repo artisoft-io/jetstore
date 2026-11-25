@@ -145,7 +145,7 @@ func scanConfigConfounders(doc any) []string {
 			for k, v := range n {
 				switch k {
 				case "on_error":
-					// map_record's OnErrorDrop (pipe_transformation_map_record.go:91).
+					// map_record's OnErrorDrop (MapRecordTransformationPipe.Apply, pipe_transformation_map_record.go:120).
 					// The other two arms, pass_through and fail, are not a silent drop.
 					if s, ok := v.(string); ok && s == "drop" {
 						found[ConfounderOnErrorDrop] = true

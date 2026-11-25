@@ -405,6 +405,10 @@ CREATE TABLE IF NOT EXISTS jetsapi.incident (
   incident_shard_ref               bigint,
   incident_confounders             text[] NOT NULL,
   incident_model_version           text NOT NULL,
+  incident_error_code              text,
+  incident_client                  text,
+  incident_process_name            text,
+  incident_anchor_start_time       timestamp with time zone,
   CONSTRAINT incident_locus_ck CHECK (incident_locus IN ('run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile')),
   CONSTRAINT incident_classification_ck
              CHECK (classification IS NULL OR classification IN ('source_delivery_failure', 'source_content_change', 'transport_failure', 'parse_failure', 'validation_breach', 'transformation_defect', 'infrastructure_failure', 'dependency_failure', 'capacity_or_cost_deviation', 'benign_variation')),
@@ -439,6 +443,14 @@ ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_confounders text[
 -- stmt
 ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_model_version text NOT NULL;
 -- stmt
+ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_error_code text;
+-- stmt
+ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_client text;
+-- stmt
+ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_process_name text;
+-- stmt
+ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_anchor_start_time timestamp with time zone;
+-- stmt
 -- incident_locus_ck follows incident_locus's vocabulary onto a table created before the
 -- vocabulary last changed. See _replaced_vocabulary_check in the emitter.
 DO $$
@@ -466,6 +478,79 @@ CREATE INDEX IF NOT EXISTS incident_session_idx
 -- stmt
 CREATE INDEX IF NOT EXISTS incident_status_idx
   ON jetsapi.incident (status, incident_detected_at);
+-- stmt
+-- "Which incidents stand for this run condition", which is how a run finding is placed:
+-- a run condition's incidents are found by their key (client, process name, locus and
+-- error code) and their position (the anchor run's start time), never by their session,
+-- so that an incident whose first run was deleted is still its condition's. Partial,
+-- because only an incident at a run locus written with run conditions carries a key.
+CREATE INDEX IF NOT EXISTS incident_run_condition_idx
+  ON jetsapi.incident (incident_client, incident_process_name, incident_locus, incident_anchor_start_time)
+  WHERE incident_client IS NOT NULL;
+-- stmt
+-- What triage found at each run locus of each run it classified, and for each error code
+-- at per_record_failures_reported: the verdict a run condition is read from.
+--
+-- **A run's findings are otherwise computed and never stored**: the shadow writer writes
+-- an incident for a present finding and nothing for an absent, quiet or not-evaluable
+-- one, and a run that joins a condition has no incident of its own. A run condition ends
+-- at a run whose finding is absent, and only a stored verdict can say which runs those
+-- were. So the writer stores every run locus's verdict for every run it classifies. It
+-- stores a verdict, not a join: which incident a run belongs to is derived on every read.
+--
+-- The key is (session_id, locus, error_code). error_code is '' at the eight run loci that
+-- have no code. At per_record_failures_reported the row with error_code '' is the locus
+-- as a whole (present, absent or not_evaluable), and there is one more row per code the
+-- run's process_errors rows were given, present or quiet. **A code with no row of its own
+-- on a run whose '' row is present or absent is absent for that run**; a run whose '' row
+-- is not_evaluable is not evaluable for every code; a run with no row is one triage never
+-- classified, which a condition skips.
+--
+-- **Added and upgraded, never retracted.** A row is inserted on a run's first
+-- classification and replaced only by a later verdict that says more (not_evaluable, then
+-- absent, then quiet, then present), so a classification that can see less, a purged
+-- worker record or a dropped table, cannot turn a condition's member into a gap. The rows
+-- are deleted with their session, by jets/sessionpurge, as the run's process_errors are:
+-- a deleted run is no position of any condition, so nothing reads its verdict.
+--
+-- stored_rows is the code's stored rows in the run, a lower bound because an operator
+-- instance stops storing rows at its max_error_count; null on the '' rows.
+CREATE TABLE IF NOT EXISTS jetsapi.run_finding (
+  session_id                       text NOT NULL,
+  locus                            text NOT NULL,
+  error_code                       text NOT NULL DEFAULT '',
+  verdict                          text NOT NULL,
+  stored_rows                      bigint,
+  classifier_ref                   text NOT NULL,
+  classified_at                    timestamp with time zone NOT NULL,
+  PRIMARY KEY (session_id, locus, error_code),
+  CONSTRAINT run_finding_locus_ck CHECK (locus IN ('run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile')),
+  CONSTRAINT run_finding_verdict_ck CHECK (verdict IN ('present', 'quiet', 'absent', 'not_evaluable')),
+  CONSTRAINT run_finding_code_ck
+             CHECK (error_code = '' OR locus = 'per_record_failures_reported'),
+  CONSTRAINT run_finding_quiet_ck
+             CHECK (verdict <> 'quiet' OR error_code <> '')
+);
+-- stmt
+-- run_finding_locus_ck follows locus's vocabulary onto a table created before the
+-- vocabulary last changed. See _replaced_vocabulary_check in the emitter.
+DO $$
+DECLARE
+  admitted text[];
+BEGIN
+  SELECT array(SELECT m[1]
+                 FROM regexp_matches(pg_get_constraintdef(c.oid), '''([a-z0-9_]+)''', 'g') AS m)
+    INTO admitted
+    FROM pg_constraint c
+   WHERE c.conrelid = 'jetsapi.run_finding'::regclass AND c.conname = 'run_finding_locus_ck';
+  IF admitted IS NULL
+     OR NOT (admitted @> ARRAY['run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile']::text[]
+             AND admitted <@ ARRAY['run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile']::text[]) THEN
+    ALTER TABLE jetsapi.run_finding
+      DROP CONSTRAINT IF EXISTS run_finding_locus_ck,
+      ADD CONSTRAINT run_finding_locus_ck CHECK (locus IN ('run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile'));
+  END IF;
+END $$;
 -- stmt
 -- One ranked causal hypothesis for an incident, emitted with the table above.
 --

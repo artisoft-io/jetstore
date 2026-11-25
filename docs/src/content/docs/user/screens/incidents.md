@@ -119,6 +119,32 @@ as it stands now, every delivery it holds included (see
 [The condition of a feed incident](#the-condition-of-a-feed-incident) below), so read the page
 rather than the evidence for what the condition holds today.
 
+### A recurring run failure is one incident
+
+A process that fails the same way run after run is one fault too. Consecutive runs of one process
+for one client with a finding at the same run locus form a **run condition**, and shadow triage
+raises one incident for it, on its first run; each later run with the finding joins it and has no
+incident of its own.
+
+- **Per-record failures are one incident per error code.** Every row of a run's process errors gets
+  a short error code when it is read (see
+  [the error code catalogue](/docs/developer/workspace/system-tables/#table-error_code_catalogue)),
+  and each code is a condition of its own, so a code you judge benign does not cover another code
+  that starts the next week. The incident names its code and the stored rows of every code in the
+  run, as a lower bound, and **never quotes a message**, because a message's tail can carry a
+  record's values; the session's Process Errors rows hold the text.
+- **A code below its reporting threshold raises nothing**, and a debug code never does; both are
+  still counted in the incident's evidence when another code of the run raises one. Such a run
+  neither joins nor ends the code's condition.
+- **A condition ends only at a run whose finding at its locus is absent.** A run that could not be
+  judged there, or that triage did not reach, is skipped. A deleted run is not counted at all: it
+  neither ends a condition nor splits it, and the incident stays the condition's incident when its
+  own first run is deleted.
+- **Your verdict closes it for new evidence**, as for a feed condition: a run whose finding is found
+  after your verdict raises a new incident naming the one you judged.
+- **Incidents written before run conditions stay as they are**, one per run, and a condition open
+  across the change gets one new incident at its first run triaged afterwards.
+
 ### Finding a session's incidents
 
 A later delivery of a condition has no incident of its own and no row in the list, but it belongs
