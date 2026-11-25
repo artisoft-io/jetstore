@@ -57,6 +57,14 @@
 // incidents at `diagnosed` like any other. -client is the feed's own client,
 // from its source configuration.
 //
+// **A feed's standing condition is one incident.** Consecutive deliveries of a
+// feed carrying findings at one locus are a condition, with one incident on its
+// first delivery; each later delivery joins it, and is logged as joined rather
+// than written. A run that triages a condition's later delivery first raises
+// the condition's incident on its first delivery. After a person's verdict, a
+// finding detected later raises a new incident naming the judged one
+// (jets/agentic/feedcondition).
+//
 // **-feeds-only classifies those sessions and no run**, for after a
 // `feed_detect -mode backfill`. A backfill dates each finding at the first
 // daily run that would have seen it, so raising its findings takes a -since
@@ -166,7 +174,9 @@ type locusCensus struct {
 	NotEvaluable int `json:"notEvaluable"`
 }
 
-// summary is what this run recorded as its row's summary.
+// summary is what this run recorded as its row's summary. Grouped counts the
+// feed findings joined to their condition's incident; its key keeps the name it
+// had when a condition was a day's burst, for the scripts that read it.
 type summary struct {
 	DryRun          bool                   `json:"dryRun"`
 	AttestOnly      bool                   `json:"attestOnly"`
@@ -263,14 +273,21 @@ func doJob(ctx context.Context, db *pgxpool.Pool, extent *triage.Extent, sum *su
 		}
 		already += len(res.AlreadyRaised)
 		sum.Grouped += len(res.Grouped)
-		for _, g := range res.Grouped {
-			log.Printf("%s locus %s: one of a burst of deliveries, raised as one incident on the burst's last delivery", s, g)
-		}
 		for _, wr := range res.Written {
 			incidents++
 			hypotheses += wr.Hypotheses
+			if wr.SessionId != "" && wr.SessionId != s {
+				log.Printf("%s %s locus %s -> %s, %d hypothesis(es), audit chain seq %d: the incident of the feed "+
+					"condition %s belongs to, raised on the condition's first delivery, session %s",
+					s, wr.IncidentId, wr.Locus, wr.Status, wr.Hypotheses, wr.ChainSeq, s, wr.SessionId)
+				continue
+			}
 			log.Printf("%s %s locus %s -> %s, %d hypothesis(es), audit chain seq %d",
 				s, wr.IncidentId, wr.Locus, wr.Status, wr.Hypotheses, wr.ChainSeq)
+		}
+		for _, g := range res.Grouped {
+			log.Printf("%s locus %s: a later delivery of a feed condition, joined to the condition's incident "+
+				"rather than raised as another", s, g)
 		}
 		sum.UnmappedLoci = append(sum.UnmappedLoci, res.UnmappedLoci...)
 		if len(res.UnmappedLoci) > 0 {

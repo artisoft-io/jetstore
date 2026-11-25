@@ -354,3 +354,42 @@ func HumanVerdicts(ctx context.Context, db Querier, since time.Time) ([]Incident
 	}
 	return scanIncidentTransitions(rows, "a human verdict")
 }
+
+// VerdictStatuses are the three statuses a person's verdict moves an incident
+// to. `reclassified` returns to `triaged` at once, so a verdict is read from the
+// events and never from the incident's status column.
+var VerdictStatuses = []string{IncidentReclassified, IncidentSuppressedAsBenign, IncidentVerified}
+
+// EarliestHumanVerdicts returns, for each of the incidents named that has one,
+// its first verdict by a person: the earliest human event moving it to one of
+// VerdictStatuses. Incidents with none are absent from the map.
+//
+// It is HumanVerdicts by incident rather than by time, for a reader that asks
+// whether a person has judged an incident yet, and when: the feed condition
+// rule, under which a finding detected after an incident's first verdict is
+// new evidence rather than more of what was judged.
+func EarliestHumanVerdicts(ctx context.Context, db Querier, incidentRefs []string) (map[string]IncidentTransition, error) {
+	out := map[string]IncidentTransition{}
+	if len(incidentRefs) == 0 {
+		return out, nil
+	}
+	rows, err := db.Query(ctx,
+		`SELECT DISTINCT ON (event_incident_ref) `+incidentEventColumns+`
+		   FROM jetsapi.incident_event
+		  WHERE event_incident_ref = ANY ($1)
+		    AND event_actor_kind = $2
+		    AND to_status = ANY ($3)
+		  ORDER BY event_incident_ref, transitioned_at, incident_event_id`,
+		incidentRefs, ActorHuman, VerdictStatuses)
+	if err != nil {
+		return nil, fmt.Errorf("while reading the first human verdicts of %d incidents: %w", len(incidentRefs), err)
+	}
+	ts, err := scanIncidentTransitions(rows, "a human verdict")
+	if err != nil {
+		return nil, err
+	}
+	for _, t := range ts {
+		out[t.IncidentRef] = t
+	}
+	return out, nil
+}

@@ -216,14 +216,6 @@ type Finding struct {
 	// ClassifierRef names the classifier and its generation, so two generations
 	// are told apart the way two detector generations are.
 	ClassifierRef string
-
-	// GroupedInto is set on a delivery locus that holds only through anomalies
-	// belonging to bursts another session leads: those sessions, each once. The
-	// burst's incident is written there and not here. See feed_burst.go.
-	GroupedInto []string
-	// BurstSessions are, for a delivery locus that leads a burst, the burst's
-	// other sessions: the deliveries its incident stands for.
-	BurstSessions []string
 }
 
 // Fired reports whether this finding is a hit.
@@ -249,12 +241,6 @@ func (f *Finding) Validate() error {
 	}
 	if f.ClassifierRef == "" {
 		return fmt.Errorf("classifier_ref is required")
-	}
-	if (len(f.GroupedInto) > 0 || len(f.BurstSessions) > 0) && f.Verdict != Present {
-		return fmt.Errorf("a %s verdict is grouped into a burst: only a finding that holds belongs to one", f.Verdict)
-	}
-	if len(f.GroupedInto) > 0 && len(f.BurstSessions) > 0 {
-		return fmt.Errorf("a finding both leads a burst and is grouped into another session's: a finding that leads one is written, so it is grouped into nothing")
 	}
 	for _, c := range f.Confounders {
 		if !observe.IsConfounder(c) {

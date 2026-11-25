@@ -71,13 +71,35 @@ detection's own words as its evidence. The feed is named by its **source configu
 configuration's client. When the delivery was registered under another client, such as `Any`, the
 evidence says so beside it; the incident does not take that client as the feed's.
 
-**A burst of deliveries is one incident.** When the same check fires on several deliveries of one
-feed registered on the same day (UTC), as a catch-up of many past files does, shadow triage raises
-**one** incident, on the **last** of those deliveries. Its evidence says how many deliveries it
-stands for and names their sessions. The other deliveries still show the locus as present on their
-own sessions, but no incident of their own: their evidence names the session the incident is on. If
-triage ran while the day's files were still arriving, the incident is on the last delivery that run
-saw, and later deliveries of the same day join it rather than raising a second one.
+**A standing condition is one incident.** A feed that sends the same faulty file every week, or a
+catch-up of many past files that all depart from the profile in the same way, is one fault that
+persists, and you read it once. Consecutive deliveries of one feed whose findings fall at the same
+locus form a **condition**, and shadow triage raises **one** incident for it, on its **first**
+delivery. Each later delivery of the feed with a finding at that locus joins it: the locus still
+shows as present on its own session, but it has no incident of its own. Which check fired does not
+matter, only the locus; a delivery with findings at both loci belongs to two conditions, one at each.
+
+- **A condition ends at the first delivery of the feed with no finding at its locus**, whether that
+  delivery was checked and passed or could not be checked. A later finding starts a new condition
+  and a new incident, whose evidence names the previous condition's incident. Re-processing a file
+  the feed already delivered is not a delivery, so it neither ends a condition nor extends one.
+- **Your verdict closes it for new evidence.** Once you reclassify an incident, suppress it as
+  benign or verify it, a finding at the locus detected **after** your verdict raises a new incident
+  naming the one you judged and your verdict; a finding detected before it was part of what you
+  judged and joins it. Nothing is suppressed for you.
+- **Where the incident is does not depend on which deliveries a triage run selected.** If a run
+  reaches a later delivery of a condition first, it raises the condition's incident on the first
+  delivery then. An incident already written is never moved or withdrawn: incidents raised one per
+  delivery, or one per day, before conditions stay as they are, and later deliveries join the latest
+  of them.
+- **Old deliveries whose registrations have been purged** cannot be told apart from gaps, so before
+  the feed's earliest remaining registration two findings belong to one condition only when they
+  were registered on the same day (UTC).
+
+The incident's evidence says which deliveries the condition held when the incident was raised, from
+when to when, whether it was still open, and the previous condition's incident with its verdict.
+Which incident a later delivery joined is not stored: it is worked out again from the feed's
+deliveries, findings and incidents each time it is read.
 
 **The hypotheses offered for a feed incident:**
 
