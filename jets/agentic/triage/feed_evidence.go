@@ -58,10 +58,6 @@ type FeedEvidence struct {
 	// Feeds are the feeds named by Anomalies' subject refs and by
 	// Registrations' table names, by table_name.
 	Feeds map[string]*DeclaredFeed
-
-	// Bursts are the bursts the session's feed anomalies belong to, by anomaly
-	// id. See ReadFeedBursts.
-	Bursts map[string]*Burst
 }
 
 // Registration is one file registration of a session.
@@ -218,11 +214,6 @@ func ReadFeedEvidence(ctx context.Context, db observe.DB, sessionId string, ext 
 		}
 		f.Anomalies = append(f.Anomalies, a)
 		tables[a.SubjectRef] = true
-	}
-	if len(f.Anomalies) > 0 {
-		if f.Bursts, err = ReadFeedBursts(ctx, db, sessionId); err != nil {
-			return nil, err
-		}
 	}
 	if ext.InputRegistry {
 		rows, err := db.Query(ctx, registrationsSQL, sessionId)

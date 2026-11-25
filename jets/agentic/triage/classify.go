@@ -917,45 +917,11 @@ func deliveryPresent(ev *Evidence, locus string, placed []observe.Anomaly) Findi
 			}
 		}
 	}
-	f := Finding{Locus: locus, Verdict: Present, Confounders: conf, Subjects: subjects}
-	groupBursts(ev.SessionId, fe, placed, &f, &b)
-	f.Basis = b.String()
-	return f
-}
-
-// groupBursts decides where a delivery finding's incident is written: here,
-// when one of its anomalies leads a burst or belongs to none, or on the leading
-// sessions of its anomalies' bursts otherwise. It says which in the basis.
-func groupBursts(session string, fe *FeedEvidence, placed []observe.Anomaly, f *Finding, b *strings.Builder) {
-	var leads, others []string
-	kept := false
-	for _, a := range placed {
-		burst := fe.BurstOf(a.AnomalyId)
-		if !burst.Grouped() {
-			kept = true
-			continue
-		}
-		if lead := burst.Lead(); lead != session {
-			if !slices.Contains(leads, lead) {
-				leads = append(leads, lead)
-			}
-			continue
-		}
-		kept = true
-		fmt.Fprintf(b, ". %s; they are one event, and this incident stands for all of them, on the last", burst.describe())
-		for _, s := range burst.Others(session) {
-			if !slices.Contains(others, s) {
-				others = append(others, s)
-			}
-		}
-	}
-	if kept {
-		f.BurstSessions = others
-		return
-	}
-	f.GroupedInto = leads
-	fmt.Fprintf(b, ". Each of these anomalies belongs to a burst of one detector on one feed registered on one day, "+
-		"whose incident is written on its last delivery, session %s, and not here", strings.Join(leads, ", "))
+	// Which incident the finding is written on, its own or its condition's,
+	// is not decided here: a condition spans deliveries, and placing a finding
+	// in one reads incidents and verdicts, which is the shadow writer's
+	// (feed_condition.go, and the feedcondition package).
+	return Finding{Locus: locus, Verdict: Present, Basis: b.String(), Confounders: conf, Subjects: subjects}
 }
 
 // timeFmt is RFC3339 without the sub-second noise, which is what every basis

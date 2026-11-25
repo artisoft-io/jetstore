@@ -47,9 +47,13 @@
 // One row of jetsapi.change_proposal in state draft, per feed and case, with a
 // deterministic id, so a second pass finds it and writes nothing. Its trigger
 // is "incident" and its trigger_ref the incident at delivery_departs_profile
-// on the first delivery of the run that has one: the onset, which is the
-// vocabulary's own ordering principle. It proposes setting is_cumulative for
-// the feed, and says in its rationale what that changes.
+// that the run's latest delivery belongs to: its own, or, as is usual, the
+// incident of the feed condition it is a later delivery of, which is written on
+// the condition's first delivery and may be older than the run
+// (jets/agentic/feedcondition). Looking for an incident on the run's own
+// deliveries would find none for a condition that began before the run. It
+// proposes setting is_cumulative for the feed, and says in its rationale what
+// that changes.
 //
 // It does not move the incident, which stays where shadow triage left it. It
 // writes nothing to jetsapi.remediation. It does not change the source
@@ -70,6 +74,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/agentic/audit"
+	"github.com/artisoft-io/jetstore/jets/agentic/feedcondition"
 	"github.com/artisoft-io/jetstore/jets/agentic/observe"
 	"github.com/artisoft-io/jetstore/jets/agentic/triage"
 	"github.com/jackc/pgx/v5"
@@ -152,9 +157,11 @@ type Delivery struct {
 	Unchanged bool
 	// AnomalyIDs are the evidence anomalies on this delivery.
 	AnomalyIDs []string
-	// IncidentID is the incident at delivery_departs_profile on this
-	// delivery's session, or "" when none was written.
+	// IncidentID is the incident at delivery_departs_profile this delivery
+	// belongs to, or "" when none is written yet: its own, or, when Joined,
+	// the incident of the feed condition it is a later delivery of.
 	IncidentID string
+	Joined     bool
 	// IncidentStatus is that incident's current status.
 	IncidentStatus string
 	// Reprocessed counts the later registrations of this delivery's file:
@@ -270,12 +277,6 @@ const evidenceSQL = `SELECT anomaly_id, anomaly_session_id, split_part(anomaly_d
    AND split_part(anomaly_detector_ref, '@', 1) = ANY($3::text[])
  ORDER BY anomaly_id`
 
-// incidentsSQL reads the incidents at the departs-profile locus on a feed's
-// sessions.
-const incidentsSQL = `SELECT incident_session_id, incident_id, status
-  FROM jetsapi.incident
- WHERE incident_locus = $1 AND incident_session_id = ANY($2::text[])`
-
 // sharedSQL counts the other configurations of the same client and object
 // type, and how many of them are not declared cumulative.
 const sharedSQL = `SELECT count(*),
@@ -339,12 +340,7 @@ func assessOne(ctx context.Context, db DB, a *Assessment, configured bool, o Opt
 		a.Reason = ReasonShortStreak
 		return nil
 	}
-	for _, d := range a.Streak {
-		if d.IncidentID != "" {
-			a.TriggerIncident = d.IncidentID
-			break
-		}
-	}
+	a.TriggerIncident = a.Streak[len(a.Streak)-1].IncidentID
 	if a.TriggerIncident == "" {
 		a.Reason = ReasonNoIncident
 		return nil
@@ -423,26 +419,23 @@ func readDeliveries(ctx context.Context, db DB, a *Assessment) error {
 		return fmt.Errorf("while reading the anomalies of feed %s: %w", a.TableName, err)
 	}
 
-	sessions := make([]string, len(a.Deliveries))
-	for i := range a.Deliveries {
-		sessions[i] = a.Deliveries[i].SessionID
-	}
-	rows, err = db.Query(ctx, incidentsSQL, triage.LocusDeliveryDepartsProfile, sessions)
+	// The incident each delivery belongs to, by its feed condition at the
+	// departs-profile locus. Most deliveries of a standing condition have no
+	// incident of their own and belong to the condition's.
+	fc, err := feedcondition.Read(ctx, db, a.TableName)
 	if err != nil {
-		return fmt.Errorf("while reading the incidents on feed %s's deliveries: %w", a.TableName, err)
+		return err
 	}
-	for rows.Next() {
-		var session, id, status string
-		if err := rows.Scan(&session, &id, &status); err != nil {
-			rows.Close()
-			return fmt.Errorf("while scanning an incident of feed %s: %w", a.TableName, err)
-		}
-		if i, ok := bySession[session]; ok {
-			a.Deliveries[i].IncidentID, a.Deliveries[i].IncidentStatus = id, status
+	for i := range a.Deliveries {
+		d := &a.Deliveries[i]
+		p := fc.Resolve(d.SessionID, triage.LocusDeliveryDepartsProfile)
+		switch p.Kind {
+		case feedcondition.AlreadyRaised, feedcondition.Join:
+			d.IncidentID, d.IncidentStatus = p.Target.IncidentId, p.Target.Status
+			d.Joined = p.Kind == feedcondition.Join
 		}
 	}
-	rows.Close()
-	return rows.Err()
+	return nil
 }
 
 // DraftAll assesses the feeds (all that carry evidence, or the named tables)
@@ -538,7 +531,10 @@ func Rationale(a *Assessment, o Options) string {
 			what = append(what, "unchanged")
 		}
 		inc := "no incident"
-		if d.IncidentID != "" {
+		switch {
+		case d.Joined:
+			inc = fmt.Sprintf("joins incident %s, %s", d.IncidentID, d.IncidentStatus)
+		case d.IncidentID != "":
 			inc = fmt.Sprintf("incident %s, %s", d.IncidentID, d.IncidentStatus)
 		}
 		again := ""

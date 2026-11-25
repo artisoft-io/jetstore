@@ -2,7 +2,11 @@ package shadow
 
 // One incident per burst, end to end against a real Postgres: the same check
 // fires on several deliveries of one feed registered the same day, and shadow
-// triage raises one incident, on the last of them.
+// triage raises one incident for them. A day's burst is a feed condition whose
+// deliveries share a day, so the incident is the condition's, on its first
+// delivery: here the feed's last fixture delivery, whose own finding at the
+// locus the planted deliveries continue, which makes the condition four
+// deliveries long.
 //
 //	docker run -d --rm --name shadow-feed-pg -e POSTGRES_PASSWORD=pw -p 55892:5432 postgres:16-alpine
 //	JETS_TEST_DSN=postgres://postgres:pw@localhost:55892/postgres \
@@ -71,7 +75,14 @@ func TestABurstIsOneIncidentOnItsLastDelivery(t *testing.T) {
 	}
 	burst := []string{plant(1), plant(2), plant(3)}
 	locus := triage.LocusDeliveryDepartsProfile
-	last := IncidentIdFor(burst[2], locus)
+	// The condition's first delivery: the feed's last fixture delivery, which
+	// carries a finding at the locus, as the planted deliveries do.
+	feed, ok := feedfixture.FeedByTable(base.SubjectRef)
+	if !ok {
+		t.Fatalf("no fixture feed %s", base.SubjectRef)
+	}
+	first := feed.Deliveries[len(feed.Deliveries)-1].SessionID
+	last := IncidentIdFor(first, locus)
 
 	w := testWriter()
 	w.Now = func() time.Time { return feedfixture.Clock }
@@ -83,17 +94,19 @@ func TestABurstIsOneIncidentOnItsLastDelivery(t *testing.T) {
 		if f := findingOf(res, locus); f.Verdict != triage.Present {
 			t.Errorf("session %s: %s is %s, want present on every delivery of the burst", s, locus, f.Verdict)
 		}
-		if i < 2 {
-			if len(res.Written) != 0 || len(res.Grouped) != 1 || !strings.Contains(res.Grouped[0], last) {
-				t.Errorf("session %s: written %v, grouped %v; want grouped into %s", s, res.Written, res.Grouped, last)
-			}
-			continue
+		if len(res.Grouped) != 1 || !strings.Contains(res.Grouped[0], last) {
+			t.Errorf("session %s: grouped %v; want grouped into %s", s, res.Grouped, last)
 		}
-		if len(res.Written) != 1 || res.Written[0].IncidentId != last || len(res.Grouped) != 0 {
-			t.Errorf("the last delivery: written %v, grouped %v; want %s written", res.Written, res.Grouped, last)
+		// The first delivery of the burst to be triaged raises the condition's
+		// incident, on the condition's first delivery.
+		if i == 0 && (len(res.Written) != 1 || res.Written[0].IncidentId != last || res.Written[0].SessionId != first) {
+			t.Errorf("session %s: written %v; want %s raised on %s", s, res.Written, last, first)
+		}
+		if i > 0 && len(res.Written) != 0 {
+			t.Errorf("session %s: written %v; want nothing", s, res.Written)
 		}
 	}
-	if got := incidentsOn(t, pool, burst, locus); !slices.Equal(got, []string{last}) {
+	if got := incidentsOn(t, pool, append([]string{first}, burst...), locus); !slices.Equal(got, []string{last}) {
 		t.Errorf("incidents on the burst %v, want only %s", got, last)
 	}
 	trs, err := audit.IncidentTransitionsFor(ctx, pool, last)
@@ -106,15 +119,16 @@ func TestABurstIsOneIncidentOnItsLastDelivery(t *testing.T) {
 			triaged = tr.Rationale
 		}
 	}
-	for _, want := range []string{"fired on 3 deliveries registered on", burst[0], burst[1],
-		"this incident stands for all of them"} {
+	for _, want := range []string{"4 deliveries", first, burst[0], burst[1], burst[2],
+		"It is written on the condition's first delivery"} {
 		if !strings.Contains(triaged, want) {
 			t.Errorf("the incident's basis does not say %q:\n  %s", want, triaged)
 		}
 	}
 
-	// A later delivery of the same day, triaged by a later run, leads the burst
-	// now, and is raised as the incident already written rather than a second.
+	// A later delivery of the same day, triaged by a later run, extends the
+	// condition, and joins the incident already written rather than raising a
+	// second.
 	late := plant(4)
 	res, err := w.Run(ctx, pool, late)
 	if err != nil {
@@ -123,7 +137,7 @@ func TestABurstIsOneIncidentOnItsLastDelivery(t *testing.T) {
 	if len(res.Written) != 0 || len(res.Grouped) != 1 || !strings.Contains(res.Grouped[0], last) {
 		t.Errorf("the later delivery: written %v, grouped %v; want grouped into %s", res.Written, res.Grouped, last)
 	}
-	if got := incidentsOn(t, pool, append(burst, late), locus); !slices.Equal(got, []string{last}) {
+	if got := incidentsOn(t, pool, append([]string{first}, append(burst, late)...), locus); !slices.Equal(got, []string{last}) {
 		t.Errorf("incidents on the burst after the later run %v, want only %s", got, last)
 	}
 
