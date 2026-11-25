@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/agentic/audit"
+	"github.com/artisoft-io/jetstore/jets/agentic/feedcondition"
 	"github.com/artisoft-io/jetstore/jets/agentic/feedprofile"
 	"github.com/artisoft-io/jetstore/jets/agentic/observe"
 	"github.com/artisoft-io/jetstore/jets/agentic/triage"
@@ -34,7 +35,8 @@ func IsFeedIncident(locus string) bool { return slices.Contains(triage.DeliveryL
 // Read builds an incident's Input from what the database holds: the incident
 // and its hypotheses (already read by the caller), the session's feed
 // anomalies at the incident's locus, the feed's source configuration and
-// profile, and the other deliveries of the feed registered the same day.
+// profile, and the feed's condition at the locus with the incidents on it,
+// read through feedcondition.
 //
 // It reads the same rows triage read to place the incident
 // (triage.ReadFeedEvidence), so the summary describes the finding triage
@@ -108,11 +110,11 @@ func Read(ctx context.Context, db observe.DB, inc *audit.Incident) (*Input, erro
 		})
 	}
 
-	bursts, err := readBursts(ctx, db, in, table)
+	fc, err := feedcondition.Read(ctx, db, table)
 	if err != nil {
 		return nil, err
 	}
-	in.Bursts = bursts
+	in.Condition = conditionOf(fc, inc.IncidentId, inc.SessionId, inc.Locus)
 	if err := in.Validate(); err != nil {
 		return nil, fmt.Errorf("incident %s: %w", inc.IncidentId, err)
 	}
@@ -300,82 +302,113 @@ func parseFinding(a observe.Anomaly, required []string) (Finding, bool) {
 	return f, true
 }
 
-// burstSQL reads, for one feed and one detector, the sessions registered on a
-// day that carry that detector's finding, and the incident each raised at the
-// locus, if any. The registration day is the session id read as epoch
-// milliseconds, which is how RegisterFileKeys seeds it and how the feed
-// detectors read a delivery's arrival.
-const burstSQL = `SELECT DISTINCT a.anomaly_session_id, i.incident_id
-  FROM jetsapi.anomaly a
-  LEFT JOIN jetsapi.incident i
-         ON i.incident_session_id = a.anomaly_session_id AND i.incident_locus = $4
- WHERE a.anomaly_subject_type = 'feed' AND a.anomaly_subject_ref = $1
-   AND split_part(a.anomaly_detector_ref, '@', 1) = $2
-   AND a.anomaly_session_id ~ '^[0-9]{1,18}$'
-   AND (to_timestamp(a.anomaly_session_id::bigint / 1000.0) AT TIME ZONE 'UTC')::date = $3::date
- ORDER BY 1`
+// conditionOf reads the part of the feed's condition at the locus that an
+// incident holds, and the incident before it, from a feed read by
+// feedcondition. Which incident each position belongs to is feedcondition's
+// Resolve, the rule shadow triage writes by, applied to every position of the
+// condition: so the summary names the deliveries the writer joined to this
+// incident and no other reading of them. It reads nothing, and returns nil when
+// no condition of the feed holds the session at the locus.
+func conditionOf(f *feedcondition.Feed, incident, session, locus string) *Condition {
+	c := triage.ConditionAt(f.Conditions, session, locus)
+	if c == nil {
+		return nil
+	}
+	out := &Condition{Total: len(c.Members), SameDay: c.SameDay, Shared: c.Shared}
+	if c.Unordered {
+		out.Held, out.End = 1, EndUnordered
+		if !c.First().Delivery {
+			out.Unregistered = 1
+		}
+		return out
+	}
 
-// sessionDay reads a session id as the registration day it encodes.
-func sessionDay(session string) (time.Time, bool) {
-	if len(session) == 0 || len(session) > 18 {
-		return time.Time{}, false
+	// The incident each position belongs to, or "" for none yet.
+	owner := make([]string, len(c.Members))
+	others := map[string]bool{}
+	var held []int
+	for i, m := range c.Members {
+		p := f.Resolve(m.SessionId, locus)
+		if (p.Kind == feedcondition.AlreadyRaised || p.Kind == feedcondition.Join) && p.Target != nil {
+			owner[i] = p.Target.IncidentId
+		}
+		switch {
+		case owner[i] == incident || m.SessionId == session:
+			// The incident's own session is its own, whatever the incident
+			// table says of it.
+			owner[i] = incident
+			held = append(held, i)
+		case owner[i] != "":
+			others[owner[i]] = true
+		default:
+			out.Unraised++
+		}
 	}
-	ms, err := strconv.ParseInt(session, 10, 64)
-	if err != nil {
-		return time.Time{}, false
+	for o := range others {
+		out.Others = append(out.Others, o)
 	}
-	t := time.UnixMilli(ms).UTC()
-	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC), true
-}
+	slices.Sort(out.Others)
+	out.Held = len(held)
+	for _, i := range held {
+		if !c.Members[i].Delivery {
+			out.Unregistered++
+		}
+	}
+	fi, li := held[0], held[len(held)-1]
+	out.First, out.Last = c.Members[fi].Arrival, c.Members[li].Arrival
 
-// readBursts finds, for every detector that fired on this delivery, the other
-// deliveries of the feed registered the same day on which it also fired, and
-// which of them carry an incident of their own. Shadow triage raises such a
-// burst as a single incident, so usually none does. It changes nothing.
-func readBursts(ctx context.Context, db observe.DB, in *Input, table string) ([]Burst, error) {
-	session := strings.TrimSuffix(strings.TrimPrefix(in.IncidentID, "inc_"), "_"+in.Locus)
-	day, ok := sessionDay(session)
-	if !ok {
-		return nil, nil
-	}
-	var out []Burst
-	seen := map[string]bool{}
-	for _, f := range in.Findings {
-		if seen[f.Detector] {
-			continue
-		}
-		seen[f.Detector] = true
-		rows, err := db.Query(ctx, burstSQL, table, f.Detector, day.Format(time.DateOnly), in.Locus)
-		if err != nil {
-			return nil, fmt.Errorf("while reading the deliveries of feed %s registered on %s: %w", table,
-				day.Format(time.DateOnly), err)
-		}
-		b := Burst{Detector: f.Detector, Day: day}
-		for rows.Next() {
-			var s string
-			var id *string
-			if err := rows.Scan(&s, &id); err != nil {
-				rows.Close()
-				return nil, err
-			}
-			b.Deliveries++
-			if s == session {
-				continue
-			}
-			if id == nil {
-				b.Unraised++
-			} else {
-				b.Others = append(b.Others, *id)
+	self := f.Incidents[locus][session]
+	switch {
+	case li == len(c.Members)-1 && c.Open():
+		out.End = EndOpen
+	case li == len(c.Members)-1:
+		out.End = c.End
+		for _, p := range f.History.Positions() {
+			if p.SessionId == c.EndedBy {
+				out.EndedAt = p.Arrival
+				break
 			}
 		}
-		rows.Close()
-		if err := rows.Err(); err != nil {
-			return nil, err
-		}
-		if b.Deliveries > 1 {
-			sort.Strings(b.Others)
-			out = append(out, b)
+	default:
+		next := c.Members[li+1]
+		out.EndedAt, out.EndedInto = next.Arrival, owner[li+1]
+		out.End = EndNextIncident
+		if self != nil && self.Verdict != nil && next.FirstDetected.After(self.Verdict.TransitionedAt) {
+			out.End = EndVerdict
+			out.Verdict, out.VerdictAt = self.Verdict.ToStatus, self.Verdict.TransitionedAt.UTC()
 		}
 	}
-	return out, nil
+
+	// The incident before this one: an earlier incident of the same
+	// condition, or the feed's previous condition at the locus.
+	var before *feedcondition.Incident
+	for j := fi - 1; j >= 0 && before == nil; j-- {
+		before = f.Incidents[locus][c.Members[j].SessionId]
+	}
+	prev := &out.Previous
+	switch {
+	case before != nil:
+		// An earlier incident of the same condition is named as the previous
+		// one when this incident is new evidence after a person's verdict on
+		// it; otherwise it is one written before conditions, among Others.
+		if before.Verdict != nil && c.Members[fi].FirstDetected.After(before.Verdict.TransitionedAt) {
+			prev.Kind, prev.IncidentID = PrevAfterVerdict, before.IncidentId
+			prev.Verdict, prev.VerdictAt = before.Verdict.ToStatus, before.Verdict.TransitionedAt.UTC()
+		}
+	default:
+		pc := f.PreviousCondition(c.First().SessionId, locus)
+		if pc == nil {
+			prev.Kind = PrevNone
+			break
+		}
+		prev.Kind, prev.Deliveries = PrevCondition, len(pc.Members)
+		prev.First, prev.Last = pc.First().Arrival, pc.Last().Arrival
+		if pi := f.IncidentOf(pc); pi != nil {
+			prev.IncidentID = pi.IncidentId
+			if pi.Verdict != nil {
+				prev.Verdict, prev.VerdictAt = pi.Verdict.ToStatus, pi.Verdict.TransitionedAt.UTC()
+			}
+		}
+	}
+	return out
 }

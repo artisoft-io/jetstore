@@ -135,7 +135,8 @@ func formatIn(x float64, unit string) string {
 	return formatCount(x)
 }
 
-// othersShown caps the incidents a burst names; the rest are counted.
+// othersShown caps the other incidents of a condition the summary names; the
+// rest are counted.
 const othersShown = 10
 
 // Document is the input as the template reads it: a decoded document whose
@@ -204,28 +205,68 @@ func (in *Input) Document() map[string]any {
 	}
 	m["has_Readings"] = readings
 
-	bursts := make([]any, 0, len(in.Bursts))
-	for _, b := range in.Bursts {
-		n := map[string]any{"Detector": b.Detector, "Deliveries": b.Deliveries}
-		setDate(n, "Day", b.Day)
-		shown := b.Others
-		if len(shown) > othersShown {
-			n["Others_More"] = len(shown) - othersShown
-			shown = shown[:othersShown]
-		}
-		if len(shown) > 0 {
-			n["Others_Text"] = strings.Join(shown, ", ")
-		}
-		if b.Unraised > 0 {
-			n["Unraised"] = b.Unraised
-		}
-		bursts = append(bursts, n)
+	if c := in.Condition; c != nil {
+		conditionNode(m, c)
 	}
-	m["has_Bursts"] = bursts
 	if in.OtherFeeds > 0 {
 		m["Other_Feeds"] = in.OtherFeeds
 	}
 	return m
+}
+
+// conditionNode writes the condition's properties into the document, flat and
+// prefixed, as the template reads them.
+func conditionNode(m map[string]any, c *Condition) {
+	m["Cond_End"] = c.End
+	m["Cond_Held"] = c.Held
+	if c.Total > c.Held {
+		m["Cond_Total"] = c.Total
+	}
+	if c.Unregistered > 0 {
+		m["Cond_Unregistered"] = c.Unregistered
+	}
+	setDate(m, "Cond_First", c.First)
+	setDate(m, "Cond_Last", c.Last)
+	flag(m, "Cond_One_Day", !c.First.IsZero() && c.First.UTC().Format(time.DateOnly) == c.Last.UTC().Format(time.DateOnly))
+	setDate(m, "Cond_Ended_At", c.EndedAt)
+	if c.EndedInto != "" {
+		m["Cond_Ended_Into"] = c.EndedInto
+	}
+	if c.Verdict != "" {
+		m["Cond_Verdict"] = c.Verdict
+		setDate(m, "Cond_Verdict_At", c.VerdictAt)
+	}
+	flag(m, "Cond_Same_Day", c.SameDay)
+	flag(m, "Cond_Shared", c.Shared)
+	shown := c.Others
+	if len(shown) > othersShown {
+		m["Others_More"] = len(shown) - othersShown
+		shown = shown[:othersShown]
+	}
+	if len(shown) > 0 {
+		m["Others_Text"] = strings.Join(shown, ", ")
+	}
+	if c.Unraised > 0 {
+		m["Cond_Unraised"] = c.Unraised
+	}
+	p := c.Previous
+	if p.Kind == "" {
+		return
+	}
+	m["Prev_Kind"] = p.Kind
+	if p.IncidentID != "" {
+		m["Prev_Incident"] = p.IncidentID
+	}
+	if p.Verdict != "" {
+		m["Prev_Verdict"] = p.Verdict
+		setDate(m, "Prev_Verdict_At", p.VerdictAt)
+	}
+	if p.Kind == PrevCondition {
+		m["Prev_Deliveries"] = p.Deliveries
+		setDate(m, "Prev_First", p.First)
+		setDate(m, "Prev_Last", p.Last)
+		flag(m, "Prev_One_Day", p.First.UTC().Format(time.DateOnly) == p.Last.UTC().Format(time.DateOnly))
+	}
 }
 
 // findingNode is one finding as the template reads it. Parsed is set when the
