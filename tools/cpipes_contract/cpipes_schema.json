@@ -8825,7 +8825,7 @@
             }
           ],
           "default": null,
-          "description": "Counts the rule optimizer's statistics over the step's sessions, after each rule set, for the predicates and constants of its antecedents; each node writes one partial file under <stage>/process_name=<process>/session_id=<session>/optimizer_statistics/, which the run_reports function merge_optimizer_statistics merges into the workspace's jet_rules/optimizer_statistics.json. Off by default and free when off; for a statistics process run on demand.",
+          "description": "Counts the rule optimizer's statistics over the step's sessions, after each rule set, for the predicates and constants of its antecedents; each node writes one partial file under <stage>/process_name=<process>/session_id=<session>/optimizer_statistics/, which the run_reports function merge_optimizer_statistics merges into the process's own statistics file in the workspace, jet_rules/<process>.optimizer_statistics.json, less the rule sets the report directives' optimizerStatisticsExclude names. Off by default and free when off; for a statistics process run on demand.",
           "title": "Optimizer Statistics"
         },
         "output_channels": {

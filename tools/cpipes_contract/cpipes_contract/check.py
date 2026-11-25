@@ -353,8 +353,8 @@ def check_citations(
             problems.append(f"{where}: {ref} is past the end of the file")
             continue
         if not cites(row, lines[n - 1]):
-            names = _cited_names(row)
-            named = names[0] if isinstance(row, TypeRow) else f"any of {names}"
+            cited = _cited_names(row)
+            named = cited[0] if isinstance(row, TypeRow) else f"any of {cited}"
             problems.append(
                 f"{where}: {ref} does not name {named}: {lines[n - 1].strip()!r}"
             )

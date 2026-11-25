@@ -26,9 +26,10 @@ import (
 // `2025-08-14 10:00:00` was a date to [Check] and not to either renderer: the
 // renderer's `asDate` returns false, the clause is omitted, and the briefing
 // says less than the entity does with nothing reporting it. **No briefing is
-// known to have carried one** - the projection writes `time.Time` - so this is
-// the divergence rather than an incident, and it was in the tree before anybody
-// edited a copy, which is what the copies were predicted to do.
+// known to have carried one** - the engine writes a date as `2025-8-14` and a
+// datetime with a `T` (see [dateLayouts]) - so this is the divergence rather
+// than an incident, and it was in the tree before anybody edited a copy, which
+// is what the copies were predicted to do.
 //
 // **The union is what is exported, not the intersection.** Narrowing the
 // checker to the renderers' five would refuse an input it accepts today, which
@@ -160,13 +161,26 @@ const dateOnly = "2006-01-02"
 
 // dateLayouts is what a date can look like on the way in.
 //
-// The padded pair is what the entity writer emits: `EncodeColumnData`
-// (`jets/compute_pipes/jetrules_extract_entity.go:15`) formats a time as
-// `2006-01-02` when it has no clock and `2006-01-02T15:04:05` when it does. The
-// **unpadded** layouts are here because the one worked briefing input in the
-// tree does not use the padded ones - `prompt.md`'s events carry `2025-8-14`
-// and `2025-1-17` - so a reader that accepted only what the writer emits would
-// fail every date in the only sample anybody has.
+// **The unpadded date is what the entity writer emits.** On the C++ engine, the
+// only rule engine, `extractAsEntity` reads a literal through `GetRdfNodeValue`
+// (`jets/compute_pipes/jetrules_interface.go`), which passes a string through,
+// and the native node's value is `bridge.Resource.AsInterface("")`
+// (`jets/bridge/bridge.go`): a date comes back as `fmt.Sprintf("%d-%d-%d")`
+// text, `2025-8-14`, and a datetime as the engine's ISO text,
+// `2024-03-15T10:20:30.123456`. So the `2006-1-2` layout is the one a date in
+// an entity map is read by, and `prose/pipeline_test.go` pins that text. A
+// datetime is read by the padded `2006-01-02T15:04:05`, because `time.Parse`
+// accepts a fractional second the layout does not name.
+//
+// The padded `2006-01-02` is what a `time.Time` becomes in the toon arm of
+// `EncodeColumnData` (`jets/compute_pipes/jetrules_extract_entity.go`), whose
+// time formatter writes it, and the hand-built maps in this package's tests
+// carry `time.Time`. No value from the C++ engine is a `time.Time`, so in
+// production that formatter does not fire. Both forms are accepted, and the tree's one worked briefing input,
+// `tools/sample_projects/patient_summary_go/prompt.md`, carries the unpadded
+// one too (`2025-8-14`, `2025-1-17`). Until 2026-11 this comment said the
+// padded pair was what the writer emits, which held only for the toon arm on
+// the retired Go engine, whose dates reached the map as `time.Time`.
 //
 // **The space-separated variant is the sixth and no comment has ever explained
 // it.** It was in this package's table and in neither of the two copies, which
