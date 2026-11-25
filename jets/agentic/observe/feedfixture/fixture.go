@@ -129,7 +129,7 @@ type Reregistration struct {
 type Claim struct {
 	ClaimID     string
 	LineNumber  int
-	ServiceDate time.Time
+	ServiceDate time.Time // the zero time is a null date of service
 	MemberID    string
 	PaidAmount  *float64 // nil is a null paid amount
 	LoadBatch   string
@@ -158,8 +158,9 @@ func Feeds() []Feed {
 	return feeds
 }
 
-// AllFeeds returns the base feeds and then the re-processing feeds.
-func AllFeeds() []Feed { return append(Feeds(), ReprocessingFeeds()...) }
+// AllFeeds returns the base feeds, then the re-processing feeds, then the
+// not-judged feeds.
+func AllFeeds() []Feed { return append(append(Feeds(), ReprocessingFeeds()...), NotJudgedFeeds()...) }
 
 // FeedByTable returns the feed of a table_name, among all the fixture's feeds.
 func FeedByTable(tableName string) (Feed, bool) {

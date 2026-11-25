@@ -3,13 +3,14 @@
   "rules": {
     "joins": "A delivery is a file: a distinct file_key among the feed's file registrations (input_registry rows with source_type file), at its first registration, joined to its feed on table_name alone, never on object_type: every delivery here is registered under the object type Member. table_name is unique in source_config; a registration naming another client or org than its feed is attributed to the feed and reported on the coverage line, not dropped (every delivery here names its feed's client, so no verdict depends on it). Only file registrations (source_type file) are deliveries. Its period is input_registry.source_period_key joined to source_period, its arrival is its session id read as milliseconds, and its size is file_key_staging.file_size joined on file_key. file_key_staging.last_update is a sync time, not an arrival. A delivery's predecessor is the feed's previous delivery in registration order. Every delivery-grain verdict is a backfill verdict: each delivery is judged against what was registered before it and nothing after.",
     "feed_overdue": "At the clock. P is the latest period the feed has delivered, the maximum over its deliveries at the profile's period_type, not the period of the last registration. The next delivery is due in period P + periods_per_delivery, and the feed is overdue from the end of that period plus overdue_after_days. A week period runs Thursday to Wednesday (week_period counts weeks from the epoch, a Thursday), a month period is a calendar month. The finding hangs on the session of the feed's last registered delivery (on_delivery); first_fires_at is the first instant it holds. The late-period feed's last registration names an old period, so reading that period as the latest judges the feed overdue.",
-    "delivery_size": "file_size outside the declared size_bytes range, bounds inclusive. Every profiled feed here declares a range, so no verdict depends on a trailing band. With no range declared, a delivery is judged against the trailing band of the sizes registered before it (the detector's unit tests cover that case), and a delivery with fewer preceding sizes than the band needs is not judged (insufficient_history).",
+    "delivery_size": "file_size outside the declared size_bytes range, bounds inclusive. Every base and re-processing feed declares a range, so none of their verdicts depends on a trailing band. With no range declared, a delivery is judged against the trailing band of the sizes registered before it: the median of the last 8 preceding non-zero sizes, plus or minus the larger of 3 scaled median absolute deviations (1.4826 times the MAD) and half the median, floored and ceiled to whole bytes. A delivery with fewer than 4 such sizes before it is not judged (insufficient_history). The not_judged section's absent_required_field declares no range: its first four deliveries are not judged, and its seventh, a file of about a third of the usual size, falls below the band.",
     "delivery_backdated": "The delivery's period, at the profile's period_type, precedes the latest period of any delivery registered before it. The first delivery of a feed is not judged.",
     "service_date_stale": "The delivery's arrival date (UTC) less its newest service date, in days, exceeds max_service_date_lag_days. Every verdict here is the same if the lag is read from the end of the delivery's period instead: the one delivery registered under an old period carries recent dates of service.",
     "service_date_span": "Incremental feeds only: the newest less the oldest service date of one delivery, in days, exceeds max_service_date_span_days.",
     "field_completeness": "For each required field, the share of the delivery's rows (not keys) carrying a value is below min_present_share.",
     "delivery_overlap": "Over distinct values of the declared key columns, never rows. Incremental: the share of this delivery's distinct keys present in its predecessor exceeds max_redelivered_share. Cumulative: some key of the predecessor is absent from this delivery. The first delivery is not judged.",
     "delivery_unchanged": "Over distinct values of the declared key columns: the key set equals the predecessor's and the newest service date is not later than the predecessor's. The first delivery is not judged.",
+    "not_judged": "The not_judged section's feeds carry the ways a content check meets a delivery it cannot evaluate that the base feeds do not, each named as the detectors name it, and the content checks decide them in this order: a feed whose claim-set table does not exist is no_claim_rows, and one whose table lacks a column the profile names for session, key, date of service or member is column_absent, both for every delivery; field_completeness alone is column_absent when the table lacks a declared required field; then a delivery with no claim row is no_claim_rows; a comparison with no predecessor is no_predecessor, and one whose predecessor has no claim row is predecessor_no_claim_rows; service_date_stale and service_date_span are no_service_dates when no row of the delivery carries a date of service, and delivery_unchanged when the delivery or its predecessor has none. arrival_unknown has no case: the detectors read a registration as a delivery only when its session id is a registration time, so no installed row reaches it.",
     "reprocessing": "A later registration of a file key already delivered is re-processing, as JetStore records a re-map or a repeated load: the same file key under the same period, with a session of its own. It is not a delivery: none of the eight detectors judges it, it is never a delivery's predecessor, and it is not the feed's last delivery for feed_overdue. It is counted per feed, as reregistrations and reprocessed_files. A content check reads the claims of the delivery's first registration's session, never a re-processing's. Every base feed registers each file once, so no base verdict depends on this rule; the reprocessing section's feeds do. A genuinely new file registered under a past period is a delivery and is judged, so a backfill of new files fires delivery_backdated once per file, not once per registration."
   },
   "not_judged_reasons": {
@@ -22,7 +23,10 @@
     "no_delivery": "the feed has a profile and no surviving delivery, so feed_overdue has nothing to count from and no session to hang a finding on",
     "no_period": "the delivery is registered under no source period",
     "no_size": "file_key_staging holds no row for the delivery's file key",
-    "insufficient_history": "delivery_size with no declared range, and fewer preceding sizes than its trailing band needs"
+    "insufficient_history": "delivery_size with no declared range, and fewer preceding sizes than its trailing band needs",
+    "column_absent": "the claim-set table lacks a column the profile names: for every content check, the session, a key column, the date of service or the member; for field_completeness alone, a required field",
+    "predecessor_no_claim_rows": "the check compares a delivery with its predecessor, and the claim-set table holds no row of the predecessor's session, so the comparison would be with an empty set",
+    "no_service_dates": "no row of the delivery carries a date of service, or, for delivery_unchanged, no row of the delivery or of its predecessor"
   },
   "install": {
     "source_config": 11,
@@ -187,6 +191,61 @@
       {"detector": "field_completeness", "table_name": "backfilled_incremental", "fires_on": []},
       {"detector": "delivery_overlap", "table_name": "backfilled_incremental", "fires_on": [], "not_judged_on": [{"delivery": 1, "reason": "no_predecessor"}]},
       {"detector": "delivery_unchanged", "table_name": "backfilled_incremental", "fires_on": [], "not_judged_on": [{"delivery": 1, "reason": "no_predecessor"}]}
+    ]
+  },
+  "not_judged": {
+    "install": {
+      "source_config": 4,
+      "input_registry": 28,
+      "source_period": 7,
+      "file_key_staging": 28,
+      "claim_tables": 4,
+      "claim_rows": {
+        "partly_loaded_incremental": 720,
+        "undated_delivery_incremental": 840,
+        "absent_member_column": 840,
+        "absent_required_field": 760
+      }
+    },
+    "feeds": [
+      {"table_name": "partly_loaded_incremental", "client": "client_f", "cumulative": false, "deliveries": 7, "role": "not_judged"},
+      {"table_name": "undated_delivery_incremental", "client": "client_f", "cumulative": false, "deliveries": 7, "role": "not_judged"},
+      {"table_name": "absent_member_column", "client": "client_f", "cumulative": false, "deliveries": 7, "role": "not_judged"},
+      {"table_name": "absent_required_field", "client": "client_f", "cumulative": false, "deliveries": 7, "role": "not_judged"}
+    ],
+    "verdicts": [
+      {"detector": "feed_overdue", "table_name": "partly_loaded_incremental", "at_clock": "silent"},
+      {"detector": "delivery_size", "table_name": "partly_loaded_incremental", "fires_on": []},
+      {"detector": "delivery_backdated", "table_name": "partly_loaded_incremental", "fires_on": [], "not_judged_on": [{"delivery": 1, "reason": "no_predecessor"}]},
+      {"detector": "service_date_stale", "table_name": "partly_loaded_incremental", "fires_on": [], "not_judged_on": [{"delivery": 4, "reason": "no_claim_rows"}]},
+      {"detector": "service_date_span", "table_name": "partly_loaded_incremental", "fires_on": [], "not_judged_on": [{"delivery": 4, "reason": "no_claim_rows"}]},
+      {"detector": "field_completeness", "table_name": "partly_loaded_incremental", "fires_on": [], "not_judged_on": [{"delivery": 4, "reason": "no_claim_rows"}]},
+      {"detector": "delivery_overlap", "table_name": "partly_loaded_incremental", "fires_on": [], "not_judged_on": [{"delivery": 1, "reason": "no_predecessor"}, {"delivery": 4, "reason": "no_claim_rows"}, {"delivery": 5, "reason": "predecessor_no_claim_rows"}]},
+      {"detector": "delivery_unchanged", "table_name": "partly_loaded_incremental", "fires_on": [], "not_judged_on": [{"delivery": 1, "reason": "no_predecessor"}, {"delivery": 4, "reason": "no_claim_rows"}, {"delivery": 5, "reason": "predecessor_no_claim_rows"}]},
+      {"detector": "feed_overdue", "table_name": "undated_delivery_incremental", "at_clock": "silent"},
+      {"detector": "delivery_size", "table_name": "undated_delivery_incremental", "fires_on": []},
+      {"detector": "delivery_backdated", "table_name": "undated_delivery_incremental", "fires_on": [], "not_judged_on": [{"delivery": 1, "reason": "no_predecessor"}]},
+      {"detector": "service_date_stale", "table_name": "undated_delivery_incremental", "fires_on": [], "not_judged_on": [{"delivery": 4, "reason": "no_service_dates"}]},
+      {"detector": "service_date_span", "table_name": "undated_delivery_incremental", "fires_on": [], "not_judged_on": [{"delivery": 4, "reason": "no_service_dates"}]},
+      {"detector": "field_completeness", "table_name": "undated_delivery_incremental", "fires_on": []},
+      {"detector": "delivery_overlap", "table_name": "undated_delivery_incremental", "fires_on": [], "not_judged_on": [{"delivery": 1, "reason": "no_predecessor"}]},
+      {"detector": "delivery_unchanged", "table_name": "undated_delivery_incremental", "fires_on": [], "not_judged_on": [{"delivery": 1, "reason": "no_predecessor"}, {"delivery": 4, "reason": "no_service_dates"}, {"delivery": 5, "reason": "no_service_dates"}]},
+      {"detector": "feed_overdue", "table_name": "absent_member_column", "at_clock": "silent"},
+      {"detector": "delivery_size", "table_name": "absent_member_column", "fires_on": []},
+      {"detector": "delivery_backdated", "table_name": "absent_member_column", "fires_on": [], "not_judged_on": [{"delivery": 1, "reason": "no_predecessor"}]},
+      {"detector": "service_date_stale", "table_name": "absent_member_column", "not_judged": "column_absent"},
+      {"detector": "service_date_span", "table_name": "absent_member_column", "not_judged": "column_absent"},
+      {"detector": "field_completeness", "table_name": "absent_member_column", "not_judged": "column_absent"},
+      {"detector": "delivery_overlap", "table_name": "absent_member_column", "not_judged": "column_absent"},
+      {"detector": "delivery_unchanged", "table_name": "absent_member_column", "not_judged": "column_absent"},
+      {"detector": "feed_overdue", "table_name": "absent_required_field", "at_clock": "silent"},
+      {"detector": "delivery_size", "table_name": "absent_required_field", "fires_on": [7], "not_judged_on": [{"delivery": 1, "reason": "insufficient_history"}, {"delivery": 2, "reason": "insufficient_history"}, {"delivery": 3, "reason": "insufficient_history"}, {"delivery": 4, "reason": "insufficient_history"}]},
+      {"detector": "delivery_backdated", "table_name": "absent_required_field", "fires_on": [], "not_judged_on": [{"delivery": 1, "reason": "no_predecessor"}]},
+      {"detector": "service_date_stale", "table_name": "absent_required_field", "fires_on": []},
+      {"detector": "service_date_span", "table_name": "absent_required_field", "fires_on": []},
+      {"detector": "field_completeness", "table_name": "absent_required_field", "not_judged": "column_absent"},
+      {"detector": "delivery_overlap", "table_name": "absent_required_field", "fires_on": [], "not_judged_on": [{"delivery": 1, "reason": "no_predecessor"}]},
+      {"detector": "delivery_unchanged", "table_name": "absent_required_field", "fires_on": [], "not_judged_on": [{"delivery": 1, "reason": "no_predecessor"}]}
     ]
   }
 }

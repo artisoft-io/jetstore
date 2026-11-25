@@ -1,0 +1,114 @@
+{
+  "partly_loaded_incremental": {
+    "period_type": "week_period",
+    "periods_per_delivery": 1,
+    "overdue_after_days": 3,
+    "size_bytes": {
+      "min": 40000,
+      "max": 90000
+    },
+    "claim_set": {
+      "table": "fx:PartlyLoadedIncrementalClaim",
+      "key_columns": [
+        "fx:claim_id"
+      ],
+      "service_date_column": "fx:service_date",
+      "member_column": "fx:member_id"
+    },
+    "max_service_date_lag_days": 30,
+    "max_service_date_span_days": 120,
+    "max_redelivered_share": 0.05,
+    "required_fields": [
+      {
+        "column": "fx:paid_amount",
+        "min_present_share": 0.95
+      }
+    ],
+    "declared_by": "fixture@example.com",
+    "declared_at": "2026-03-01"
+  },
+  "undated_delivery_incremental": {
+    "period_type": "week_period",
+    "periods_per_delivery": 1,
+    "overdue_after_days": 3,
+    "size_bytes": {
+      "min": 40000,
+      "max": 90000
+    },
+    "claim_set": {
+      "table": "fx:UndatedDeliveryIncrementalClaim",
+      "key_columns": [
+        "fx:claim_id"
+      ],
+      "service_date_column": "fx:service_date",
+      "member_column": "fx:member_id"
+    },
+    "max_service_date_lag_days": 30,
+    "max_service_date_span_days": 120,
+    "max_redelivered_share": 0.05,
+    "required_fields": [
+      {
+        "column": "fx:paid_amount",
+        "min_present_share": 0.95
+      }
+    ],
+    "declared_by": "fixture@example.com",
+    "declared_at": "2026-03-01"
+  },
+  "absent_member_column": {
+    "period_type": "week_period",
+    "periods_per_delivery": 1,
+    "overdue_after_days": 3,
+    "size_bytes": {
+      "min": 40000,
+      "max": 90000
+    },
+    "claim_set": {
+      "table": "fx:AbsentMemberColumnClaim",
+      "key_columns": [
+        "fx:claim_id"
+      ],
+      "service_date_column": "fx:service_date",
+      "member_column": "fx:member_key"
+    },
+    "max_service_date_lag_days": 30,
+    "max_service_date_span_days": 120,
+    "max_redelivered_share": 0.05,
+    "required_fields": [
+      {
+        "column": "fx:paid_amount",
+        "min_present_share": 0.95
+      }
+    ],
+    "declared_by": "fixture@example.com",
+    "declared_at": "2026-03-01"
+  },
+  "absent_required_field": {
+    "period_type": "week_period",
+    "periods_per_delivery": 1,
+    "overdue_after_days": 3,
+    "claim_set": {
+      "table": "fx:AbsentRequiredFieldClaim",
+      "key_columns": [
+        "fx:claim_id"
+      ],
+      "service_date_column": "fx:service_date",
+      "member_column": "fx:member_id"
+    },
+    "max_service_date_lag_days": 30,
+    "max_service_date_span_days": 120,
+    "max_redelivered_share": 0.05,
+    "required_fields": [
+      {
+        "column": "fx:paid_amount",
+        "min_present_share": 0.95
+      },
+      {
+        "column": "fx:allowed_amount",
+        "min_present_share": 0.95
+      }
+    ],
+    "declared_by": "fixture@example.com",
+    "declared_at": "2026-03-01"
+  }
+}

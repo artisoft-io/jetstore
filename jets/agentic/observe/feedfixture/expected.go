@@ -11,6 +11,7 @@ import (
 )
 
 //go:embed testdata/expected.json testdata/feed_profiles.json testdata/reprocessing_profiles.json
+//go:embed testdata/not_judged_profiles.json
 var testdata embed.FS
 
 // Detectors are the eight feed detectors the expected result covers, in the
@@ -42,6 +43,14 @@ func ReprocessingProfilesPath() string {
 	return filepath.Join(filepath.Dir(file), "testdata", "reprocessing_profiles.json")
 }
 
+// NotJudgedProfilesPath is testdata/not_judged_profiles.json: the not-judged
+// feeds' profiles, kept apart from ProfilesPath as the re-processing feeds'
+// are.
+func NotJudgedProfilesPath() string {
+	_, file, _, _ := runtime.Caller(0)
+	return filepath.Join(filepath.Dir(file), "testdata", "not_judged_profiles.json")
+}
+
 // Profiles returns the declared profiles, keyed by table_name, as the JSON
 // documents they are. The fixture does not decode them: what a profile means is
 // the profile package's, and a detector test reads them through it.
@@ -53,6 +62,12 @@ func Profiles() (map[string]json.RawMessage, error) {
 // returns the base feeds'.
 func ReprocessingProfiles() (map[string]json.RawMessage, error) {
 	return readProfiles("reprocessing_profiles.json")
+}
+
+// NotJudgedProfiles returns the not-judged feeds' profiles, as Profiles
+// returns the base feeds'.
+func NotJudgedProfiles() (map[string]json.RawMessage, error) {
+	return readProfiles("not_judged_profiles.json")
 }
 
 func readProfiles(name string) (map[string]json.RawMessage, error) {
@@ -78,6 +93,9 @@ type Expected struct {
 	// Reprocessing is the expected result over the re-processing feeds, as
 	// InstallReprocessing writes them.
 	Reprocessing ExpectedSet `json:"reprocessing"`
+	// NotJudged is the expected result over the not-judged feeds, as
+	// InstallNotJudged writes them.
+	NotJudged ExpectedSet `json:"not_judged"`
 }
 
 // ExpectedSet is the expected result over a set of feeds installed together.
@@ -143,10 +161,12 @@ func LoadExpected() (Expected, error) {
 	return e, nil
 }
 
-// Of returns the expected verdict of a detector over a feed, base or
-// re-processing.
+// Of returns the expected verdict of a detector over a feed, base,
+// re-processing or not-judged.
 func (e Expected) Of(detector, tableName string) (ExpectedVerdict, bool) {
-	for _, v := range append(append([]ExpectedVerdict(nil), e.Verdicts...), e.Reprocessing.Verdicts...) {
+	all := append(append(append([]ExpectedVerdict(nil), e.Verdicts...), e.Reprocessing.Verdicts...),
+		e.NotJudged.Verdicts...)
+	for _, v := range all {
 		if v.Detector == detector && v.TableName == tableName {
 			return v, true
 		}
@@ -190,6 +210,9 @@ func (e Expected) Rows() []Row { return e.rowsOf(Feeds()) }
 // ReprocessingRows is Rows over the re-processing feeds: one row per detector
 // and delivery. A re-registration is not a delivery and has no row.
 func (e Expected) ReprocessingRows() []Row { return e.rowsOf(ReprocessingFeeds()) }
+
+// NotJudgedRows is Rows over the not-judged feeds.
+func (e Expected) NotJudgedRows() []Row { return e.rowsOf(NotJudgedFeeds()) }
 
 func (e Expected) rowsOf(feeds []Feed) []Row {
 	var out []Row
