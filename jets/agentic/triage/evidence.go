@@ -527,7 +527,21 @@ type Evidence struct {
 // by accident. Where the header is gone the run's start is taken from the
 // earliest worker row, and where there are no worker rows either there is
 // nothing to bound a baseline with and none is read.
+//
+// Gather reads the volume history with Default's bounds, which is right for a
+// caller that classifies with Default. A caller that classifies with its own
+// Classifier gathers with it, Classifier.Gather, so that the history is the one
+// its locus rows_lost_silently judges by.
 func Gather(ctx context.Context, db observe.DB, sessionId string, baselineFor time.Duration) (*Evidence, error) {
+	return Default().Gather(ctx, db, sessionId, baselineFor)
+}
+
+// Gather is the package's Gather with the volume history read by c.Volume:
+// the runs of each step that read at least its MinInput rows, the HistoryRuns
+// most recent of them. Those two bound the read as well as the judgement, so a
+// classifier configured with other values must read with them, or it judges a
+// worker against runs it would not count as history.
+func (c Classifier) Gather(ctx context.Context, db observe.DB, sessionId string, baselineFor time.Duration) (*Evidence, error) {
 	ev := &Evidence{SessionId: sessionId}
 	var err error
 	if ev.Extent, err = ReadExtent(ctx, db); err != nil {
@@ -570,12 +584,10 @@ func Gather(ctx context.Context, db observe.DB, sessionId string, baselineFor ti
 			return nil, err
 		}
 	}
-	// The volume history is read with the default detector's bounds (its
-	// HistoryRuns and MinInput), whatever thresholds the classifier then judges
-	// it by: Gather does not know the classifier, and those two only bound the
-	// read.
+	// The volume history, read with the classifier's own bounds (its
+	// HistoryRuns and MinInput), which are the ones Classify judges by.
 	volume := &observe.Evidence{Workers: ev.Workers}
-	if err = observe.DefaultVolumeCollapse().ReadHistory(ctx, db, volume); err != nil {
+	if err = c.Volume.ReadHistory(ctx, db, volume); err != nil {
 		return nil, err
 	}
 	ev.Volume = volume.Volume

@@ -312,7 +312,7 @@ func (w *Writer) Run(ctx context.Context, db DB, sessionId string) (*SessionResu
 // found.
 func (w *Writer) classify(ctx context.Context, db DB, sessionId string) (*triage.Evidence, *triage.Report,
 	*rca.Ranking, []observe.Anomaly, error) {
-	ev, err := triage.Gather(ctx, db, sessionId, w.Baseline)
+	ev, err := w.Classifier.Gather(ctx, db, sessionId, w.Baseline)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}

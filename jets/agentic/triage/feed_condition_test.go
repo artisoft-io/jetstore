@@ -219,3 +219,15 @@ func TestAConditionIsKeyedOnTheLocus(t *testing.T) {
 		t.Errorf("member %+v: want both detectors, the earliest detection first", m)
 	}
 }
+
+// The condition reader orders a feed's registrations as the feed detectors do,
+// and reads input_registry alone, so the conditions can be computed from an
+// export of four tables.
+func TestTheConditionReaderOrdersAsTheDetectorsDo(t *testing.T) {
+	if !strings.HasSuffix(feedRegistrationsSQL, "ORDER BY "+observe.FeedRegistrationOrderSQL) {
+		t.Errorf("feedRegistrationsSQL does not end in registration order: %s", feedRegistrationsSQL)
+	}
+	if strings.Count(feedRegistrationsSQL, "jetsapi.") != 1 || !strings.Contains(feedRegistrationsSQL, "jetsapi.input_registry ir") {
+		t.Errorf("feedRegistrationsSQL reads more than input_registry: %s", feedRegistrationsSQL)
+	}
+}

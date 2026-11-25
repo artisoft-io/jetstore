@@ -415,13 +415,14 @@ func ConditionAt(cs []Condition, session, locus string) *Condition {
 }
 
 // feedRegistrationsSQL reads one feed's file registrations in registration
-// order. It reads input_registry alone, the columns observe's reading orders
-// and identifies a delivery by, so that the conditions can be computed from an
-// export of four tables (anomaly, input_registry, incident, incident_event).
-const feedRegistrationsSQL = `SELECT session_id, COALESCE(file_key, '')
-  FROM jetsapi.input_registry
- WHERE table_name = $1 AND source_type = 'file'
- ORDER BY (CASE WHEN session_id ~ '^[0-9]{1,18}$' THEN session_id::bigint END) NULLS LAST, key`
+// order, observe.FeedRegistrationOrderSQL, the order the feed detectors read
+// them in. It reads input_registry alone, the columns that order and identify
+// a delivery, so that the conditions can be computed from an export of four
+// tables (anomaly, input_registry, incident, incident_event).
+const feedRegistrationsSQL = `SELECT ir.session_id, COALESCE(ir.file_key, '')
+  FROM jetsapi.input_registry ir
+ WHERE ir.table_name = $1 AND ir.source_type = 'file'
+ ORDER BY ` + observe.FeedRegistrationOrderSQL
 
 // feedAnomaliesSQL reads the subject-feed anomalies on every session carrying
 // one of the feed's.
