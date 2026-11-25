@@ -217,11 +217,18 @@ person who receives the feed rather than for the person who wrote the detectors.
 - **the case against every reading**: who declared the feed's profile, on what date, and how old the
   declaration was when the finding was made. A delivery is judged against what somebody wrote down,
   so a stale declaration is the first thing to doubt;
-- **a burst**, when there is one: if the same check fired on other deliveries of the same feed
-  registered the same day, as a catch-up of many files does, the summary says how many deliveries
-  this incident stands for and how many have no incident of their own. **A burst is raised as one
-  incident, so give it one verdict.** If another delivery of the burst has an incident of its own, for a
-  finding outside the burst, it is named.
+- **the condition**: how many deliveries of the feed the incident stands for, and when the first and
+  the last of them were registered. Then whether the condition is **still open**, because the feed's
+  latest delivery carries the finding, or how it **ended**: at a delivery with no finding at the
+  locus, or by your verdict, after which a later delivery is new evidence. Such a delivery is named
+  with the incident it belongs to, or counted as having none yet. **A condition is raised as one
+  incident, so give it one verdict.** Incidents written one per delivery before conditions are named
+  as other incidents of the same condition;
+- **the incident before it** at the same locus: the incident you judged, with your verdict and its
+  date, when this one was opened by a later finding; otherwise the feed's previous condition, its
+  deliveries and its incident with any verdict, or *no incident yet* when it has not been raised.
+  This is read when the page is read, so it names an incident raised after this one, which the
+  evidence of this incident cannot.
 
 **The summary is rendered by a fixed template, not written by a model**, and the page says so. It is
 built when the page is read, from the incident's findings, the feed's profile and the ranked
