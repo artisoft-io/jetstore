@@ -85,6 +85,7 @@ export const ROUTE_TITLES: ReadonlyArray<readonly [pattern: string, title: strin
   // the screen.
   ["/incidents", "Incidents"],
   ["/incidents/:incidentId", "Incident"],
+  ["/incidents/session/:session_id", "Session incidents"],
   ["/detection", "Detection"],
   ["/runbooks", "Runbooks"],
   ["/workspaces/:workspace_name/runbooks", "Runbooks"],

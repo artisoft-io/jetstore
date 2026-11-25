@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/agentic/audit"
+	"github.com/artisoft-io/jetstore/jets/agentic/feedcondition"
 	"github.com/artisoft-io/jetstore/jets/agentic/observe"
 	"github.com/artisoft-io/jetstore/jets/agentic/rca"
 	"github.com/artisoft-io/jetstore/jets/agentic/triage"
@@ -82,6 +82,11 @@ type Writer struct {
 	// Now is the clock, injectable so a test can order transitions
 	// unambiguously. Nil means time.Now().UTC().
 	Now func() time.Time
+
+	// dryRaised are the incidents a dry run has reported as written, so that
+	// the later deliveries of a condition, which a dry run leaves with no
+	// incident to join, report joining it rather than raising it again.
+	dryRaised map[string]bool
 }
 
 // DefaultWriter is the starting point. Actor has no default and must be set.
@@ -105,7 +110,11 @@ func (w *Writer) now() time.Time {
 // IncidentWritten is one incident this run produced.
 type IncidentWritten struct {
 	IncidentId string
-	Locus      string
+	// SessionId is the session the incident is written on: the session run,
+	// or, for a feed condition's incident raised by a later delivery, the
+	// condition's first delivery.
+	SessionId string
+	Locus     string
 	// Status is where the incident was left: `triaged` when the ranker produced
 	// no hypothesis for the locus, `diagnosed` when it did. **Never anything
 	// else** — see ShadowStatuses.
@@ -131,13 +140,17 @@ type SessionResult struct {
 	Report  *triage.Report
 	Ranking *rca.Ranking
 
+	// Written are the incidents this call wrote. One may be on another
+	// session: a feed condition's incident, raised on the condition's first
+	// delivery when a later delivery is the first of it to be triaged.
 	Written []IncidentWritten
 	// AlreadyRaised are the fired loci this session already had an incident for.
 	// **This is the add-never-retract rule in one field** — see Run.
 	AlreadyRaised []string
 	// Grouped are the fired delivery loci written as no incident here, because
-	// their anomalies belong to a burst whose incident is written on another
-	// session: "<locus> (into <incident id>, ...)". See triage's feed_burst.go.
+	// the finding belongs to a feed condition whose incident is on another
+	// delivery: "<locus> (into <incident id>)". Nothing records the join; it
+	// is derived again on every read (the feedcondition package).
 	Grouped []string
 	// UnmappedLoci are the fired loci the gate's table maps to no cause class, so
 	// the incident is written and carries no hypothesis. Two of the nine are
@@ -187,6 +200,18 @@ type SessionResult struct {
 // somebody adjudicates it, and the partial-purge hole is a known way to
 // produce one. That is stated rather than guarded, because the guard would be
 // the retraction this paragraph argues against.
+//
+// # A feed finding is written on its condition's incident
+//
+// A finding at a delivery locus belongs to a condition: the run of consecutive
+// deliveries of its feed that each carry a finding at the locus. A condition
+// is one incident, on its first delivery, and the later deliveries join it
+// (placeFeedFinding, and the feedcondition package for the rule). When a
+// condition has no incident yet and the session run is not its first delivery,
+// the first delivery's incident is raised by this call, so the incident does
+// not depend on which of the condition's deliveries a run's window selects.
+// After a person's verdict on a condition's incident, a finding detected later
+// is new evidence and is written on its own delivery, naming the judged one.
 func (w *Writer) Run(ctx context.Context, db DB, sessionId string) (*SessionResult, error) {
 	if sessionId == "" {
 		return nil, errors.New("cannot classify without a session id: an incident cannot be keyed below the session")
@@ -214,25 +239,9 @@ func (w *Writer) Run(ctx context.Context, db DB, sessionId string) (*SessionResu
 			targets.Missing())
 	}
 
-	ev, err := triage.Gather(ctx, db, sessionId, w.Baseline)
+	_, report, ranking, anomalies, err := w.classify(ctx, db, sessionId)
 	if err != nil {
 		return nil, err
-	}
-	report := w.Classifier.Classify(ev)
-
-	var anomalies []observe.Anomaly
-	if ev.Extent != nil && ev.Extent.Anomalies {
-		if anomalies, err = observe.ReadAnomalies(ctx, db, sessionId); err != nil {
-			return nil, err
-		}
-	}
-	ranking := w.Ranker.Rank(&rca.Input{Report: report, Evidence: ev, Anomalies: anomalies})
-	if err := ranking.Validate(); err != nil {
-		// The floor cannot produce an invalid ranking, so this is a guard on a
-		// contract rather than a branch anybody expects to take — and it is here
-		// rather than nowhere because the alternative is discovering it as a
-		// CHECK violation halfway through writing an incident's children.
-		return nil, fmt.Errorf("the ranker produced a ranking that does not validate, so nothing was written: %w", err)
 	}
 
 	out := &SessionResult{
@@ -265,17 +274,21 @@ func (w *Writer) Run(ctx context.Context, db DB, sessionId string) (*SessionResu
 			out.AlreadyRaised = append(out.AlreadyRaised, fmt.Sprintf("%s (%s)", f.Locus, id))
 			continue
 		}
-		if into, err := w.groupedInto(ctx, db, targets, f); err != nil {
-			return out, err
-		} else if len(into) > 0 {
-			out.Grouped = append(out.Grouped, fmt.Sprintf("%s (into %s)", f.Locus, strings.Join(into, ", ")))
-			continue
+		if slices.Contains(triage.DeliveryLoci, f.Locus) {
+			here, err := w.placeFeedFinding(ctx, db, f, severity, modelVersion, out)
+			if err != nil {
+				return out, err
+			}
+			if !here {
+				continue
+			}
 		}
 		if err := f.Validate(); err != nil {
 			return out, fmt.Errorf("the classifier produced a finding that does not validate, so it was not written: %w", err)
 		}
 		written := IncidentWritten{
 			IncidentId: IncidentIdFor(sessionId, f.Locus),
+			SessionId:  sessionId,
 			Locus:      f.Locus,
 			Status:     audit.IncidentDetected,
 			Hypotheses: len(byLocus[f.Locus]),
@@ -283,10 +296,7 @@ func (w *Writer) Run(ctx context.Context, db DB, sessionId string) (*SessionResu
 		if w.DryRun {
 			// Report where it *would* have been left, so a dry run and a real
 			// run describe the same outcome.
-			written.Status = audit.IncidentTriaged
-			if written.Hypotheses > 0 {
-				written.Status = audit.IncidentDiagnosed
-			}
+			w.reportDry(&written)
 			out.Written = append(out.Written, written)
 			continue
 		}
@@ -298,46 +308,155 @@ func (w *Writer) Run(ctx context.Context, db DB, sessionId string) (*SessionResu
 	return out, nil
 }
 
-// groupedInto returns the incidents a fired finding's burst is raised as
-// instead of one here, or nil when it is written here.
-//
-// A finding grouped into another session's burst names that session's incident,
-// whether or not this run writes it: the burst's last session is the latest
-// arrival of the day, and the run that sees it writes it. A finding that leads a
-// burst is grouped into an incident one of the burst's other sessions already
-// has, when one does: a burst whose day straddled two triage runs was raised by
-// the first on the last session that run saw, and the second adds none. An
-// incident is never moved to a later session, on this writer's rule that it adds
-// and never retracts.
-func (w *Writer) groupedInto(ctx context.Context, db DB, targets *Targets, f *triage.Finding) ([]string, error) {
-	if len(f.GroupedInto) > 0 {
-		ids := make([]string, 0, len(f.GroupedInto))
-		for _, s := range f.GroupedInto {
-			ids = append(ids, IncidentIdFor(s, f.Locus))
-		}
-		return ids, nil
+// classify gathers one session's evidence, classifies it and ranks what it
+// found.
+func (w *Writer) classify(ctx context.Context, db DB, sessionId string) (*triage.Evidence, *triage.Report,
+	*rca.Ranking, []observe.Anomaly, error) {
+	ev, err := w.Classifier.Gather(ctx, db, sessionId, w.Baseline)
+	if err != nil {
+		return nil, nil, nil, nil, err
 	}
-	if len(f.BurstSessions) == 0 || !targets.Incident {
+	report := w.Classifier.Classify(ev)
+
+	var anomalies []observe.Anomaly
+	if ev.Extent != nil && ev.Extent.Anomalies {
+		if anomalies, err = observe.ReadAnomalies(ctx, db, sessionId); err != nil {
+			return nil, nil, nil, nil, err
+		}
+	}
+	ranking := w.Ranker.Rank(&rca.Input{Report: report, Evidence: ev, Anomalies: anomalies})
+	if err := ranking.Validate(); err != nil {
+		// The floor cannot produce an invalid ranking, so this is a guard on a
+		// contract rather than a branch anybody expects to take — and it is here
+		// rather than nowhere because the alternative is discovering it as a
+		// CHECK violation halfway through writing an incident's children.
+		return nil, nil, nil, nil, fmt.Errorf("the ranker produced a ranking that does not validate, so nothing was written: %w", err)
+	}
+	return ev, report, ranking, anomalies, nil
+}
+
+// reportDry sets the status a dry run reports an incident would be left at,
+// and remembers it, so the condition's later deliveries join it.
+func (w *Writer) reportDry(written *IncidentWritten) {
+	written.Status = audit.IncidentTriaged
+	if written.Hypotheses > 0 {
+		written.Status = audit.IncidentDiagnosed
+	}
+	if w.dryRaised == nil {
+		w.dryRaised = map[string]bool{}
+	}
+	w.dryRaised[written.IncidentId] = true
+}
+
+// placeFeedFinding decides where a present finding at a delivery locus is
+// written, by its feed condition (feedcondition.Resolve), and reports true when
+// it is to be written on this session, with the condition and the previous
+// incident appended to its basis. Otherwise it records the join in Grouped,
+// having first raised the condition's incident on its first delivery when the
+// condition had none (R in Written), and reports false.
+//
+// **Nothing is written for a join**: which incident a delivery belongs to is
+// derived from the database on every read, so a second pass derives the same
+// join and writes nothing. **Nothing is retracted either**: an incident already
+// on a later delivery of the condition, as a day's burst was raised on its last
+// delivery before conditions, is the one the others join.
+func (w *Writer) placeFeedFinding(ctx context.Context, db DB, f *triage.Finding, severity, modelVersion string,
+	out *SessionResult) (bool, error) {
+	p, _, err := feedcondition.ResolveSession(ctx, db, f.SessionId, f.Locus)
+	if err != nil {
+		return false, err
+	}
+	switch p.Kind {
+	case feedcondition.AlreadyRaised:
+		out.AlreadyRaised = append(out.AlreadyRaised, fmt.Sprintf("%s (%s)", f.Locus, p.Target.IncidentId))
+		return false, nil
+	case feedcondition.Join:
+		out.Grouped = append(out.Grouped, fmt.Sprintf("%s (into %s)", f.Locus, p.Target.IncidentId))
+		return false, nil
+	case feedcondition.RaiseAnchor:
+		id := IncidentIdFor(p.Anchor, f.Locus)
+		if w.DryRun && w.dryRaised[id] {
+			out.Grouped = append(out.Grouped, fmt.Sprintf("%s (into %s)", f.Locus, id))
+			return false, nil
+		}
+		raised, err := w.raiseAnchor(ctx, db, &p, severity, modelVersion)
+		if err != nil {
+			return false, err
+		}
+		if raised == nil {
+			// The first delivery's finding does not hold when it is classified,
+			// which a condition read from its anomalies cannot produce; written
+			// here rather than lost.
+			f.Basis += fmt.Sprintf(". It belongs to %s, whose first delivery, session %s, did not classify as "+
+				"present at this locus when read, so the incident is written here", p.Condition.Describe(), p.Anchor)
+			return true, nil
+		}
+		if raised.Status != "" {
+			out.Written = append(out.Written, *raised)
+		}
+		out.Grouped = append(out.Grouped, fmt.Sprintf("%s (into %s)", f.Locus, id))
+		return false, nil
+	}
+	if w.DryRun && w.dryRaised[IncidentIdFor(f.SessionId, f.Locus)] {
+		out.AlreadyRaised = append(out.AlreadyRaised, fmt.Sprintf("%s (%s, reported by this dry run)", f.Locus,
+			IncidentIdFor(f.SessionId, f.Locus)))
+		return false, nil
+	}
+	f.Basis += p.Basis()
+	return true, nil
+}
+
+// raiseAnchor writes a feed condition's incident on its first delivery, which
+// no run has raised yet, when a later delivery of the condition is triaged:
+// the first delivery is classified, and only its finding at the condition's
+// locus is written, under its deterministic id and ON CONFLICT DO NOTHING. It
+// returns nil when that finding does not hold.
+//
+// **This is what makes a condition's incident independent of a run's
+// window**: a run that selects only a condition's latest delivery still raises
+// the condition's incident where it belongs, and a run that later selects the
+// first delivery finds it already raised.
+func (w *Writer) raiseAnchor(ctx context.Context, db DB, p *feedcondition.Placement, severity,
+	modelVersion string) (*IncidentWritten, error) {
+	_, report, ranking, _, err := w.classify(ctx, db, p.Anchor)
+	if err != nil {
+		return nil, err
+	}
+	var af *triage.Finding
+	for i := range report.Findings {
+		if report.Findings[i].Locus == p.Locus && report.Findings[i].Fired() {
+			af = &report.Findings[i]
+		}
+	}
+	if af == nil {
 		return nil, nil
 	}
-	ids := make([]string, 0, len(f.BurstSessions))
-	for _, s := range f.BurstSessions {
-		ids = append(ids, IncidentIdFor(s, f.Locus))
+	af.Basis += p.Basis() + fmt.Sprintf(". It was raised when session %s, a later delivery of the condition, "+
+		"was triaged", p.SessionId)
+	if err := af.Validate(); err != nil {
+		return nil, fmt.Errorf("the classifier produced a finding that does not validate, so it was not written: %w", err)
 	}
-	rows, err := db.Query(ctx, `SELECT incident_id FROM jetsapi.incident WHERE incident_id = ANY($1::text[]) ORDER BY incident_id`, ids)
-	if err != nil {
-		return nil, fmt.Errorf("while reading the incidents of the burst session %s leads: %w", f.SessionId, err)
-	}
-	defer rows.Close()
-	var raised []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, fmt.Errorf("while scanning an incident of a burst: %w", err)
+	var hyps []rca.Hypothesis
+	for _, h := range ranking.Hypotheses {
+		if h.Locus == p.Locus {
+			hyps = append(hyps, h)
 		}
-		raised = append(raised, id)
 	}
-	return raised, rows.Err()
+	written := &IncidentWritten{
+		IncidentId: IncidentIdFor(p.Anchor, p.Locus),
+		SessionId:  p.Anchor,
+		Locus:      p.Locus,
+		Status:     audit.IncidentDetected,
+		Hypotheses: len(hyps),
+	}
+	if w.DryRun {
+		w.reportDry(written)
+		return written, nil
+	}
+	if err := w.writeOne(ctx, db, af, hyps, ranking, severity, modelVersion, written); err != nil {
+		return nil, err
+	}
+	return written, nil
 }
 
 // writeOne inserts the incident at `detected`, moves it to `triaged` with the
@@ -580,6 +699,10 @@ func raisedLoci(ctx context.Context, db DB, sessionId string) (map[string]string
 // have been purged is selected too, which is the partial-purge ambiguity — and the
 // classifier answers `not_evaluable` there rather than `present`, so the cost is
 // a wasted read rather than a wrong incident.
+//
+// It reads the live table rather than pipeline_execution_history on purpose: a
+// run whose session was deleted has lost the record every run locus reads, so
+// selecting it would cost a read and return nine not-evaluable findings.
 func RecentSessions(ctx context.Context, db DB, since time.Time, client, process string, limit int) ([]string, error) {
 	if limit <= 0 {
 		limit = 200

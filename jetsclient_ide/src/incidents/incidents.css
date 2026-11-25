@@ -230,3 +230,22 @@
   margin: 0.4rem 0;
   max-width: 72ch;
 }
+
+/* A feed incident's condition: the deliveries it stands for, read live. */
+.incident-condition {
+  margin-bottom: 1rem;
+}
+.incident-condition p {
+  margin: 0.4rem 0;
+  max-width: 72ch;
+}
+.condition-deliveries td code {
+  word-break: break-all;
+}
+
+/* The list's search by session. */
+.incident-search {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}

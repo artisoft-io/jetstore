@@ -23,7 +23,10 @@ which properties were withheld.
 ![The open incidents: inc_20002 on session 1767949200304, worker not terminated, triaged with no hypothesis, and inc_20001 on session 1767868200303, worker failed, diagnosed with two hypotheses; neither has a cause claimed.](../../../../assets/screenshots/user/screens/incidents/incidents-open.png)
 
 The picker chooses **Open incidents** (the default), **Adjudicated**, or **All incidents**.
-**Refresh** reads the list again.
+**Refresh** reads the list again. **Find by session** takes a session id and opens the incidents
+that session belongs to (see [Finding a session's incidents](#finding-a-sessions-incidents) below):
+the list shows each incident once, on the session it is written on, so a delivery that joined
+another delivery's incident has no row of its own here.
 
 | Column | What it shows |
 |---|---|
@@ -42,6 +45,15 @@ The picker chooses **Open incidents** (the default), **Adjudicated**, or **All i
 
 **An empty list is not evidence that nothing went wrong.** Incidents are written by shadow triage,
 which runs where the detection task is deployed; the Detection screen says whether it has run.
+
+**A run whose session was deleted is not judged.** Deleting a session keeps its run's status on the
+*Archived Pipelines* tab and deletes everything the run loci read: its worker rows, its process
+errors and its stored configuration. Shadow triage selects only the runs of sessions that exist. A
+run it is asked about by session, or whose session is deleted while it runs, is found in the pipeline
+history and counted *not evaluable* at every run locus, with when and why the session was deleted,
+so it raises no incident; the deleted records' absence is not read as a run that never started or
+reported no failure. A later run of the same source carries *history truncated* when a deleted run
+falls in the history it is compared with.
 
 ### Incidents about a feed's deliveries
 
@@ -62,13 +74,60 @@ detection's own words as its evidence. The feed is named by its **source configu
 configuration's client. When the delivery was registered under another client, such as `Any`, the
 evidence says so beside it; the incident does not take that client as the feed's.
 
-**A burst of deliveries is one incident.** When the same check fires on several deliveries of one
-feed registered on the same day (UTC), as a catch-up of many past files does, shadow triage raises
-**one** incident, on the **last** of those deliveries. Its evidence says how many deliveries it
-stands for and names their sessions. The other deliveries still show the locus as present on their
-own sessions, but no incident of their own: their evidence names the session the incident is on. If
-triage ran while the day's files were still arriving, the incident is on the last delivery that run
-saw, and later deliveries of the same day join it rather than raising a second one.
+**A standing condition is one incident.** A feed that sends the same faulty file every week, or a
+catch-up of many past files that all depart from the profile in the same way, is one fault that
+persists, and you read it once. Consecutive deliveries of one feed whose findings fall at the same
+locus form a **condition**, and shadow triage raises **one** incident for it, on its **first**
+delivery. Each later delivery of the feed with a finding at that locus joins it: the locus still
+shows as present on its own session, but it has no incident of its own. Which check fired does not
+matter, only the locus; a delivery with findings at both loci belongs to two conditions, one at each.
+
+- **A condition ends at the first delivery of the feed with no finding at its locus**, whether that
+  delivery was checked and passed or could not be checked. A later finding starts a new condition
+  and a new incident, whose evidence names the previous condition's incident. Re-processing a file
+  the feed already delivered is not a delivery, so it neither ends a condition nor extends one.
+- **Your verdict closes it for new evidence.** Once you reclassify an incident, suppress it as
+  benign or verify it, a finding at the locus detected **after** your verdict raises a new incident
+  naming the one you judged and your verdict; a finding detected before it was part of what you
+  judged and joins it. Nothing is suppressed for you.
+- **Where the incident is does not depend on which deliveries a triage run selected.** If a run
+  reaches a later delivery of a condition first, it raises the condition's incident on the first
+  delivery then. An incident already written is never moved or withdrawn: incidents raised one per
+  delivery, or one per day, before conditions stay as they are, and later deliveries join the latest
+  of them.
+- **Old deliveries whose registrations have been purged** cannot be told apart from gaps, so before
+  the feed's earliest remaining registration two findings belong to one condition only when they
+  were registered on the same day (UTC).
+
+The incident's evidence says which deliveries the condition held when the incident was raised, from
+when to when, whether it was still open, and the previous condition's incident with its verdict.
+Which incident a later delivery joined is not stored: it is worked out again from the feed's
+deliveries, findings and incidents each time it is read. The incident's page shows the condition
+as it stands now, every delivery it holds included (see
+[The condition of a feed incident](#the-condition-of-a-feed-incident) below), so read the page
+rather than the evidence for what the condition holds today.
+
+### Finding a session's incidents
+
+A later delivery of a condition has no incident of its own and no row in the list, but it belongs
+to the condition's incident, and you can open it from the delivery's session:
+
+- **Find by session**, on the list, with the delivery's session id; or
+- **View Incident**, on Home's [*Pipelines Status*](/docs/user/screens/home/#pipelines-status),
+  with a run selected. It takes the run's session, and JetStore adds the input session of the run,
+  the session the delivery it read was registered in.
+
+Either opens a page listing, for each session, the incidents it belongs to and how:
+
+| How | What it means |
+|---|---|
+| **its own incident** | The incident is written on this session: a run's incident on the run's session, or a feed incident on the delivery that raised it. |
+| **a later delivery of the feed's condition** | The session is a delivery that joined the incident of its condition, which is written on another delivery, named beside it. JetStore says why it was placed there. |
+| **not raised yet** | The session carries a finding whose incident shadow triage has not written yet; the page says which session it will be written on. |
+
+Which incident a delivery belongs to is worked out by JetStore each time, by the same rule shadow
+triage follows when it writes incidents, so the page and the incidents agree. A session nothing was
+found on says so.
 
 **The hypotheses offered for a feed incident:**
 
@@ -97,6 +156,7 @@ delivery before claiming a cause.
 | Section | What it shows |
 |---|---|
 | **Summary** | On a feed incident only: a few paragraphs saying what was found, in words. See [The summary of a feed incident](#the-summary-of-a-feed-incident) below. |
+| **Condition** | On a feed incident only: the deliveries of the condition the incident stands for, how it ended or that it is still open, and the previous incident at the locus. See [The condition of a feed incident](#the-condition-of-a-feed-incident) below. |
 | **What the record evidences** | The **locus**, what it means and what it **cannot see**; the **session**; the **source type** and **file key** of each input registered under that session, `file` or `domain_table`, which find its runs on Home's *Pipelines Status* (*Set Session Id* with the session, or *Set Filters* with the file key); what **raised** it, with whether corrections to it reach an audit chain; when it was **detected**; the **step** and **shard** it is localised to, when it is; and the **confounders**, what the detector could not rule out. |
 | **What has been claimed** | The **cause**, if any, the **severity** and the **model version** that raised it. |
 | **Ranked hypotheses** | The causes proposed, best first. Each shows its confidence and cause category, the counts it was ranked on, and its **supporting** and **contradicting** evidence, each item with its source. A hypothesis contradicted more than supported, or raised at another locus, is marked. |
@@ -105,6 +165,39 @@ delivery before claiming a cause.
 
 **The confidence is a ratio of evidence for and against, not a probability.** The text beside each
 hypothesis says what it was ranked on.
+
+### The condition of a feed incident
+
+A feed incident's page has a **Condition** section, after *What the record evidences*. It says, as
+JetStore works it out when the page is read:
+
+- **the feed**, how many consecutive deliveries carry a finding at the incident's locus, from which
+  session to which, and **how many of them this incident stands for**;
+- **whether the condition is open**, its feed's latest delivery still carrying a finding here, so the
+  next may join it, or **what ended it**: the next delivery, with no finding at the locus (it was
+  checked and passed, or could not be checked); a delivery carrying findings of another feed at the
+  locus; or, before the feed's earliest remaining registration, a change of day;
+- **each delivery**, in the feed's order: its session, which opens that session's incidents; the
+  file key the feed delivered in it, or *no registration of the feed* for a session that carries a
+  finding and no registration; when its finding was detected; which checks fired; and its
+  incident: *this incident*, another incident linked by its id, or *not raised yet*. A delivery is
+  in another incident when that incident was written for it before conditions (one per delivery or
+  per day), or when its finding came after a person's verdict on this one;
+- **the previous incident at the locus**: the latest incident on an earlier delivery of the same
+  condition, which for an incident raised after a person's verdict is the one judged, or else the
+  incident of the feed's previous condition, each with the verdict a person gave it, or *with no
+  verdict*. When the previous
+  condition's incident is not written yet, the section says so and names the session it will be
+  written on.
+
+**It can differ from the incident's evidence, and the page is the one that is current.** The
+evidence is the condition as it was when the incident was raised, and is never changed. Deliveries
+that joined since appear only here; and an incident raised while shadow triage was working through
+older deliveries, newest first, may name in its evidence a previous condition whose incident was not
+yet written, while this section links it.
+
+A feed incident whose session carries findings of two feeds at the locus belongs to no single
+feed's condition, and the section says so instead. A run incident has no condition.
 
 ### The summary of a feed incident
 
@@ -124,11 +217,18 @@ person who receives the feed rather than for the person who wrote the detectors.
 - **the case against every reading**: who declared the feed's profile, on what date, and how old the
   declaration was when the finding was made. A delivery is judged against what somebody wrote down,
   so a stale declaration is the first thing to doubt;
-- **a burst**, when there is one: if the same check fired on other deliveries of the same feed
-  registered the same day, as a catch-up of many files does, the summary says how many deliveries
-  this incident stands for and how many have no incident of their own. **A burst is raised as one
-  incident, so give it one verdict.** If another delivery of the burst has an incident of its own, for a
-  finding outside the burst, it is named.
+- **the condition**: how many deliveries of the feed the incident stands for, and when the first and
+  the last of them were registered. Then whether the condition is **still open**, because the feed's
+  latest delivery carries the finding, or how it **ended**: at a delivery with no finding at the
+  locus, or by your verdict, after which a later delivery is new evidence. Such a delivery is named
+  with the incident it belongs to, or counted as having none yet. **A condition is raised as one
+  incident, so give it one verdict.** Incidents written one per delivery before conditions are named
+  as other incidents of the same condition;
+- **the incident before it** at the same locus: the incident you judged, with your verdict and its
+  date, when this one was opened by a later finding; otherwise the feed's previous condition, its
+  deliveries and its incident with any verdict, or *no incident yet* when it has not been raised.
+  This is read when the page is read, so it names an incident raised after this one, which the
+  evidence of this incident cannot.
 
 **The summary is rendered by a fixed template, not written by a model**, and the page says so. It is
 built when the page is read, from the incident's findings, the feed's profile and the ranked

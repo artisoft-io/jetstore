@@ -136,6 +136,18 @@ type FeedDeliveryInput struct {
 	Unordered map[string]int
 }
 
+// FeedRegistrationOrderSQL is registration order, as an ORDER BY over
+// jetsapi.input_registry aliased ir: by the session id read as a number, which
+// is when the file arrived, the session ids that are not numbers last, then by
+// the registration's key. Every reader of a feed's deliveries orders by it, so
+// that a delivery's predecessor is the same whoever reads it, and it needs no
+// table but input_registry.
+const FeedRegistrationOrderSQL = `(CASE WHEN ir.session_id ~ '^[0-9]{1,18}$' THEN ir.session_id::bigint END) NULLS LAST,
+          ir.key`
+
+// feedDeliverySQL reads the deliveries of the feeds named, each feed's in
+// registration order. Its text must not change: a statement export identifies
+// each statement by a hash of its text.
 const feedDeliverySQL = `SELECT ir.table_name, ir.session_id, ir.client, ir.org, COALESCE(ir.file_key, ''),
        sp.year, sp.month, sp.day, sp.month_period, sp.week_period, sp.day_period,
        fks.file_size
@@ -144,8 +156,7 @@ const feedDeliverySQL = `SELECT ir.table_name, ir.session_id, ir.client, ir.org,
   LEFT JOIN jetsapi.file_key_staging fks ON fks.file_key = ir.file_key
  WHERE ir.table_name = ANY($1) AND ir.source_type = 'file'
  ORDER BY ir.table_name,
-          (CASE WHEN ir.session_id ~ '^[0-9]{1,18}$' THEN ir.session_id::bigint END) NULLS LAST,
-          ir.key`
+          ` + FeedRegistrationOrderSQL
 
 // ReadFeedDeliveryInput reads the deliveries of the profiled feeds, joined to
 // their periods and sizes, and returns them with the feeds and the as-of time.

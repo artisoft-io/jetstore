@@ -67,6 +67,7 @@ The second and third rows act on the selected run:
 | **View Process Errors** | Opens [Process Errors](/docs/user/screens/process-errors/) for the run: the errors its rules raised. | |
 | **View Failure Details** | Opens the run's failure details, the error that stopped it, in a dialog. Empty for a run that did not fail. | |
 | **View Execution Stats** | Opens [CPIPES Execution Details](/docs/user/screens/cpipes-execution-details/) for the run: each step, totalled over its nodes. | |
+| **View Incident** | Opens the incidents the run belongs to on the [Incidents](/docs/user/screens/incidents/#finding-a-sessions-incidents) screen: those on its own session, and those of the input it read, including the incident of a feed's standing condition that the input's delivery joined without an incident of its own. | `agent_supervision` |
 | **Resubmit** | Runs the selected run again, on the same inputs, under a new session, with the workspace as it is compiled now. Refused when an input the run read has since been deleted. | `run_pipelines` |
 | **Get Run Manifest** | Copies the run's manifest to the clipboard: the document a completed run writes, describing what it delivered (see [The run manifest](/docs/developer/compute-pipes/run-manifest/)). Enabled for a completed run only. | `jetstore_read` |
 | **Get Schema Event** | Copies to the clipboard the schema event of the input the run was started from. | `jetstore_read` |

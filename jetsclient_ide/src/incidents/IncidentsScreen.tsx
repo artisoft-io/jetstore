@@ -44,7 +44,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { SessionExpiredError, type ApiClient } from "../api/client";
 import { useNotifications } from "../shell/notifications";
@@ -91,6 +91,8 @@ export function IncidentsScreen({ api }: { api: ApiClient }) {
   const [notMigrated, setNotMigrated] = useState("");
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [session, setSession] = useState("");
+  const navigate = useNavigate();
 
   const canSupervise = api.can(AGENT_SUPERVISION);
 
@@ -152,6 +154,32 @@ export function IncidentsScreen({ api }: { api: ApiClient }) {
             <option value="all">All incidents</option>
           </select>
         </label>
+        {/* A later delivery of a feed's standing condition has no incident of its
+            own and no row here: the condition's incident is on its first
+            delivery. The session search asks the server which incident a
+            session belongs to, which only its resolver can say. */}
+        <form
+          className="incident-search"
+          role="search"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const s = session.trim();
+            if (s !== "") void navigate(`/incidents/session/${encodeURIComponent(s)}`);
+          }}
+        >
+          <label>
+            <span className="sr-only">Session id</span>
+            <input
+              type="search"
+              placeholder="Session id"
+              value={session}
+              onChange={(e) => setSession(e.target.value)}
+            />
+          </label>
+          <button type="submit" className="btn" disabled={session.trim() === ""}>
+            Find by session
+          </button>
+        </form>
         <div className="spacer" />
         {busy && <span className="pill">Working…</span>}
         <button type="button" className="btn" onClick={() => void load()} disabled={busy}>

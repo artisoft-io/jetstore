@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
+	"math"
 	"net/url"
 	"os"
 	"reflect"
@@ -182,6 +184,14 @@ func TestInstallWritesTheProfileColumnWhenItExists(t *testing.T) {
 // joins a detector uses. It exists to show the expectation is true of the
 // fixture; it is not a detector, and a detector is tested against
 // expected.json, not against this.
+//
+// It reads as the detectors read, and where it once read otherwise it says
+// why it no longer does. Two such places, both found on 2026-11-21 and neither
+// moving a verdict of the base fixture, since every base feed declares a size
+// range and registers under its own client: delivery_size with no size_bytes
+// is judged against the feed's trailing band rather than reported as a missing
+// field, and a delivery is joined to its feed on table_name alone rather than
+// on table_name, client and org.
 
 type refProfile struct {
 	PeriodType         string `json:"period_type"`
@@ -195,6 +205,7 @@ type refProfile struct {
 		Table             string   `json:"table"`
 		KeyColumns        []string `json:"key_columns"`
 		ServiceDateColumn string   `json:"service_date_column"`
+		MemberColumn      string   `json:"member_column"`
 	} `json:"claim_set"`
 	MaxLag         *int     `json:"max_service_date_lag_days"`
 	MaxSpan        *int     `json:"max_service_date_span_days"`
@@ -211,10 +222,28 @@ type refDelivery struct {
 	period   map[string]int
 	size     int64
 	rows     int
+	dated    bool // some row carries a date of service; minDOS and maxDOS are set only then
 	keys     map[string]bool
 	minDOS   time.Time
 	maxDOS   time.Time
 	presence map[string]float64
+}
+
+// refReading is a feed's deliveries as the reference reads them, with what the
+// catalogue says about its claim-set table.
+type refReading struct {
+	deliveries []refDelivery
+	// again and files count the later registrations of delivered files, and
+	// the files.
+	again, files int
+	// unreadable is why no content check can read the claims at all, from the
+	// catalogue alone: no_claim_rows when the table does not exist,
+	// column_absent when it lacks a column the profile names for the session,
+	// a key, the date of service or the member. "" when they can.
+	unreadable string
+	// absentRequired is set when the table lacks a declared required field,
+	// which stops field_completeness alone.
+	absentRequired bool
 }
 
 // readDeliveries reads a feed's deliveries by expected.json's rules: each file
@@ -222,21 +251,27 @@ type refDelivery struct {
 // later registrations of a delivered file and of the files they re-process.
 // With perRegistration it reads every registration as a delivery instead, the
 // reading the rules replace, so a test can show the fixture tells them apart.
-func readDeliveries(t *testing.T, pool *pgxpool.Pool, f Feed, p *refProfile, perRegistration bool) ([]refDelivery, int, int) {
+//
+// A registration is joined to its feed on table_name alone, as the detectors
+// join it: table_name is unique in source_config, and a registration may name
+// a client or org other than its feed's, which is attributed to the feed and
+// reported, not dropped. This reading joined on client and org as well until
+// 2026-11, which no verdict here showed, because every fixture registration
+// names its feed's client and org.
+func readDeliveries(t *testing.T, pool *pgxpool.Pool, f Feed, p *refProfile, perRegistration bool) refReading {
 	t.Helper()
 	ctx := context.Background()
 	rows, err := pool.Query(ctx, `SELECT ir.session_id, ir.file_key, sp.month_period, sp.week_period, sp.day_period, fks.file_size
 		FROM jetsapi.input_registry ir
-		JOIN jetsapi.source_config sc ON sc.table_name = ir.table_name AND sc.client = ir.client AND sc.org = ir.org
 		JOIN jetsapi.source_period sp ON sp.key = ir.source_period_key
 		JOIN jetsapi.file_key_staging fks ON fks.file_key = ir.file_key
-		WHERE sc.table_name = $1 ORDER BY ir.session_id::bigint, ir.key`, f.TableName)
+		WHERE ir.table_name = $1 AND ir.source_type = 'file' ORDER BY ir.session_id::bigint, ir.key`, f.TableName)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var out []refDelivery
+	var r refReading
 	seen := map[string]bool{}
-	again, files := 0, map[string]bool{}
+	files := map[string]bool{}
 	for rows.Next() {
 		var d refDelivery
 		var fileKey string
@@ -245,7 +280,7 @@ func readDeliveries(t *testing.T, pool *pgxpool.Pool, f Feed, p *refProfile, per
 			t.Fatal(err)
 		}
 		if seen[fileKey] && !perRegistration {
-			again++
+			r.again++
 			files[fileKey] = true
 			continue
 		}
@@ -253,23 +288,61 @@ func readDeliveries(t *testing.T, pool *pgxpool.Pool, f Feed, p *refProfile, per
 		ms, _ := strconv.ParseInt(d.session, 10, 64)
 		d.arrival = time.UnixMilli(ms).UTC()
 		d.period = map[string]int{"month_period": m, "week_period": w, "day_period": dp}
-		out = append(out, d)
+		r.deliveries = append(r.deliveries, d)
 	}
 	if err = rows.Err(); err != nil {
 		t.Fatal(err)
 	}
-	return readClaims(t, pool, p, out), again, len(files)
+	r.files = len(files)
+	readClaims(t, pool, p, &r)
+	return r
 }
 
-// readClaims fills each delivery's claim-set aggregates from its session's
-// rows.
-func readClaims(t *testing.T, pool *pgxpool.Pool, p *refProfile, out []refDelivery) []refDelivery {
+// readClaims reads the claim-set table's columns from the catalogue and, when
+// the content checks can read it, fills each delivery's claim-set aggregates
+// from its session's rows.
+func readClaims(t *testing.T, pool *pgxpool.Pool, p *refProfile, r *refReading) {
 	t.Helper()
 	ctx := context.Background()
 	var err error
 	if p == nil || p.ClaimSet == nil {
-		return out
+		return
 	}
+	cols := map[string]bool{}
+	crows, err := pool.Query(ctx, `SELECT column_name FROM information_schema.columns
+		WHERE table_schema = 'public' AND table_name = $1`, p.ClaimSet.Table)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for crows.Next() {
+		var c string
+		if err = crows.Scan(&c); err != nil {
+			t.Fatal(err)
+		}
+		cols[c] = true
+	}
+	if err = crows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if len(cols) == 0 {
+		r.unreadable = "no_claim_rows"
+		return
+	}
+	named := append(append([]string{"session_id"}, p.ClaimSet.KeyColumns...), p.ClaimSet.ServiceDateColumn,
+		p.ClaimSet.MemberColumn)
+	if slices.ContainsFunc(named, func(c string) bool { return !cols[c] }) {
+		r.unreadable = "column_absent"
+		return
+	}
+	var required []string
+	for _, rf := range p.RequiredFields {
+		if cols[rf.Column] {
+			required = append(required, rf.Column)
+		} else {
+			r.absentRequired = true
+		}
+	}
+
 	table := pgx.Identifier{"public", p.ClaimSet.Table}.Sanitize()
 	q := func(c string) string { return pgx.Identifier{c}.Sanitize() }
 	parts := make([]string, len(p.ClaimSet.KeyColumns))
@@ -277,25 +350,25 @@ func readClaims(t *testing.T, pool *pgxpool.Pool, p *refProfile, out []refDelive
 		parts[i] = q(c) + "::text"
 	}
 	keyExpr := "concat_ws(chr(31), " + strings.Join(parts, ", ") + ")"
-	for i := range out {
-		d := &out[i]
+	for i := range r.deliveries {
+		d := &r.deliveries[i]
 		var lo, hi *time.Time
 		if err = pool.QueryRow(ctx, fmt.Sprintf("SELECT count(*), min(%[2]s), max(%[2]s) FROM %[1]s WHERE session_id = $1",
 			table, q(p.ClaimSet.ServiceDateColumn)), d.session).Scan(&d.rows, &lo, &hi); err != nil {
 			t.Fatal(err)
 		}
 		if lo != nil {
-			d.minDOS, d.maxDOS = *lo, *hi
+			d.dated, d.minDOS, d.maxDOS = true, *lo, *hi
 		}
 		d.presence = map[string]float64{}
-		for _, rf := range p.RequiredFields {
+		for _, c := range required {
 			var present int
-			if err = pool.QueryRow(ctx, fmt.Sprintf("SELECT count(%s) FROM %s WHERE session_id = $1", q(rf.Column), table),
+			if err = pool.QueryRow(ctx, fmt.Sprintf("SELECT count(%s) FROM %s WHERE session_id = $1", q(c), table),
 				d.session).Scan(&present); err != nil {
 				t.Fatal(err)
 			}
 			if d.rows > 0 {
-				d.presence[rf.Column] = float64(present) / float64(d.rows)
+				d.presence[c] = float64(present) / float64(d.rows)
 			}
 		}
 		keys, err := pool.Query(ctx, fmt.Sprintf("SELECT DISTINCT %s FROM %s WHERE session_id = $1", keyExpr, table), d.session)
@@ -314,7 +387,6 @@ func readClaims(t *testing.T, pool *pgxpool.Pool, p *refProfile, out []refDelive
 			t.Fatal(err)
 		}
 	}
-	return out
 }
 
 // periodStart is the first instant of period n of a period type.
@@ -335,18 +407,107 @@ func dateOf(t time.Time) time.Time {
 
 func daysBetween(a, b time.Time) int { return int(dateOf(b).Sub(dateOf(a)) / (24 * time.Hour)) }
 
-// reference computes one detector over one feed by expected.json's rules.
-func reference(det string, f Feed, p *refProfile, ds []refDelivery) ExpectedVerdict {
+// refMissing is why a detector does not judge a feed, from the profile and the
+// cumulative switch alone, or "". The detectors read one table of which
+// detector needs which field and name the first field missing, the detector's
+// own thresholds before claim_set; service_date_span does not judge a
+// cumulative feed at all.
+//
+// delivery_size needs no field. With no size_bytes it judges a delivery
+// against the feed's trailing band (refBand); this reading reported
+// field_absent:size_bytes there until 2026-11, which the detector never did.
+func refMissing(det string, f Feed, p *refProfile) string {
+	type field struct {
+		name    string
+		present bool
+	}
+	claimSet := field{"claim_set", p.ClaimSet != nil}
+	var need []field
+	switch det {
+	case "feed_overdue":
+		need = []field{{"period_type", p.PeriodType != ""}, {"overdue_after_days", p.OverdueAfterDays != nil}}
+	case "delivery_backdated":
+		need = []field{{"period_type", p.PeriodType != ""}}
+	case "service_date_stale":
+		need = []field{{"max_service_date_lag_days", p.MaxLag != nil}, claimSet}
+	case "service_date_span":
+		if f.Cumulative {
+			return "cumulative_feed"
+		}
+		need = []field{{"max_service_date_span_days", p.MaxSpan != nil}, claimSet}
+	case "field_completeness":
+		need = []field{{"required_fields", len(p.RequiredFields) > 0}, claimSet}
+	case "delivery_overlap":
+		if !f.Cumulative {
+			need = append(need, field{"max_redelivered_share", p.MaxShare != nil})
+		}
+		need = append(need, claimSet)
+	case "delivery_unchanged":
+		need = []field{claimSet}
+	}
+	for _, n := range need {
+		if !n.present {
+			return "field_absent:" + n.name
+		}
+	}
+	return ""
+}
+
+// The trailing band's parameters, the detector's defaults (DefaultDeliverySize
+// in the observe package): the last 8 preceding non-zero sizes, at least 4 of
+// them, and a half-width of the larger of 3 scaled median absolute deviations
+// and half the median.
+const (
+	refBandDeliveries    = 8
+	refMinBandDeliveries = 4
+	refBandSpread        = 3.0
+	refMinBandWidth      = 0.5
+)
+
+// refBand is the trailing band over the sizes registered before a delivery, in
+// registration order, bounds inclusive; ok is false when too few non-zero
+// sizes precede it. It is written out here rather than called, so that the
+// expectation is checked against a reading independent of the detector's.
+func refBand(prior []int64) (lo, hi int64, ok bool) {
+	var xs []float64
+	for i := len(prior) - 1; i >= 0 && len(xs) < refBandDeliveries; i-- {
+		if prior[i] != 0 {
+			xs = append(xs, float64(prior[i]))
+		}
+	}
+	if len(xs) < refMinBandDeliveries {
+		return 0, 0, false
+	}
+	median := func(v []float64) float64 {
+		s := slices.Clone(v)
+		slices.Sort(s)
+		if n := len(s); n%2 == 1 {
+			return s[n/2]
+		}
+		return (s[len(s)/2-1] + s[len(s)/2]) / 2
+	}
+	med := median(xs)
+	dev := make([]float64, len(xs))
+	for i, x := range xs {
+		dev[i] = math.Abs(x - med)
+	}
+	half := math.Max(refBandSpread*1.4826*median(dev), refMinBandWidth*med)
+	return int64(math.Max(0, math.Floor(med-half))), int64(math.Ceil(med + half)), true
+}
+
+// reference computes one detector over one feed by expected.json's rules, in
+// the order the detectors decide a delivery is not judged.
+func reference(det string, f Feed, p *refProfile, r refReading) ExpectedVerdict {
 	v := ExpectedVerdict{Detector: det, TableName: f.TableName}
+	ds := r.deliveries
 	if p == nil {
 		v.NotJudged = "no_profile"
 		return v
 	}
+	if v.NotJudged = refMissing(det, f, p); v.NotJudged != "" {
+		return v
+	}
 	if det == "feed_overdue" {
-		if p.PeriodType == "" || p.OverdueAfterDays == nil {
-			v.NotJudged = "field_absent:period_type"
-			return v
-		}
 		latest := 0
 		for _, d := range ds {
 			latest = max(latest, d.period[p.PeriodType])
@@ -360,46 +521,61 @@ func reference(det string, f Feed, p *refProfile, ds []refDelivery) ExpectedVerd
 		return v
 	}
 	content := det != "delivery_size" && det != "delivery_backdated"
+	comparing := det == "delivery_overlap" || det == "delivery_unchanged"
 	switch {
-	case det == "service_date_span" && f.Cumulative:
-		v.NotJudged = "cumulative_feed"
-	case det == "service_date_stale" && p.MaxLag == nil:
-		v.NotJudged = "field_absent:max_service_date_lag_days"
-	case det == "service_date_span" && p.MaxSpan == nil:
-		v.NotJudged = "field_absent:max_service_date_span_days"
-	case det == "delivery_overlap" && !f.Cumulative && p.MaxShare == nil:
-		v.NotJudged = "field_absent:max_redelivered_share"
-	case det == "delivery_size" && p.SizeBytes == nil:
-		v.NotJudged = "field_absent:size_bytes"
-	case content && p.ClaimSet == nil:
-		v.NotJudged = "field_absent:claim_set"
+	case content && r.unreadable != "":
+		v.NotJudged = r.unreadable
+	case det == "field_completeness" && r.absentRequired:
+		v.NotJudged = "column_absent"
+	case content && !slices.ContainsFunc(ds, func(d refDelivery) bool { return d.rows > 0 }):
+		v.NotJudged = "no_claim_rows"
 	}
 	if v.NotJudged != "" {
 		return v
 	}
-	if content && !slices.ContainsFunc(ds, func(d refDelivery) bool { return d.rows > 0 }) {
-		v.NotJudged = "no_claim_rows"
-		return v
+	notJudged := func(ord int, why string) {
+		v.NotJudgedOn = append(v.NotJudgedOn, OrdinalWhy{Delivery: ord, Reason: why})
 	}
+	var sizes []int64
 	for i, d := range ds {
 		ord := i + 1
 		var prev *refDelivery
 		if i > 0 {
 			prev = &ds[i-1]
 		}
-		needsPrev := det == "delivery_backdated" || det == "delivery_overlap" || det == "delivery_unchanged"
-		if needsPrev && prev == nil {
-			v.NotJudgedOn = append(v.NotJudgedOn, OrdinalWhy{Delivery: ord, Reason: "no_predecessor"})
+		prior := sizes
+		sizes = append(sizes, d.size)
+		// A content check finds a delivery's rows missing before it looks for
+		// a predecessor.
+		switch {
+		case content && d.rows == 0:
+			notJudged(ord, "no_claim_rows")
 			continue
-		}
-		if content && d.rows == 0 {
-			v.NotJudgedOn = append(v.NotJudgedOn, OrdinalWhy{Delivery: ord, Reason: "no_claim_rows"})
+		case (comparing || det == "delivery_backdated") && prev == nil:
+			notJudged(ord, "no_predecessor")
+			continue
+		case comparing && prev.rows == 0:
+			notJudged(ord, "predecessor_no_claim_rows")
+			continue
+		case (det == "service_date_stale" || det == "service_date_span") && !d.dated,
+			det == "delivery_unchanged" && (!d.dated || !prev.dated):
+			notJudged(ord, "no_service_dates")
 			continue
 		}
 		var fires bool
 		switch det {
 		case "delivery_size":
-			fires = d.size < p.SizeBytes.Min || d.size > p.SizeBytes.Max
+			lo, hi := int64(0), int64(0)
+			if p.SizeBytes != nil {
+				lo, hi = p.SizeBytes.Min, p.SizeBytes.Max
+			} else {
+				var ok bool
+				if lo, hi, ok = refBand(prior); !ok {
+					notJudged(ord, "insufficient_history")
+					continue
+				}
+			}
+			fires = d.size < lo || d.size > hi
 		case "delivery_backdated":
 			latest := 0
 			for _, e := range ds[:i] {
@@ -479,9 +655,9 @@ func TestTheReprocessingExpectationHoldsOverTheInstalledRows(t *testing.T) {
 		if err = json.Unmarshal(profiles[f.TableName], p); err != nil {
 			t.Fatal(err)
 		}
-		ds, _, _ := readDeliveries(t, pool, f, p, true)
+		r := readDeliveries(t, pool, f, p, true)
 		for _, det := range Detectors {
-			v := reference(det, f, p, ds)
+			v := reference(det, f, p, r)
 			fired[det] += len(v.FiresOn)
 		}
 	}
@@ -496,10 +672,12 @@ func TestTheReprocessingExpectationHoldsOverTheInstalledRows(t *testing.T) {
 
 // expectationHolds checks the written verdicts of feeds against the reference
 // reading of their installed rows, and, when feeds' expected re-processing is
-// given, the re-processing counts.
+// given, the re-processing counts. It returns how many deliveries the reference
+// does not judge, by reason, over every detector.
 func expectationHolds(t *testing.T, pool *pgxpool.Pool, feeds []Feed, profiles map[string]json.RawMessage,
-	expectedFeeds []ExpectedFeed) {
+	expectedFeeds []ExpectedFeed) map[string]int {
 	t.Helper()
+	reasons := map[string]int{}
 	e, err := LoadExpected()
 	if err != nil {
 		t.Fatal(err)
@@ -513,7 +691,8 @@ func expectationHolds(t *testing.T, pool *pgxpool.Pool, feeds []Feed, profiles m
 				t.Fatal(err)
 			}
 		}
-		ds, again, files := readDeliveries(t, pool, f, p, false)
+		r := readDeliveries(t, pool, f, p, false)
+		ds, again, files := r.deliveries, r.again, r.files
 		if len(ds) != len(f.Deliveries) {
 			t.Fatalf("%s: %d deliveries read back through table_name, want %d", f.TableName, len(ds), len(f.Deliveries))
 		}
@@ -523,7 +702,7 @@ func expectationHolds(t *testing.T, pool *pgxpool.Pool, feeds []Feed, profiles m
 		}
 		for _, det := range Detectors {
 			want, _ := e.Of(det, f.TableName)
-			got := reference(det, f, p, ds)
+			got := reference(det, f, p, r)
 			if want.NotJudged != got.NotJudged || want.AtClock != got.AtClock || want.OnDelivery != got.OnDelivery ||
 				!reflect.DeepEqual(want.FirstFiresAt, got.FirstFiresAt) {
 				t.Errorf("%s over %s: expected.json says %s, the rows say %s", det, f.TableName, show(want), show(got))
@@ -539,6 +718,9 @@ func expectationHolds(t *testing.T, pool *pgxpool.Pool, feeds []Feed, profiles m
 				if gv == Fires {
 					fired[det]++
 				}
+				if gv == NotJudged && det != "feed_overdue" {
+					reasons[gr]++
+				}
 			}
 			if got.AtClock == Fires {
 				fired[det]++
@@ -548,6 +730,7 @@ func expectationHolds(t *testing.T, pool *pgxpool.Pool, feeds []Feed, profiles m
 	for _, det := range Detectors {
 		t.Logf("%-20s fires on %2d", det, fired[det])
 	}
+	return reasons
 }
 
 func show(v ExpectedVerdict) string {
@@ -635,4 +818,93 @@ func TestInstallReprocessingWritesTheWrittenCounts(t *testing.T) {
 		count(t, pool, `SELECT count(DISTINCT file_key) FROM jetsapi.input_registry WHERE client = $1`, ReprocessingClient); n != e.Reprocessing.Install.Reregistrations {
 		t.Errorf("registrations less distinct file keys is %d, want %d re-registrations", n, e.Reprocessing.Install.Reregistrations)
 	}
+}
+
+// InstallNotJudged writes the counts the not-judged section states, beside the
+// base install and again, and leaves the base install as it was.
+func TestInstallNotJudgedWritesTheWrittenCounts(t *testing.T) {
+	pool := freshDB(t)
+	ctx := context.Background()
+	e, err := LoadExpected()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = Install(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		got, err := InstallNotJudged(ctx, pool)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(got, e.NotJudged.Install) {
+			t.Errorf("InstallNotJudged reports %+v, expected.json says %+v", got, e.NotJudged.Install)
+		}
+	}
+	if n := count(t, pool, "SELECT count(*) FROM jetsapi.input_registry"); n != e.Install.InputRegistry+e.NotJudged.Install.InputRegistry {
+		t.Errorf("input_registry holds %d rows, want the base %d and the not-judged feeds' %d", n,
+			e.Install.InputRegistry, e.NotJudged.Install.InputRegistry)
+	}
+	// The undated delivery has its rows, none of them dated, and the unloaded
+	// one has none.
+	undated, _ := FeedByTable(UndatedDeliveryIncremental)
+	table := pgx.Identifier{"public", undated.ClaimTable}.Sanitize()
+	if n := count(t, pool, "SELECT count(*) FROM "+table+" WHERE session_id = $1 AND "+
+		pgx.Identifier{ColServiceDate}.Sanitize()+" IS NULL", undated.Deliveries[undatedAt-1].SessionID); n != 120 {
+		t.Errorf("the undated delivery has %d rows with no date of service, want all 120", n)
+	}
+	if n := count(t, pool, "SELECT count(*) FROM "+table+" WHERE "+pgx.Identifier{ColServiceDate}.Sanitize()+
+		" IS NULL"); n != 120 {
+		t.Errorf("%d rows of the undated feed have no date of service, want the one delivery's 120", n)
+	}
+	unloaded, _ := FeedByTable(PartlyLoadedIncremental)
+	table = pgx.Identifier{"public", unloaded.ClaimTable}.Sanitize()
+	if n := count(t, pool, "SELECT count(*) FROM "+table+" WHERE session_id = $1",
+		unloaded.Deliveries[unloadedAt-1].SessionID); n != 0 {
+		t.Errorf("the unloaded delivery has %d claim rows", n)
+	}
+}
+
+// The not-judged feeds' expectation holds over their installed rows, beside
+// the base feeds, whose own expectation still holds; and the reference reaches
+// each reason the section exists for, as often as its feeds give it.
+func TestTheNotJudgedExpectationHoldsOverTheInstalledRows(t *testing.T) {
+	pool := freshDB(t)
+	ctx := context.Background()
+	if _, err := Install(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := InstallNotJudged(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	profiles, err := NotJudgedProfiles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	reasons := expectationHolds(t, pool, NotJudgedFeeds(), profiles, nil)
+	want := map[string]int{
+		// The unloaded delivery and its successor's two comparisons.
+		"no_claim_rows":             5,
+		"predecessor_no_claim_rows": 2,
+		// The undated delivery for both date checks, and delivery_unchanged on
+		// it and on its successor.
+		"no_service_dates": 4,
+		// Every content check on every delivery of the feed whose member
+		// column is absent, and field_completeness on every delivery of the
+		// feed whose required field is.
+		"column_absent": 5*7 + 7,
+		// The first four deliveries of the feed with no size range.
+		"insufficient_history": 4,
+		// delivery_backdated on every feed, and both comparisons on the three
+		// whose comparisons read a table.
+		"no_predecessor": 4 + 2*3,
+	}
+	if !maps.Equal(reasons, want) {
+		t.Errorf("the reference does not judge %v, want %v", reasons, want)
+	}
+	base, err := Profiles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectationHolds(t, pool, Feeds(), base, nil)
 }

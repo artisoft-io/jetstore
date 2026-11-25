@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/agentic/audit"
 	"github.com/artisoft-io/jetstore/jets/agentic/feedprofile"
 	"github.com/artisoft-io/jetstore/jets/agentic/observe"
 	"github.com/artisoft-io/jetstore/jets/agentic/rca"
@@ -44,10 +45,14 @@ type Input struct {
 	Findings []Finding
 	// Readings are the incident's ranked hypotheses, best first.
 	Readings []Reading
-	// Bursts are, per detector that fired here, the other deliveries of the
-	// same feed registered the same day on which that detector also fired.
-	// Empty when there are none.
-	Bursts []Burst
+	// Condition is the feed's condition this incident is the incident of: the
+	// deliveries it holds, from when to when, how it ended or that it is still
+	// open, and the previous incident at the locus with its verdict. Read
+	// through jets/agentic/feedcondition, the resolver shadow triage places a
+	// finding with, so the summary and the writer cannot disagree about which
+	// deliveries an incident holds. Nil when no condition of the feed holds
+	// the incident's session.
+	Condition *Condition
 	// OtherFeeds counts the further feeds whose findings sit at this locus on
 	// the same session. The summary describes one feed and says how many it
 	// leaves out.
@@ -147,22 +152,118 @@ type Reading struct {
 	Evidenceability string
 }
 
-// Burst is a detector that fired on more than one delivery of the feed
-// registered the same day.
-type Burst struct {
-	Detector string
-	// Day is the registration day, UTC.
-	Day time.Time
-	// Deliveries counts the deliveries of the feed registered that day on
-	// which the detector fired, this one included.
-	Deliveries int
-	// Others are the incidents raised on the other deliveries, sorted: a
-	// delivery of the burst keeps an incident of its own when another finding
-	// at the locus, outside the burst, holds on it.
-	Others []string
-	// Unraised counts the other deliveries with no incident of their own,
-	// which a burst raised as a single incident leaves all of them.
+// How the deliveries an incident holds end. A closed list, so that an end is
+// never a value copied from a record.
+const (
+	// EndOpen: the incident holds its condition's last position, and that is
+	// the feed's latest: the condition is still open.
+	EndOpen = "open"
+	// EndNoFinding, EndOtherFeed and EndDayBoundary are the condition's own
+	// ends (triage.EndNoFinding and its siblings).
+	EndNoFinding   = triage.EndNoFinding
+	EndOtherFeed   = triage.EndOtherFeed
+	EndDayBoundary = triage.EndDayBoundary
+	// EndVerdict: the condition goes on, and its next delivery was found after
+	// a person's verdict on this incident, so it is new evidence and not this
+	// incident's.
+	EndVerdict = "verdict"
+	// EndNextIncident: the condition goes on, and its next delivery belongs to
+	// another incident, one written before conditions, which is never moved.
+	EndNextIncident = "next_incident"
+	// EndUnordered: the session id is not a time, so the delivery has no place
+	// in the feed's order and is a condition of one.
+	EndUnordered = "unordered"
+)
+
+var ends = []string{EndOpen, EndNoFinding, EndOtherFeed, EndDayBoundary, EndVerdict, EndNextIncident, EndUnordered}
+
+// What the summary names as the incident before this one at the locus.
+const (
+	// PrevNone: no earlier position of the feed carries a finding at the locus.
+	PrevNone = "none"
+	// PrevAfterVerdict: an earlier delivery of the same condition carries an
+	// incident a person gave a verdict, and this incident's first delivery was
+	// found after it.
+	PrevAfterVerdict = "after_verdict"
+	// PrevCondition: the feed's previous condition at the locus, with its
+	// incident, or with none when it has not been raised yet.
+	PrevCondition = "previous_condition"
+)
+
+var previousKinds = []string{"", PrevNone, PrevAfterVerdict, PrevCondition}
+
+// Condition is the part of a feed condition one incident holds, as
+// feedcondition resolves it when the summary is read.
+//
+// A condition is a maximal run of consecutive positions of one feed that each
+// carry a finding of the feed at one locus (triage's feed_condition.go). Its
+// incident is written on its first delivery and the later ones join it, so an
+// incident usually holds the whole condition. It holds less when a person's
+// verdict closed it and later deliveries are new evidence, or when incidents
+// written one per delivery or per day before conditions sit on other
+// positions of it: those are never moved, and each delivery joins the latest
+// incident at or before it.
+type Condition struct {
+	// Held counts the condition's positions that belong to this incident: its
+	// own delivery and those that join it. Unregistered counts those of them
+	// that are sessions with no registration of the feed.
+	Held         int
+	Unregistered int
+	// Total counts the condition's positions, held or not.
+	Total int
+	// First and Last are the arrivals of the first and last positions held,
+	// the session ids read as epoch milliseconds; zero when End is
+	// EndUnordered.
+	First, Last time.Time
+	// End says how the positions held end, one of the End constants.
+	// EndedAt is the arrival of the position after the last one held, which
+	// ended them; zero when End is EndOpen or EndUnordered. EndedInto is the
+	// incident that position belongs to, for EndVerdict and EndNextIncident,
+	// or "" when it has none yet.
+	End       string
+	EndedAt   time.Time
+	EndedInto string
+	// Verdict and VerdictAt are this incident's first verdict by a person, for
+	// EndVerdict; "" and zero otherwise.
+	Verdict   string
+	VerdictAt time.Time
+	// SameDay reports that part of the condition falls before the feed's
+	// earliest surviving registration, where two findings are consecutive
+	// only on one UTC day. Shared reports a condition of one on a session
+	// carrying another feed's finding at the locus too.
+	SameDay bool
+	Shared  bool
+	// Others are the other incidents the condition's positions belong to,
+	// sorted; Unraised counts its positions that belong to no incident yet,
+	// each found after a person's verdict on the incident before it, so new
+	// evidence that triage has not reached.
+	Others   []string
 	Unraised int
+	// Previous is the incident before this one at the locus.
+	Previous Previous
+}
+
+// Previous is the incident at the locus on an earlier position of the feed,
+// read when the summary is read: a condition raised before its predecessor,
+// as a backfill triaged newest first raises it, names the predecessor's
+// incident once it is written, which the incident's own basis cannot.
+type Previous struct {
+	// Kind is one of the Prev constants, or "" when the summary names none:
+	// the delivery has no place in the feed's order, or the incident before
+	// it in the same condition carries no verdict and is among Others.
+	Kind string
+	// IncidentID is the previous incident, or "" for a previous condition
+	// that has none yet.
+	IncidentID string
+	// Verdict and VerdictAt are the previous incident's first verdict by a
+	// person; "" and zero when it has none.
+	Verdict   string
+	VerdictAt time.Time
+	// Deliveries, First and Last describe the previous condition, for
+	// PrevCondition: how many positions it holds, and the arrivals of its
+	// first and last.
+	Deliveries  int
+	First, Last time.Time
 }
 
 // Units the parser emits. A closed list, so that a unit is never a value
@@ -233,13 +334,22 @@ func (in *Input) Validate() error {
 			return fmt.Errorf("grade %q is not in the vocabulary", r.Evidenceability)
 		}
 	}
-	for _, b := range in.Bursts {
-		if !slices.Contains(feedprofile.Detectors, b.Detector) {
-			return fmt.Errorf("burst detector %q is not a feed detector", b.Detector)
+	if c := in.Condition; c != nil {
+		if !slices.Contains(ends, c.End) {
+			return fmt.Errorf("condition end %q is not in the vocabulary", c.End)
 		}
-		for _, o := range b.Others {
-			if !strings.HasPrefix(o, "inc_") || !strings.HasSuffix(o, "_"+in.Locus) {
-				return fmt.Errorf("burst incident %q is not an incident at %s", o, in.Locus)
+		if !slices.Contains(previousKinds, c.Previous.Kind) {
+			return fmt.Errorf("previous incident kind %q is not in the vocabulary", c.Previous.Kind)
+		}
+		for _, v := range []string{c.Verdict, c.Previous.Verdict} {
+			if v != "" && !slices.Contains(audit.VerdictStatuses, v) {
+				return fmt.Errorf("verdict %q is not a verdict status", v)
+			}
+		}
+		ids := append(slices.Clone(c.Others), c.EndedInto, c.Previous.IncidentID)
+		for _, o := range ids {
+			if o != "" && (!strings.HasPrefix(o, "inc_") || !strings.HasSuffix(o, "_"+in.Locus)) {
+				return fmt.Errorf("condition incident %q is not an incident at %s", o, in.Locus)
 			}
 		}
 	}

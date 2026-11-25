@@ -82,12 +82,17 @@ func detectFeeds(t *testing.T, pool *pgxpool.Pool) int {
 }
 
 // TestFeedFindingsBecomeIncidentsInShadowMode is the end-to-end case: every feed
-// anomaly reaches an incident at the delivery locus LocusOf places it at, and
-// no other incident is written; every incident stops at diagnosed with the
+// anomaly reaches the incident of its condition at the delivery locus LocusOf
+// places it at, one incident per condition, on the condition's first delivery,
+// and no other incident is written; every incident stops at diagnosed with the
 // floor's classes for its locus; every hypothesis carries the feed's
 // declaration against it and the overdue one carries the declared cadence for
 // it; the attestation holds; and no canary reaches any incident, hypothesis or
 // transition.
+//
+// The incidents expected are computed here from the database by a reading of
+// the condition rule written independently of triage's and feedcondition's,
+// so that the test does not check the code against itself.
 func TestFeedFindingsBecomeIncidentsInShadowMode(t *testing.T) {
 	pool := freshDB(t, "shadow_feed_incidents", migratedTables, true)
 	ctx := context.Background()
@@ -109,25 +114,20 @@ func TestFeedFindingsBecomeIncidentsInShadowMode(t *testing.T) {
 		t.Errorf("the detectors wrote %d anomalies, want 54: 10 at delivery grain and 44 over the claim sets", n)
 	}
 
-	// The incidents the anomalies call for, by (session, locus).
+	// The incidents the anomalies call for: one per condition, on its first
+	// position.
+	conditions := conditionsOf(t, pool)
 	want := map[string]string{} // incident id -> locus
-	rows, err := pool.Query(ctx, `SELECT anomaly_session_id, anomaly_subject_type, anomaly_signal_type
-		FROM jetsapi.anomaly`)
-	if err != nil {
-		t.Fatal(err)
+	var sizes []int
+	for _, c := range conditions {
+		want[IncidentIdFor(c.sessions[0], c.locus)] = c.locus
+		sizes = append(sizes, len(c.sessions))
 	}
-	for rows.Next() {
-		var session, subject, signal string
-		if err := rows.Scan(&session, &subject, &signal); err != nil {
-			t.Fatal(err)
-		}
-		l, ok := triage.LocusOf(subject, signal)
-		if !ok {
-			t.Fatalf("a feed detector wrote a (%s, %s) anomaly that no locus takes", subject, signal)
-		}
-		want[IncidentIdFor(session, l)] = l
+	slices.Sort(sizes)
+	slices.Reverse(sizes)
+	if !slices.Equal(sizes, []int{8, 7, 6, 3, 3, 1, 1, 1}) {
+		t.Errorf("the fixture's conditions hold %v deliveries, want 8, 7, 6, 3, 3, 1, 1 and 1", sizes)
 	}
-	rows.Close()
 
 	// The sessions: none is a run, so the run selector finds nothing, and the
 	// feed selector finds every session an anomaly hangs on.
@@ -184,10 +184,10 @@ func TestFeedFindingsBecomeIncidentsInShadowMode(t *testing.T) {
 		}
 	}
 
-	// Exactly the incidents the anomalies call for: one per (session, locus),
-	// and none at a run locus.
+	// Exactly the incidents the conditions call for: one per condition, on its
+	// first delivery, and none at a run locus.
 	got := map[string]string{}
-	rows, err = pool.Query(ctx, `SELECT incident_id, incident_locus, status FROM jetsapi.incident`)
+	rows, err := pool.Query(ctx, `SELECT incident_id, incident_locus, status FROM jetsapi.incident`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +210,7 @@ func TestFeedFindingsBecomeIncidentsInShadowMode(t *testing.T) {
 			t.Errorf("incident %s at %s is missing (got locus %q)", id, l, got[id])
 		}
 	}
-	t.Logf("%d anomalies became %d incidents over %d sessions", 54, len(got), len(sessions))
+	t.Logf("%d anomalies became %d incidents, one per condition, over %d sessions", 54, len(got), len(sessions))
 
 	profiles, err := feedfixture.Profiles()
 	if err != nil {
@@ -317,6 +317,87 @@ func TestFeedFindingsBecomeIncidentsInShadowMode(t *testing.T) {
 			t.Errorf("a second pass over %s wrote %d incidents", s, len(res.Written))
 		}
 	}
+}
+
+// condition is a run of consecutive positions of one feed carrying a finding at
+// one locus, as the test reads it.
+type condition struct {
+	feed, locus string
+	sessions    []string
+}
+
+// conditionsOf reads the feeds' conditions from the database, independently of
+// the code under test: a feed's positions are its file keys at their first
+// registration and the sessions carrying its anomalies, in session-id order,
+// and a condition is a maximal run of them carrying an anomaly placed at one
+// locus. Every fixture session id is a number and every feed has its
+// registrations, so neither the unordered nor the purged-era rule arises.
+func conditionsOf(t *testing.T, pool *pgxpool.Pool) []condition {
+	t.Helper()
+	ctx := context.Background()
+	positions := map[string][]int64{}
+	add := func(feed string, s int64) {
+		if !slices.Contains(positions[feed], s) {
+			positions[feed] = append(positions[feed], s)
+		}
+	}
+	rows, err := pool.Query(ctx, `SELECT DISTINCT ON (table_name, file_key) table_name, session_id::bigint
+		  FROM jetsapi.input_registry WHERE source_type = 'file'
+		 ORDER BY table_name, file_key, session_id::bigint, key`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rows.Next() {
+		var feed string
+		var s int64
+		if err := rows.Scan(&feed, &s); err != nil {
+			t.Fatal(err)
+		}
+		add(feed, s)
+	}
+	rows.Close()
+	fired := map[string]bool{} // feed/locus/session
+	rows, err = pool.Query(ctx, `SELECT anomaly_subject_ref, anomaly_subject_type, anomaly_signal_type,
+		anomaly_session_id::bigint FROM jetsapi.anomaly`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var loci []string
+	for rows.Next() {
+		var feed, subject, signal string
+		var s int64
+		if err := rows.Scan(&feed, &subject, &signal, &s); err != nil {
+			t.Fatal(err)
+		}
+		l, ok := triage.LocusOf(subject, signal)
+		if !ok {
+			t.Fatalf("a feed detector wrote a (%s, %s) anomaly that no locus takes", subject, signal)
+		}
+		add(feed, s)
+		fired[fmt.Sprintf("%s/%s/%d", feed, l, s)] = true
+		if !slices.Contains(loci, l) {
+			loci = append(loci, l)
+		}
+	}
+	rows.Close()
+	var out []condition
+	for feed, ps := range positions {
+		slices.Sort(ps)
+		for _, l := range loci {
+			var run []string
+			for _, p := range append(ps, -1) {
+				if p >= 0 && fired[fmt.Sprintf("%s/%s/%d", feed, l, p)] {
+					run = append(run, fmt.Sprint(p))
+					continue
+				}
+				if len(run) > 0 {
+					out = append(out, condition{feed: feed, locus: l, sessions: run})
+				}
+				run = nil
+			}
+		}
+	}
+	return out
 }
 
 func statements(es []audit.Evidence) string {

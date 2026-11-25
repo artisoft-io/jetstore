@@ -34,7 +34,14 @@ import { Link } from "react-router-dom";
 import { SessionExpiredError, type ApiClient } from "../api/client";
 import { useNotifications } from "../shell/notifications";
 import "./proposals.css";
-import { AGENT_SUPERVISION, ProposalsApi, stateLabel, type ProposalRow } from "./api";
+import {
+  AGENT_SUPERVISION,
+  ProposalsApi,
+  incidentPath,
+  isIncidentTrigger,
+  stateLabel,
+  type ProposalRow,
+} from "./api";
 
 /**
  * The states that still want a human. Everything before a decision is taken,
@@ -196,7 +203,20 @@ export function ProposalsScreen({ api }: { api: ApiClient }) {
                         <span className="empty-sub"> terminal</span>
                       )}
                     </td>
-                    <td>{r.trigger}</td>
+                    <td>
+                      {r.trigger}
+                      {/* An incident trigger names the incident, linked to its
+                          page; a run trigger is shown as it always was, the
+                          run being one click in, on the proposal's page. */}
+                      {isIncidentTrigger(r.trigger) && r.triggerRef !== "" && (
+                        <>
+                          {" "}
+                          <Link to={incidentPath(r.triggerRef)} className="empty-sub">
+                            {r.triggerRef}
+                          </Link>
+                        </>
+                      )}
+                    </td>
                     <td className={r.generatedTestCount === 0 ? "count-zero" : ""}>
                       {r.generatedTestCount}
                     </td>

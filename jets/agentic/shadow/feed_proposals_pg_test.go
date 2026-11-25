@@ -157,9 +157,13 @@ func TestFeedProposalIsDraftedForCumulativeUnderIncremental(t *testing.T) {
 	if got, want := len(d.Assessment.Streak), len(feed.Deliveries)-1; got != want {
 		t.Errorf("the run of evidence is %d deliveries, want %d", got, want)
 	}
-	onset := IncidentIdFor(feed.Deliveries[1].SessionID, triage.LocusDeliveryDepartsProfile)
+	// The trigger is the incident the run's latest delivery belongs to: its
+	// feed condition's, written on the condition's first delivery, which is the
+	// feed's first, one before the run of evidence (its finding there is not an
+	// overlap: it has no predecessor to overlap).
+	onset := IncidentIdFor(feed.Deliveries[0].SessionID, triage.LocusDeliveryDepartsProfile)
 	if d.Proposal.TriggerRef != onset {
-		t.Errorf("the draft is triggered by %s, want the onset's incident %s", d.Proposal.TriggerRef, onset)
+		t.Errorf("the draft is triggered by %s, want the condition's incident %s", d.Proposal.TriggerRef, onset)
 	}
 
 	if n := count(t, pool, `SELECT count(*) FROM jetsapi.change_proposal`); n != 1 {

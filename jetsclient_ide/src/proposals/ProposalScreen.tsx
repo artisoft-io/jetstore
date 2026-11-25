@@ -45,6 +45,8 @@ import {
   AGENT_SUPERVISION,
   ProposalsApi,
   StateConflictError,
+  incidentPath,
+  isIncidentTrigger,
   stateLabel,
   type ProposalView,
   type TranscriptView,
@@ -73,7 +75,12 @@ export function ProposalScreen({ api }: { api: ApiClient }) {
       // The whole reason to look at a proposal is to decide on it, and the
       // record of how it was produced is the evidence for that decision; one
       // click away is one click most reviewers will not make.
-      if (next.proposal.triggerRef !== "") {
+      //
+      // **Not for a proposal an incident prompted.** Its triggerRef is the
+      // incident's id, not a run's, so asking for that "run"'s transcript only
+      // ever came back empty, and the screen showed an empty run transcript
+      // for a proposal no run produced.
+      if (next.proposal.triggerRef !== "" && !isIncidentTrigger(next.proposal.trigger)) {
         try {
           setTranscript(await proposals.transcript(next.proposal.triggerRef));
         } catch {
@@ -149,6 +156,9 @@ export function ProposalScreen({ api }: { api: ApiClient }) {
   }
 
   const p = view.proposal;
+  // No agent run produced a proposal an incident prompted: its triggerRef
+  // names the incident, and there is no run transcript to show.
+  const fromIncident = isIncidentTrigger(p.trigger);
 
   return (
     <>
@@ -183,7 +193,15 @@ export function ProposalScreen({ api }: { api: ApiClient }) {
             <dt>Trigger</dt>
             <dd>
               {p.trigger}
-              {p.triggerRef !== "" && <span className="empty-sub"> · run {p.triggerRef}</span>}
+              {p.triggerRef !== "" &&
+                (fromIncident ? (
+                  <span className="empty-sub">
+                    {" · incident "}
+                    <Link to={incidentPath(p.triggerRef)}>{p.triggerRef}</Link>
+                  </span>
+                ) : (
+                  <span className="empty-sub"> · run {p.triggerRef}</span>
+                ))}
             </dd>
             <dt>Model version</dt>
             <dd>{p.modelVersion}</dd>
@@ -195,8 +213,11 @@ export function ProposalScreen({ api }: { api: ApiClient }) {
             <dd>{p.affectedAssets.length === 0 ? <em>none</em> : p.affectedAssets.join(", ")}</dd>
           </dl>
 
-          <h3>What the run produced</h3>
-          <pre className="proposal-artifact" aria-label="What the run produced">
+          <h3>{fromIncident ? "What it proposes" : "What the run produced"}</h3>
+          <pre
+            className="proposal-artifact"
+            aria-label={fromIncident ? "What it proposes" : "What the run produced"}
+          >
             {artifactText(p.rationale)}
           </pre>
 
@@ -212,8 +233,10 @@ export function ProposalScreen({ api }: { api: ApiClient }) {
                 />
               </label>
               <p className="empty-sub">
-                Recorded as {api.currentUser?.email ?? "you"}. The autonomy tier is read from the
-                run rather than chosen here.
+                Recorded as {api.currentUser?.email ?? "you"}.{" "}
+                {fromIncident
+                  ? "No run produced this proposal, so the decision is recorded at the lowest autonomy tier and is not added to an audit chain."
+                  : "The autonomy tier is read from the run rather than chosen here."}
               </p>
             </>
           )}
@@ -248,8 +271,26 @@ export function ProposalScreen({ api }: { api: ApiClient }) {
             </table>
           )}
 
-          <h3>Run transcript</h3>
-          <Transcript transcript={transcript} runId={p.triggerRef} />
+          {fromIncident ? (
+            // Not an empty transcript: there is no run to have one. Saying so is
+            // the point, since "No audit record for run inc_…" reads as a run
+            // whose record is missing.
+            <p className="empty-sub">
+              No agent run produced this proposal, so it has no run transcript.
+              {p.triggerRef !== "" && (
+                <>
+                  {" "}It was drafted from incident{" "}
+                  <Link to={incidentPath(p.triggerRef)}>{p.triggerRef}</Link>.
+                </>
+              )}{" "}
+              Its decisions are the rows in <em>Decisions so far</em>.
+            </p>
+          ) : (
+            <>
+              <h3>Run transcript</h3>
+              <Transcript transcript={transcript} runId={p.triggerRef} />
+            </>
+          )}
         </main>
       </div>
     </>

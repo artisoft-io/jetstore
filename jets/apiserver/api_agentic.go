@@ -121,6 +121,10 @@ type AgenticAction struct {
 	// get_incident
 	IncidentId string `json:"incidentId"`
 
+	// find_session_incidents: a delivery's session, or a pipeline run's, whose
+	// incidents are asked for.
+	SessionId string `json:"sessionId"`
+
 	// record_approval. There is no `actor` and no `tier`: the actor is the
 	// authenticated user and the tier is read from the run. A request that
 	// could name either would let a caller sign a decision as somebody else,
@@ -202,6 +206,15 @@ type agenticOps interface {
 	// IncidentInputs returns the file keys and source types registered under an
 	// incident's session, which is how a person finds its pipeline runs.
 	IncidentInputs(ctx context.Context, sessionID string) ([]audit.IncidentInput, error)
+	// SessionIncidents returns the incidents a session belongs to: its own,
+	// those of the input sessions of the runs it is the session of, and, for a
+	// later delivery of a feed's standing condition, the condition's incident
+	// on another delivery, which only the feedcondition resolver can name.
+	SessionIncidents(ctx context.Context, sessionID string) (*SessionIncidents, error)
+	// IncidentCondition returns a feed incident's condition, read live through
+	// the same resolver: nil with a reason when no single feed's condition
+	// holds the incident's session.
+	IncidentCondition(ctx context.Context, inc *audit.Incident) (*IncidentCondition, string, error)
 	// The Detection screen: the runs the detection commands recorded,
 	// the deployed task those runs come from, and starting it now. The ECS half
 	// is behind the same seam so the dispatch is testable without AWS.
@@ -261,6 +274,12 @@ func (o pgOps) FeedIncidentSummary(ctx context.Context, inc *audit.Incident) (*f
 }
 func (o pgOps) IncidentInputs(ctx context.Context, sessionID string) ([]audit.IncidentInput, error) {
 	return audit.IncidentInputs(ctx, o.db, sessionID)
+}
+func (o pgOps) SessionIncidents(ctx context.Context, sessionID string) (*SessionIncidents, error) {
+	return readSessionIncidents(ctx, o.db, sessionID)
+}
+func (o pgOps) IncidentCondition(ctx context.Context, inc *audit.Incident) (*IncidentCondition, string, error) {
+	return readIncidentCondition(ctx, o.db, inc)
 }
 
 // DoAgenticAction ----------------------------------------------------------
@@ -334,6 +353,8 @@ func agenticDispatch(ctx context.Context, ops agenticOps, a *AgenticAction, acto
 		return getIncident(ctx, ops, a, phi)
 	case "record_incident_transition":
 		return recordIncidentTransition(ctx, ops, a, actor)
+	case "find_session_incidents":
+		return findSessionIncidents(ctx, ops, a)
 	case "list_detection_runs":
 		return listDetectionRuns(ctx, ops, a)
 	case "run_detection":
@@ -661,6 +682,22 @@ func getIncident(ctx context.Context, ops agenticOps, a *AgenticAction, phi audi
 		} else {
 			log.Printf("while summarising feed incident %s: %v", a.IncidentId, err)
 			row["summaryError"] = err.Error()
+		}
+		// The condition the incident stands for, read live: its deliveries and
+		// the incident each is placed in, how it ends, and the previous incident
+		// at the locus with its verdict. Live rather than from the basis,
+		// because the basis is the condition as known when the incident was
+		// raised and is never updated: later deliveries join without a record,
+		// and a previous condition's incident it said was not yet written may
+		// be written now. Not a failure of the screen when it cannot be read,
+		// on the summary's argument.
+		if c, why, err := ops.IncidentCondition(ctx, inc); err != nil {
+			log.Printf("while reading the condition of feed incident %s: %v", a.IncidentId, err)
+			row["conditionError"] = err.Error()
+		} else if c != nil {
+			row["condition"] = conditionPayload(c)
+		} else {
+			row["conditionNote"] = why
 		}
 	}
 

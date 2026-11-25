@@ -10,7 +10,6 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/agentic/feedprofile"
 	"github.com/artisoft-io/jetstore/jets/agentic/observe"
-	"github.com/artisoft-io/jetstore/jets/wsvalidate"
 )
 
 // The reads the two delivery loci need.
@@ -58,10 +57,6 @@ type FeedEvidence struct {
 	// Feeds are the feeds named by Anomalies' subject refs and by
 	// Registrations' table names, by table_name.
 	Feeds map[string]*DeclaredFeed
-
-	// Bursts are the bursts the session's feed anomalies belong to, by anomaly
-	// id. See ReadFeedBursts.
-	Bursts map[string]*Burst
 }
 
 // Registration is one file registration of a session.
@@ -187,16 +182,6 @@ const registrationsSQL = `SELECT DISTINCT table_name, client, coalesce(org, '')
  WHERE session_id = $1 AND source_type = 'file'
  ORDER BY 1, 2, 3`
 
-// feedConfigSQL reads source_config by table name. The two declared columns are
-// read through to_jsonb of the row, as feedprofile.Load reads them, so the
-// query runs on a database that has neither column.
-const feedConfigSQL = `SELECT sc.client, coalesce(sc.org, ''), sc.object_type, sc.table_name,
-       COALESCE((to_jsonb(sc) ->> 'is_cumulative')::int, 0),
-       to_jsonb(sc) ->> 'feed_profile_json'
-  FROM jetsapi.source_config sc
- WHERE sc.table_name = ANY($1)
- ORDER BY sc.table_name, sc.client, sc.org`
-
 // ReadFeedEvidence reads the session's feed anomalies, its file registrations
 // and the source configuration of every feed either names.
 func ReadFeedEvidence(ctx context.Context, db observe.DB, sessionId string, ext *Extent) (*FeedEvidence, error) {
@@ -218,11 +203,6 @@ func ReadFeedEvidence(ctx context.Context, db observe.DB, sessionId string, ext 
 		}
 		f.Anomalies = append(f.Anomalies, a)
 		tables[a.SubjectRef] = true
-	}
-	if len(f.Anomalies) > 0 {
-		if f.Bursts, err = ReadFeedBursts(ctx, db, sessionId); err != nil {
-			return nil, err
-		}
 	}
 	if ext.InputRegistry {
 		rows, err := db.Query(ctx, registrationsSQL, sessionId)
@@ -253,18 +233,13 @@ func ReadFeedEvidence(ctx context.Context, db observe.DB, sessionId string, ext 
 	if len(names) == 0 || !ext.SourceConfig {
 		return f, nil
 	}
-	rows, err := db.Query(ctx, feedConfigSQL, names)
+	// The feeds' source configuration, read as feed_detect reads a client's
+	// (feedprofile), so a feed triage calls profiled is one the detectors judge.
+	feeds, err := feedprofile.LoadTables(ctx, db, names)
 	if err != nil {
-		return nil, fmt.Errorf("while reading the source configuration of feeds %v: %w", names, err)
+		return nil, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var feed feedprofile.Feed
-		var cumulative int
-		var text *string
-		if err := rows.Scan(&feed.Client, &feed.Org, &feed.ObjectType, &feed.TableName, &cumulative, &text); err != nil {
-			return nil, fmt.Errorf("while scanning a source configuration: %w", err)
-		}
+	for _, feed := range feeds {
 		d := f.Feeds[feed.TableName]
 		if d == nil {
 			continue
@@ -274,19 +249,10 @@ func ReadFeedEvidence(ctx context.Context, db observe.DB, sessionId string, ext 
 			continue
 		}
 		d.Configured = true
-		feed.Cumulative = cumulative != 0
-		if text != nil && !feedprofile.IsEmpty(*text) {
-			p, findings := feedprofile.Parse([]byte(*text))
-			if errs := wsvalidate.ErrorsOnly(findings); len(errs) > 0 {
-				feed.Findings = errs
-			} else {
-				feed.Profile = p
-				d.Profiled = true
-			}
-		}
 		d.Feed = feed
+		d.Profiled = feed.Profiled()
 	}
-	return f, rows.Err()
+	return f, nil
 }
 
 // feedsOf returns the declared feeds of a set of anomalies, in table order,

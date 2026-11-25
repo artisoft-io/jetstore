@@ -1,5 +1,5 @@
 // Package detectrun records each run of the agentic detection commands,
-// anomaly_detect, shadow_triage and feed_detect, in jetsapi.agentic_detection_run, so that
+// anomaly_detect, feed_detect and shadow_triage, in jetsapi.agentic_detection_run, so that
 // a person can see that the detectors ran, when, on whose request, and what
 // they found, without reading CloudWatch.
 //
@@ -50,10 +50,15 @@ const (
 	CommandFeedDetect = "feed_detect"
 )
 
-// Commands is the order the detection task runs them in. A manual run
-// requests a row for each, so a command listed here must be one the task's
-// definition starts, or its requested row is never moved on.
-var Commands = []string{CommandAnomalyDetect, CommandShadowTriage, CommandFeedDetect}
+// Commands are the commands the detection task starts, listed in the order it
+// runs them: anomaly_detect, then feed_detect, then shadow_triage. The list does
+// not decide that order. The task definition does, by container dependencies
+// (cdk/jetstore_one/stack/build_agentic_detect.go), and nothing here reads the
+// list's order: Request inserts a row for each command, and the detection
+// screen places a row by its command name. A manual run requests a row for each,
+// so a command listed here must be one the task's definition starts, or its
+// requested row is never moved on.
+var Commands = []string{CommandAnomalyDetect, CommandFeedDetect, CommandShadowTriage}
 
 // Triggers. TriggerVariable carries one into the container: the daily rule sets
 // it to schedule and the apiserver's run action to manual. A command started any

@@ -80,6 +80,9 @@ const (
 	CatNumber     = "number not in the fact set"
 	CatOverdue    = "overdue claimed of a delivery that is not"
 	CatOrder      = "readings out of their ranked order"
+	CatDeliveries = "deliveries miscounted"
+	CatOpen       = "condition claimed open or ended when it is not"
+	CatVerdict    = "verdict not in the fact set"
 )
 
 var (
@@ -91,7 +94,69 @@ var (
 	emailToken  = regexp.MustCompile(`[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}`)
 	incToken    = regexp.MustCompile(`\binc_[A-Za-z0-9_]+`)
 	snakeToken  = regexp.MustCompile(`\b[a-z]+(?:_[a-z]+)+\b`)
+	// deliveryCount is a count written just before "delivery" or
+	// "deliveries", in lower case: digits or a word from one to twenty, then
+	// at most two words, the first of which is not "of".
+	deliveryCount = regexp.MustCompile(`\b([0-9]+|` + strings.Join(countWords[1:], "|") +
+		`)\s+((?:[a-z]+\s+){0,2})deliver(?:y|ies)\b`)
+	// endedClaim and openClaim are the words that say the condition has ended
+	// or is still open, in lower case.
+	endedClaim = regexp.MustCompile(`\b(?:has|had|have)\s+ended\b|\bended\b|\b(?:is|was|has been)\s+closed\b|\bno\s+longer\s+(?:open|ongoing|active)\b`)
+	openClaim  = regexp.MustCompile(`\bstill\s+(?:open|ongoing|active)\b|\b(?:is|remains)\s+open\b|\bongoing\b`)
+	// verdictName is a verdict written as its status name, or the last one in
+	// words, in lower case.
+	verdictName = regexp.MustCompile(`\b(suppressed_as_benign|suppressed as benign|reclassified|verified)\b`)
+	// overdueRule is a statement of an overdue threshold, in lower case: the
+	// word before it, if any, then "overdue after N days", "overdue threshold
+	// of N days" or "overdue grace of N days", or "N-day overdue threshold".
+	overdueRule = regexp.MustCompile(`(?:\b([a-z]+)\s+)?\boverdue\s+(?:after|(?:threshold|grace)(?:\s+(?:of|is))?:?)\s+([0-9]+)[\s-]+days?\b|\b([0-9]+)-day\s+overdue\s+(?:threshold|grace)\b`)
 )
+
+// countWords are the counts the delivery category reads in words, by value.
+var countWords = []string{"zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+	"eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"}
+
+// claimWords are the words that, written just before "overdue after N days",
+// make it a statement that the feed became overdue rather than the rule.
+var claimWords = []string{"been", "became", "was", "were", "went", "now", "already", "still"}
+
+// withoutDeclaredThreshold blanks every statement of the declared overdue
+// threshold from lower, so that what is left says overdue only as a claim. A
+// threshold other than the declared one is left in place, and so is one written
+// just after a claim word ("became overdue after 3 days"). With no threshold
+// declared, nothing is blanked.
+func withoutDeclaredThreshold(lower string, declared *int) string {
+	if declared == nil {
+		return lower
+	}
+	want := strconv.Itoa(*declared)
+	var b strings.Builder
+	last := 0
+	for _, m := range overdueRule.FindAllStringSubmatchIndex(lower, -1) {
+		sub := func(i int) string {
+			if m[2*i] < 0 {
+				return ""
+			}
+			return lower[m[2*i]:m[2*i+1]]
+		}
+		days, start := sub(2)+sub(3), m[0]
+		if days != want {
+			continue
+		}
+		if m[2] >= 0 {
+			if slices.Contains(claimWords, sub(1)) {
+				continue
+			}
+			// The word before is kept: it belongs to the sentence, not the rule.
+			start = m[3]
+		}
+		b.WriteString(lower[last:start])
+		b.WriteString(" ")
+		last = m[1]
+	}
+	b.WriteString(lower[last:])
+	return b.String()
+}
 
 // facts is the fact set, as the counter compares against it.
 type facts struct {
@@ -101,6 +166,17 @@ type facts struct {
 	declarer    string
 	dates       []time.Time
 	numbers     []float64
+	// deliveryCounts are the counts of deliveries the input carries: those
+	// the incident holds, its condition's, those with no registration or no
+	// incident yet, and the previous condition's.
+	deliveryCounts []int
+	// verdicts are the verdicts the input carries: this incident's own, when
+	// it closed the condition, and the previous incident's.
+	verdicts []string
+	// open and ended say how the deliveries the incident holds end; neither
+	// is set when no condition was read, the delivery has no place in the
+	// feed's order, or the condition goes on into another incident.
+	open, ended bool
 }
 
 func factsOf(in *Input) *facts {
@@ -155,17 +231,39 @@ func factsOf(in *Input) *facts {
 		num(float64(r.Supporting))
 		num(float64(r.Contradicting))
 	}
-	for _, b := range in.Bursts {
-		f.detectors = append(f.detectors, b.Detector)
-		day(b.Day)
-		num(float64(b.Deliveries))
-		num(float64(b.Unraised))
-		num(float64(len(b.Others)))
-		if len(b.Others) > othersShown {
-			num(float64(len(b.Others) - othersShown))
+	if c := in.Condition; c != nil {
+		for _, n := range []int{c.Held, c.Total, c.Unregistered, c.Unraised, c.Previous.Deliveries} {
+			num(float64(n))
+			if n > 0 {
+				f.deliveryCounts = append(f.deliveryCounts, n)
+			}
 		}
-		for _, o := range b.Others {
+		num(float64(len(c.Others)))
+		if len(c.Others) > othersShown {
+			num(float64(len(c.Others) - othersShown))
+		}
+		for _, o := range c.Others {
 			add(o)
+		}
+		add(c.EndedInto)
+		add(c.Previous.IncidentID)
+		for _, t := range []time.Time{c.First, c.Last, c.EndedAt, c.VerdictAt, c.Previous.First, c.Previous.Last,
+			c.Previous.VerdictAt} {
+			day(t)
+		}
+		for _, v := range []string{c.Verdict, c.Previous.Verdict} {
+			if v != "" {
+				f.verdicts = append(f.verdicts, v)
+			}
+		}
+		// A condition that goes on past this incident into one written
+		// before conditions is neither: the incident's deliveries end there,
+		// and the condition may still be open.
+		switch c.End {
+		case EndOpen:
+			f.open = true
+		case EndNoFinding, EndOtherFeed, EndDayBoundary, EndVerdict:
+			f.ended = true
 		}
 	}
 	for _, d := range f.dates {
@@ -215,8 +313,10 @@ func CountUntrue(text string, in *Input) *Count {
 			found = append(found, id)
 		}
 	}
-	cat(CatIdentifier, Decidable, "every inc_ token is this incident or one a burst names",
-		"a feed, client or column named wrongly is not caught unless it is an inc_ token", found)
+	cat(CatIdentifier, Decidable, "every inc_ token is this incident or one its condition names: another "+
+		"incident of the condition, the one its next delivery belongs to, or the previous incident at the locus",
+		"a feed, client or column named wrongly is not caught unless it is an inc_ token; an incident of the "+
+			"input named in the wrong role (the previous incident as the next) passes", found)
 
 	lower := strings.ToLower(text)
 	found = nil
@@ -235,7 +335,7 @@ func CountUntrue(text string, in *Input) *Count {
 			found = append(found, tok)
 		}
 	}
-	cat(CatDetector, Decidable, "a check written as its name is one that fired on this delivery or its burst",
+	cat(CatDetector, Decidable, "a check written as its name is one that fired on this delivery",
 		"a check described in other words is not caught", found)
 
 	found = nil
@@ -292,7 +392,8 @@ func CountUntrue(text string, in *Input) *Count {
 	takeDates(dayMonthYr, func(m []string) (time.Time, bool) { return ymd(m[3], "", m[1], monthOf(m[2])) })
 	takeDates(monthDayYr, func(m []string) (time.Time, bool) { return ymd(m[3], "", m[2], monthOf(m[1])) })
 	cat(CatDate, Decidable, "a full date written is a date of the input, to the day",
-		"a month or a weekday written without a full date is not checked", found)
+		"a month or a weekday written without a full date is not checked; a date of the input given for "+
+			"another event (a condition's first delivery given as its last) passes", found)
 
 	found = nil
 	for _, tok := range numberToken.FindAllString(rest, -1) {
@@ -315,13 +416,80 @@ func CountUntrue(text string, in *Input) *Count {
 		"undercounts: a number spelled in words is not read, and a wrong number that equals another fact passes",
 		found)
 
+	// The overdue category. A sentence restating the declared threshold
+	// ("overdue after 3 days") says what the declaration says and is not a
+	// claim that the feed is overdue, so it is taken out before the word is
+	// looked for; a claim beside it in the same draft is still found.
 	found = nil
 	overdue := slices.Contains(f.detectors, feedprofile.FeedOverdue)
-	if !overdue && strings.Contains(lower, "overdue") {
+	if !overdue && strings.Contains(withoutDeclaredThreshold(lower, in.Declaration.OverdueAfterDays), "overdue") {
 		found = append(found, "overdue")
 	}
-	cat(CatOverdue, Approximate, "the word overdue appears only when the overdue check fired",
-		"overcounts a sentence that says the feed is not overdue", found)
+	cat(CatOverdue, Approximate,
+		"the word overdue appears only when the overdue check fired, or in a statement of the declared "+
+			"threshold: overdue after N days, overdue threshold or grace of N days, or N-day overdue threshold, "+
+			"with N in digits and equal to the declaration's, and no claim word (been, became, was, were, went, "+
+			"now, already, still) just before overdue",
+		"overcounts a sentence that says the feed is not overdue, and a declared threshold spelled in words "+
+			"or phrased otherwise; undercounts a claim worded as the rule (the feed is overdue after N days)",
+		found)
+
+	// The condition: how many deliveries, whether it is open, and which
+	// verdict. Each is a claim the template words one way and a draft may
+	// word another, so each is approximate.
+	found = nil
+	for _, m := range deliveryCount.FindAllStringSubmatch(lower, -1) {
+		if strings.HasPrefix(m[2], "of ") {
+			continue
+		}
+		n, err := strconv.Atoi(m[1])
+		if err != nil {
+			n = slices.Index(countWords, m[1])
+		}
+		if !slices.Contains(f.deliveryCounts, n) {
+			found = append(found, strings.Join(strings.Fields(m[0]), " "))
+		}
+	}
+	cat(CatDeliveries, Approximate,
+		"a count written just before delivery or deliveries, in digits or as a word from one to twenty, with "+
+			"at most two words between and the first not of, is a count of deliveries the input carries: the "+
+			"incident's, its condition's, those with no registration or no incident yet, or the previous "+
+			"condition's",
+		"undercounts a count written further from the word, of another noun (files, weeks) or above twenty "+
+			"in words, and a wrong count that equals another count of the input; overcounts a count of "+
+			"deliveries that is not of this condition (one delivery a week)",
+		found)
+
+	found = nil
+	if f.open {
+		found = append(found, endedClaim.FindAllString(lower, -1)...)
+	}
+	if f.ended {
+		found = append(found, openClaim.FindAllString(lower, -1)...)
+	}
+	cat(CatOpen, Approximate,
+		"of a condition still open, nothing says it ended (ended, is closed, no longer open); of one that "+
+			"ended or that a verdict closed, nothing says it is open (still open, is open, remains open, "+
+			"ongoing); nothing is tested when no condition was read, the delivery has no place in the feed's order, "+
+			"or the condition goes on into an incident written before conditions",
+		"overcounts a negated claim (it has not ended) and a claim about another condition (the previous "+
+			"condition ended); undercounts a claim in other words (persists, goes on, stopped)",
+		found)
+
+	found = nil
+	for _, v := range verdictName.FindAllString(lower, -1) {
+		if !slices.Contains(f.verdicts, strings.ReplaceAll(v, " ", "_")) {
+			found = append(found, v)
+		}
+	}
+	cat(CatVerdict, Approximate,
+		"a verdict written as its status name (reclassified, suppressed_as_benign, verified) or as suppressed "+
+			"as benign is one the input carries: this incident's own, where it closed the condition, or the "+
+			"previous incident's",
+		"overcounts verified or reclassified in their ordinary sense; undercounts a verdict described in "+
+			"other words (judged benign, dismissed) and a claim that an incident was judged without naming "+
+			"the verdict, and a verdict of the input given to the wrong incident passes",
+		found)
 
 	cat(CatOrder, NotAutomatable, "none",
 		"whether the readings are given in their ranked order needs a reader; no finding is reported", nil)

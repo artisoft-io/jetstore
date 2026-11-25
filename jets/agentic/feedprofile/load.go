@@ -28,16 +28,30 @@ type Querier[R Rows] interface {
 	Query(ctx context.Context, sql string, args ...any) (R, error)
 }
 
-// loadSQL reads a client's feeds. The two declared columns are read through
-// to_jsonb of the row, so the query runs against a database that has neither
-// column: there, every feed reads as having no profile, and as not cumulative,
-// which is the default the migration gives is_cumulative.
-const loadSQL = `SELECT sc.client, sc.org, sc.object_type, sc.table_name,
+// feedsSQL is the one read of source_config's feeds, which loadSQL and
+// loadTablesSQL complete with a filter and an order. The two declared columns
+// are read through to_jsonb of the row, so the query runs against a database
+// that has neither column: there, every feed reads as having no profile, and
+// as not cumulative, which is the default the migration gives is_cumulative.
+const feedsSQL = `SELECT sc.client, sc.org, sc.object_type, sc.table_name,
        COALESCE((to_jsonb(sc) ->> 'is_cumulative')::int, 0),
        to_jsonb(sc) ->> 'feed_profile_json'
-  FROM jetsapi.source_config sc
+  FROM jetsapi.source_config sc`
+
+// loadSQL reads a client's feeds. Its text must not change: a statement export
+// identifies each statement by a hash of its text, so a results file pasted
+// back from an earlier export is read against it.
+const loadSQL = feedsSQL + `
  WHERE sc.client = $1
  ORDER BY sc.table_name`
+
+// loadTablesSQL reads the feeds named by table, whatever their client. A table
+// name is derived from a row's identity, so more than one row naming a table
+// is a configuration fault; the order makes the first of them the same on
+// every read.
+const loadTablesSQL = feedsSQL + `
+ WHERE sc.table_name = ANY($1)
+ ORDER BY sc.table_name, sc.client, sc.org`
 
 // Load reads every source_config row of client. A row whose profile parses and
 // validates is in profiled; every other row is in unprofiled, for the coverage
@@ -48,36 +62,62 @@ const loadSQL = `SELECT sc.client, sc.org, sc.object_type, sc.table_name,
 // initialisation script inserts source_config rows directly. Such a feed is not
 // judged, and the findings say why, rather than the whole client failing.
 func Load[R Rows](ctx context.Context, db Querier[R], client string) (profiled, unprofiled []Feed, err error) {
-	rows, err := db.Query(ctx, loadSQL, client)
+	feeds, err := readFeeds(ctx, db, loadSQL, client, "of client "+client)
 	if err != nil {
-		return nil, nil, fmt.Errorf("while reading the feeds of client %s from source_config: %w", client, err)
+		return nil, nil, err
+	}
+	for _, f := range feeds {
+		if f.Profiled() {
+			profiled = append(profiled, f)
+		} else {
+			unprofiled = append(unprofiled, f)
+		}
+	}
+	return profiled, unprofiled, nil
+}
+
+// LoadTables reads every source_config row naming one of tables, whatever its
+// client, in order of table name, client and org. Each row is read as Load
+// reads it, and Profiled says which side of Load's split it would be on. It is
+// for a reader that starts from a delivery or an anomaly, which name a feed by
+// its table, rather than from a client. No table, no query.
+func LoadTables[R Rows](ctx context.Context, db Querier[R], tables []string) ([]Feed, error) {
+	if len(tables) == 0 {
+		return nil, nil
+	}
+	return readFeeds(ctx, db, loadTablesSQL, tables, fmt.Sprintf("of tables %v", tables))
+}
+
+// readFeeds runs one of the two reads and parses each row's profile.
+func readFeeds[R Rows](ctx context.Context, db Querier[R], sql string, arg any, what string) ([]Feed, error) {
+	rows, err := db.Query(ctx, sql, arg)
+	if err != nil {
+		return nil, fmt.Errorf("while reading the feeds %s from source_config: %w", what, err)
 	}
 	defer rows.Close()
+	var feeds []Feed
 	for rows.Next() {
 		var f Feed
 		var cumulative int
 		var text *string
 		if err := rows.Scan(&f.Client, &f.Org, &f.ObjectType, &f.TableName, &cumulative, &text); err != nil {
-			return nil, nil, fmt.Errorf("while reading a feed of client %s: %w", client, err)
+			return nil, fmt.Errorf("while reading a feed %s: %w", what, err)
 		}
 		f.Cumulative = cumulative != 0
-		if text == nil || IsEmpty(*text) {
-			unprofiled = append(unprofiled, f)
-			continue
+		if text != nil && !IsEmpty(*text) {
+			p, findings := Parse([]byte(*text))
+			if errs := wsvalidate.ErrorsOnly(findings); len(errs) > 0 {
+				f.Findings = errs
+			} else {
+				f.Profile = p
+			}
 		}
-		p, findings := Parse([]byte(*text))
-		if errs := wsvalidate.ErrorsOnly(findings); len(errs) > 0 {
-			f.Findings = errs
-			unprofiled = append(unprofiled, f)
-			continue
-		}
-		f.Profile = p
-		profiled = append(profiled, f)
+		feeds = append(feeds, f)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, nil, fmt.Errorf("while reading the feeds of client %s: %w", client, err)
+		return nil, fmt.Errorf("while reading the feeds %s: %w", what, err)
 	}
-	return profiled, unprofiled, nil
+	return feeds, nil
 }
 
 // LoadFile reads profiles from a JSON file whose object maps a feed's
@@ -132,7 +172,7 @@ func Attach(feeds []Feed, profiles map[string]Profile) (profiled, unprofiled []F
 			profiled = append(profiled, f)
 			continue
 		}
-		if f.Profile.DeclaredBy != "" && len(f.Findings) == 0 {
+		if f.Profiled() {
 			profiled = append(profiled, f)
 			continue
 		}

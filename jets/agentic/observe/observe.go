@@ -44,14 +44,20 @@
 // needs no join to the run header at all. Only main_object_type has to come
 // from the header.
 //
-// And the header can be gone. The worker record is purged by session_id
-// against RETENTION_DAYS, an environment variable with no default, while the
-// header is deleted on its own clock at 30*6 days
-// (DoPurgeSessions, jets/purge_database/delegate/delegate.go:122). The two
-// clocks are independent, and in three of the four production environments
-// measured on 2026-08-25 the worker rows outlive their headers — by nine
-// months in one. So every join to the header in this package is an outer join
-// and the rows it could not key are counted rather than dropped silently.
+// And the header can be gone, or be all that is left. Until the session purge
+// was rebuilt, the worker record was purged by session_id against
+// RETENTION_DAYS while the header was deleted on its own clock at six months,
+// and in three of the four production environments measured on 2026-08-25
+// the worker rows outlived their headers, by nine months in one. Now a
+// session's worker rows are deleted with it and its headers move to
+// pipeline_execution_status_archive, read with the live table through the
+// view pipeline_execution_history (see Extent). So a worker row with no
+// header is a legacy of the old purge, and a header with no worker row is,
+// in the history, a run whose session was deleted. Every join to the header
+// in this package is still an outer join, and the rows it could not key are
+// counted rather than dropped silently. The joins read the live table: a
+// worker row exists only while its session does, and while the session
+// exists its header is live.
 package observe
 
 import (

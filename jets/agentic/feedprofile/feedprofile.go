@@ -145,6 +145,11 @@ type Feed struct {
 	Findings []wsvalidate.Finding
 }
 
+// Profiled reports whether the feed carries a usable profile: one that parsed
+// and validated. Validate requires declared_by, so a usable profile names
+// who declared it, and the zero Profile of an unprofiled feed does not.
+func (f Feed) Profiled() bool { return f.Profile.DeclaredBy != "" && len(f.Findings) == 0 }
+
 // IsEmpty reports whether text holds no profile: empty, blank or the JSON null.
 // That is what clears source_config.feed_profile_json.
 func IsEmpty(text string) bool {

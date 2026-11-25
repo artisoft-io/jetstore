@@ -40,6 +40,25 @@
 // are expected.json's reprocessing section; the base feeds and their written
 // totals are unchanged by them.
 //
+// # Not-judged cases
+//
+// A content check that cannot evaluate a delivery says why. Two of the reasons
+// are carried by base feeds (a feed with no profile, and a claim-set table
+// holding none of a feed's deliveries); NotJudgedFeeds are four more feeds that
+// carry the rest: a delivery whose claims were not loaded, so its successor's
+// comparisons are with an empty set (predecessor_no_claim_rows); a delivery
+// none of whose rows carries a date of service (no_service_dates); and a
+// profile naming a column the claim-set table lacks, once for the member
+// column every check reads and once for a required field (column_absent). The
+// last also declares no size range, so delivery_size judges it against its
+// trailing band (insufficient_history, then a firing). InstallNotJudged writes
+// them, alone or beside Install, with the profiles at NotJudgedProfilesPath,
+// and their expected verdicts are expected.json's not_judged section.
+//
+// arrival_unknown has no case: the detectors read a registration as a delivery
+// only when its session id is a registration time, so no installed row can
+// reach it.
+//
 // # What it declares, and what it expects
 //
 // testdata/feed_profiles.json holds one profile per profiled feed, keyed by

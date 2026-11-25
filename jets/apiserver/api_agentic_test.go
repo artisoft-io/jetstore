@@ -82,6 +82,10 @@ type fakeOps struct {
 	// The Detection screen; its methods are in
 	// api_agentic_detection_test.go.
 	detection detectionFake
+
+	// A session's incidents and a feed incident's condition; their methods
+	// are in api_agentic_condition_test.go.
+	condition conditionFake
 }
 
 func (f *fakeOps) ListProposals(context.Context, []string, int) ([]audit.ProposalSummary, error) {

@@ -207,7 +207,7 @@ func TestEveryFixtureIncidentIsSummarised(t *testing.T) {
 		t.Fatal("no incident was written, so a summary of each proves nothing")
 	}
 	byLocus := map[string]int{}
-	withBurst := 0
+	var held []int
 	for _, inc := range incs {
 		if !IsFeedIncident(inc.Locus) {
 			t.Errorf("%s is at %s, which is not a delivery locus", inc.IncidentId, inc.Locus)
@@ -245,8 +245,10 @@ func TestEveryFixtureIncidentIsSummarised(t *testing.T) {
 		if len(in.Readings) != len(inc.Hypotheses) {
 			t.Errorf("%s: %d readings for %d hypotheses", inc.IncidentId, len(in.Readings), len(inc.Hypotheses))
 		}
-		if len(in.Bursts) > 0 {
-			withBurst++
+		if in.Condition == nil {
+			t.Errorf("%s: no condition of its feed holds it", inc.IncidentId)
+		} else {
+			held = append(held, in.Condition.Held)
 		}
 		if c := CountUntrue(s.Text, in); c.Untrue() != 0 {
 			t.Errorf("%s: the counter finds untrue statements in the render:\n%s\n%s", inc.IncidentId, c, s.Text)
@@ -264,7 +266,18 @@ func TestEveryFixtureIncidentIsSummarised(t *testing.T) {
 			}
 		}
 	}
-	t.Logf("%d incidents summarised: %v; %d carry a burst", len(incs), byLocus, withBurst)
+	// Every (session, locus) with a feed finding is held by exactly one
+	// incident's summary: the eight conditions of the fixture, of 8, 7, 6, 3,
+	// 3, 1, 1 and 1 deliveries, computed here from the anomalies alone.
+	slices.Sort(held)
+	if want := []int{1, 1, 1, 3, 3, 6, 7, 8}; !slices.Equal(held, want) {
+		t.Errorf("the summaries hold %v deliveries, want %v", held, want)
+	}
+	if n, sum := findingPositions(t, pool), sumOf(held); n != sum {
+		t.Errorf("the summaries hold %d deliveries between them, and %d sessions carry a feed finding at a "+
+			"delivery locus", sum, n)
+	}
+	t.Logf("%d incidents summarised: %v; the deliveries they hold: %v", len(incs), byLocus, held)
 
 	// The canaries are in the database, so that their absence above is a
 	// finding rather than an accident of an empty claim table.
@@ -347,10 +360,16 @@ func TestTheModelArm(t *testing.T) {
 
 // TestABurstIsOneIncident plants the case a backfill makes: the same check fires
 // on two more deliveries of one feed registered the same day as a fixture
-// incident's, after it. Shadow triage raises neither: the first belongs to a
-// burst the second leads, and the second's burst already has the fixture
-// incident, raised by an earlier run. The summary of that incident says it
-// stands for all three, and reading it changes nothing.
+// incident's, just after it. Shadow triage raises neither: both join the
+// incident of the condition they extend, written on its first delivery by an
+// earlier run. The summary of that incident counts them among the deliveries it
+// holds, and reading it changes nothing.
+//
+// Before conditions the summary read a burst, by detector and UTC day, and said
+// the incident stood for the three deliveries of that day. A day's burst is a
+// condition whose deliveries share a day, so the test now asks the condition's
+// question: the incident holds two more deliveries than before, two of them
+// sessions with no registration of the feed, and its summary says so.
 func TestABurstIsOneIncident(t *testing.T) {
 	pool, incs := fixtureIncidents(t, "feedsummary_burst")
 	ctx := context.Background()
@@ -374,6 +393,14 @@ func TestABurstIsOneIncident(t *testing.T) {
 	if target == nil {
 		t.Fatal("no fixture incident carries a delivery_backdated finding")
 	}
+	in, err := Read(ctx, pool, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if in.Condition == nil {
+		t.Fatal("no condition holds the target incident")
+	}
+	heldBefore := in.Condition.Held
 	ms, err := strconv.ParseInt(base.SessionId, 10, 64)
 	if err != nil {
 		t.Fatal(err)
@@ -397,9 +424,9 @@ func TestABurstIsOneIncident(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(res.Written) != 0 || len(res.Grouped) != 1 {
-			t.Errorf("session %s: written %v, grouped %v; want it grouped into the burst's incident",
-				s, res.Written, res.Grouped)
+		if len(res.Written) != 0 || len(res.Grouped) != 1 || !strings.Contains(res.Grouped[0], target.IncidentId) {
+			t.Errorf("session %s: written %v, grouped %v; want it grouped into %s",
+				s, res.Written, res.Grouped, target.IncidentId)
 		}
 	}
 	var before int
@@ -407,29 +434,28 @@ func TestABurstIsOneIncident(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	in, err := Read(ctx, pool, target)
+	in, err = Read(ctx, pool, target)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(in.Bursts) != 1 {
-		t.Fatalf("%d bursts, want 1: %+v", len(in.Bursts), in.Bursts)
-	}
-	b := in.Bursts[0]
-	if b.Detector != feedprofile.DeliveryBackdated || b.Deliveries != 3 || b.Unraised != 2 || len(b.Others) != 0 {
-		t.Errorf("burst %+v, want 3 deliveries, two with no incident of their own and no other incident", b)
+	c := in.Condition
+	if c == nil || c.Held != heldBefore+2 || c.Unregistered != 2 || c.Total != c.Held || len(c.Others) != 0 ||
+		c.Unraised != 0 {
+		t.Fatalf("the condition %+v, want %d deliveries held, two with no registration, and no other incident",
+			c, heldBefore+2)
 	}
 	s, err := Render(in)
 	if err != nil {
 		t.Fatal(err)
 	}
 	flat := strings.Join(strings.Fields(s.Text), " ")
-	for _, want := range []string{"This incident stands for the three deliveries of the feed registered on",
-		"Two of them have no incident of their own.", "raised as a single incident; give it a single verdict"} {
+	for _, want := range []string{"This incident stands for " + wordsOf(heldBefore+2) + " deliveries of the feed",
+		"two of them are sessions with no registration of the feed", "raised as one incident: give it one verdict"} {
 		if !strings.Contains(flat, want) {
 			t.Errorf("the summary does not say %q:\n%s", want, s.Text)
 		}
 	}
-	if strings.Contains(flat, "Incidents raised on others") {
+	if strings.Contains(flat, "belong to other incidents") {
 		t.Errorf("the summary names other incidents where there are none:\n%s", s.Text)
 	}
 	if c := CountUntrue(s.Text, in); c.Untrue() != 0 {

@@ -83,7 +83,17 @@ type RunHeader struct {
 	FailureDetails string
 	StartTime      time.Time
 	LastUpdate     time.Time
+	// ArchivedAt is set when the run's session was deleted and the header was
+	// read from the archive, with ArchiveReason (retention, orphan or user).
+	// The run's worker rows, channel details, process_errors and stored
+	// configuration were deleted with the session.
+	ArchivedAt    *time.Time
+	ArchiveReason string
 }
+
+// Deleted reports whether the run's session was deleted, so the header is all
+// that is left of its record.
+func (h *RunHeader) Deleted() bool { return h.ArchivedAt != nil }
 
 // The run header's terminal statuses. The list is WorkerRow.Stalled's
 // (observe/extract.go:204), which is the only other place in the tree that
@@ -105,19 +115,32 @@ func (h *RunHeader) Terminal() bool {
 }
 
 const headerSQL = `SELECT key, session_id, client, process_name, main_object_type,
-    status, coalesce(failure_details, ''), start_time, last_update
+    status, coalesce(failure_details, ''), start_time, last_update, NULL::timestamp, ''
   FROM jetsapi.pipeline_execution_status WHERE session_id = $1`
 
-// ReadHeader returns the run header, or nil when there is none. Nil is two
-// different things — a run that was never submitted and a run whose header the
-// six-month purge has taken — and the caller cannot tell them apart,
-// which is why every predicate that needs the header reports NotEvaluable
-// rather than Absent when it is missing.
-func ReadHeader(ctx context.Context, db observe.DB, sessionId string) (*RunHeader, error) {
+const headerHistorySQL = `SELECT key, session_id, client, process_name, main_object_type,
+    status, coalesce(failure_details, ''), start_time, last_update, archived_at, coalesce(archive_reason, '')
+  FROM jetsapi.pipeline_execution_history WHERE session_id = $1`
+
+// ReadHeader returns the run header, or nil when there is none. With history
+// set it reads jetsapi.pipeline_execution_history, so the header of a run whose
+// session was deleted is found, marked Deleted; without it, the live table of a
+// database that predates the archive.
+//
+// Nil is still more than one thing — a run that was never submitted, a deleted
+// session's run whose archived header has aged out, and a header the purge
+// before the session purge deleted at six months — and the caller cannot tell
+// them apart, which is why every predicate that needs the header reports
+// NotEvaluable rather than Absent when it is missing.
+func ReadHeader(ctx context.Context, db observe.DB, sessionId string, history bool) (*RunHeader, error) {
 	var h RunHeader
-	err := db.QueryRow(ctx, headerSQL, sessionId).Scan(
+	stmt := headerSQL
+	if history {
+		stmt = headerHistorySQL
+	}
+	err := db.QueryRow(ctx, stmt, sessionId).Scan(
 		&h.Key, &h.SessionId, &h.Client, &h.ProcessName, &h.MainObjectType,
-		&h.Status, &h.FailureDetails, &h.StartTime, &h.LastUpdate)
+		&h.Status, &h.FailureDetails, &h.StartTime, &h.LastUpdate, &h.ArchivedAt, &h.ArchiveReason)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		return nil, nil
@@ -504,7 +527,21 @@ type Evidence struct {
 // by accident. Where the header is gone the run's start is taken from the
 // earliest worker row, and where there are no worker rows either there is
 // nothing to bound a baseline with and none is read.
+//
+// Gather reads the volume history with Default's bounds, which is right for a
+// caller that classifies with Default. A caller that classifies with its own
+// Classifier gathers with it, Classifier.Gather, so that the history is the one
+// its locus rows_lost_silently judges by.
 func Gather(ctx context.Context, db observe.DB, sessionId string, baselineFor time.Duration) (*Evidence, error) {
+	return Default().Gather(ctx, db, sessionId, baselineFor)
+}
+
+// Gather is the package's Gather with the volume history read by c.Volume:
+// the runs of each step that read at least its MinInput rows, the HistoryRuns
+// most recent of them. Those two bound the read as well as the judgement, so a
+// classifier configured with other values must read with them, or it judges a
+// worker against runs it would not count as history.
+func (c Classifier) Gather(ctx context.Context, db observe.DB, sessionId string, baselineFor time.Duration) (*Evidence, error) {
 	ev := &Evidence{SessionId: sessionId}
 	var err error
 	if ev.Extent, err = ReadExtent(ctx, db); err != nil {
@@ -520,7 +557,7 @@ func Gather(ctx context.Context, db observe.DB, sessionId string, baselineFor ti
 		// absent ones.
 		return ev, nil
 	}
-	if ev.Header, err = ReadHeader(ctx, db, sessionId); err != nil {
+	if ev.Header, err = ReadHeader(ctx, db, sessionId, ev.Extent.History); err != nil {
 		return nil, err
 	}
 	if ev.Workers, err = observe.Workers(ctx, db, observe.Window{
@@ -547,12 +584,10 @@ func Gather(ctx context.Context, db observe.DB, sessionId string, baselineFor ti
 			return nil, err
 		}
 	}
-	// The volume history is read with the default detector's bounds (its
-	// HistoryRuns and MinInput), whatever thresholds the classifier then judges
-	// it by: Gather does not know the classifier, and those two only bound the
-	// read.
+	// The volume history, read with the classifier's own bounds (its
+	// HistoryRuns and MinInput), which are the ones Classify judges by.
 	volume := &observe.Evidence{Workers: ev.Workers}
-	if err = observe.DefaultVolumeCollapse().ReadHistory(ctx, db, volume); err != nil {
+	if err = c.Volume.ReadHistory(ctx, db, volume); err != nil {
 		return nil, err
 	}
 	ev.Volume = volume.Volume

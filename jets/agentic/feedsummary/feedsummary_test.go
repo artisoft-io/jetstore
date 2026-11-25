@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/agentic/audit"
 	"github.com/artisoft-io/jetstore/jets/agentic/feedprofile"
 	"github.com/artisoft-io/jetstore/jets/agentic/observe"
 	"github.com/artisoft-io/jetstore/jets/agentic/rca"
@@ -32,8 +33,13 @@ var allowedStrings = map[string]string{
 	"Finding.BoundUnit":       "closed vocabulary: this package's units",
 	"Reading.Cause":           "closed vocabulary: rca's ten cause classes",
 	"Reading.Evidenceability": "closed vocabulary: rca's grades",
-	"Burst.Detector":          "closed vocabulary: feedprofile.Detectors",
-	"Burst.Others":            "incident identifiers at the same locus",
+	"Condition.End":           "closed vocabulary: this package's ends",
+	"Condition.EndedInto":     "an incident identifier at the same locus",
+	"Condition.Verdict":       "closed vocabulary: audit.VerdictStatuses",
+	"Condition.Others":        "incident identifiers at the same locus",
+	"Previous.Kind":           "closed vocabulary: this package's previous kinds",
+	"Previous.IncidentID":     "an incident identifier at the same locus",
+	"Previous.Verdict":        "closed vocabulary: audit.VerdictStatuses",
 }
 
 // TestTheInputHasNoFieldThatCanCarryARow walks Input by reflection. No field is
@@ -120,9 +126,10 @@ func departs() *Input {
 			{Rank: 3, Cause: rca.CauseBenignVariation, Confidence: 0.15, Supporting: 0, Contradicting: 1,
 				Evidenceability: string(rca.Asymmetric)},
 		},
-		Bursts: []Burst{{Detector: feedprofile.DeliveryUnchanged, Day: day(2026, 5, 11), Deliveries: 3,
-			Others: []string{"inc_1747000000001_delivery_departs_profile",
-				"inc_1747000000002_delivery_departs_profile"}}},
+		Condition: &Condition{Held: 3, Total: 3, First: day(2026, 5, 11), Last: day(2026, 5, 25), End: EndOpen,
+			Previous: Previous{Kind: PrevCondition, IncidentID: "inc_1740000000000_delivery_departs_profile",
+				Verdict: audit.IncidentSuppressedAsBenign, VerdictAt: time.Date(2026, 3, 2, 9, 0, 0, 0, time.UTC),
+				Deliveries: 2, First: day(2026, 2, 16), Last: day(2026, 2, 23)}},
 	}
 }
 
@@ -143,8 +150,11 @@ func TestRendersADeparture(t *testing.T) {
 		"1. the source changed what it sends (source_content_change), confidence 0.55, three items of evidence for and one against, graded conditional",
 		"3. an ordinary variation",
 		"declared by ops@example.com on 15 January 2026, one hundred and thirty-seven days before this was found",
-		"This incident stands for the three deliveries of the feed registered on 11 May 2026 on which the delivery_unchanged check fired",
-		"Incidents raised on others of them: inc_1747000000001_delivery_departs_profile, inc_1747000000002_delivery_departs_profile",
+		"This incident stands for three deliveries of the feed with a finding at this locus, registered from 11 May 2026 to 25 May 2026.",
+		"The findings above are those of the delivery the incident is written on",
+		"It is still open: the feed's latest delivery carries the finding.",
+		"The feed's previous condition at this locus, two deliveries registered from 16 February 2026 to 23 February 2026, has incident inc_1740000000000_delivery_departs_profile, with a person's verdict, suppressed_as_benign on 2 March 2026.",
+		"A condition is one fault that persists, raised as one incident: give it one verdict.",
 		"No model wrote it.",
 	} {
 		if !strings.Contains(strings.Join(strings.Fields(s.Text), " "), want) {
@@ -174,7 +184,7 @@ func TestRendersBothShapesOfTheSpanCheck(t *testing.T) {
 	} {
 		in := departs()
 		in.Findings = []Finding{c.f}
-		in.Bursts = nil
+		in.Condition = nil
 		s, err := Render(in)
 		if err != nil {
 			t.Fatal(err)
@@ -219,7 +229,7 @@ func TestRendersAnOverdueFeed(t *testing.T) {
 			t.Errorf("the summary does not say %q", want)
 		}
 	}
-	if strings.Contains(flat, "registered under") || strings.Contains(flat, "deliveries of the feed registered on") {
+	if strings.Contains(flat, "registered under") || strings.Contains(flat, "This incident stands for") {
 		t.Errorf("the summary says something the input does not carry:\n%s", s.Text)
 	}
 }
@@ -258,12 +268,16 @@ func TestADeclarationMadeAfterTheFindingIsNamedAsSuch(t *testing.T) {
 
 func TestValidateRefusesAValueOutsideItsVocabulary(t *testing.T) {
 	for name, mutate := range map[string]func(*Input){
-		"locus":    func(in *Input) { in.Locus = "worker_failed" },
-		"detector": func(in *Input) { in.Findings[0].Detector = "free text" },
-		"cause":    func(in *Input) { in.Readings[0].Cause = "something" },
-		"unit":     func(in *Input) { in.Findings[0].ObservedUnit = "zq7" },
-		"column":   func(in *Input) { in.Findings[0].Column = "paid_amount" },
-		"burst":    func(in *Input) { in.Bursts[0].Others = []string{"a value"} },
+		"locus":              func(in *Input) { in.Locus = "worker_failed" },
+		"detector":           func(in *Input) { in.Findings[0].Detector = "free text" },
+		"cause":              func(in *Input) { in.Readings[0].Cause = "something" },
+		"unit":               func(in *Input) { in.Findings[0].ObservedUnit = "zq7" },
+		"column":             func(in *Input) { in.Findings[0].Column = "paid_amount" },
+		"condition incident": func(in *Input) { in.Condition.Others = []string{"a value"} },
+		"previous incident":  func(in *Input) { in.Condition.Previous.IncidentID = "inc_1_worker_failed" },
+		"end":                func(in *Input) { in.Condition.End = "finished" },
+		"previous kind":      func(in *Input) { in.Condition.Previous.Kind = "earlier" },
+		"verdict":            func(in *Input) { in.Condition.Previous.Verdict = audit.IncidentClosed },
 	} {
 		in := departs()
 		mutate(in)
@@ -347,7 +361,7 @@ func TestTheCounterFindsWhatIsUntrue(t *testing.T) {
 		"Paid amount is present in 12.3% of rows."
 	c := CountUntrue(draft, in)
 	want := map[string]int{CatDate: 1, CatOverdue: 1, CatNumber: 1, CatCause: 1, CatDetector: 1, CatDeclarer: 1,
-		CatIdentifier: 1, CatOrder: 0}
+		CatIdentifier: 1, CatOrder: 0, CatDeliveries: 0, CatOpen: 0, CatVerdict: 0}
 	for _, cat := range c.Categories {
 		if len(cat.Findings) != want[cat.Name] {
 			t.Errorf("%s: %d findings %v, want %d", cat.Name, len(cat.Findings), cat.Findings, want[cat.Name])
@@ -355,6 +369,62 @@ func TestTheCounterFindsWhatIsUntrue(t *testing.T) {
 	}
 	if len(c.Categories) != len(want) {
 		t.Errorf("%d categories, want %d", len(c.Categories), len(want))
+	}
+}
+
+// TestARestatedThresholdIsNotAnOverdueClaim: a draft that restates the
+// declared overdue threshold says what the declaration says, and is not a
+// claim that the feed is overdue. The restatements are phrasings a model
+// produced when drafting a summary for a delivery the overdue check did not
+// fire on; a claim beside one is still found.
+func TestARestatedThresholdIsNotAnOverdueClaim(t *testing.T) {
+	declared := departs()
+	declared.Declaration.OverdueAfterDays = i(3)
+	none := departs()
+	fired := departs()
+	fired.Declaration.OverdueAfterDays = i(3)
+	fired.Findings = append(fired.Findings, Finding{Detector: feedprofile.FeedOverdue, Generation: 1,
+		Signal: observe.SignalArrival, ObservedPeriod: day(2026, 4, 27), OverdueFrom: day(2026, 5, 7)})
+	for _, tc := range []struct {
+		name  string
+		in    *Input
+		draft string
+		want  int
+	}{
+		// The restatements, as a model wrote them.
+		{"per period", declared, "Locus is delivery_departs_profile. Overdue after 3 days per period (week).", 0},
+		{"per week", declared, "Declaration authored by ops@example.com. Overdue after 3 days per week.", 0},
+		{"in a list", declared, "Period: weekly, overdue after 3 days.", 0},
+		{"with the cadence", declared, "Overdue after 3 days, with 1 period per delivery.", 0},
+		{"attached to a finding", declared, "Declaration configured but paid_amount had overdue after 3 days.", 0},
+		// Other ways of stating the same threshold.
+		{"threshold of", declared, "The declaration sets an overdue threshold of 3 days.", 0},
+		{"threshold is", declared, "The overdue threshold is 3 days.", 0},
+		{"grace", declared, "The overdue grace is 3 days.", 0},
+		{"n-day", declared, "The feed has a 3-day overdue threshold.", 0},
+		{"one day", func() *Input { in := departs(); in.Declaration.OverdueAfterDays = i(1); return in }(),
+			"Overdue after 1 day.", 0},
+		// Claims that the feed is overdue, which it is not.
+		{"has been overdue", declared, "It was declared on 15 January 2026 and has been overdue for 137 days.", 1},
+		{"is overdue", declared, "Feed acme_pharmacy is overdue.", 1},
+		{"became overdue after", declared, "The feed became overdue after 3 days.", 1},
+		{"has been overdue after", declared, "The feed has been overdue after 3 days without a delivery.", 1},
+		{"claim beside a restatement", declared,
+			"It has been overdue for 137 days. Overdue after 3 days, with 1 period per delivery.", 1},
+		// A threshold that is not the declared one is not a restatement.
+		{"another threshold", declared, "Overdue after 5 days per week.", 1},
+		{"none declared", none, "Overdue after 3 days per week.", 1},
+		// The check fired: every mention is true.
+		{"fired, claim", fired, "Feed acme_pharmacy is overdue and has been overdue for 25 days.", 0},
+		{"fired, restatement", fired, "Overdue after 3 days per week.", 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, cat := range CountUntrue(tc.draft, tc.in).Categories {
+				if cat.Name == CatOverdue && len(cat.Findings) != tc.want {
+					t.Errorf("%q: %d findings %v, want %d", tc.draft, len(cat.Findings), cat.Findings, tc.want)
+				}
+			}
+		})
 	}
 }
 

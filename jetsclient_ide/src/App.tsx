@@ -23,6 +23,7 @@ import { Register } from "./components/Register";
 import { AGENT_SUPERVISION } from "./proposals/api";
 import { IncidentScreen } from "./incidents/IncidentScreen";
 import { IncidentsScreen } from "./incidents/IncidentsScreen";
+import { SessionIncidentsScreen } from "./incidents/SessionIncidentsScreen";
 import { DetectionScreen } from "./detection/DetectionScreen";
 import { ProposalScreen } from "./proposals/ProposalScreen";
 import { ProposalsScreen } from "./proposals/ProposalsScreen";
@@ -302,6 +303,7 @@ export default function App() {
           <Route path="proposals/:proposalId" element={<ProposalScreen api={api} />} />
           <Route path="incidents" element={<IncidentsScreen api={api} />} />
           <Route path="incidents/:incidentId" element={<IncidentScreen api={api} />} />
+          <Route path="incidents/session/:session_id" element={<SessionIncidentsScreen api={api} />} />
           <Route path="detection" element={<DetectionScreen api={api} />} />
           {/*
             Workspace runbooks. Two routes for the
