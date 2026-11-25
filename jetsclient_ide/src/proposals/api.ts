@@ -181,6 +181,31 @@ export class ProposalsApi {
 export const AGENT_SUPERVISION = "agent_supervision";
 
 /**
+ * The trigger of a proposal an incident prompted rather than an agent run:
+ * `audit.TriggerIncident` in `jets/agentic/audit/proposal.go`. Its
+ * `triggerRef` is the incident's id, not a run's.
+ */
+export const TRIGGER_INCIDENT = "incident";
+
+/**
+ * Whether a proposal was prompted by an incident, so that no run produced it.
+ *
+ * The same test as `audit.Proposal.DecidedWithoutRun` on the Go side: only the
+ * incident trigger is runless, and every other trigger names a run. It decides
+ * only what is *shown* — the trigger as an incident linked to its page, and no
+ * run transcript to read — never what may be decided, which still arrives with
+ * the proposal.
+ */
+export function isIncidentTrigger(trigger: string): boolean {
+  return trigger === TRIGGER_INCIDENT;
+}
+
+/** The Incidents screen's page for one incident. */
+export function incidentPath(incidentId: string): string {
+  return `/incidents/${encodeURIComponent(incidentId)}`;
+}
+
+/**
  * A state's label for a button.
  *
  * The vocabulary is snake_case because it is a controlled vocabulary in the
