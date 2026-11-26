@@ -51,7 +51,10 @@ delivery whose claims the retention period has since deleted. Before it judges, 
 `feed_detect` summarises every delivery of a profiled feed that has no summary yet and whose claims
 are still in the table, its predecessors included, so the first run summarises every delivery still
 held. The summary is a row of `jetsapi.claim_set_summary`, and it is deleted with the session whose
-claims it read, on the retention period, not with the claims themselves. A run with `-dry-run`
+claims it read, on the retention period, not with the claims themselves. Where the claims have a
+shorter retention of their own, the purge keeps a delivery's claims until a run of `feed_detect`
+has summarised them, or has run since without summarising them, but never past the session's
+retention period. A run with `-dry-run`
 judges from the summaries it computes and writes none.
 
 A summary holds counts (rows, distinct keys, distinct members, rows with a date of service), the

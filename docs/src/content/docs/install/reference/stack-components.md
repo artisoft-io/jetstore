@@ -213,7 +213,13 @@ Deletes sessions past the retention window, and the agentic rows nothing still h
   `input_registry.table_name`, the data a pipeline wrote and a file's staging table alike) and from
   **`jetsapi.process_errors`**, whose rows carry the encoded rules session and messages that can
   quote a value. One transaction per session; a session with a pending or submitted run on it, or
-  reading it, is left for the next run. Everything else stays until `RETENTION_DAYS`: the session's
+  reading it, is left for the next run. **A profiled feed's claim rows are held until they are
+  summarised**: a session with rows in a table some feed profile names as its `claim_set.table` is
+  left for the next run, counted as held, while no `jetsapi.claim_set_summary` row names it and no
+  `feed_detect` run has ended ok since the session's last update; a `feed_detect` run that has, and
+  wrote no summary for it, never will, so the session is released. The hold never lasts past
+  `RETENTION_DAYS`, when the session is deleted whole as before, and an installation without the
+  agentic layer's summary table holds nothing. Everything else stays until `RETENTION_DAYS`: the session's
   registration and input registry rows, its runs and their details, its agentic rows and the
   summary the agentic layer keeps of a delivery (`jetsapi.claim_set_summary`, deleted with the
   session). The session is then marked, `session_registry.table_data_purged_at`, shown as *Table
@@ -227,7 +233,7 @@ Deletes sessions past the retention window, and the agentic rows nothing still h
 - **Dry run**: unless `PURGE_DRY_RUN` is exactly `false`, the purge logs what it would delete, the
   table data, the incidents and the audit rows included, and deletes nothing. The log opens with both
   clocks, and has one line per table under `Session purge:`, `Table data purge:` (lines
-  `table data: N rows from T`), `Incident retention:` and `Agent audit retention:`.
+  `table data: N rows from T`, and the sessions held for a summary), `Incident retention:` and `Agent audit retention:`.
 - **Deployment**: `RETENTION_DAYS` non-empty. `PURGE_DATA_SCHEDULED_HOUR_UTC` sets the daily
   EventBridge cron hour, default 7 UTC.
 - **IAM / SG**: **own generated role** with `RdsSecret.GrantRead`; `VpcEndpointsSg` + `RdsAccessSg`;

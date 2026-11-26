@@ -341,6 +341,9 @@ func purgeTableData(ctx context.Context, db sessionpurge.TxBeginner, before, who
 	if len(r.RefusedSessions) > 0 {
 		log.Printf("   table data: refused, a run pending or submitted: %s", listed(r.RefusedSessions))
 	}
+	if len(r.HeldSessions) > 0 {
+		log.Printf("   table data: held, claim rows feed_detect has not yet summarised: %s", listed(r.HeldSessions))
+	}
 	if len(r.FailedSessions) > 0 {
 		log.Printf("   table data: failed, retried by the next run: %s", strings.Join(r.FailedSessions, ", "))
 		named := make([]string, 0, min(len(r.FailedSessions), maxListed))
