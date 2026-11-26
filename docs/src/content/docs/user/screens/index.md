@@ -50,8 +50,10 @@ Most screens are built around one or more tables, and every table works the same
 - **Copying a value.** Click a cell to copy its whole value to the clipboard, even when the cell
   shows it shortened: a file key shown as `.../eligibility.csv`, for example.
 - **Pages.** A table with more rows than fit on one page has a footer: *Rows per page*, the range
-  shown, such as *1–10 of 22*, and buttons for the first, previous, next and last pages. A table
-  that fits on one page has no footer.
+  shown, such as *1–10 of 22*, and buttons for the first, previous, next and last pages. *Rows per
+  page* offers the table's own page size and two, five and ten times it. A table that fits on one
+  page of its own size has no footer; one that does not keeps it at every size, so a smaller size
+  can be chosen again.
 - **Refresh** reads the table again. Tables do not refresh by themselves, so press it to see a run
   move on.
 - **An empty value is shown as an empty cell.**

@@ -230,7 +230,8 @@ export function DataTable({
   const checkboxes = modes ? modes.checkboxVisible : config.isCheckboxVisible;
 
   const rowBand = rowStyle(config);
-  const lastPage = lastPageIndex(state.totalRowCount, state.rowsPerPage);
+  // Pages at the table's own size, the smallest it offers: see `paged`.
+  const lastPage = lastPageIndex(state.totalRowCount, config.rowsPerPage);
 
   /**
    * **The footer is paging apparatus, and a table that does not page has none.**
@@ -247,6 +248,14 @@ export function DataTable({
    * only a range — is a row of chrome for a fact the user is looking at. A table
    * still on page 0 of several keeps its footer; only a single-page table loses
    * one.
+   *
+   * **One page at the table's configured size, not at the size the user chose.**
+   * Measured at the chosen size, a user who picked 40 rows on a table of 30 saw
+   * the footer vanish, and with it the only way back to 20. The configured size
+   * is the smallest the footer offers (`availableRowsPerPage`), so a table that
+   * fits on one page of it has nothing to choose, and one that does not keeps
+   * its footer at every size, as the screens that render `Pager` beside their own
+   * table do (`showsPager`).
    */
   const paged = lastPage > 0;
 
