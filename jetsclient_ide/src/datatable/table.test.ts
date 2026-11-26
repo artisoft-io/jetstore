@@ -349,6 +349,9 @@ const HAND_MAINTAINED_KEYS = [
   // Its label was the Rule Terms tab's, carried over from the Dart; it is the
   // Files Relationship tab's own, as the view's other tables are (2026-11-14).
   "wsMainSupportFilesTable",
+  // 20 rows per page rather than the Dart's 50, so the Rules Configuration
+  // screen pages at 20, 40, 100 or 200 (2026-11-25).
+  "ruleConfigv2Table",
 ] as const;
 
 /**
@@ -533,7 +536,9 @@ describe("the 28 configurations still translated from the flow fixture", () => {
     // `fmInputSourceMappingUF`; the total is unchanged.
     // **20 on 2026-11-13**, with `wsJetRulesTable`; the total is unchanged.
     // **21 on 2026-11-14**, with `wsMainSupportFilesTable`; the total is unchanged.
-    expect(Object.keys(handMaintained).length).toBe(21);
+    // **22 on 2026-11-25**, with `ruleConfigv2Table` (20 rows per page); the
+    // total is unchanged.
+    expect(Object.keys(handMaintained).length).toBe(22);
     // **64 since 2026-10-11**: the three rules unit test tables
     // of the rules unit test harness, written rather than translated.
     // **5 and 63 since 2026-11-08**: *Session Registry* and *Archived

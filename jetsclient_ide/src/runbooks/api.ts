@@ -336,24 +336,23 @@ export class RunbooksApi {
 /** The statuses after which a run takes no further action. */
 export const TERMINAL: ReadonlySet<RunStatus> = new Set<RunStatus>(["completed", "failed", "aborted"]);
 
-/** The step statuses that wait on a person rather than on the executor. */
-export const AWAITING_PERSON: ReadonlySet<StepStatus> = new Set<StepStatus>([
-  "awaiting_confirmation",
-  "awaiting_input",
-]);
-
 /**
  * Whether the screen should keep re-reading the run.
  *
- * While the executor is working — the run is `running`, or a step is `running`
- * or `waiting` — and not when it waits on a person: nothing changes until they
- * act, and a re-read under a half-typed comment is noise.
+ * While the run reads `running`, and not once it is `paused` or final: a
+ * paused run waits on a person, nothing changes until they act, and a re-read
+ * under a half-typed comment is noise.
+ *
+ * **The run's status decides, not its steps'.** The executor pauses the run in
+ * the same transaction that sets a step awaiting a person, but a read can
+ * still see the step's new status beside the run's old `running`. The
+ * controls (`runControls`) need the run `paused` to offer Record, Accept or
+ * Continue, so a screen that stopped on the step alone stalled there, with no
+ * control, until somebody clicked Refresh. While a run reads `running` the
+ * screen offers no form to type into, so re-reading it costs nothing.
  */
 export function shouldPoll(run: Run | null): boolean {
-  if (!run || TERMINAL.has(run.status) || run.status === "paused") return false;
-  const steps = run.steps ?? [];
-  if (steps.some((s) => AWAITING_PERSON.has(s.status))) return false;
-  return run.status === "running" || steps.some((s) => s.status === "running" || s.status === "waiting");
+  return run?.status === "running";
 }
 
 /**

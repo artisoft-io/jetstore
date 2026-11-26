@@ -191,7 +191,7 @@ export function ProposalsScreen({ api }: { api: ApiClient }) {
       </div>
 
       <div className="body">
-        <main className="main">
+        <main className="main main-scroll">
           {rows.length === 0 && loaded ? (
             <div className="empty">
               <p>{EMPTY_FOR[filter]}</p>

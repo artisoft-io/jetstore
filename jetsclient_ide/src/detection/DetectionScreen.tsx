@@ -172,7 +172,7 @@ export function DetectionScreen({ api }: { api: ApiClient }) {
       </div>
 
       <div className="body">
-        <main className="main">
+        <main className="main main-scroll">
           {list?.deploymentError && (
             <div className="empty" role="alert">
               <p>The detection task is configured incompletely on this deployment.</p>
