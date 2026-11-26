@@ -17,7 +17,7 @@ import (
 const testAlarmTopicArn = "arn:aws:sns:us-east-2:111111111111:test-alarm-topic"
 
 // newAlarmTestStack returns an empty stack and a components value holding two inline Lambdas,
-// one in a scheduled field and one in an event-driven field. Inline Python code is used rather
+// one in a scheduled field, one in an event-driven field and one in an excluded field. Inline Python code is used rather
 // than a Go function so the synth bundles nothing.
 func newAlarmTestStack(t *testing.T) (awscdk.Stack, *JetStoreStackComponents) {
 	t.Helper()
@@ -32,9 +32,12 @@ func newAlarmTestStack(t *testing.T) (awscdk.Stack, *JetStoreStackComponents) {
 			Code:    awslambda.Code_FromInline(jsii.String("def handler(event, context):\n    return None\n")),
 		})
 	}
+	// CpipesNodeLambda is excluded (its failure is recorded by the state machine's status
+	// update), so it is built here to show an excluded Lambda gets no alarm.
 	jsComp := &JetStoreStackComponents{
 		PurgeDataLambda:     fn("PurgeDataLambda"),
 		RegisterKeyV2Lambda: fn("registerKeyV2"),
+		CpipesNodeLambda:    fn("CpipesNodeLambda"),
 	}
 	return stack, jsComp
 }
@@ -53,8 +56,8 @@ func lambdaErrorAlarmsIn(t *testing.T, template assertions.Template) map[string]
 	return byName
 }
 
-// With an alarm topic, each built Lambda has one alarm on its Errors metric, sent to the topic,
-// and an unbuilt Lambda (a nil field) has none.
+// With an alarm topic, each built Lambda that is not excluded has one alarm on its Errors metric,
+// sent to the topic; an excluded Lambda and an unbuilt one (a nil field) have none.
 func TestLambdaErrorAlarmsWithTopic(t *testing.T) {
 	stack, jsComp := newAlarmTestStack(t)
 	action := awscloudwatchactions.NewSnsAction(awssns.Topic_FromTopicArn(stack,
@@ -64,7 +67,7 @@ func TestLambdaErrorAlarmsWithTopic(t *testing.T) {
 	template := assertions.Template_FromStack(stack, nil)
 	alarms := lambdaErrorAlarmsIn(t, template)
 	if len(alarms) != 2 {
-		t.Fatalf("got %d Lambda Errors alarms %v, want 2 (one per built Lambda)", len(alarms), keys(alarms))
+		t.Fatalf("got %d Lambda Errors alarms %v, want 2 (one per built Lambda that is not excluded)", len(alarms), keys(alarms))
 	}
 	want := map[string]float64{
 		"PurgeDataLambdaErrors":     3600,

@@ -172,16 +172,20 @@ func AddRdsAlarms(stack awscdk.Stack, rds awsrds.DatabaseCluster,
 
 // Lambda Errors alarms
 // --------------------
-// A Lambda that runs unattended -- on a schedule, on an S3 or SQS event, from a state machine or
-// from Secrets Manager -- has no caller to see it fail. Most of its failures leave a row in the
-// database (a failed pipeline, a failed s3_object_event), but the ones that stop it before or
-// because of the database do not: a bad setting at start-up, the database unreachable, or a
-// credential that no longer works. Its Errors metric is the one place those show outside its log,
-// so each such Lambda gets an alarm on it.
+// A Lambda that runs unattended -- on a schedule, on an S3 or SQS event, from Secrets Manager --
+// has no caller to see it fail, and a failure that stops it before or because of the database (a
+// bad setting at start-up, the database unreachable, a credential that no longer works) leaves no
+// row anywhere. Its Errors metric is the one place those show outside its log, so each such Lambda
+// gets an alarm on it.
 //
-// Excluded deliberately, and listed in lambdaErrorAlarmExcluded so the coverage test can tell an
-// exclusion from an omission: ApiGatewayLambda, whose caller receives the error as an HTTP
-// response, and ApiGatewayTestLambda, which is a test endpoint.
+// The alarms are for failures nothing else records, so a Lambda whose failure is already recorded
+// is excluded: alarming on it would notify on every routine pipeline failure. The compute pipes
+// state machine runs each of its Lambdas under a States.ALL catch routed to the status update
+// (RunErrorStatus, build_cpipes_sm.go), which writes the failure to pipeline_execution_status. The
+// status update itself is alarmed: if it fails, nothing records the run's failure.
+//
+// Every exclusion is listed in lambdaErrorAlarmExcluded with its reason, so the coverage test can
+// tell an exclusion from an omission.
 
 // Two periods, because the two kinds of trigger differ in how a failure arrives.
 const (
@@ -207,9 +211,19 @@ type lambdaErrorAlarm struct {
 // lambdaErrorAlarmExcluded names the Lambda fields of JetStoreStackComponents deliberately left
 // without an Errors alarm, with the reason.
 var lambdaErrorAlarmExcluded = map[string]string{
-	"ApiGatewayLambda":     "its caller receives the error as an HTTP response",
-	"ApiGatewayTestLambda": "a test endpoint",
+	"ApiGatewayLambda":          "its caller receives the error as an HTTP response",
+	"ApiGatewayTestLambda":      "a test endpoint",
+	"CpipesStartShardingLambda": caughtByStateMachine,
+	"CpipesStartReducingLambda": caughtByStateMachine,
+	"CpipesNodeLambda":          caughtByStateMachine,
+	"CpipesNativeNodeLambda":    caughtByStateMachine,
+	"CpipesPythonNodeLambda":    caughtByStateMachine,
+	"RunReportsLambda":          caughtByStateMachine,
+	"CpipesRunReportsLambda":    caughtByStateMachine,
 }
+
+const caughtByStateMachine = "its failure is caught by the state machine and recorded in " +
+	"pipeline_execution_status by the status update"
 
 // lambdaErrorAlarms lists every Lambda that runs unattended, built or not: a Lambda the
 // deployment did not build has a nil Function and is skipped by AddLambdaErrorAlarms.
@@ -230,15 +244,9 @@ func (jsComp *JetStoreStackComponents) lambdaErrorAlarms() []lambdaErrorAlarm {
 		// Register keys: S3 object events, and the optional SQS queue.
 		event("RegisterKeyV2Lambda", jsComp.RegisterKeyV2Lambda),
 		event("SqsRegisterKeyLambda", jsComp.SqsRegisterKeyLambda),
-		// The state machines' Lambdas.
+		// The state machines' status update, which records every other state-machine Lambda's
+		// failure and so has nothing to record its own.
 		event("StatusUpdateLambda", jsComp.StatusUpdateLambda),
-		event("CpipesStartShardingLambda", jsComp.CpipesStartShardingLambda),
-		event("CpipesStartReducingLambda", jsComp.CpipesStartReducingLambda),
-		event("CpipesNodeLambda", jsComp.CpipesNodeLambda),
-		event("CpipesNativeNodeLambda", jsComp.CpipesNativeNodeLambda),
-		event("CpipesPythonNodeLambda", jsComp.CpipesPythonNodeLambda),
-		event("RunReportsLambda", jsComp.RunReportsLambda),
-		event("CpipesRunReportsLambda", jsComp.CpipesRunReportsLambda),
 		// EventBridge, on the infer auto scaling group's instance launch.
 		event("InferLifecycleHookLambda", jsComp.InferLifecycleHookLambda),
 	}
