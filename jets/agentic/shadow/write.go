@@ -321,14 +321,16 @@ func (w *Writer) Run(ctx context.Context, db DB, sessionId string) (*SessionResu
 			out.AlreadyRaised = append(out.AlreadyRaised, fmt.Sprintf("%s (%s)", f.Locus, id))
 			continue
 		}
+		var key *incidentKey
 		if slices.Contains(triage.DeliveryLoci, f.Locus) {
-			here, err := w.placeFeedFinding(ctx, db, f, severity, modelVersion, out)
+			here, k, err := w.placeFeedFinding(ctx, db, f, severity, modelVersion, out)
 			if err != nil {
 				return out, err
 			}
 			if !here {
 				continue
 			}
+			key = k
 		}
 		if err := f.Validate(); err != nil {
 			return out, fmt.Errorf("the classifier produced a finding that does not validate, so it was not written: %w", err)
@@ -347,7 +349,8 @@ func (w *Writer) Run(ctx context.Context, db DB, sessionId string) (*SessionResu
 			out.Written = append(out.Written, written)
 			continue
 		}
-		if err := w.writeOne(ctx, db, f, byLocus[f.Locus], ranking, severity, modelVersion, &written); err != nil {
+		if err := w.writeIncident(ctx, db, f, byLocus[f.Locus], ranking, severity, modelVersion, key,
+			&written); err != nil {
 			return out, err
 		}
 		out.Written = append(out.Written, written)
@@ -355,20 +358,42 @@ func (w *Writer) Run(ctx context.Context, db DB, sessionId string) (*SessionResu
 	return out, nil
 }
 
-// runKey is what a run-locus incident carries of its run condition: the code,
-// and the key and position of the run it is written on. Nil for a delivery
-// locus, whose incident carries none of them.
-type runKey struct {
+// incidentKey is what an incident carries of the condition it stands for, so
+// that the condition finds it by key and position after its session is
+// deleted. A run-locus incident carries its code and the client, process and
+// start time of the run it is written on (runKeyOf); a delivery-locus incident
+// carries its feed and the delivery's arrival (feedKeyOf).
+type incidentKey struct {
 	Code    string
 	Client  string
 	Process string
-	// Start is the run's start time, the incident's position; nil when the
-	// session has no live run header, and the incident then carries no key.
+	// Feed is the feed of a delivery-locus incident, "" at a run locus.
+	Feed string
+	// Start is the incident's position: the run's start time, or the
+	// delivery's arrival. Nil when the session has no position (no live run
+	// header, or a session id that is not a time), and the incident then
+	// carries no key.
 	Start *time.Time
 }
 
-func runKeyOf(h *triage.RunHeader, code string) *runKey {
-	k := &runKey{Code: code}
+// feedKeyOf is the key a feed incident written on a session for a placement
+// carries: the placement's feed and the session's arrival. Nil, so the
+// incident carries none, when no single feed's condition holds the session (no
+// feed, or findings of two feeds at the locus), and when the session id is not
+// a time and the session has no position.
+func feedKeyOf(p *feedcondition.Placement, session string) *incidentKey {
+	if p.Feed == "" || p.Condition == nil || p.Condition.Unordered || p.Condition.Shared {
+		return nil
+	}
+	at, ok := triage.SessionArrival(session)
+	if !ok {
+		return nil
+	}
+	return &incidentKey{Feed: p.Feed, Start: &at}
+}
+
+func runKeyOf(h *triage.RunHeader, code string) *incidentKey {
+	k := &incidentKey{Code: code}
 	if h != nil && !h.Deleted() {
 		start := h.StartTime
 		k.Client, k.Process, k.Start = h.Client, h.ProcessName, &start
@@ -661,28 +686,32 @@ func (w *Writer) reportDry(written *IncidentWritten) {
 // join and writes nothing. **Nothing is retracted either**: an incident already
 // on a later delivery of the condition, as a day's burst was raised on its last
 // delivery before conditions, is the one the others join.
+//
+// **The incident it writes carries its feed and position** (feedKeyOf), the
+// second return when it reports true, so the condition finds it after the
+// delivery it is written on is deleted.
 func (w *Writer) placeFeedFinding(ctx context.Context, db DB, f *triage.Finding, severity, modelVersion string,
-	out *SessionResult) (bool, error) {
+	out *SessionResult) (bool, *incidentKey, error) {
 	p, _, err := feedcondition.ResolveSession(ctx, db, f.SessionId, f.Locus)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 	switch p.Kind {
 	case feedcondition.AlreadyRaised:
 		out.AlreadyRaised = append(out.AlreadyRaised, fmt.Sprintf("%s (%s)", f.Locus, p.Target.IncidentId))
-		return false, nil
+		return false, nil, nil
 	case feedcondition.Join:
 		out.Grouped = append(out.Grouped, fmt.Sprintf("%s (into %s)", f.Locus, p.Target.IncidentId))
-		return false, nil
+		return false, nil, nil
 	case feedcondition.RaiseAnchor:
 		id := IncidentIdFor(p.Anchor, f.Locus)
 		if w.DryRun && w.dryRaised[id] {
 			out.Grouped = append(out.Grouped, fmt.Sprintf("%s (into %s)", f.Locus, id))
-			return false, nil
+			return false, nil, nil
 		}
 		raised, err := w.raiseAnchor(ctx, db, &p, severity, modelVersion)
 		if err != nil {
-			return false, err
+			return false, nil, err
 		}
 		if raised == nil {
 			// The first delivery's finding does not hold when it is classified,
@@ -690,21 +719,21 @@ func (w *Writer) placeFeedFinding(ctx context.Context, db DB, f *triage.Finding,
 			// here rather than lost.
 			f.Basis += fmt.Sprintf(". It belongs to %s, whose first delivery, session %s, did not classify as "+
 				"present at this locus when read, so the incident is written here", p.Condition.Describe(), p.Anchor)
-			return true, nil
+			return true, feedKeyOf(&p, f.SessionId), nil
 		}
 		if raised.Status != "" {
 			out.Written = append(out.Written, *raised)
 		}
 		out.Grouped = append(out.Grouped, fmt.Sprintf("%s (into %s)", f.Locus, id))
-		return false, nil
+		return false, nil, nil
 	}
 	if w.DryRun && w.dryRaised[IncidentIdFor(f.SessionId, f.Locus)] {
 		out.AlreadyRaised = append(out.AlreadyRaised, fmt.Sprintf("%s (%s, reported by this dry run)", f.Locus,
 			IncidentIdFor(f.SessionId, f.Locus)))
-		return false, nil
+		return false, nil, nil
 	}
 	f.Basis += p.Basis()
-	return true, nil
+	return true, feedKeyOf(&p, f.SessionId), nil
 }
 
 // raiseAnchor writes a feed condition's incident on its first delivery, which
@@ -754,7 +783,8 @@ func (w *Writer) raiseAnchor(ctx context.Context, db DB, p *feedcondition.Placem
 		w.reportDry(written)
 		return written, nil
 	}
-	if err := w.writeOne(ctx, db, af, hyps, ranking, severity, modelVersion, written); err != nil {
+	if err := w.writeIncident(ctx, db, af, hyps, ranking, severity, modelVersion, feedKeyOf(p, p.Anchor),
+		written); err != nil {
 		return nil, err
 	}
 	return written, nil
@@ -800,10 +830,11 @@ func (w *Writer) writeOne(ctx context.Context, db DB, f *triage.Finding, hyps []
 	return w.writeIncident(ctx, db, f, hyps, ranking, severity, modelVersion, nil, written)
 }
 
-// writeIncident is writeOne for an incident that carries a run condition's
-// key (runKey), nil for a delivery locus.
+// writeIncident is writeOne for an incident that carries its condition's key
+// and position (incidentKey); nil writes none, as every incident was written
+// before conditions carried keys.
 func (w *Writer) writeIncident(ctx context.Context, db DB, f *triage.Finding, hyps []rca.Hypothesis,
-	ranking *rca.Ranking, severity, modelVersion string, key *runKey, written *IncidentWritten) error {
+	ranking *rca.Ranking, severity, modelVersion string, key *incidentKey, written *IncidentWritten) error {
 
 	detectedAt := w.now()
 	confounders := f.Confounders
@@ -811,14 +842,19 @@ func (w *Writer) writeIncident(ctx context.Context, db DB, f *triage.Finding, hy
 		confounders = []string{}
 	}
 	// A run-locus incident carries its code and its run condition's key and
-	// position (runKey); a delivery-locus incident carries none, NULL in all four.
-	var code, client, process *string
+	// position; a delivery-locus incident its feed and position. The columns
+	// of the other kind are NULL, and all five are when key is nil.
+	var code, client, process, feed *string
 	var start *time.Time
 	if key != nil {
 		if key.Code != "" {
 			code = &key.Code
 		}
-		if key.Start != nil {
+		switch {
+		case key.Start == nil:
+		case key.Feed != "":
+			feed, start = &key.Feed, key.Start
+		default:
 			client, process, start = &key.Client, &key.Process, key.Start
 		}
 	}
@@ -827,13 +863,14 @@ func (w *Writer) writeIncident(ctx context.Context, db DB, f *triage.Finding, hy
 		   incident_id, incident_session_id, incident_run_ref, incident_detected_at,
 		   incident_locus, classification, severity, status,
 		   incident_step_ref, incident_shard_ref, incident_confounders, incident_model_version,
-		   incident_error_code, incident_client, incident_process_name, incident_anchor_start_time)
-		 VALUES ($1, $2, NULL, $3, $4, NULL, $5, $6, NULLIF($7, ''), $8, $9, $10, $11, $12, $13, $14)
+		   incident_error_code, incident_client, incident_process_name, incident_anchor_start_time,
+		   incident_feed)
+		 VALUES ($1, $2, NULL, $3, $4, NULL, $5, $6, NULLIF($7, ''), $8, $9, $10, $11, $12, $13, $14, $15)
 		 ON CONFLICT (incident_id) DO NOTHING`,
 		written.IncidentId, f.SessionId, detectedAt,
 		f.Locus, severity, audit.IncidentDetected,
 		f.StepRef, f.ShardRef, confounders, modelVersion,
-		code, client, process, start)
+		code, client, process, start, feed)
 	if err != nil {
 		return fmt.Errorf("while raising incident %s: %w", written.IncidentId, err)
 	}

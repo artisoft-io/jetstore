@@ -110,6 +110,11 @@ matter, only the locus; a delivery with findings at both loci belongs to two con
 - **Old deliveries whose registrations have been purged** cannot be told apart from gaps, so before
   the feed's earliest remaining registration two findings belong to one condition only when they
   were registered on the same day (UTC).
+- **A delivery deleted with its findings is not counted at all**: it neither ends a condition nor
+  splits it, and the incident stays the condition's incident when its own first delivery is deleted,
+  because the incident keeps which feed it is for and where its delivery stood in the feed's order.
+  An incident raised before incidents kept these is found through its own delivery, and belongs to
+  no condition once that delivery and its findings are deleted.
 
 The incident's evidence says which deliveries the condition held when the incident was raised, from
 when to when, whether it was still open, and the previous condition's incident with its verdict.

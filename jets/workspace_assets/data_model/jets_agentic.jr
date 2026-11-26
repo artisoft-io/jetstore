@@ -149,7 +149,8 @@ class jetsa:Incident {
     jetsa:incident_error_code as text,
     jetsa:incident_client as text,
     jetsa:incident_process_name as text,
-    jetsa:incident_anchor_start_time as datetime
+    jetsa:incident_anchor_start_time as datetime,
+    jetsa:incident_feed as text
   ],
   $object_properties = [
     jetsa:hypotheses as array of resource
