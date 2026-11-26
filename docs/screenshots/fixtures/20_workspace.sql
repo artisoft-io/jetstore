@@ -185,6 +185,13 @@ INSERT INTO jetsapi.incident (incident_id, incident_session_id, incident_run_ref
   ('inc_20003', '1767778200302', NULL, '2026-01-07 11:00:00+00',
    'per_record_failures_reported', 'source_content_change', 'low', 'verified', NULL, NULL, ARRAY[]::text[], 'triage-v2');
 
+-- inc_20003 is for one error code: the code the 27 process errors of its run read
+-- as (the rule's message is in no catalogue), and the run's stored rows for it.
+UPDATE jetsapi.incident SET incident_error_code = 'jetrules: uncatalogued' WHERE incident_id = 'inc_20003';
+INSERT INTO jetsapi.run_finding (session_id, locus, error_code, verdict, stored_rows, classifier_ref, classified_at) VALUES
+  ('1767778200302', 'per_record_failures_reported', '', 'present', NULL, 'triage@1', '2026-01-07 11:00:00+00'),
+  ('1767778200302', 'per_record_failures_reported', 'jetrules: uncatalogued', 'present', 27, 'triage@1', '2026-01-07 11:00:00+00');
+
 INSERT INTO jetsapi.hypothesis (hypothesis_id, hypothesis_incident_ref, cause, cause_category, confidence, rank,
                                 supporting_evidence, contradicting_evidence, hypothesis_locus, basis) VALUES
   ('hyp_20001', 'inc_20001', 'The rules worker of shard 2 ran out of memory', 'capacity_or_cost_deviation', 0.67, 1,
