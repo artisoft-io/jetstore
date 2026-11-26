@@ -255,6 +255,61 @@ func Read(ctx context.Context, db observe.DB, feed string) (*Feed, error) {
 	return f, nil
 }
 
+// FeedsOf returns the feed each of the named incidents carries as its key,
+// for those that carry one: the feed whose condition finds the incident after
+// the delivery it is written on is deleted. A database whose incidents carry
+// no feed key returns none.
+func FeedsOf(ctx context.Context, db observe.DB, incidentIds []string) (map[string]string, error) {
+	out := map[string]string{}
+	if len(incidentIds) == 0 {
+		return out, nil
+	}
+	var keyed bool
+	if err := db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM information_schema.columns
+		WHERE table_schema = 'jetsapi' AND table_name = 'incident' AND column_name = 'incident_feed')`).Scan(&keyed); err != nil {
+		return nil, fmt.Errorf("while asking whether incidents carry a feed key: %w", err)
+	}
+	if !keyed {
+		return out, nil
+	}
+	rows, err := db.Query(ctx, `SELECT incident_id, incident_feed FROM jetsapi.incident
+		WHERE incident_id = ANY($1::text[]) AND incident_feed IS NOT NULL AND incident_anchor_start_time IS NOT NULL`,
+		incidentIds)
+	if err != nil {
+		return nil, fmt.Errorf("while reading the feed keys of %d incidents: %w", len(incidentIds), err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, feed string
+		if err := rows.Scan(&id, &feed); err != nil {
+			return nil, fmt.Errorf("while scanning an incident's feed key: %w", err)
+		}
+		out[id] = feed
+	}
+	return out, rows.Err()
+}
+
+// ReadKeyed reads the feed an incident carries as its key, and returns it with
+// the incident as the feed holds it; both nil when the incident carries no
+// key. It is how a reader finds the condition of an incident whose own
+// delivery is deleted, which ResolveSession cannot: that delivery's anomalies
+// went with it.
+func ReadKeyed(ctx context.Context, db observe.DB, incidentId string) (*Feed, *Incident, error) {
+	feeds, err := FeedsOf(ctx, db, []string{incidentId})
+	if err != nil || feeds[incidentId] == "" {
+		return nil, nil, err
+	}
+	f, err := Read(ctx, db, feeds[incidentId])
+	if err != nil {
+		return nil, nil, err
+	}
+	inc := f.IncidentById(incidentId)
+	if inc == nil {
+		return nil, nil, nil
+	}
+	return f, inc, nil
+}
+
 // FromHistory computes a feed's conditions with no incident read: the
 // conditions alone, or a Feed to which a test adds incidents.
 func FromHistory(h *triage.FeedHistory) *Feed {
@@ -352,6 +407,82 @@ func (f *Feed) holds(c *triage.Condition, inc *Incident) bool {
 		hi := f.positions[at]
 		return inc.before(hi.Arrival, hi.SessionId)
 	}
+}
+
+// ConditionOf returns the condition holding an incident of the feed: the one
+// its session is a member of, or, for an incident carrying the feed's key on a
+// session that is no position (a delivery deleted with its session), the one
+// that holds it by its position (holds). Nil when no condition holds it.
+func (f *Feed) ConditionOf(inc *Incident) *triage.Condition {
+	if inc == nil {
+		return nil
+	}
+	if c := triage.ConditionAt(f.Conditions, inc.SessionId, inc.Locus); c != nil {
+		return c
+	}
+	for i := range f.Conditions {
+		if c := &f.Conditions[i]; f.holds(c, inc) {
+			return c
+		}
+	}
+	return nil
+}
+
+// ConditionOfOrNil is ConditionOf on a feed that may be nil, as ReadKeyed
+// returns for an incident with no key.
+func (f *Feed) ConditionOfOrNil(inc *Incident) *triage.Condition {
+	if f == nil {
+		return nil
+	}
+	return f.ConditionOf(inc)
+}
+
+// Members returns the condition holding an incident and the members Resolve
+// places in it: those it joins, and its own delivery while that is a
+// position. It is what says whether an incident still stands for a delivery
+// the database holds. Nil when no condition holds the incident.
+func (f *Feed) Members(inc *Incident) (*triage.Condition, []triage.ConditionMember) {
+	c := f.ConditionOf(inc)
+	if c == nil {
+		return nil, nil
+	}
+	var out []triage.ConditionMember
+	for _, m := range c.Members {
+		p := f.Resolve(m.SessionId, c.Locus)
+		if (p.Kind == Join || p.Kind == AlreadyRaised) && p.Target != nil && p.Target.IncidentId == inc.IncidentId {
+			out = append(out, m)
+		}
+	}
+	return c, out
+}
+
+// IncidentBefore returns the latest incident a condition holds that is
+// positioned before inc, or nil: an earlier incident of the same condition,
+// found by position, so it is found after the delivery it is written on is
+// deleted.
+func (f *Feed) IncidentBefore(c *triage.Condition, inc *Incident) *Incident {
+	if c == nil || inc == nil {
+		return nil
+	}
+	var out *Incident
+	for _, o := range f.IncidentsOn(c) {
+		if o.IncidentId != inc.IncidentId && o.before(inc.Position, inc.SessionId) {
+			out = o
+		}
+	}
+	return out
+}
+
+// IncidentById returns the incident of the feed with this id, or nil.
+func (f *Feed) IncidentById(id string) *Incident {
+	for _, bySession := range f.Incidents {
+		for _, inc := range bySession {
+			if inc.IncidentId == id {
+				return inc
+			}
+		}
+	}
+	return nil
 }
 
 // PreviousCondition returns the latest condition of the feed at the locus
