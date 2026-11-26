@@ -180,6 +180,26 @@ class IncidentLocus(StrEnum):
     delivery_departs_profile = "delivery_departs_profile"
 
 
+class RunFindingVerdict(StrEnum):
+    """What triage found at one run locus, and one error code, of one run (4 values).
+
+    **A vocabulary of the jetsapi.run_finding table only**: no entity reaches it,
+    so it is emitted as that table's CHECK and nowhere else. A run condition is read
+    from these rows, because a run's findings are otherwise computed and never
+    stored, and only a stored verdict can say where a condition ends.
+
+    The three verdicts of a locus, plus `quiet`: at per_record_failures_reported,
+    a code whose stored rows fall below its reporting threshold, or whose kind is
+    debug, was seen and does not report. A quiet run neither joins nor ends the
+    code's condition.
+    """
+
+    present = "present"
+    quiet = "quiet"
+    absent = "absent"
+    not_evaluable = "not_evaluable"
+
+
 class IncidentStatus(StrEnum):
     """The proposal's incident lifecycle (11 values), and its state machine."""
 
@@ -968,6 +988,35 @@ class Incident(JetsaEntity):
         default=None,
     )
     incident_model_version: str = prop("The proposal's domain_model_version, class-scoped: the model version the incident was raised against.")
+    incident_error_code: str | None = prop(
+        "The error code the incident is for, at locus per_record_failures_reported only: one run can "
+        "report several codes, each with its own threshold and its own verdict, so each code a run "
+        "reports is an incident of its own and the incident id carries the code's slug. Derived when "
+        "the run's process_errors rows are read (jets/errorcode), never stored on them. Null at every "
+        "other locus, and on a per-record incident written before codes, which stands for every code "
+        "of its session.",
+        default=None,
+    )
+    incident_client: str | None = prop(
+        "For an incident at a run locus, the client of the run it is written on. With "
+        "incident_process_name, incident_locus and incident_error_code it is the key of the run "
+        "condition the incident stands for: the consecutive runs of one process for one client whose "
+        "finding at the locus is present. Carried on the incident so that the incident is found by "
+        "its key and position after the run it is written on has been deleted. Null at a delivery "
+        "locus, and on a run incident written before run conditions.",
+        default=None,
+    )
+    incident_process_name: str | None = prop(
+        "For an incident at a run locus, the process name of the run it is written on: part of the "
+        "run condition's key, as incident_client is. Null where incident_client is.",
+        default=None,
+    )
+    incident_anchor_start_time: datetime | None = prop(
+        "For an incident at a run locus, the start time of the run it is written on, the first run of "
+        "its condition: the incident's position among the process's runs, which orders it against the "
+        "runs that join it and survives that run's deletion. Null where incident_client is.",
+        default=None,
+    )
 
 
 class Remediation(JetsaEntity):

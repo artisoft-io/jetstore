@@ -427,6 +427,48 @@ This table is to register session id that are used by jetstore to ensure a sessi
 
 The sessions are registered when the execution is successful.
 
+## Table `error_code_catalogue`
+
+A workspace's error codes. Every row of `process_errors` gets a short code when it is read
+(`jets/errorcode`), and nothing is stored on the row: the operator's fixed prefix is stripped
+(`jets:exception caught: ` for a rule exception, `map_record: ` for `map_record`), and the code is
+that of the entry whose `match_prefix` reaches furthest into what is left. A message no entry
+matches reads `<operator>: uncatalogued`.
+
+**JetStore's own messages need no row.** The jetrules worker's messages, the rule engine's
+exceptions, and the per-record forms of `map_record`, `render` and the inference operators have
+fixed codes, `errorcode.Fixed`. **The rows are the workspace's**, in its
+`process_config/base__workspace_init_db.sql`, which fills this table as it fills
+`process_config` and the other configuration tables: a `DELETE` then an `INSERT`, one row per
+distinct message head its rules raise (`source = 'rules'`, the head being the literal before
+`+ ?value`), or per configured map expression message (`source = 'pipeline_config'`).
+
+- **`kind`** is `error`, or `debug` for a raise a workspace makes only while debugging, which is
+  counted and never reported.
+- **`report_threshold`** counts the stored rows of the code in one run. It is a lower bound: an
+  operator instance stops storing rows at its `max_error_count`, 20 by default. Null takes the
+  workspace default row's threshold, else 1.
+- **The workspace default row** has `operator_type = '*'` and an empty `match_prefix`; it matches no
+  message and sets the default threshold.
+- **A fixed code's threshold or kind** is overridden by a row with `source = 'jetstore'` and the
+  fixed entry's `operator_type` and `match_prefix`. A fixed code reports at 1 otherwise, and so does
+  an uncatalogued message.
+- **A null `process_errors.operator_type`**, which an error channel declared before the column
+  existed writes, is read from the message's fixed prefix where it has one, else every operator's
+  entries are tried.
+
+The key is (`operator_type`, `match_prefix`). Each workspace compile compares the rules' raises with
+the rows; see [Compiling a workspace](/docs/developer/workspace/compiling/).
+
+**Shadow triage reads the codes, per run.** Its per-record failures locus counts a run's rows by
+code (`jets/agentic/triage`, `ReadErrorCodes`), reports the codes whose stored rows reach their
+threshold, raises one incident per reporting code, and stores each code's verdict for the run in
+`jetsapi.run_finding`, from which a run condition is read (`jets/agentic/runcondition`). That table
+is installed with the agentic tables and deleted from with the session. A database without this
+catalogue reads as an empty catalogue, and the run's log says so once.
+
+Depend on `process_errors`
+
 ## See also
 
 - [Add a system table](/docs/developer/how-to/add-a-system-table/).

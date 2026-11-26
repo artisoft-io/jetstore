@@ -94,6 +94,14 @@ export interface IncidentRow {
   confounders: string[];
   modelVersion: string;
   hypothesisCount: number;
+  /**
+   * The error code a per-record failure incident is for, sent **only where it
+   * is set**: an incident at any other locus, or one written before error
+   * codes, carries none. A code is built from the rule or operator that raised
+   * the rows and JetStore's own constants, never from a row's values, which is
+   * why it may be shown where a message may not.
+   */
+  errorCode?: string;
 }
 
 /** Mirrors audit.Evidence — a value object, stored inline as jsonb. */
@@ -190,6 +198,82 @@ export interface IncidentDetail extends IncidentRow {
   condition?: IncidentCondition;
   conditionNote?: string;
   conditionError?: string;
+  /**
+   * A per-record failure incident's run: every error code its rows were given,
+   * most rows first, with the rows stored for each. Absent at any other locus
+   * and once the run is deleted.
+   *
+   * **The counts are a lower bound**: an operator stops storing rows at its
+   * maximum error count, so a run can have failed more records than it stored.
+   * **No message travels with them**: a message's tail can carry a record's
+   * values, and the run's Process Errors rows hold the text, under the
+   * apiserver's own permissions (`processErrorsPath`).
+   */
+  codes?: RunCodeCount[];
+  /**
+   * A run incident's run condition: the consecutive live runs of one process
+   * for one client with a finding at this locus (and, for per-record failures,
+   * this error code), read live by the server with the resolver shadow triage
+   * writes by. **Absent when the condition holds the incident's own run alone**,
+   * which is what every run incident was before run conditions; absent on a feed
+   * incident; `runConditionNote` says why a run incident has none, and
+   * `runConditionError` why it could not be read.
+   */
+  runCondition?: RunCondition;
+  runConditionNote?: string;
+  runConditionError?: string;
+}
+
+/** One error code of a run, from `jetsapi.run_finding`. */
+export interface RunCodeCount {
+  code: string;
+  /** `present` when the code reports; `quiet` below its threshold, or a debug code. */
+  verdict: string;
+  /** Rows stored for the code in the run: a lower bound. */
+  storedRows: number;
+}
+
+/**
+ * A run incident's condition, from `runConditionPayload` in
+ * `jets/apiserver/api_agentic_run_condition.go`.
+ */
+export interface RunCondition {
+  client: string;
+  process: string;
+  locus: string;
+  /** Only where the condition is keyed on one. */
+  errorCode?: string;
+  /**
+   * RFC3339: the start of the run the incident was written on, kept after that
+   * run is deleted.
+   */
+  firstSeen: string;
+  /** RFC3339: the start of its latest run still held, "" when none is. */
+  lastSeen: string;
+  /**
+   * The runs still held that are placed in this incident. **It falls as
+   * retention deletes runs**, so it counts what is still held, not every run the
+   * condition ever had.
+   */
+  runsHeld: number;
+  /** Every live run of the condition, those placed in a later incident included. */
+  conditionRuns: number;
+  /** The run the incident was written on is still held. */
+  ownRunHeld: boolean;
+  /** No later run of the process has its finding here absent. */
+  open: boolean;
+  /** The later run whose finding here is absent and that ended it; "" while open. */
+  endedBy: string;
+  /** In start order. */
+  runs: RunConditionRun[];
+}
+
+export interface RunConditionRun {
+  sessionId: string;
+  /** RFC3339. */
+  startTime: string;
+  /** For an error code: its rows stored in the run, a lower bound. */
+  storedRows?: number;
 }
 
 /**
@@ -270,6 +354,11 @@ export interface SessionIncidentMatch {
   anchorSessionId: string;
   /** The resolver's sentence, for a condition's placement. */
   why: string;
+  /** Only where set: the error code of a per-record failure's incident. */
+  errorCode?: string;
+  /** Only for a run condition's placement: whose runs the condition is of. */
+  process?: string;
+  client?: string;
 }
 
 export interface SessionIncidents {
@@ -419,8 +508,43 @@ export class IncidentStateConflictError extends ApiError {
   }
 }
 
+/**
+ * A row of the incident list: the incident, with what the list adds to it.
+ *
+ * `client` and `objectType` are the registration of the incident's session,
+ * "" when no registry names it (a purged session, say). `count`, `firstSeen`
+ * and `lastSeen` are what the incident stands for: for a feed incident, the
+ * deliveries its condition places in it, dated by arrival
+ * (`fromCondition`); for a run incident, the runs of its run condition still
+ * held and placed in it, from the run it was written on to the latest
+ * (`fromRunCondition`), a count that falls as retention deletes runs; for any
+ * other, its own session, counted once.
+ */
+export interface ListedIncident extends IncidentRow {
+  client: string;
+  objectType: string;
+  /** RFC3339. */
+  firstSeen: string;
+  /** RFC3339. */
+  lastSeen: string;
+  count: number;
+  fromCondition: boolean;
+  /** Absent from a server older than run conditions. */
+  fromRunCondition?: boolean;
+}
+
+/** One page of a supervision list: which rows, and the IDE's client filter. */
+export interface ListPage {
+  limit: number;
+  offset: number;
+  /** "" for every client. */
+  client: string;
+}
+
 export interface IncidentList {
-  incidents: IncidentRow[];
+  incidents: ListedIncident[];
+  /** How many incidents the filters keep, across every page. */
+  total: number;
   statuses: string[];
   /** The loci, from the server. See `LOCUS_GLOSS` for why they are not a constant here. */
   loci: string[];
@@ -448,9 +572,9 @@ export class DeploymentNotMigratedError extends ApiError {
 export class IncidentsApi {
   constructor(private readonly api: ApiClient) {}
 
-  async list(statuses: string[] = []): Promise<IncidentList> {
+  async list(statuses: string[] = [], page?: ListPage): Promise<IncidentList> {
     return this.wrap(
-      this.api.agentic<IncidentList>({ action: "list_incidents", statuses }),
+      this.api.agentic<IncidentList>({ action: "list_incidents", statuses, ...page }),
     );
   }
 
@@ -525,6 +649,16 @@ export class IncidentsApi {
       throw err;
     }
   }
+}
+
+/**
+ * Where a session's Process Errors rows are read: the per-record failures with
+ * their messages, under the apiserver's own permissions. An incident links
+ * there rather than quoting a message, because a message's tail can carry a
+ * record's values.
+ */
+export function processErrorsPath(sessionId: string): string {
+  return `/processErrors/${encodeURIComponent(sessionId)}`;
 }
 
 /** The capability the server requires for every action on this endpoint. */

@@ -410,6 +410,11 @@ def emit() -> str:
         "incident", "incident_locus_ck", "incident_locus", loci)
     hypothesis_locus_check = _replaced_vocabulary_check(
         "hypothesis", "hypothesis_locus_ck", "hypothesis_locus", loci)
+    run_finding_locus_check = _replaced_vocabulary_check(
+        "run_finding", "run_finding_locus_ck", "locus", loci)
+    run_finding_verdicts = ", ".join(f"'{m.value}'" for m in M.RunFindingVerdict)
+    per_record_locus = M.IncidentLocus.per_record_failures_reported.value
+    quiet = M.RunFindingVerdict.quiet.value
     severities = ", ".join(f"'{m.value}'" for m in M.Severity)
     incident_statuses = ", ".join(f"'{m.value}'" for m in M.IncidentStatus)
     actor_kinds = ", ".join(f"'{m.value}'" for m in M.ActorKind)
@@ -688,6 +693,59 @@ CREATE INDEX IF NOT EXISTS incident_session_idx
 CREATE INDEX IF NOT EXISTS incident_status_idx
   ON jetsapi.incident (status, incident_detected_at);
 -- stmt
+-- "Which incidents stand for this run condition", which is how a run finding is placed:
+-- a run condition's incidents are found by their key (client, process name, locus and
+-- error code) and their position (the anchor run's start time), never by their session,
+-- so that an incident whose first run was deleted is still its condition's. Partial,
+-- because only an incident at a run locus written with run conditions carries a key.
+CREATE INDEX IF NOT EXISTS incident_run_condition_idx
+  ON jetsapi.incident (incident_client, incident_process_name, incident_locus, incident_anchor_start_time)
+  WHERE incident_client IS NOT NULL;
+-- stmt
+-- What triage found at each run locus of each run it classified, and for each error code
+-- at per_record_failures_reported: the verdict a run condition is read from.
+--
+-- **A run's findings are otherwise computed and never stored**: the shadow writer writes
+-- an incident for a present finding and nothing for an absent, quiet or not-evaluable
+-- one, and a run that joins a condition has no incident of its own. A run condition ends
+-- at a run whose finding is absent, and only a stored verdict can say which runs those
+-- were. So the writer stores every run locus's verdict for every run it classifies. It
+-- stores a verdict, not a join: which incident a run belongs to is derived on every read.
+--
+-- The key is (session_id, locus, error_code). error_code is '' at the eight run loci that
+-- have no code. At per_record_failures_reported the row with error_code '' is the locus
+-- as a whole (present, absent or not_evaluable), and there is one more row per code the
+-- run's process_errors rows were given, present or quiet. **A code with no row of its own
+-- on a run whose '' row is present or absent is absent for that run**; a run whose '' row
+-- is not_evaluable is not evaluable for every code; a run with no row is one triage never
+-- classified, which a condition skips.
+--
+-- **Added and upgraded, never retracted.** A row is inserted on a run's first
+-- classification and replaced only by a later verdict that says more (not_evaluable, then
+-- absent, then quiet, then present), so a classification that can see less, a purged
+-- worker record or a dropped table, cannot turn a condition's member into a gap. The rows
+-- are deleted with their session, by jets/sessionpurge, as the run's process_errors are:
+-- a deleted run is no position of any condition, so nothing reads its verdict.
+--
+-- stored_rows is the code's stored rows in the run, a lower bound because an operator
+-- instance stops storing rows at its max_error_count; null on the '' rows.
+CREATE TABLE IF NOT EXISTS jetsapi.run_finding (
+  session_id                       text NOT NULL,
+  locus                            text NOT NULL,
+  error_code                       text NOT NULL DEFAULT '',
+  verdict                          text NOT NULL,
+  stored_rows                      bigint,
+  classifier_ref                   text NOT NULL,
+  classified_at                    timestamp with time zone NOT NULL,
+  PRIMARY KEY (session_id, locus, error_code),
+  CONSTRAINT run_finding_locus_ck CHECK (locus IN ({loci})),
+  CONSTRAINT run_finding_verdict_ck CHECK (verdict IN ({run_finding_verdicts})),
+  CONSTRAINT run_finding_code_ck
+             CHECK (error_code = '' OR locus = '{per_record_locus}'),
+  CONSTRAINT run_finding_quiet_ck
+             CHECK (verdict <> '{quiet}' OR error_code <> '')
+);
+{run_finding_locus_check}-- stmt
 -- One ranked causal hypothesis for an incident, emitted with the table above.
 --
 -- **contradicting_evidence is NOT NULL because the model marks it required, and that

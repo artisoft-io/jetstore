@@ -235,6 +235,16 @@ type position struct {
 
 // sessionMillis reads a session id as epoch milliseconds, as the feed
 // detectors do.
+// SessionArrival reads a session id as the time the session was created, as a
+// condition orders its positions; false when the id is not a time.
+func SessionArrival(s string) (time.Time, bool) {
+	ms, ok := sessionMillis(s)
+	if !ok {
+		return time.Time{}, false
+	}
+	return time.UnixMilli(ms).UTC(), true
+}
+
 func sessionMillis(s string) (int64, bool) {
 	ms, err := strconv.ParseInt(s, 10, 64)
 	return ms, err == nil && ms > 0

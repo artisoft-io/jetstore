@@ -20,7 +20,7 @@ which properties were withheld.
 
 ## The list
 
-![The open incidents: inc_20002 on session 1767949200304, worker not terminated, triaged with no hypothesis, and inc_20001 on session 1767868200303, worker failed, diagnosed with two hypotheses; neither has a cause claimed.](../../../../assets/screenshots/user/screens/incidents/incidents-open.png)
+![The open incidents, each with its client, object type, first seen, last seen and count: inc_20002 on session 1767949200304, worker not terminated, triaged with no hypothesis, and inc_20001 on session 1767868200303, worker failed, diagnosed with two hypotheses; neither has a cause claimed.](../../../../assets/screenshots/user/screens/incidents/incidents-open.png)
 
 The picker chooses **Open incidents** (the default), **Adjudicated**, or **All incidents**.
 **Refresh** reads the list again. **Find by session** takes a session id and opens the incidents
@@ -28,11 +28,23 @@ that session belongs to (see [Finding a session's incidents](#finding-a-sessions
 the list shows each incident once, on the session it is written on, so a delivery that joined
 another delivery's incident has no row of its own here.
 
+**The list is paged**, newest first: 50 incidents a page to start with, and **Rows per page** offers
+50, 100 or 150. The footer says which rows are shown out of how many, with buttons for the first,
+previous, next and last page. Changing the picker or the client goes back to the first page.
+
+**The client filter in the menu applies.** With a client selected, the list keeps the incidents whose
+session is registered to that client. An incident whose session no longer has a registration (its
+session was deleted or purged) has no client, so it is listed only when no client is selected.
+
 | Column | What it shows |
 |---|---|
 | **Incident** | The incident's id, linked to its page, and the session it concerns: a run's, or, for a feed incident, the session in which a delivery was registered. |
+| **Client** | The client the incident's session is registered to: the run's, or the delivery's. Blank when no registration remains. |
+| **Object type** | The object type of that registration: the run's main object type, or the delivery's. Blank when no registration remains. |
 | **Detected** | When it was raised. |
-| **Locus** *evidence* | Where the evidence sits, such as *Worker failed*. Hover for what the locus means. |
+| **First seen**, **Last seen** | For a feed incident, the earliest and the latest of the deliveries it stands for, by when each was registered. For a run incident, first seen is the start of the run it was written on, kept after that run is deleted, and last seen is the start of the latest run of its [run condition](#the-run-condition-of-a-run-incident) still held, or *no run held* when none is. For any other incident, and a run incident written before run conditions, the time of its own session, in both. |
+| **Count** | For a feed incident, how many deliveries of its condition it stands for: the deliveries placed in it, as its page's [Condition](#the-condition-of-a-feed-incident) section counts them, so a delivery that went to a later incident of the same condition is not counted. For a run incident, how many runs of its run condition **still held** are placed in it: the count falls as retention deletes runs. For any other incident, and a run incident written before run conditions, 1. Hover to see which. |
+| **Locus** *evidence* | Where the evidence sits, such as *Worker failed*. Hover for what the locus means. A per-record failures incident shows its **error code** beneath the locus, because each code is an incident of its own. |
 | **Cause** *claim* | The cause claimed, or *not claimed*. |
 | **Severity** | *info*, *low*, *medium*, *high* or *critical*. |
 | **Status** | Where the incident is in its lifecycle. |
@@ -41,7 +53,7 @@ another delivery's incident has no row of its own here.
 **Adjudicated** lists the incidents a person has given a verdict on that settles them: *verified*,
 *reclassified* or *suppressed as benign*.
 
-![The adjudicated incidents: inc_20003 on session 1767778200302, per-record failures reported, with the cause Source content change, verified.](../../../../assets/screenshots/user/screens/incidents/incidents-adjudicated.png)
+![The adjudicated incidents: inc_20003 on session 1767778200302, per-record failures reported, its error code under the locus, with its client, object type, first seen, last seen and count, and the cause Source content change, verified.](../../../../assets/screenshots/user/screens/incidents/incidents-adjudicated.png)
 
 **An empty list is not evidence that nothing went wrong.** Incidents are written by shadow triage,
 which runs where the detection task is deployed; the Detection screen says whether it has run.
@@ -107,12 +119,45 @@ as it stands now, every delivery it holds included (see
 [The condition of a feed incident](#the-condition-of-a-feed-incident) below), so read the page
 rather than the evidence for what the condition holds today.
 
+### A recurring run failure is one incident
+
+A process that fails the same way run after run is one fault too. Consecutive runs of one process
+for one client with a finding at the same run locus form a **run condition**, and shadow triage
+raises one incident for it, on its first run; each later run with the finding joins it and has no
+incident of its own.
+
+- **Per-record failures are one incident per error code.** Every row of a run's process errors gets
+  a short error code when it is read (see
+  [the error code catalogue](/docs/developer/workspace/system-tables/#table-error_code_catalogue)),
+  and each code is a condition of its own, so a code you judge benign does not cover another code
+  that starts the next week. The incident names its code and the stored rows of every code in the
+  run, as a lower bound, and **never quotes a message**, because a message's tail can carry a
+  record's values; the session's Process Errors rows hold the text.
+- **A code below its reporting threshold raises nothing**, and a debug code never does; both are
+  still counted in the incident's evidence when another code of the run raises one. Such a run
+  neither joins nor ends the code's condition.
+- **A condition ends only at a run whose finding at its locus is absent.** A run that could not be
+  judged there, or that triage did not reach, is skipped. A deleted run is not counted at all: it
+  neither ends a condition nor splits it, and the incident stays the condition's incident when its
+  own first run is deleted.
+- **Your verdict closes it for new evidence**, as for a feed condition: a run whose finding is found
+  after your verdict raises a new incident naming the one you judged.
+- **Incidents written before run conditions stay as they are**, one per run, and a condition open
+  across the change gets one new incident at its first run triaged afterwards. On the list they keep
+  a count of 1 and their own session's time.
+
+The incident's page shows its run condition as it stands now (see
+[The run condition of a run incident](#the-run-condition-of-a-run-incident) below), and a later
+run's session finds the condition's incident (see
+[Finding a session's incidents](#finding-a-sessions-incidents)).
+
 ### Finding a session's incidents
 
-A later delivery of a condition has no incident of its own and no row in the list, but it belongs
-to the condition's incident, and you can open it from the delivery's session:
+A later delivery of a condition, or a later run of a run condition, has no incident of its own and
+no row in the list, but it belongs to the condition's incident, and you can open it from the
+delivery's or the run's session:
 
-- **Find by session**, on the list, with the delivery's session id; or
+- **Find by session**, on the list, with the delivery's or the run's session id; or
 - **View Incident**, on Home's [*Pipelines Status*](/docs/user/screens/home/#pipelines-status),
   with a run selected. It takes the run's session, and JetStore adds the input session of the run,
   the session the delivery it read was registered in.
@@ -123,9 +168,10 @@ Either opens a page listing, for each session, the incidents it belongs to and h
 |---|---|
 | **its own incident** | The incident is written on this session: a run's incident on the run's session, or a feed incident on the delivery that raised it. |
 | **a later delivery of the feed's condition** | The session is a delivery that joined the incident of its condition, which is written on another delivery, named beside it. JetStore says why it was placed there. |
+| **a later run of the process's run condition** | The session is a run that joined the incident of its run condition, written on an earlier run of the same process for the same client, named beside it, with the error code for per-record failures. JetStore says why it was placed there. |
 | **not raised yet** | The session carries a finding whose incident shadow triage has not written yet; the page says which session it will be written on. |
 
-Which incident a delivery belongs to is worked out by JetStore each time, by the same rule shadow
+Which incident a delivery or a run belongs to is worked out by JetStore each time, by the same rule shadow
 triage follows when it writes incidents, so the page and the incidents agree. A session nothing was
 found on says so.
 
@@ -151,13 +197,14 @@ delivery before claiming a cause.
 
 ## An incident
 
-![The page of inc_20001: what the record evidences (locus Worker failed, with what it cannot see; session; source type and file key, nothing registered under this session; raised by run_20010; detected; no step; shard 2; no confounders), what has been claimed (no cause, severity high, model version), and the first ranked hypothesis with its supporting and contradicting evidence.](../../../../assets/screenshots/user/screens/incidents/incident.png)
+![The page of inc_20001: what the record evidences (locus Worker failed, with what it cannot see; session; source type and file key, nothing registered under this session; raised by run_20010; detected; no step; shard 2; no confounders), what has been claimed (no cause, severity high, model version), the Run condition heading with its note that the incident has no key to find a run condition by, and the first ranked hypothesis with its supporting and contradicting evidence.](../../../../assets/screenshots/user/screens/incidents/incident.png)
 
 | Section | What it shows |
 |---|---|
 | **Summary** | On a feed incident only: a few paragraphs saying what was found, in words. See [The summary of a feed incident](#the-summary-of-a-feed-incident) below. |
 | **Condition** | On a feed incident only: the deliveries of the condition the incident stands for, how it ended or that it is still open, and the previous incident at the locus. See [The condition of a feed incident](#the-condition-of-a-feed-incident) below. |
-| **What the record evidences** | The **locus**, what it means and what it **cannot see**; the **session**; the **source type** and **file key** of each input registered under that session, `file` or `domain_table`, which find its runs on Home's *Pipelines Status* (*Set Session Id* with the session, or *Set Filters* with the file key); what **raised** it, with whether corrections to it reach an audit chain; when it was **detected**; the **step** and **shard** it is localised to, when it is; and the **confounders**, what the detector could not rule out. |
+| **What the record evidences** | The **locus**, what it means and what it **cannot see**; for per-record failures, the incident's **error code**, the **error codes in this run** with their rows, and a link to the session's process errors (see [The run condition of a run incident](#the-run-condition-of-a-run-incident)); the **session**; the **source type** and **file key** of each input registered under that session, `file` or `domain_table`, which find its runs on Home's *Pipelines Status* (*Set Session Id* with the session, or *Set Filters* with the file key); what **raised** it, with whether corrections to it reach an audit chain; when it was **detected**; the **step** and **shard** it is localised to, when it is; and the **confounders**, what the detector could not rule out. |
+| **Run condition** | On a run incident whose condition holds more than its own run: the runs it stands for, still held, from when to when. On a run incident with no key to find its condition by, or whose runs have all been deleted, the heading with a note saying which. See [The run condition of a run incident](#the-run-condition-of-a-run-incident) below. |
 | **What has been claimed** | The **cause**, if any, the **severity** and the **model version** that raised it. |
 | **Ranked hypotheses** | The causes proposed, best first. Each shows its confidence and cause category, the counts it was ranked on, and its **supporting** and **contradicting** evidence, each item with its source. A hypothesis contradicted more than supported, or raised at another locus, is marked. |
 | **How this incident got here** | Every transition of its status: from, to, by *a person* or *the system itself*, when, and why. A cause set by a transition is shown too. |
@@ -197,7 +244,47 @@ older deliveries, newest first, may name in its evidence a previous condition wh
 yet written, while this section links it.
 
 A feed incident whose session carries findings of two feeds at the locus belongs to no single
-feed's condition, and the section says so instead. A run incident has no condition.
+feed's condition, and the section says so instead. A run incident has a run condition instead (see
+the next section).
+
+### The run condition of a run incident
+
+A run incident's page reads its [run condition](#a-recurring-run-failure-is-one-incident) as
+JetStore works it out when the page is read.
+
+**A per-record failures incident names its code and counts, never a message.** *What the record
+evidences* shows:
+
+- **the error code** the incident is for, read from the rule or operator that raised the rows and
+  never from their values;
+- **the error codes in this run**: every code the run's process errors were given, most rows first,
+  with the rows stored for each and whether it reports. **The counts are a lower bound**: each
+  operator stops storing rows at its maximum error count, so the run may have failed more records
+  than it stored. A run that has been deleted has no codes left to show;
+- **a link to the session's process errors**, the *Process Errors* screen of the incident's session,
+  where the rows and their messages are read under your own permissions. The incident shows no
+  message because a message's tail can carry a record's values.
+
+**The Run condition section** follows *What the record evidences*, when the condition holds more
+than the incident's own run. It says:
+
+- **the process and the client**, and the error code for per-record failures;
+- **how many runs still held this incident stands for**, its **first seen**, the start of the run it
+  was written on, and its **last seen**, the start of its latest run still held. **The count is of
+  runs still held**: retention deletes runs, a deleted run is not counted, and the count falls as the
+  condition ages. First seen stays at the run the incident was written on, and the section says when
+  that run has been deleted;
+- **whether it is open**, no later run of the process having the finding absent, or **the run that
+  ended it**;
+- **how many later runs of the condition are in a later incident**, raised because their finding
+  came after a person's verdict on this one;
+- **each run**, in start order: its session, which opens that session's incidents; when it started;
+  for per-record failures, the code's rows stored in it and a link to its process errors.
+
+An incident whose condition holds only its own run shows no section, as before run conditions; the
+list counts it as 1. An incident written before run conditions, or on a run with no live run header,
+carries no key to find its condition by, and one whose runs have all been deleted has none left; the
+section says which.
 
 ### The summary of a feed incident
 

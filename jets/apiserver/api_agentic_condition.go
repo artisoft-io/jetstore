@@ -64,9 +64,19 @@ type SessionIncident struct {
 	AnchorSessionId string
 	// Why is the resolver's sentence for a condition's placement.
 	Why string
+	// ErrorCode is the error code at per_record_failures_reported, "" at any
+	// other locus and on an incident written before error codes.
+	ErrorCode string
+	// Process and Client are, for a run condition's placement, the process and
+	// client whose runs the condition is of; "" otherwise.
+	Process, Client string
 }
 
 // SessionIncidents is what find_session_incidents answers.
+//
+// A run condition places its findings as a feed condition does: a later run of
+// a process failing the same way has no incident of its own, and belongs to the
+// incident on the condition's first run, which runcondition.Resolve names.
 type SessionIncidents struct {
 	SessionId string
 	// InputSessions are the input sessions of the pipeline runs whose own
@@ -78,13 +88,16 @@ type SessionIncidents struct {
 
 // readSessionIncidents answers which incidents a session belongs to. It reads
 // the incidents on the session and on the input sessions of the runs that
-// carry it, then, at each delivery locus where a session has no incident of
-// its own, asks feedcondition where its finding went.
+// carry it, then, at each run locus and error code where a session's run has a
+// present finding and no incident of its own, asks runcondition where it went,
+// and at each delivery locus where a session has no incident of its own, asks
+// feedcondition.
 func readSessionIncidents(ctx context.Context, db pgxPool, session string) (*SessionIncidents, error) {
 	out := &SessionIncidents{SessionId: session, InputSessions: []string{}, Matches: []SessionIncident{}}
-	var runs, anomalies bool
+	var runs, anomalies, findings bool
 	if err := db.QueryRow(ctx, `SELECT to_regclass('jetsapi.pipeline_execution_status') IS NOT NULL,
-	       to_regclass('jetsapi.anomaly') IS NOT NULL`).Scan(&runs, &anomalies); err != nil {
+	       to_regclass('jetsapi.anomaly') IS NOT NULL,
+	       to_regclass('jetsapi.run_finding') IS NOT NULL`).Scan(&runs, &anomalies, &findings); err != nil {
 		return nil, fmt.Errorf("while asking which tables a session's incidents can be read from: %w", err)
 	}
 	if runs {
@@ -113,12 +126,35 @@ func readSessionIncidents(ctx context.Context, db pgxPool, session string) (*Ses
 	if err != nil {
 		return nil, err
 	}
-	has := map[string]bool{} // session/locus with an incident of its own
+	var ownIds []string
+	for _, inc := range own {
+		ownIds = append(ownIds, inc.IncidentId)
+	}
+	keys, err := readRunIncidentKeys(ctx, db, ownIds)
+	if err != nil {
+		return nil, err
+	}
+	has := map[string]bool{}               // session/locus with an incident of its own
+	hasRun := map[string]map[string]bool{} // session -> locus/code of its own run incidents
 	for _, inc := range own {
 		has[inc.SessionId+"/"+inc.Locus] = true
+		code := keys[inc.IncidentId].ErrorCode
+		if hasRun[inc.SessionId] == nil {
+			hasRun[inc.SessionId] = map[string]bool{}
+		}
+		hasRun[inc.SessionId][inc.Locus+"/"+code] = true
 		out.Matches = append(out.Matches, SessionIncident{SessionId: inc.SessionId, Locus: inc.Locus,
 			How: SessionIncidentOwn, IncidentId: inc.IncidentId, IncidentSessionId: inc.SessionId,
-			Status: inc.Status})
+			Status: inc.Status, ErrorCode: code})
+	}
+	if runs && findings {
+		for _, s := range sessions {
+			ms, err := runSessionMatches(ctx, db, s, hasRun[s])
+			if err != nil {
+				return nil, err
+			}
+			out.Matches = append(out.Matches, ms...)
+		}
 	}
 	if !anomalies {
 		return out, nil
@@ -223,13 +259,10 @@ func readIncidentCondition(ctx context.Context, db observe.DB, inc *audit.Incide
 	out := &IncidentCondition{Feed: c.Feed, Locus: c.Locus, Open: c.Open(), EndedBy: c.EndedBy, End: c.End,
 		SameDay: c.SameDay, Unordered: c.Unordered, Shared: c.Shared, Described: c.Describe()}
 	for _, m := range c.Members {
-		q := f.Resolve(m.SessionId, c.Locus)
+		kind, placedIn := placement(f, c, m.SessionId)
 		d := ConditionDelivery{SessionId: m.SessionId, FileKey: fileKeys[m.SessionId], Registered: m.Delivery,
 			Arrival: m.Arrival, FirstDetected: m.FirstDetected, Detectors: slices.Clone(m.Detectors),
-			Placement: string(q.Kind)}
-		if q.Target != nil && (q.Kind == feedcondition.Join || q.Kind == feedcondition.AlreadyRaised) {
-			d.IncidentId = q.Target.IncidentId
-		}
+			Placement: string(kind), IncidentId: placedIn}
 		if d.IncidentId == inc.IncidentId {
 			out.StandsFor++
 		}
@@ -248,6 +281,129 @@ func readIncidentCondition(ctx context.Context, db observe.DB, inc *audit.Incide
 		out.Previous = f.IncidentOf(out.PreviousCondition)
 	}
 	return out, "", nil
+}
+
+// placement is where the resolver places a member's finding, and the incident
+// it is in, "" when that incident is not written. It is the one reading of a
+// delivery's incident that the incident's page and the list both use.
+func placement(f *feedcondition.Feed, c *triage.Condition, session string) (feedcondition.Kind, string) {
+	q := f.Resolve(session, c.Locus)
+	if q.Target != nil && (q.Kind == feedcondition.Join || q.Kind == feedcondition.AlreadyRaised) {
+		return q.Kind, q.Target.IncidentId
+	}
+	return q.Kind, ""
+}
+
+// IncidentSpan is when an incident was first and last seen, and how many
+// deliveries or runs it stands for, as the incident list shows them.
+type IncidentSpan struct {
+	First, Last time.Time
+	Count       int
+	// FromCondition reports that the span was read from the incident's feed
+	// condition: the deliveries placed in the incident, by arrival.
+	FromCondition bool
+	// FromRunCondition reports that the span was read from the incident's run
+	// condition: first seen at its position, last seen at its latest member
+	// still held, Count the members still held, which falls as retention
+	// deletes runs. Last is zero when none is held.
+	//
+	// With neither, the incident stands for its own session alone.
+	FromRunCondition bool
+	// ErrorCode is the incident's error code, "" when it has none.
+	ErrorCode string
+}
+
+// readIncidentSpans reads the span of each incident of one list page.
+//
+// **A feed incident's span is its condition's**, read through the resolver
+// as get_incident's condition is: Count is the deliveries placed in this
+// incident (StandsFor), so a delivery placed in a later incident of the same
+// condition is not counted, and First and Last are the earliest and latest of
+// their arrivals, the session id read as a time, as the condition orders them.
+// A member with no arrival (an id that is not a time) is dated by when it was
+// first detected.
+//
+// **A run incident's span is its run condition's** (readRunSpans): First is
+// its stored position, the start time of the run it is written on, kept after
+// that run is deleted; Last is the start time of its latest member still held;
+// Count is the members still held, which falls as retention deletes runs.
+//
+// **Any other incident stands for one session**, and so does a run incident
+// written before run conditions, which carries no key: Count is 1, and First
+// and Last are that session's arrival, or the incident's detection time when
+// its session id is not a time. So every kind is dated by when the delivery or
+// the run happened, not by when triage got to it.
+//
+// The feed conditions are read with feedcondition.ResolveSessions: one
+// statement for the page's anomalies, and each feed once; the run conditions
+// with runcondition.Read, each key once.
+func readIncidentSpans(ctx context.Context, db pgxPool, incs []audit.IncidentSummary) (map[string]IncidentSpan, error) {
+	out := make(map[string]IncidentSpan, len(incs))
+	var places []feedcondition.SessionLocus
+	for _, inc := range incs {
+		if slices.Contains(triage.DeliveryLoci, inc.Locus) {
+			places = append(places, feedcondition.SessionLocus{Session: inc.SessionId, Locus: inc.Locus})
+		}
+	}
+	resolved := map[feedcondition.SessionLocus]feedcondition.Resolved{}
+	if len(places) > 0 {
+		var anomalies bool
+		if err := db.QueryRow(ctx, `SELECT to_regclass('jetsapi.anomaly') IS NOT NULL`).Scan(&anomalies); err != nil {
+			return nil, fmt.Errorf("while asking whether the anomaly table exists: %w", err)
+		}
+		if anomalies {
+			var err error
+			if resolved, err = feedcondition.ResolveSessions(ctx, db, places); err != nil {
+				return nil, err
+			}
+		}
+	}
+	runSpans, err := readRunSpans(ctx, db, incs)
+	if err != nil {
+		return nil, err
+	}
+	for _, inc := range incs {
+		own := inc.DetectedAt
+		if t, ok := triage.SessionArrival(inc.SessionId); ok {
+			own = t
+		}
+		span := IncidentSpan{First: own, Last: own, Count: 1}
+		if rs, ok := runSpans[inc.IncidentId]; ok {
+			if rs.FromRunCondition {
+				span = rs
+			} else {
+				span.ErrorCode = rs.ErrorCode
+			}
+		}
+		r := resolved[feedcondition.SessionLocus{Session: inc.SessionId, Locus: inc.Locus}]
+		if r.Feed != nil {
+			if c := triage.ConditionAt(r.Feed.Conditions, inc.SessionId, inc.Locus); c != nil {
+				var cs IncidentSpan
+				for _, m := range c.Members {
+					if _, in := placement(r.Feed, c, m.SessionId); in != inc.IncidentId {
+						continue
+					}
+					at := m.Arrival
+					if at.IsZero() {
+						at = m.FirstDetected
+					}
+					if cs.Count == 0 || at.Before(cs.First) {
+						cs.First = at
+					}
+					if cs.Count == 0 || at.After(cs.Last) {
+						cs.Last = at
+					}
+					cs.Count++
+				}
+				if cs.Count > 0 {
+					cs.FromCondition = true
+					span = cs
+				}
+			}
+		}
+		out[inc.IncidentId] = span
+	}
+	return out, nil
 }
 
 // conditionPayload is the condition as the incident screen reads it.
@@ -320,7 +476,7 @@ func findSessionIncidents(ctx context.Context, ops agenticOps, a *AgenticAction)
 	}
 	matches := make([]map[string]any, 0, len(r.Matches))
 	for _, m := range r.Matches {
-		matches = append(matches, map[string]any{
+		match := map[string]any{
 			"sessionId":         m.SessionId,
 			"locus":             m.Locus,
 			"how":               m.How,
@@ -330,7 +486,15 @@ func findSessionIncidents(ctx context.Context, ops agenticOps, a *AgenticAction)
 			"feed":              m.Feed,
 			"anchorSessionId":   m.AnchorSessionId,
 			"why":               m.Why,
-		})
+		}
+		// Only where set, so a feed's answer is as it was.
+		if m.ErrorCode != "" {
+			match["errorCode"] = m.ErrorCode
+		}
+		if m.Process != "" {
+			match["process"], match["client"] = m.Process, m.Client
+		}
+		matches = append(matches, match)
 	}
 	return &map[string]any{
 		"sessionId":     r.SessionId,

@@ -249,3 +249,16 @@
   gap: 0.4rem;
   align-items: center;
 }
+
+/* An error code: a fixed string from a rule or an operator, set in the code face
+   so it reads as an identifier rather than as a message. */
+.incident-code {
+  font-family: var(--mono);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.incident-list-code {
+  display: block;
+  margin-top: 4px;
+}

@@ -14,6 +14,10 @@
  * which derives the join with the resolver shadow triage writes by, and shows
  * each answer with the incident it names and the server's sentence for why.
  *
+ * A process that fails the same way run after run is a run condition in the same
+ * way: one incident, on its first run, and a later run of it has none of its
+ * own, so a run's session on Home finds its incident here too.
+ *
  * **It never works the join out itself.** Nothing records which incident a
  * delivery joined; a second reading of the rule here could disagree with the
  * writer's, and the page would then send a person to the wrong incident.
@@ -37,6 +41,7 @@ import {
 
 /** The words for how a session belongs to an incident. */
 function howText(m: SessionIncidentMatch): string {
+  if (m.process !== undefined && m.process !== "") return runHowText(m);
   switch (m.how) {
     case "own":
       return "its own incident";
@@ -46,6 +51,19 @@ function howText(m: SessionIncidentMatch): string {
       return m.anchorSessionId === m.sessionId
         ? `a finding of feed ${m.feed} whose incident is not raised yet; it will be written on this session`
         : `a finding of feed ${m.feed} whose condition has no incident yet; it will be written on its first delivery, session ${m.anchorSessionId}`;
+  }
+}
+
+/** The words for how a run belongs to a run condition's incident. */
+function runHowText(m: SessionIncidentMatch): string {
+  const of = `process ${m.process}'s run condition for client ${m.client}`;
+  switch (m.how) {
+    case "condition":
+      return `a later run of ${of}, whose incident is on session ${m.incidentSessionId}`;
+    default:
+      return m.anchorSessionId === m.sessionId
+        ? `a finding of ${of} whose incident is not raised yet; it will be written on this run`
+        : `a finding of ${of} whose condition has no incident yet; it will be written on its first run, session ${m.anchorSessionId}`;
   }
 }
 
@@ -127,7 +145,7 @@ export function SessionIncidentsScreen({ api }: { api: ApiClient }) {
             </div>
           ) : matches.length === 0 ? (
             <div className="empty">
-              <p>No incident is on this session, and no finding on it belongs to a feed condition's incident.</p>
+              <p>No incident is on this session, and no finding on it belongs to a feed's or a run condition's incident.</p>
               <p className="empty-sub">
                 Incidents are written by shadow triage, which runs where the detection task is deployed;
                 a session it has not reached has none yet.
@@ -153,6 +171,9 @@ export function SessionIncidentsScreen({ api }: { api: ApiClient }) {
                     <td>{m.sessionId}</td>
                     <td>
                       <span className="pill">{locusLabel(m.locus)}</span>
+                      {m.errorCode !== undefined && m.errorCode !== "" && (
+                        <code className="incident-code incident-list-code">{m.errorCode}</code>
+                      )}
                     </td>
                     <th scope="row">
                       {m.incidentId === "" ? (

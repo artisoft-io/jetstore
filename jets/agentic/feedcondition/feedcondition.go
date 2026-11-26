@@ -396,6 +396,19 @@ func ResolveSession(ctx context.Context, db observe.DB, session, locus string) (
 	if err != nil {
 		return Placement{}, nil, err
 	}
+	p, feed := placeByFeeds(session, locus, feedsAt(as, locus))
+	if feed == "" {
+		return p, nil, nil
+	}
+	f, err := Read(ctx, db, feed)
+	if err != nil {
+		return Placement{}, nil, err
+	}
+	return f.Resolve(session, locus), f, nil
+}
+
+// feedsAt names the feeds whose anomalies land at the locus, sorted.
+func feedsAt(as []observe.Anomaly, locus string) []string {
 	var feeds []string
 	for _, a := range as {
 		if l, ok := triage.LocusOf(a.SubjectType, a.SignalType); ok && l == locus && a.SubjectType == observe.SubjectFeed &&
@@ -404,22 +417,89 @@ func ResolveSession(ctx context.Context, db observe.DB, session, locus string) (
 		}
 	}
 	slices.Sort(feeds)
+	return feeds
+}
+
+// placeByFeeds is ResolveSession's rule for which feed's condition can hold a
+// session at a locus: exactly one feed, named in the second return. With none
+// or two, the placement is WriteHere and the feed is "".
+func placeByFeeds(session, locus string, feeds []string) (Placement, string) {
 	switch len(feeds) {
 	case 0:
 		return Placement{Kind: WriteHere, SessionId: session, Locus: locus, Anchor: session,
-			Why: "no feed anomaly on the session lands at this locus, so no feed's condition holds it"}, nil, nil
+			Why: "no feed anomaly on the session lands at this locus, so no feed's condition holds it"}, ""
 	case 1:
+		return Placement{}, feeds[0]
 	default:
 		return Placement{Kind: WriteHere, SessionId: session, Locus: locus, Anchor: session,
 			Why: fmt.Sprintf("the session carries findings of %d feeds at this locus (%s), and one incident keyed "+
 				"on the session and the locus cannot sit in two feeds' conditions, so it is written here",
-				len(feeds), strings.Join(feeds, ", "))}, nil, nil
+				len(feeds), strings.Join(feeds, ", "))}, ""
 	}
-	f, err := Read(ctx, db, feeds[0])
+}
+
+// SessionLocus names a finding's place: a session and a delivery locus.
+type SessionLocus struct{ Session, Locus string }
+
+// Resolved is ResolveSession's answer for one SessionLocus: the placement, and
+// the feed whose condition holds it, nil when none does.
+type Resolved struct {
+	Placement Placement
+	Feed      *Feed
+}
+
+// ResolveSessions is ResolveSession for many places at once, by the same rule,
+// for a list that shows one row per incident: it reads the anomalies of every
+// session in one statement and each feed once, however many of the places it
+// holds. It writes nothing.
+func ResolveSessions(ctx context.Context, db observe.DB, places []SessionLocus) (map[SessionLocus]Resolved, error) {
+	out := make(map[SessionLocus]Resolved, len(places))
+	if len(places) == 0 {
+		return out, nil
+	}
+	sessions := make([]string, 0, len(places))
+	for _, pl := range places {
+		if !slices.Contains(sessions, pl.Session) {
+			sessions = append(sessions, pl.Session)
+		}
+	}
+	rows, err := db.Query(ctx, `SELECT DISTINCT anomaly_session_id, anomaly_subject_type, anomaly_subject_ref,
+	       anomaly_signal_type
+	  FROM jetsapi.anomaly
+	 WHERE anomaly_session_id = ANY($1::text[]) AND anomaly_subject_type = $2`, sessions, observe.SubjectFeed)
 	if err != nil {
-		return Placement{}, nil, err
+		return nil, fmt.Errorf("while reading the feed anomalies of %d sessions: %w", len(sessions), err)
 	}
-	return f.Resolve(session, locus), f, nil
+	bySession := map[string][]observe.Anomaly{}
+	for rows.Next() {
+		var a observe.Anomaly
+		if err := rows.Scan(&a.SessionId, &a.SubjectType, &a.SubjectRef, &a.SignalType); err != nil {
+			rows.Close()
+			return nil, fmt.Errorf("while scanning a feed anomaly: %w", err)
+		}
+		bySession[a.SessionId] = append(bySession[a.SessionId], a)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("while reading the feed anomalies of %d sessions: %w", len(sessions), err)
+	}
+	feeds := map[string]*Feed{}
+	for _, pl := range places {
+		p, name := placeByFeeds(pl.Session, pl.Locus, feedsAt(bySession[pl.Session], pl.Locus))
+		if name == "" {
+			out[pl] = Resolved{Placement: p}
+			continue
+		}
+		f, ok := feeds[name]
+		if !ok {
+			if f, err = Read(ctx, db, name); err != nil {
+				return nil, err
+			}
+			feeds[name] = f
+		}
+		out[pl] = Resolved{Placement: f.Resolve(pl.Session, pl.Locus), Feed: f}
+	}
+	return out, nil
 }
 
 // ReadAll computes the conditions of the named feeds, or of every feed

@@ -216,6 +216,24 @@ type Finding struct {
 	// ClassifierRef names the classifier and its generation, so two generations
 	// are told apart the way two detector generations are.
 	ClassifierRef string
+
+	// Codes are, at locus per_record_failures_reported only, the run's
+	// process_errors rows grouped by error code, each with its stored rows, its
+	// threshold and whether it reports (CodeCount). The finding stays one per
+	// locus: it is present when any code reports, and a writer that keys
+	// incidents by code splits it by Reporting. Nil at every other locus.
+	Codes []CodeCount
+}
+
+// Reporting returns the codes that report, in Codes's order.
+func (f *Finding) Reporting() []CodeCount {
+	var out []CodeCount
+	for _, c := range f.Codes {
+		if c.Reports() {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 // Fired reports whether this finding is a hit.

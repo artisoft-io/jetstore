@@ -135,3 +135,23 @@ Anyone querying this table by hand should use the query the code uses.
 the next start until something else records it, which is why both migration paths must
 be idempotent rather than merely correct.
 
+## A compile from the IDE checks the error code catalogue, and never fails on it
+
+*2026-11-25.* While each main rule file compiles, the compile lists every consequent that asserts
+`jets:exception`, with its rule, its file and its message's literal head (the literal, a named text
+constant's value, or the literals that start a `+` chain up to its first value; `ExceptionRaises`).
+**After the base init that follows a successful compile**, the IDE's compile action compares them with
+`jetsapi.error_code_catalogue` and writes to the compile log (`CheckErrorCodeCatalogue`):
+
+- each raise head no row matches, and a ready `INSERT` block for them, to review and add to the
+  workspace's base init script;
+- each `rules` row no raise matches;
+- each threshold above the 20 rows one operator instance stores by default, which only a run with
+  several instances (workers or nodes) can reach;
+- two codes that share an identifier (`errorcode.Slug`), and malformed rows.
+
+It runs after the base init rather than inside the compile because the base init is what loads the
+rows from the base script, so the check reads the rows this compile goes with. It never writes the
+table and never fails the compile: a database not yet migrated to the table is one line of the log.
+The other compiles (at the apiserver's start, in the image build, before a report) do not run it.
+See [Design of the system tables](/docs/developer/workspace/system-tables/).

@@ -28,11 +28,14 @@
  * and the default should be what awaits a decision.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Link } from "react-router-dom";
 
 import { SessionExpiredError, type ApiClient } from "../api/client";
+import { Pager, showsPager, usePaging } from "../datatable/Pager";
+import { lastPageIndex } from "../datatable/model";
 import { useNotifications } from "../shell/notifications";
+import { selectedClient, subscribeToClient } from "../shell/selectedClient";
 import "./proposals.css";
 import {
   AGENT_SUPERVISION,
@@ -77,6 +80,9 @@ const OPEN_STATES = [
 
 type Filter = "pending" | "open" | "all";
 
+/** The page sizes offered, the first being where the list starts; paged on the server. */
+export const PROPOSAL_PAGE_SIZES = [50, 100, 150] as const;
+
 /** What the server is asked for, per filter. `all` sends none and means all. */
 const STATES_FOR: Record<Filter, string[]> = {
   pending: PENDING_STATES,
@@ -96,6 +102,16 @@ export function ProposalsScreen({ api }: { api: ApiClient }) {
 
   const [filter, setFilter] = useState<Filter>("pending");
   const [rows, setRows] = useState<ProposalRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const paging = usePaging(PROPOSAL_PAGE_SIZES);
+  // The shell's client filter. A proposal has the client of the incident it
+  // names; one an authoring run produced has none, and is shown only when no
+  // client is selected.
+  const client = useSyncExternalStore(subscribeToClient, selectedClient) ?? "";
+  const { page, rowsPerPage, offset, setPage } = paging;
+  useEffect(() => setPage(0), [filter, client, setPage]);
+  // Only the latest read is shown, as on the Incidents screen.
+  const latest = useRef(0);
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
@@ -113,19 +129,29 @@ export function ProposalsScreen({ api }: { api: ApiClient }) {
       return;
     }
     setBusy(true);
+    const ticket = ++latest.current;
     try {
-      setRows(await proposals.list(STATES_FOR[filter]));
+      const list = await proposals.list(STATES_FOR[filter], { limit: rowsPerPage, offset, client });
+      if (ticket !== latest.current) return;
+      if (list.proposals.length === 0 && page > 0 && list.total > 0) {
+        setPage(lastPageIndex(list.total, rowsPerPage));
+        return;
+      }
+      setRows(list.proposals);
+      setTotal(list.total);
       setLoaded(true);
     } catch (err) {
+      if (ticket !== latest.current) return;
       if (!(err instanceof SessionExpiredError)) {
         setError(err instanceof Error ? err.message : String(err));
       }
       setRows([]);
+      setTotal(0);
       setLoaded(true);
     } finally {
-      setBusy(false);
+      if (ticket === latest.current) setBusy(false);
     }
-  }, [proposals, filter, canSupervise, setError]);
+  }, [proposals, filter, canSupervise, setError, rowsPerPage, offset, client, page, setPage]);
 
   useEffect(() => {
     void load();
@@ -179,6 +205,8 @@ export function ProposalsScreen({ api }: { api: ApiClient }) {
               <thead>
                 <tr>
                   <th scope="col">Proposal</th>
+                  <th scope="col">Client</th>
+                  <th scope="col">Object type</th>
                   <th scope="col">State</th>
                   <th scope="col">Trigger</th>
                   <th scope="col">Tests</th>
@@ -197,6 +225,8 @@ export function ProposalsScreen({ api }: { api: ApiClient }) {
                         </span>
                       )}
                     </th>
+                    <td>{r.client}</td>
+                    <td>{r.objectType}</td>
                     <td>
                       <span className="pill">{stateLabel(r.approvalState)}</span>
                       {r.transitions.length === 0 && (
@@ -226,6 +256,17 @@ export function ProposalsScreen({ api }: { api: ApiClient }) {
                 ))}
               </tbody>
             </table>
+          )}
+          {showsPager(paging, total) && (
+            <Pager
+              page={page}
+              rowsPerPage={rowsPerPage}
+              sizes={paging.sizes}
+              totalRowCount={total}
+              rowsOnPage={rows.length}
+              onPage={setPage}
+              onRowsPerPage={paging.setRowsPerPage}
+            />
           )}
         </main>
       </div>

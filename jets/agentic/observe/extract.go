@@ -68,27 +68,33 @@ func (w Window) until() time.Time {
 // with no default (DoPurgeSessions, jets/purge_database/delegate/delegate.go:49):
 // unset, the purge deletes nothing, and unless PURGE_DRY_RUN is exactly "false"
 // it only reports. So which regime a deployment is in is read off the
-// deployment, not off this repository. Regime compares the oldest worker row
-// with the oldest header in the history:
+// deployment, not off this repository. Regime reads it off the keys that
+// join a worker row to its header, not off timestamps: a run's header is
+// written when the run is submitted and its first worker row later, so the
+// oldest header in a live, aligned record is always older than the oldest
+// worker row, and a comparison of the two times cannot tell that record from
+// one whose detail has gone.
 //
-//   - header-outlives-detail is what a live record reads as, because a run's
-//     header is written when the run is submitted and its first worker row
-//     later, and Regime compares the two exact timestamps. Beyond that, the
-//     history holds headers with no worker row where RETENTION_DAYS is below
-//     180 (the archive keeps a session deleted for retention until its runs
-//     are 180 days old) and, at any RETENTION_DAYS, for every session a user
-//     deleted. The second kind lies inside the window rather than at its start,
-//     so the two oldest timestamps cannot show it; Archived counts it.
-//   - aligned is the two oldest timestamps equal. Where RETENTION_DAYS is 180
-//     or more, the purge run that archives a session past retention also
-//     purges the archived runs older than 180 days, so the archive keeps
-//     nothing older than the live record and the record is aligned in all but
-//     the minutes above.
-//   - detail-outlives-header is a legacy of the purge before the session purge,
-//     which deleted every header at six months while the worker rows followed
-//     RETENTION_DAYS. Those headers were deleted, not archived. The worker
-//     rows they left drain as their sessions reach RETENTION_DAYS, and never
-//     at a site whose purge has not run for real.
+//   - header-outlives-detail is a header older than the oldest worker row with
+//     no worker row of its own (BareHeaders). The history holds such headers
+//     where RETENTION_DAYS is below 180 (the archive keeps a session deleted
+//     for retention until its runs are 180 days old) and, at any
+//     RETENTION_DAYS, for every session a user deleted. The second kind lies
+//     inside the window rather than at its start, so it is not counted here;
+//     Archived counts it.
+//   - detail-outlives-header is a worker row whose header is in neither the
+//     live table nor the archive (HeaderlessWorkers). It is a legacy of the
+//     purge before the session purge, which deleted every header at six
+//     months while the worker rows followed RETENTION_DAYS. Those headers were
+//     deleted, not archived. The worker rows they left drain as their sessions
+//     reach RETENTION_DAYS, and never at a site whose purge has not run for
+//     real.
+//   - mixed is both at once: a site with the legacy rows still draining whose
+//     archive also keeps runs older than its worker record.
+//   - aligned is neither. Where RETENTION_DAYS is 180 or more, the purge run
+//     that archives a session past retention also purges the archived runs
+//     older than 180 days, so the archive keeps nothing older than the live
+//     record.
 type Extent struct {
 	// Headers counts the run headers in the record: the live table's and, where
 	// the history view exists, the archive's. OldestHeader is the earliest
@@ -106,6 +112,14 @@ type Extent struct {
 	// cannot see it, and a baseline that should have held it is shorter than
 	// its window says. Zero where History is false.
 	Archived int64
+
+	// HeaderlessWorkers counts the worker rows whose run header is in neither
+	// the live table nor the archive (the live table alone where History is
+	// false). BareHeaders counts the headers in the record that are older than
+	// the oldest worker row and have no worker row of their own. Regime is
+	// read from these two, by key; see Extent.
+	HeaderlessWorkers int64
+	BareHeaders       int64
 
 	// ExecutionRecord reports whether jetsapi.pipeline_execution_status and
 	// jetsapi.pipeline_execution_details both exist. When it is false the three
@@ -132,18 +146,20 @@ type Extent struct {
 	Anomalies bool
 }
 
-// Regime names which of the three regimes the deployment is in, from the two
-// oldest timestamps; see Extent. It is a description rather than a setting:
-// nothing here can read RETENTION_DAYS, which lives in the purge lambda's
-// environment.
+// Regime names which regime the deployment is in, from the keys that join a
+// worker row to its header; see Extent. It is a description rather than a
+// setting: nothing here can read RETENTION_DAYS, which lives in the purge
+// lambda's environment.
 func (e *Extent) Regime() string {
 	switch {
 	case e.OldestWorker.IsZero() || e.OldestHeader.IsZero():
 		return "unknown"
-	case e.OldestWorker.Before(e.OldestHeader):
+	case e.HeaderlessWorkers > 0 && e.BareHeaders > 0:
+		return "mixed"
+	case e.HeaderlessWorkers > 0:
 		// Detail outlives its header: a join from detail to header drops rows.
 		return "detail-outlives-header"
-	case e.OldestWorker.After(e.OldestHeader):
+	case e.BareHeaders > 0:
 		// Headers outlive their detail: a run with zero detail rows is not a
 		// run that produced nothing.
 		return "header-outlives-detail"
@@ -163,19 +179,36 @@ const tablesSQL = `SELECT
   to_regclass('jetsapi.anomaly') IS NOT NULL,
   to_regclass('jetsapi.pipeline_execution_history') IS NOT NULL`
 
-// extentSQL is for a database that predates the archive.
+// extentSQL is for a database that predates the archive. The last two
+// columns are HeaderlessWorkers and BareHeaders; both anti-joins are on
+// indexed keys (the header's primary key, and
+// pipeline_execution_details_pipeline_execution_status_key_idx).
 const extentSQL = `SELECT
   (SELECT count(*) FROM jetsapi.pipeline_execution_status),
   0::bigint,
   (SELECT min(start_time) FROM jetsapi.pipeline_execution_status),
-  (SELECT min(start_time) FROM jetsapi.pipeline_execution_details)`
+  (SELECT min(start_time) FROM jetsapi.pipeline_execution_details),
+  (SELECT count(*) FROM jetsapi.pipeline_execution_details d
+    WHERE NOT EXISTS (SELECT 1 FROM jetsapi.pipeline_execution_status h
+                       WHERE h.key = d.pipeline_execution_status_key)),
+  (SELECT count(*) FROM jetsapi.pipeline_execution_status h
+    WHERE h.start_time < (SELECT min(start_time) FROM jetsapi.pipeline_execution_details)
+      AND NOT EXISTS (SELECT 1 FROM jetsapi.pipeline_execution_details d
+                       WHERE d.pipeline_execution_status_key = h.key))`
 
 // extentHistorySQL counts the headers in the history, live and archived.
 const extentHistorySQL = `SELECT
   (SELECT count(*) FROM jetsapi.pipeline_execution_history),
   (SELECT count(*) FROM jetsapi.pipeline_execution_history WHERE archived_at IS NOT NULL),
   (SELECT min(start_time) FROM jetsapi.pipeline_execution_history),
-  (SELECT min(start_time) FROM jetsapi.pipeline_execution_details)`
+  (SELECT min(start_time) FROM jetsapi.pipeline_execution_details),
+  (SELECT count(*) FROM jetsapi.pipeline_execution_details d
+    WHERE NOT EXISTS (SELECT 1 FROM jetsapi.pipeline_execution_history h
+                       WHERE h.key = d.pipeline_execution_status_key)),
+  (SELECT count(*) FROM jetsapi.pipeline_execution_history h
+    WHERE h.start_time < (SELECT min(start_time) FROM jetsapi.pipeline_execution_details)
+      AND NOT EXISTS (SELECT 1 FROM jetsapi.pipeline_execution_details d
+                       WHERE d.pipeline_execution_status_key = h.key))`
 
 // ReadExtent reports which of the tables exist and what the deployment's
 // retention has left of the record. The two questions are two statements
@@ -195,7 +228,8 @@ func ReadExtent(ctx context.Context, db DB) (*Extent, error) {
 		stmt = extentHistorySQL
 	}
 	var oldestHeader, oldestWorker *time.Time
-	err := db.QueryRow(ctx, stmt).Scan(&e.Headers, &e.Archived, &oldestHeader, &oldestWorker)
+	err := db.QueryRow(ctx, stmt).Scan(&e.Headers, &e.Archived, &oldestHeader, &oldestWorker,
+		&e.HeaderlessWorkers, &e.BareHeaders)
 	if err != nil {
 		return nil, fmt.Errorf("while reading the execution record's extent: %w", err)
 	}

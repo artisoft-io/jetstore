@@ -263,6 +263,11 @@ type IncidentSummary struct {
 	Confounders     []string
 	ModelVersion    string
 	HypothesisCount int
+	// Client and ObjectType are the registration of the incident's session,
+	// "" when nothing registered it or the registration has been purged.
+	// Only the paged list reads them (ListIncidentPage); see listing.go.
+	Client     string
+	ObjectType string
 }
 
 // Incident is one incident with its ranked hypotheses, which is how a human reads
@@ -272,9 +277,9 @@ type Incident struct {
 	Hypotheses []Hypothesis
 }
 
-// maxIncidentPage bounds a list, on ListProposals's argument: it is a ceiling on
-// a screen meant to be worked through rather than a paging cursor, and a
-// deployment that reaches it has a triage problem rather than a paging problem.
+// maxIncidentPage bounds one page of the incident list, on maxProposalPage's
+// terms: the screen pages by offset (ListIncidentPage), and this is the ceiling
+// on a page.
 const maxIncidentPage = 500
 
 // ErrNoIncident is returned when no such incident exists — a stale link or a
@@ -323,48 +328,8 @@ func notDeployed(err error) error {
 // has checked at the bottom. Detection time is the only column here that no agent
 // judges.
 func ListIncidents(ctx context.Context, db Querier, statuses []string, limit int) ([]IncidentSummary, error) {
-	if limit <= 0 || limit > maxIncidentPage {
-		limit = maxIncidentPage
-	}
-	for _, s := range statuses {
-		if !KnownIncidentStatus(s) {
-			return nil, fmt.Errorf("%q is not an incident status; the vocabulary is IncidentStatus's eleven", s)
-		}
-	}
-	rows, err := db.Query(ctx,
-		`SELECT i.incident_id, i.incident_session_id, coalesce(i.incident_run_ref, ''),
-		        i.incident_detected_at,
-		        i.incident_locus, coalesce(i.classification, ''), i.severity, i.status,
-		        coalesce(i.incident_step_ref, ''), i.incident_shard_ref,
-		        i.incident_confounders, i.incident_model_version,
-		        coalesce(h.n, 0)
-		   FROM jetsapi.incident i
-		   LEFT JOIN (
-		         SELECT hypothesis_incident_ref, count(*) AS n
-		           FROM jetsapi.hypothesis
-		          GROUP BY hypothesis_incident_ref) h
-		     ON h.hypothesis_incident_ref = i.incident_id
-		  WHERE cardinality($1::text[]) = 0 OR i.status = ANY($1::text[])
-		  ORDER BY i.incident_detected_at DESC, i.incident_id
-		  LIMIT $2`, nonNil(statuses), limit)
-	if err != nil {
-		return nil, fmt.Errorf("while listing incidents: %w", notDeployed(err))
-	}
-	defer rows.Close()
-	var out []IncidentSummary
-	for rows.Next() {
-		var s IncidentSummary
-		if err := rows.Scan(&s.IncidentId, &s.SessionId, &s.RunRef, &s.DetectedAt, &s.Locus,
-			&s.Classification, &s.Severity, &s.Status, &s.StepRef, &s.ShardRef,
-			&s.Confounders, &s.ModelVersion, &s.HypothesisCount); err != nil {
-			return nil, fmt.Errorf("while scanning an incident summary: %w", err)
-		}
-		out = append(out, s)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("while listing incidents: %w", notDeployed(err))
-	}
-	return out, nil
+	rows, _, err := ListIncidentPage(ctx, db, statuses, ListPage{Limit: limit})
+	return rows, err
 }
 
 // IncidentsOnSessions returns the incidents written on the given sessions, at

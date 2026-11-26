@@ -39,6 +39,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiClient } from "../api/client";
 import { ApiProvider } from "../shell/capabilities";
 import { NotificationsProvider, useNotifications } from "../shell/notifications";
+import { resetSelectedClient, setSelectedClient } from "../shell/selectedClient";
 import { IncidentScreen } from "./IncidentScreen";
 import { IncidentsScreen } from "./IncidentsScreen";
 import { SessionIncidentsScreen } from "./SessionIncidentsScreen";
@@ -274,6 +275,65 @@ describe("the incident list", () => {
     renderAt(api, "/incidents");
     await screen.findByText("The incident tables are not installed in this database.");
     expect(screen.getByText(/update_db -migrateDb/)).toBeTruthy();
+  });
+});
+
+// The list is paged on the server and carries the shell's client filter, and
+// each row says what it stands for: a feed incident's condition, counted and
+// dated by its deliveries.
+describe("the incident list's pages, client and span", () => {
+  afterEach(resetSelectedClient);
+
+  const listed = (i: number) => ({
+    ...triagedRow,
+    incidentId: `inc_${i}`,
+    client: "client_a",
+    objectType: "MedicalClaim",
+    firstSeen: "2026-08-01T00:00:00Z",
+    lastSeen: "2026-09-01T00:00:00Z",
+    count: 5,
+    fromCondition: true,
+  });
+  const pageOf = (req: Record<string, unknown>) => {
+    const limit = Number(req["limit"]);
+    const offset = Number(req["offset"]);
+    const rows = Array.from({ length: Math.max(0, Math.min(limit, 120 - offset)) }, (_, k) => listed(offset + k));
+    return { body: { incidents: rows, total: 120, ...vocabularies } };
+  };
+
+  it("starts at 50 rows, offers 50, 100 and 150, and asks the server for each page", async () => {
+    const { api, sent } = await clientWith({ list_incidents: pageOf });
+    renderAt(api, "/incidents");
+    await screen.findByRole("link", { name: "inc_0" });
+    expect(sent[sent.length - 1]).toMatchObject({ limit: 50, offset: 0, client: "" });
+    const size = screen.getByLabelText("Rows per page") as HTMLSelectElement;
+    expect([...size.options].map((o) => o.value)).toEqual(["50", "100", "150"]);
+    expect(screen.getByText("1–50 of 120")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    await screen.findByRole("link", { name: "inc_50" });
+    expect(sent[sent.length - 1]).toMatchObject({ limit: 50, offset: 50 });
+
+    fireEvent.change(size, { target: { value: "150" } });
+    await screen.findByText("1–120 of 120");
+    expect(sent[sent.length - 1]).toMatchObject({ limit: 150, offset: 0 });
+  });
+
+  it("sends the shell's client and shows each row's client, object type and span", async () => {
+    setSelectedClient("client_a");
+    const { api, sent } = await clientWith({ list_incidents: pageOf });
+    const { container } = renderAt(api, "/incidents");
+    await screen.findByRole("link", { name: "inc_0" });
+    expect(sent.every((r) => r["client"] === "client_a")).toBe(true);
+    const headers = [...container.querySelectorAll("thead th")].map((th) => th.textContent);
+    for (const h of ["Client", "Object type", "First seen", "Last seen", "Count"]) {
+      expect(headers).toContain(h);
+    }
+    const row = screen.getByRole("link", { name: "inc_0" }).closest("tr")!;
+    const cells = [...row.querySelectorAll("td")].map((td) => td.textContent);
+    expect(cells).toEqual(
+      expect.arrayContaining(["client_a", "MedicalClaim", "2026-08-01T00:00:00Z", "2026-09-01T00:00:00Z", "5"]),
+    );
   });
 });
 
@@ -1003,5 +1063,155 @@ describe("a grouped delivery and its condition's incident", () => {
     renderAt(run.api, "/incidents/inc_1");
     await screen.findByRole("heading", { name: "inc_1" });
     expect(screen.queryByRole("heading", { name: "Condition" })).toBeNull();
+  });
+});
+
+describe("a run condition and a per-record failure's codes", () => {
+  const perRecordIncident = "inc_run-1_per_record_failures_reported_value_is_not_numeric";
+  const code = "value is not numeric";
+  const runCondition = {
+    client: "client_a",
+    process: "loader",
+    locus: "per_record_failures_reported",
+    errorCode: code,
+    firstSeen: "2026-06-01T00:00:00Z",
+    lastSeen: "2026-06-03T00:00:00Z",
+    runsHeld: 2,
+    conditionRuns: 3,
+    ownRunHeld: false,
+    open: true,
+    endedBy: "",
+    runs: [
+      { sessionId: "run-2", startTime: "2026-06-02T00:00:00Z", storedRows: 20 },
+      { sessionId: "run-3", startTime: "2026-06-03T00:00:00Z", storedRows: 4 },
+    ],
+  };
+  const perRecord = {
+    ...detail,
+    incidentId: perRecordIncident,
+    sessionId: "run-1",
+    locus: "per_record_failures_reported",
+    errorCode: code,
+    codes: [
+      { code, verdict: "present", storedRows: 20 },
+      { code: "map_record: error mapping column", verdict: "quiet", storedRows: 1 },
+    ],
+    runCondition,
+  };
+
+  it("names the code and the counts as a lower bound, shows no message, and links to the process errors", async () => {
+    const { api } = await clientWith({ get_incident: { body: { ...disclosed, incident: perRecord } } });
+    const { container } = renderAt(api, `/incidents/${perRecordIncident}`);
+    await screen.findByRole("heading", { name: "Run condition" });
+    expect(screen.getByText("Error code").nextElementSibling!.textContent).toContain(code);
+    const codes = container.querySelector("table.run-codes")!;
+    const rows = [...codes.querySelectorAll("tbody tr")].map((tr) =>
+      [...tr.querySelectorAll("td")].map((td) => td.textContent),
+    );
+    expect(rows).toEqual([
+      [code, "20", "yes"],
+      ["map_record: error mapping column", "1", "no: below its threshold, or a debug code"],
+    ]);
+    expect(screen.getByText(/Rows stored, a lower bound/)).toBeTruthy();
+    const link = screen.getByRole("link", { name: "View the session's process errors" });
+    expect(link.getAttribute("href")).toBe("/processErrors/run-1");
+    expect(screen.getByText(/This page shows no message/)).toBeTruthy();
+  });
+
+  it("shows the run condition's span, says the count is of runs still held, and links each run", async () => {
+    const { api } = await clientWith({ get_incident: { body: { ...disclosed, incident: perRecord } } });
+    const { container } = renderAt(api, `/incidents/${perRecordIncident}`);
+    const section = (await screen.findByRole("heading", { name: "Run condition" })).parentElement!;
+    expect(section.textContent).toMatch(
+      /Process loader for client client_a, error code value is not numeric: this incident stands for 2 runs still held, first seen 2026-06-01T00:00:00Z, last seen 2026-06-03T00:00:00Z\./,
+    );
+    expect(section.textContent).toMatch(/The count is of runs still held: it falls as retention deletes runs/);
+    expect(section.textContent).toMatch(/which has been deleted/);
+    expect(section.textContent).toMatch(/^.*Open: no later run of the process has this finding absent/);
+    expect(section.textContent).toMatch(/1 later run of the condition is placed in a later incident/);
+    const runs = container.querySelector("table.condition-runs")!;
+    expect(runs.querySelectorAll("tbody tr")).toHaveLength(2);
+    expect(screen.getByRole("link", { name: "run-2" }).getAttribute("href")).toBe("/incidents/session/run-2");
+    expect(screen.getByRole("link", { name: "Process errors of session run-3" }).getAttribute("href")).toBe(
+      "/processErrors/run-3",
+    );
+  });
+
+  it("says why a run incident has no run condition, or that it could not be read", async () => {
+    const note = await clientWith({
+      get_incident: { body: { ...disclosed, incident: { ...detail, runConditionNote: "it was written before" } } },
+    });
+    renderAt(note.api, "/incidents/inc_1");
+    await screen.findByRole("heading", { name: "Run condition" });
+    expect(screen.getByText(/No run condition holds this incident: it was written before/)).toBeTruthy();
+    // A worker_failed incident names no code and links to no process errors.
+    expect(screen.queryByText("Error code")).toBeNull();
+    expect(screen.queryByRole("link", { name: "View the session's process errors" })).toBeNull();
+    cleanup();
+
+    const failed = await clientWith({
+      get_incident: { body: { ...disclosed, incident: { ...detail, runConditionError: "no table" } } },
+    });
+    renderAt(failed.api, "/incidents/inc_1");
+    expect(await screen.findByText(/The run condition could not be read: no table/)).toBeTruthy();
+  });
+
+  it("shows the code beside the locus on the list, and what a run condition's count is of", async () => {
+    const row = {
+      ...triagedRow,
+      incidentId: perRecordIncident,
+      locus: "per_record_failures_reported",
+      errorCode: code,
+      client: "client_a",
+      objectType: "Claim",
+      firstSeen: "2026-06-01T00:00:00Z",
+      lastSeen: "",
+      count: 0,
+      fromCondition: false,
+      fromRunCondition: true,
+    };
+    const { api } = await clientWith({ list_incidents: { body: { incidents: [row, triagedRow], total: 2, ...vocabularies } } });
+    renderAt(api, "/incidents");
+    const tr = (await screen.findByRole("link", { name: perRecordIncident })).closest("tr")!;
+    const cells = [...tr.querySelectorAll("td")];
+    const locus = cells.find((td) => td.textContent?.includes("Per record failures reported"))!;
+    expect(locus.querySelector("code")!.textContent).toBe(code);
+    expect(cells.some((td) => td.textContent === "no run held")).toBe(true);
+    expect(cells.find((td) => td.textContent === "0")!.getAttribute("title")).toMatch(/still held/);
+    const other = screen.getByRole("link", { name: "inc_1" }).closest("tr")!;
+    expect(other.querySelector("code.incident-code")).toBeNull();
+  });
+
+  it("says a later run belongs to its run condition's incident", async () => {
+    const { api } = await clientWith({
+      find_session_incidents: {
+        body: {
+          sessionId: "run-2",
+          inputSessions: [],
+          matches: [
+            {
+              sessionId: "run-2",
+              locus: "per_record_failures_reported",
+              how: "condition",
+              incidentId: perRecordIncident,
+              incidentSessionId: "run-1",
+              status: "diagnosed",
+              feed: "",
+              anchorSessionId: "",
+              why: `it joins incident ${perRecordIncident}`,
+              errorCode: code,
+              process: "loader",
+              client: "client_a",
+            },
+          ],
+        },
+      },
+    });
+    renderAt(api, "/incidents/session/run-2");
+    expect(await screen.findByRole("link", { name: perRecordIncident })).toBeTruthy();
+    expect(
+      screen.getByText(/a later run of process loader's run condition for client client_a, whose incident is on session run-1/),
+    ).toBeTruthy();
+    expect(screen.getByText(code)).toBeTruthy();
   });
 });

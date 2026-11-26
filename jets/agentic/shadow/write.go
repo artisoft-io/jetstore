@@ -6,13 +6,16 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/agentic/audit"
 	"github.com/artisoft-io/jetstore/jets/agentic/feedcondition"
 	"github.com/artisoft-io/jetstore/jets/agentic/observe"
 	"github.com/artisoft-io/jetstore/jets/agentic/rca"
+	"github.com/artisoft-io/jetstore/jets/agentic/runcondition"
 	"github.com/artisoft-io/jetstore/jets/agentic/triage"
+	"github.com/artisoft-io/jetstore/jets/errorcode"
 )
 
 // Writer runs triage and RCA over one session and writes what they concluded.
@@ -115,6 +118,9 @@ type IncidentWritten struct {
 	// condition's first delivery.
 	SessionId string
 	Locus     string
+	// ErrorCode is the error code the incident is for, at
+	// per_record_failures_reported, and "" elsewhere.
+	ErrorCode string
 	// Status is where the incident was left: `triaged` when the ranker produced
 	// no hypothesis for the locus, `diagnosed` when it did. **Never anything
 	// else** — see ShadowStatuses.
@@ -147,11 +153,18 @@ type SessionResult struct {
 	// AlreadyRaised are the fired loci this session already had an incident for.
 	// **This is the add-never-retract rule in one field** — see Run.
 	AlreadyRaised []string
-	// Grouped are the fired delivery loci written as no incident here, because
-	// the finding belongs to a feed condition whose incident is on another
-	// delivery: "<locus> (into <incident id>)". Nothing records the join; it
-	// is derived again on every read (the feedcondition package).
+	// Grouped are the fired loci written as no incident here, because the
+	// finding belongs to a condition whose incident is on another session: a
+	// feed condition's, "<locus> (into <incident id>)", or a run condition's,
+	// "<locus> [<code>] (into <incident id>)" with the code at
+	// per_record_failures_reported only. Nothing records the join; it is
+	// derived again on every read (the feedcondition and runcondition
+	// packages).
 	Grouped []string
+	// RunFindings is how many jetsapi.run_finding rows this call stored or
+	// upgraded: the verdict of every run locus, and of every error code, of a
+	// session with a live run header. Zero for a dry run.
+	RunFindings int
 	// UnmappedLoci are the fired loci the gate's table maps to no cause class, so
 	// the incident is written and carries no hypothesis. Two of the nine are
 	// permanently in this state.
@@ -212,6 +225,21 @@ type SessionResult struct {
 // not depend on which of the condition's deliveries a run's window selects.
 // After a person's verdict on a condition's incident, a finding detected later
 // is new evidence and is written on its own delivery, naming the judged one.
+//
+// # A run finding is written on its run condition's incident
+//
+// Every run locus's verdict for the session, and every error code's at
+// per_record_failures_reported, is stored first (jetsapi.run_finding, added
+// and upgraded and never retracted), because a run condition ends only at a
+// run whose verdict is absent and nothing else records one. A present finding
+// at a run locus belongs to a run condition: the consecutive live runs of the
+// session's process for its client with that finding, a code being a key of
+// its own. It is placed as a feed finding is, by the runcondition package: one
+// incident per condition, on its first run, carrying the condition's key and
+// that run's start time so it is found after the run is deleted; later runs
+// join it; a finding stored after a person's verdict opens a new incident. A
+// per-record finding is one incident per reporting code, with the code's slug
+// in its id (IncidentIdForCode).
 func (w *Writer) Run(ctx context.Context, db DB, sessionId string) (*SessionResult, error) {
 	if sessionId == "" {
 		return nil, errors.New("cannot classify without a session id: an incident cannot be keyed below the session")
@@ -232,14 +260,14 @@ func (w *Writer) Run(ctx context.Context, db DB, sessionId string) (*SessionResu
 	if err != nil {
 		return nil, err
 	}
-	if !w.DryRun && !targets.Ready() {
+	if !w.DryRun && (!targets.Ready() || !targets.RunFinding) {
 		return nil, fmt.Errorf("shadow mode has nowhere to write: %v absent from this database. "+
 			"They are created by `update_db -migrateDb`, which calls audit.InstallSchema "+
 			"(jets/update_db/main.go:71) — the same run that installs jetsapi.anomaly",
 			targets.Missing())
 	}
 
-	_, report, ranking, anomalies, err := w.classify(ctx, db, sessionId)
+	ev, report, ranking, anomalies, err := w.classify(ctx, db, sessionId)
 	if err != nil {
 		return nil, err
 	}
@@ -252,10 +280,22 @@ func (w *Writer) Run(ctx context.Context, db DB, sessionId string) (*SessionResu
 		UnmappedLoci: ranking.UnmappedLoci,
 	}
 
-	existing := map[string]string{}
+	existing := raised{}
 	if targets.Incident {
 		if existing, err = raisedLoci(ctx, db, sessionId); err != nil {
 			return nil, err
+		}
+	}
+
+	// Every run locus's verdict is stored before any finding is placed, so the
+	// session is a position of its own conditions when they are read. Only a
+	// session with a live run header is a position of any; the rows of one
+	// without are stored by no one.
+	findings := runcondition.RowsOf(report, w.now())
+	live := ev.Header != nil && !ev.Header.Deleted()
+	if live && !w.DryRun && targets.RunFinding {
+		if out.RunFindings, err = storeRunFindings(ctx, db, findings); err != nil {
+			return out, err
 		}
 	}
 
@@ -270,7 +310,14 @@ func (w *Writer) Run(ctx context.Context, db DB, sessionId string) (*SessionResu
 		if !f.Fired() {
 			continue
 		}
-		if id, ok := existing[f.Locus]; ok {
+		if runcondition.IsRunLocus(f.Locus) {
+			if err := w.writeRunFinding(ctx, db, ev, f, findings, existing, byLocus[f.Locus], ranking,
+				severity, modelVersion, out); err != nil {
+				return out, err
+			}
+			continue
+		}
+		if id, ok := existing.has(f.Locus, ""); ok {
 			out.AlreadyRaised = append(out.AlreadyRaised, fmt.Sprintf("%s (%s)", f.Locus, id))
 			continue
 		}
@@ -306,6 +353,260 @@ func (w *Writer) Run(ctx context.Context, db DB, sessionId string) (*SessionResu
 		out.Written = append(out.Written, written)
 	}
 	return out, nil
+}
+
+// runKey is what a run-locus incident carries of its run condition: the code,
+// and the key and position of the run it is written on. Nil for a delivery
+// locus, whose incident carries none of them.
+type runKey struct {
+	Code    string
+	Client  string
+	Process string
+	// Start is the run's start time, the incident's position; nil when the
+	// session has no live run header, and the incident then carries no key.
+	Start *time.Time
+}
+
+func runKeyOf(h *triage.RunHeader, code string) *runKey {
+	k := &runKey{Code: code}
+	if h != nil && !h.Deleted() {
+		start := h.StartTime
+		k.Client, k.Process, k.Start = h.Client, h.ProcessName, &start
+	}
+	return k
+}
+
+// writeRunFinding places and writes a present finding at a run locus: one
+// incident per run condition the finding belongs to. At
+// per_record_failures_reported that is one per reporting error code, each its
+// own key; elsewhere the finding is one. Each is placed by its run condition
+// (placeRunFinding), and written here when the placement says so, carrying its
+// code and the run's key and position.
+//
+// The finding's basis names every code; each incident's rationale is that
+// basis with its own placement appended, and the report's finding carries
+// every placement, so for one code the two are the same text.
+func (w *Writer) writeRunFinding(ctx context.Context, db DB, ev *triage.Evidence, f *triage.Finding,
+	findings []runcondition.Row, existing raised, hyps []rca.Hypothesis, ranking *rca.Ranking,
+	severity, modelVersion string, out *SessionResult) error {
+	codes := []string{""}
+	if f.Locus == triage.LocusPerRecordFailuresReported {
+		if reporting := f.Reporting(); len(reporting) > 0 {
+			codes = codes[:0]
+			for _, c := range reporting {
+				codes = append(codes, c.Code)
+			}
+		}
+	}
+	locusBasis := f.Basis
+	var suffixes []string
+	for _, code := range codes {
+		label := locusLabel(f.Locus, code)
+		if id, ok := existing.has(f.Locus, code); ok {
+			out.AlreadyRaised = append(out.AlreadyRaised, fmt.Sprintf("%s (%s)", label, id))
+			continue
+		}
+		here, suffix, err := w.placeRunFinding(ctx, db, ev, f, code, findings, severity, modelVersion, out)
+		if err != nil {
+			return err
+		}
+		if !here {
+			continue
+		}
+		suffixes = append(suffixes, suffix)
+		fc := *f
+		fc.Basis = locusBasis + suffix
+		if err := fc.Validate(); err != nil {
+			return fmt.Errorf("the classifier produced a finding that does not validate, so it was not written: %w", err)
+		}
+		written := IncidentWritten{
+			IncidentId: IncidentIdForCode(f.SessionId, f.Locus, code),
+			SessionId:  f.SessionId,
+			Locus:      f.Locus,
+			ErrorCode:  code,
+			Status:     audit.IncidentDetected,
+			Hypotheses: len(hyps),
+		}
+		if w.DryRun {
+			w.reportDry(&written)
+			out.Written = append(out.Written, written)
+			continue
+		}
+		if err := w.writeIncident(ctx, db, &fc, hyps, ranking, severity, modelVersion, runKeyOf(ev.Header, code),
+			&written); err != nil {
+			return err
+		}
+		out.Written = append(out.Written, written)
+	}
+	f.Basis = locusBasis + strings.Join(suffixes, "")
+	return nil
+}
+
+// locusLabel names a locus and, where it has one, the code, for the result's
+// lists.
+func locusLabel(locus, code string) string {
+	if code == "" {
+		return locus
+	}
+	return fmt.Sprintf("%s [%s]", locus, code)
+}
+
+// placeRunFinding decides where a present finding at a run locus and code is
+// written, by its run condition (runcondition.Resolve), and reports true when
+// it is to be written on this session, with the basis sentence to append.
+// Otherwise it records the join in Grouped or AlreadyRaised, having first
+// raised the condition's incident on its first run when the condition had none
+// (that incident in Written), and reports false.
+//
+// The session's own verdict is overlaid on what is stored, so a dry run, which
+// stores nothing, places it as a real run would. A session with no live run
+// header is no position of any condition, and its incident is written here
+// with no key.
+func (w *Writer) placeRunFinding(ctx context.Context, db DB, ev *triage.Evidence, f *triage.Finding, code string,
+	findings []runcondition.Row, severity, modelVersion string, out *SessionResult) (bool, string, error) {
+	label := locusLabel(f.Locus, code)
+	h := ev.Header
+	if h == nil || h.Deleted() {
+		return true, fmt.Sprintf(". Session %s has no live run header, so it is no position of any run condition "+
+			"and the incident is written here, as a condition of one", f.SessionId), nil
+	}
+	key := runcondition.Key{Client: h.Client, Process: h.ProcessName, Locus: f.Locus, Code: code}
+	hist, err := runcondition.Read(ctx, db, key)
+	if err != nil {
+		return false, "", err
+	}
+	if v, row := runcondition.VerdictAt(findings, f.Locus, code); row != nil {
+		hist.Overlay(f.SessionId, v, row.ClassifiedAt)
+	}
+	p := hist.Resolve(f.SessionId)
+	switch p.Kind {
+	case runcondition.AlreadyRaised:
+		out.AlreadyRaised = append(out.AlreadyRaised, fmt.Sprintf("%s (%s)", label, p.Target.IncidentId))
+		return false, "", nil
+	case runcondition.Join:
+		out.Grouped = append(out.Grouped, fmt.Sprintf("%s (into %s)", label, p.Target.IncidentId))
+		return false, "", nil
+	case runcondition.RaiseAnchor:
+		id := IncidentIdForCode(p.Anchor, f.Locus, code)
+		if w.DryRun && w.dryRaised[id] {
+			out.Grouped = append(out.Grouped, fmt.Sprintf("%s (into %s)", label, id))
+			return false, "", nil
+		}
+		raised, err := w.raiseRunAnchor(ctx, db, &p, severity, modelVersion)
+		if err != nil {
+			return false, "", err
+		}
+		if raised == nil {
+			// The first run's finding does not hold when it is classified again,
+			// which a stored present verdict over a live run should not produce;
+			// written here rather than lost.
+			return true, fmt.Sprintf(". It belongs to %s, whose first run, session %s, did not classify as "+
+				"present at this key when read, so the incident is written here", p.Condition.Describe(), p.Anchor), nil
+		}
+		if raised.Status != "" {
+			out.Written = append(out.Written, *raised)
+		}
+		out.Grouped = append(out.Grouped, fmt.Sprintf("%s (into %s)", label, id))
+		return false, "", nil
+	}
+	if id := IncidentIdForCode(f.SessionId, f.Locus, code); w.DryRun && w.dryRaised[id] {
+		out.AlreadyRaised = append(out.AlreadyRaised, fmt.Sprintf("%s (%s, reported by this dry run)", label, id))
+		return false, "", nil
+	}
+	return true, p.Basis(), nil
+}
+
+// raiseRunAnchor writes a run condition's incident on its first run, which no
+// incident stands for yet, when a later run of the condition is triaged: the
+// first run is classified, and only its finding at the condition's key is
+// written, under its deterministic id and ON CONFLICT DO NOTHING. It returns
+// nil when that finding does not hold. It is raiseAnchor for a run condition,
+// and for the same reason: the condition's incident does not depend on which of
+// its runs a triage window selects.
+func (w *Writer) raiseRunAnchor(ctx context.Context, db DB, p *runcondition.Placement, severity,
+	modelVersion string) (*IncidentWritten, error) {
+	ev, report, ranking, _, err := w.classify(ctx, db, p.Anchor)
+	if err != nil {
+		return nil, err
+	}
+	var af *triage.Finding
+	for i := range report.Findings {
+		if report.Findings[i].Locus == p.Key.Locus && report.Findings[i].Fired() {
+			af = &report.Findings[i]
+		}
+	}
+	if af == nil {
+		return nil, nil
+	}
+	if p.Key.Code != "" && !slices.ContainsFunc(af.Reporting(), func(c triage.CodeCount) bool {
+		return c.Code == p.Key.Code
+	}) {
+		return nil, nil
+	}
+	fc := *af
+	fc.Basis += p.Basis() + fmt.Sprintf(". It was raised when session %s, a later run of the condition, "+
+		"was triaged", p.SessionId)
+	if err := fc.Validate(); err != nil {
+		return nil, fmt.Errorf("the classifier produced a finding that does not validate, so it was not written: %w", err)
+	}
+	var hyps []rca.Hypothesis
+	for _, h := range ranking.Hypotheses {
+		if h.Locus == p.Key.Locus {
+			hyps = append(hyps, h)
+		}
+	}
+	written := &IncidentWritten{
+		IncidentId: IncidentIdForCode(p.Anchor, p.Key.Locus, p.Key.Code),
+		SessionId:  p.Anchor,
+		Locus:      p.Key.Locus,
+		ErrorCode:  p.Key.Code,
+		Status:     audit.IncidentDetected,
+		Hypotheses: len(hyps),
+	}
+	if w.DryRun {
+		w.reportDry(written)
+		return written, nil
+	}
+	if err := w.writeIncident(ctx, db, &fc, hyps, ranking, severity, modelVersion, runKeyOf(ev.Header, p.Key.Code),
+		written); err != nil {
+		return nil, err
+	}
+	return written, nil
+}
+
+// storeRunFindingSQL stores one run locus's verdict, adding and upgrading and
+// never retracting: a row is inserted on a run's first classification and
+// replaced only by a verdict that says more (runcondition.Rank: not_evaluable,
+// absent, quiet, present), so a classification that can see less leaves the
+// row as it was.
+var storeRunFindingSQL = `INSERT INTO jetsapi.run_finding AS rf
+    (session_id, locus, error_code, verdict, stored_rows, classifier_ref, classified_at)
+  VALUES ($1, $2, $3, $4, $5, $6, $7)
+  ON CONFLICT (session_id, locus, error_code) DO UPDATE
+     SET verdict = EXCLUDED.verdict, stored_rows = EXCLUDED.stored_rows,
+         classifier_ref = EXCLUDED.classifier_ref, classified_at = EXCLUDED.classified_at
+   WHERE ` + verdictRankSQL("rf.verdict") + ` < ` + verdictRankSQL("EXCLUDED.verdict")
+
+func verdictRankSQL(col string) string {
+	return fmt.Sprintf("(CASE %s WHEN '%s' THEN 0 WHEN '%s' THEN 1 WHEN '%s' THEN 2 WHEN '%s' THEN 3 ELSE -1 END)",
+		col, runcondition.VerdictNotEvaluable, runcondition.VerdictAbsent, runcondition.VerdictQuiet,
+		runcondition.VerdictPresent)
+}
+
+// storeRunFindings stores the rows and returns how many were inserted or
+// upgraded.
+func storeRunFindings(ctx context.Context, db DB, rows []runcondition.Row) (int, error) {
+	n := 0
+	for _, r := range rows {
+		tag, err := db.Exec(ctx, storeRunFindingSQL, r.SessionId, r.Locus, r.ErrorCode, r.Verdict, r.StoredRows,
+			r.ClassifierRef, r.ClassifiedAt)
+		if err != nil {
+			return n, fmt.Errorf("while storing the verdict of session %s at %s: %w", r.SessionId,
+				locusLabel(r.Locus, r.ErrorCode), err)
+		}
+		n += int(tag.RowsAffected())
+	}
+	return n, nil
 }
 
 // classify gathers one session's evidence, classifies it and ranks what it
@@ -496,22 +797,43 @@ func (w *Writer) raiseAnchor(ctx context.Context, db DB, p *feedcondition.Placem
 //     arithmetic survives and the wording does not.
 func (w *Writer) writeOne(ctx context.Context, db DB, f *triage.Finding, hyps []rca.Hypothesis,
 	ranking *rca.Ranking, severity, modelVersion string, written *IncidentWritten) error {
+	return w.writeIncident(ctx, db, f, hyps, ranking, severity, modelVersion, nil, written)
+}
+
+// writeIncident is writeOne for an incident that carries a run condition's
+// key (runKey), nil for a delivery locus.
+func (w *Writer) writeIncident(ctx context.Context, db DB, f *triage.Finding, hyps []rca.Hypothesis,
+	ranking *rca.Ranking, severity, modelVersion string, key *runKey, written *IncidentWritten) error {
 
 	detectedAt := w.now()
 	confounders := f.Confounders
 	if confounders == nil {
 		confounders = []string{}
 	}
+	// A run-locus incident carries its code and its run condition's key and
+	// position (runKey); a delivery-locus incident carries none, NULL in all four.
+	var code, client, process *string
+	var start *time.Time
+	if key != nil {
+		if key.Code != "" {
+			code = &key.Code
+		}
+		if key.Start != nil {
+			client, process, start = &key.Client, &key.Process, key.Start
+		}
+	}
 	tag, err := db.Exec(ctx,
 		`INSERT INTO jetsapi.incident (
 		   incident_id, incident_session_id, incident_run_ref, incident_detected_at,
 		   incident_locus, classification, severity, status,
-		   incident_step_ref, incident_shard_ref, incident_confounders, incident_model_version)
-		 VALUES ($1, $2, NULL, $3, $4, NULL, $5, $6, NULLIF($7, ''), $8, $9, $10)
+		   incident_step_ref, incident_shard_ref, incident_confounders, incident_model_version,
+		   incident_error_code, incident_client, incident_process_name, incident_anchor_start_time)
+		 VALUES ($1, $2, NULL, $3, $4, NULL, $5, $6, NULLIF($7, ''), $8, $9, $10, $11, $12, $13, $14)
 		 ON CONFLICT (incident_id) DO NOTHING`,
 		written.IncidentId, f.SessionId, detectedAt,
 		f.Locus, severity, audit.IncidentDetected,
-		f.StepRef, f.ShardRef, confounders, modelVersion)
+		f.StepRef, f.ShardRef, confounders, modelVersion,
+		code, client, process, start)
 	if err != nil {
 		return fmt.Errorf("while raising incident %s: %w", written.IncidentId, err)
 	}
@@ -668,23 +990,44 @@ func marshalEvidence(items []rca.Evidence) ([]byte, error) {
 	return json.Marshal(out)
 }
 
-// raisedLoci returns the loci this session already has an incident for, keyed by
-// locus. It is what makes a second run over a session add rather than duplicate.
-func raisedLoci(ctx context.Context, db DB, sessionId string) (map[string]string, error) {
+// raised is the incidents a session already has, by locus and error code.
+type raised map[string]string
+
+func raisedKey(locus, code string) string { return locus + "\x00" + code }
+
+// has returns the incident the session already has at a locus and code. A
+// per-record incident written before codes (no code) stands for every code of
+// its session, so a replay writes nothing beside it.
+func (r raised) has(locus, code string) (string, bool) {
+	if id, ok := r[raisedKey(locus, code)]; ok {
+		return id, true
+	}
+	if locus == triage.LocusPerRecordFailuresReported && code != "" {
+		id, ok := r[raisedKey(locus, "")]
+		return id, ok
+	}
+	return "", false
+}
+
+// raisedLoci returns the (locus, code) pairs this session already has an
+// incident for. It is what makes a second run over a session add rather than
+// duplicate.
+func raisedLoci(ctx context.Context, db DB, sessionId string) (raised, error) {
 	rows, err := db.Query(ctx,
-		`SELECT incident_locus, incident_id FROM jetsapi.incident WHERE incident_session_id = $1`,
+		`SELECT incident_locus, coalesce(incident_error_code, ''), incident_id FROM jetsapi.incident
+		  WHERE incident_session_id = $1`,
 		sessionId)
 	if err != nil {
 		return nil, fmt.Errorf("while reading the incidents already raised for session %s: %w", sessionId, err)
 	}
 	defer rows.Close()
-	out := map[string]string{}
+	out := raised{}
 	for rows.Next() {
-		var locus, id string
-		if err := rows.Scan(&locus, &id); err != nil {
+		var locus, code, id string
+		if err := rows.Scan(&locus, &code, &id); err != nil {
 			return nil, fmt.Errorf("while scanning a raised locus: %w", err)
 		}
-		out[locus] = id
+		out[raisedKey(locus, code)] = id
 	}
 	return out, rows.Err()
 }
@@ -860,6 +1203,23 @@ func MergeSessions(runs, feeds []string) []string {
 // governance record.
 func IncidentIdFor(sessionId, locus string) string {
 	return fmt.Sprintf("inc_%s_%s", sessionId, locus)
+}
+
+// IncidentIdForCode is the deterministic key of one (session, locus, error
+// code): IncidentIdFor at a locus with no code, and at
+// per_record_failures_reported IncidentIdFor followed by the code's slug
+// (errorcode.Slug), so two codes on one run are two incidents and the id stays
+// legible. The workspace compile refuses two codes with one slug, and
+// JetStore's fixed codes have constant slugs.
+func IncidentIdForCode(sessionId, locus, code string) string {
+	if code == "" {
+		return IncidentIdFor(sessionId, locus)
+	}
+	slug := errorcode.Slug(code)
+	if slug == "" {
+		slug = "code"
+	}
+	return IncidentIdFor(sessionId, locus) + "_" + slug
 }
 
 // HypothesisIdFor is the deterministic key of one (incident, cause class). The

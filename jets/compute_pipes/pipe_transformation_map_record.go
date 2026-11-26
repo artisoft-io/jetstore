@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 	"github.com/artisoft-io/jetstore/jets/utils"
@@ -30,6 +31,28 @@ type MapRecordTransformationPipe struct {
 	span *spanTracker
 	// window is map_record_config.retain_window; nil when the step names none.
 	window *retainWindow
+}
+
+// mapRecordErrorPrefix starts every message map_record writes to its error
+// channel, so a stored row says which operator wrote it whatever the column
+// evaluator's own message is.
+const mapRecordErrorPrefix = "map_record: "
+
+// mapRecordErrorMessage is the message map_record stores for a column
+// evaluator's error: the error's own text, after mapRecordErrorPrefix. A map
+// column's rejection names the output column as well as its position. The
+// evaluators are shared with other operators, which keep writing their errors
+// as they always have, so the prefix and the name are added here and not where
+// the errors are made.
+func mapRecordErrorMessage(err error) string {
+	msg := err.Error()
+	if mce, ok := err.(*mappingColumnError); ok {
+		msg = mce.namedMessage()
+	}
+	if strings.HasPrefix(msg, mapRecordErrorPrefix) {
+		return msg
+	}
+	return mapRecordErrorPrefix + msg
 }
 
 // Implementing interface PipeTransformationEvaluator
@@ -75,10 +98,11 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]any) error {
 			ctx.errorCount++
 			switch {
 			case ctx.errorCount <= ctx.maxErrorCount:
-				log.Printf("mapping error: %s", err.Error())
+				msg := mapRecordErrorMessage(err)
+				log.Printf("mapping error: %s", msg)
 				if ctx.errorOutputCh != nil {
 					peRow := ctx.builderContext.NewProcessError("map_record")
-					peRow.ErrorMessage = err.Error()
+					peRow.ErrorMessage = msg
 					peRow.write2Chan(ctx.errorOutputCh, ctx.doneCh)
 				}
 			case ctx.errorCount == ctx.maxErrorCount+1:

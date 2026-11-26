@@ -41,13 +41,24 @@ type Extent struct {
 	// feed's own client and declaration.
 	InputRegistry bool
 	SourceConfig  bool
+	// ErrorCatalogue reports whether jetsapi.error_code_catalogue exists, the
+	// workspace's error codes. Without it every workspace message reads
+	// uncatalogued, at threshold 1, and JetStore's fixed codes still apply.
+	ErrorCatalogue bool
+	// ErrorOperatorType reports whether jetsapi.process_errors has its
+	// operator_type column, which a database migrated before the column was added
+	// lacks; the codes are then read with the operator inferred from each message.
+	ErrorOperatorType bool
 }
 
 const triageTablesSQL = `SELECT
   to_regclass('jetsapi.process_errors') IS NOT NULL,
   to_regclass('jetsapi.cpipes_execution_status') IS NOT NULL,
   to_regclass('jetsapi.input_registry') IS NOT NULL,
-  to_regclass('jetsapi.source_config') IS NOT NULL`
+  to_regclass('jetsapi.source_config') IS NOT NULL,
+  to_regclass('jetsapi.error_code_catalogue') IS NOT NULL,
+  EXISTS (SELECT 1 FROM information_schema.columns
+           WHERE table_schema = 'jetsapi' AND table_name = 'process_errors' AND column_name = 'operator_type')`
 
 // ReadExtent reports what observe.ReadExtent does plus the two tables above.
 // to_regclass returns NULL for an absent relation rather than raising, which is
@@ -60,7 +71,7 @@ func ReadExtent(ctx context.Context, db observe.DB) (*Extent, error) {
 	}
 	e := &Extent{Extent: base}
 	if err := db.QueryRow(ctx, triageTablesSQL).Scan(&e.ProcessErrors, &e.CpipesStatus,
-		&e.InputRegistry, &e.SourceConfig); err != nil {
+		&e.InputRegistry, &e.SourceConfig, &e.ErrorCatalogue, &e.ErrorOperatorType); err != nil {
 		return nil, fmt.Errorf("while reading which triage tables exist: %w", err)
 	}
 	return e, nil
@@ -151,12 +162,12 @@ func ReadHeader(ctx context.Context, db observe.DB, sessionId string, history bo
 }
 
 // ErrorSummary is what jetsapi.process_errors holds for one run. It is a
-// summary rather than the rows because the rows carry nothing to group by that
-// a diagnosis wants: the table has no cpipes_step_id and no
-// pipeline_execution_details_key, so an error row joins to one row per step of
-// the run and the join is worthless. What is countable is how many, over how
-// many shards, and how many carry each of the two columns a single operator
-// family writes.
+// summary rather than the rows because a row's message is data: its tail can
+// carry a record's values, so the rows are read only to count them and to give
+// each its error code (Codes), and no message is kept. The table carries
+// cpipes_step_id, error_channel and operator_type, but only where the error
+// channel's spec declares them, so a row can lack all three; there is still no
+// pipeline_execution_details_key, so a row cannot be joined to one worker.
 type ErrorSummary struct {
 	SessionId string
 	Rows      int64
@@ -168,7 +179,17 @@ type ErrorSummary struct {
 	// WithReteSession counts rows carrying a saved rete session, which is the
 	// jetrules family's own column.
 	WithReteSession int64
-	First, Last     time.Time
+	// WithOperatorType counts rows whose operator_type is set: the rows whose
+	// error channel declared it.
+	WithOperatorType int64
+	First, Last      time.Time
+	// Codes are the run's rows grouped by their error code (ReadErrorCodes),
+	// most stored rows first. Nil when the rows were not read for their codes.
+	Codes []CodeCount
+	// Catalogue reports whether the workspace's catalogue was read; false when
+	// jetsapi.error_code_catalogue is absent, and every workspace message then
+	// reads uncatalogued.
+	Catalogue bool
 }
 
 const errorSummarySQL = `SELECT count(*), count(DISTINCT shard_id),
@@ -568,6 +589,9 @@ func (c Classifier) Gather(ctx context.Context, db observe.DB, sessionId string,
 	}
 	if ev.Extent.ProcessErrors {
 		if ev.Errors, err = ReadErrorSummary(ctx, db, sessionId); err != nil {
+			return nil, err
+		}
+		if err = ReadErrorCodes(ctx, db, ev.Extent, ev.Errors); err != nil {
 			return nil, err
 		}
 	}

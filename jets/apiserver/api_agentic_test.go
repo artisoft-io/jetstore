@@ -86,10 +86,16 @@ type fakeOps struct {
 	// A session's incidents and a feed incident's condition; their methods
 	// are in api_agentic_condition_test.go.
 	condition conditionFake
+
+	// page captures the page a list was asked for; spans are what
+	// IncidentSpans answers per incident, one session each when absent.
+	page  audit.ListPage
+	spans map[string]IncidentSpan
 }
 
-func (f *fakeOps) ListProposals(context.Context, []string, int) ([]audit.ProposalSummary, error) {
-	return f.proposals, nil
+func (f *fakeOps) ListProposals(_ context.Context, _ []string, page audit.ListPage) ([]audit.ProposalSummary, int, error) {
+	f.page = page
+	return f.proposals, len(f.proposals), nil
 }
 func (f *fakeOps) ReadProposal(_ context.Context, id string) (*audit.Proposal, error) {
 	if f.proposalErr != nil {
@@ -123,12 +129,24 @@ func (f *fakeOps) RecordApproval(_ context.Context, a *audit.Approval) (int, err
 	return 7, nil
 }
 
-func (f *fakeOps) ListIncidents(_ context.Context, statuses []string, _ int) ([]audit.IncidentSummary, error) {
+func (f *fakeOps) ListIncidents(_ context.Context, statuses []string, page audit.ListPage) ([]audit.IncidentSummary, int, error) {
 	f.statusFilter = statuses
+	f.page = page
 	if f.incidentErr != nil {
-		return nil, f.incidentErr
+		return nil, 0, f.incidentErr
 	}
-	return f.incidents, nil
+	return f.incidents, len(f.incidents), nil
+}
+func (f *fakeOps) IncidentSpans(_ context.Context, incs []audit.IncidentSummary) (map[string]IncidentSpan, error) {
+	out := map[string]IncidentSpan{}
+	for _, i := range incs {
+		if sp, ok := f.spans[i.IncidentId]; ok {
+			out[i.IncidentId] = sp
+		} else {
+			out[i.IncidentId] = IncidentSpan{First: i.DetectedAt, Last: i.DetectedAt, Count: 1}
+		}
+	}
+	return out, nil
 }
 func (f *fakeOps) FeedIncidentSummary(_ context.Context, inc *audit.Incident) (*feedsummary.Summary, error) {
 	f.summaryAsked = append(f.summaryAsked, inc.IncidentId)

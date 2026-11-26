@@ -312,7 +312,7 @@ func TestStepBaselinesAggregatesPerSourceAndStep(t *testing.T) {
 	}
 }
 
-// ReadExtent is how a detector learns which of RETENTION_DAYS' three regimes
+// ReadExtent is how a detector learns which purge regime
 // the deployment is in, and whether the two tables update_db creates are there.
 func TestReadExtentReportsTheDeploymentsOwnLimits(t *testing.T) {
 	pool := testPool(t)
