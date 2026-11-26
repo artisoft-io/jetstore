@@ -10,7 +10,9 @@ test("Process Errors of the run with errors, an error's input records and its ru
   await openRunScreen(page, "errors", "View Process Errors");
   const errors = await waitForTable(page);
   await expect(page).toHaveURL(/\/processErrors\/1767778200302$/);
-  await expect(errors.locator("tbody tr")).toHaveCount(27);
+  // 27 errors, 20 to a page.
+  await expect(errors.locator("tbody tr")).toHaveCount(20);
+  await expect(page.getByText("1–20 of 27")).toBeVisible();
   await selectRow(errors, "MED100007");
   // The error message is in the last columns.
   await scrollToLastColumns(errors);
