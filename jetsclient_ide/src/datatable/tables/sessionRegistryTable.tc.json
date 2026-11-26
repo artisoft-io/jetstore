@@ -77,6 +77,11 @@
       "tooltip": "When the deletion was requested"
     },
     {
+      "name": "table_data_purged_at",
+      "label": "Table Data Purged At",
+      "tooltip": "When the purge deleted the session's rows from the domain tables and its process errors, keeping the session; empty while they are kept"
+    },
+    {
       "name": "session_num",
       "label": "Session Number",
       "isNumeric": true,

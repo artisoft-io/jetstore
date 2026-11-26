@@ -204,9 +204,30 @@ Deletes sessions past the retention window, and the agentic rows nothing still h
   deletion and restored in the same transaction (the database user must own the table, or the
   table is kept and the log says so); `agent_run` rows older, once their audit rows have gone; and
   `approval_event` rows decided before it. `change_proposal` has no timestamp and is always kept.
+- **Table data on a clock of its own**: `DOMAIN_TABLES_RETENTION_DAYS` deletes a session's table
+  data earlier than the session, for an installation that keeps no member data longer than it must.
+  Unset or empty, it is `RETENTION_DAYS`, and the purge does what it did before the variable
+  existed. Set below `RETENTION_DAYS`, each run, after the session deletions and under the same
+  deadline, takes every registered session older than it and not deleted whole that run, and
+  deletes the session's rows from **every domain table** (each table named in
+  `input_registry.table_name`, the data a pipeline wrote and a file's staging table alike) and from
+  **`jetsapi.process_errors`**, whose rows carry the encoded rules session and messages that can
+  quote a value. One transaction per session; a session with a pending or submitted run on it, or
+  reading it, is left for the next run. Everything else stays until `RETENTION_DAYS`: the session's
+  registration and input registry rows, its runs and their details, its agentic rows and the
+  summary the agentic layer keeps of a delivery (`jetsapi.claim_set_summary`, deleted with the
+  session). The session is then marked, `session_registry.table_data_purged_at`, shown as *Table
+  Data Purged At* on the *Session Registry* tab, and never selected again. A value above
+  `RETENTION_DAYS` is capped to it and the cap logged; a value that is not a whole number of days, 1
+  or more, refuses the run, recorded as the purge job's failure.
+- **What a short table-data clock costs**: no pipeline reads a table (its inputs are files, stages
+  and memory), so pipelines are unaffected. What reads the rows is people and reports: a report run
+  again on a session whose table data is gone, or a look at its rows from the Query Tool or the
+  *Process Errors* screen, finds none. Run a session's reports before its table data ages out.
 - **Dry run**: unless `PURGE_DRY_RUN` is exactly `false`, the purge logs what it would delete, the
-  incidents and the audit rows included, and deletes nothing. The log has one line per table under
-  `Session purge:`, `Incident retention:` and `Agent audit retention:`.
+  table data, the incidents and the audit rows included, and deletes nothing. The log opens with both
+  clocks, and has one line per table under `Session purge:`, `Table data purge:` (lines
+  `table data: N rows from T`), `Incident retention:` and `Agent audit retention:`.
 - **Deployment**: `RETENTION_DAYS` non-empty. `PURGE_DATA_SCHEDULED_HOUR_UTC` sets the daily
   EventBridge cron hour, default 7 UTC.
 - **IAM / SG**: **own generated role** with `RdsSecret.GrantRead`; `VpcEndpointsSg` + `RdsAccessSg`;

@@ -141,6 +141,7 @@ it has been deleted. It is where sessions are deleted. See
 | Deletion Reason | `user`, `retention` or `orphan` |
 | Deletion Requested By | who deleted it, or `purge` for the retention purge |
 | Deletion Requested At | when |
+| Table Data Purged At | when the scheduled purge deleted the session's rows from the data and staging tables and its process errors, keeping the session; empty while they are kept. Only an installation whose table data has a shorter retention than its sessions fills it (see [Deleting a session](/docs/user/concepts/pipelines-and-sessions/#deleting-a-session)) |
 
 | Button | What it does | Capability |
 |---|---|---|

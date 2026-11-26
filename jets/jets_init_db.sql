@@ -249,6 +249,10 @@ FROM jetsapi.pipeline_execution_status_archive
 --                 Key Date filters compare (2026-11-12); NULL for a
 --                 tombstone and for a period whose day is 0, the value an
 --                 unparseable day takes, so the column never raises.
+--   table_data_purged_at  session_registry's, last because it was added to
+--                 the table after the view was deployed (2026-11-26): when the
+--                 purge deleted the session's table data on
+--                 DOMAIN_TABLES_RETENTION_DAYS; NULL for a tombstone.
 -- Columns are only ever appended: CREATE OR REPLACE VIEW cannot drop, rename or
 -- reorder a column of a view already deployed, so a column the tab stops showing
 -- stays in the view (object_type, since the tab replaced Domain Key with the
@@ -266,7 +270,8 @@ SELECT
   sd.requested_by AS deletion_requested_by, sd.requested_at AS deletion_requested_at,
   sp.year, sp.month, sp.day,
   CASE WHEN sp.year BETWEEN 1 AND 9999 AND sp.month BETWEEN 1 AND 12 AND sp.day BETWEEN 1 AND 31
-    THEN make_date(sp.year, sp.month, 1) + (sp.day - 1) END AS file_key_date
+    THEN make_date(sp.year, sp.month, 1) + (sp.day - 1) END AS file_key_date,
+  sr.table_data_purged_at
 FROM jetsapi.session_registry sr
 CROSS JOIN LATERAL (
   SELECT min(i.object_type) AS object_type, min(i.file_key) AS file_key
@@ -284,7 +289,8 @@ SELECT
   NULL::text AS object_type, NULL::text AS file_key, NULL::text AS process_name, NULL::text AS status,
   sd.status AS deletion_status, sd.reason AS deletion_reason,
   sd.requested_by AS deletion_requested_by, sd.requested_at AS deletion_requested_at,
-  spm.year, spm.month, NULL::integer AS day, NULL::date AS file_key_date
+  spm.year, spm.month, NULL::integer AS day, NULL::date AS file_key_date,
+  NULL::timestamptz AS table_data_purged_at
 FROM jetsapi.session_deletion sd
 CROSS JOIN LATERAL (
   SELECT min(p.year) AS year, min(p.month) AS month

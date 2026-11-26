@@ -23,6 +23,10 @@
 // ExecuteRequests is the dry run: the same work on requests held in memory, every
 // transaction rolled back. PurgeArchive and PurgeTombstones remove archived runs
 // and done deletion rows by age.
+//
+// PurgeTableData is the second, shorter clock: it deletes a registered session's
+// rows from the domain tables and process_errors only, keeps everything else,
+// and marks session_registry.table_data_purged_at so the session is done once.
 package sessionpurge
 
 import (

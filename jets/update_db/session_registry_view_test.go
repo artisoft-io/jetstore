@@ -51,6 +51,11 @@ var sessionRegistryViewExtras = []string{
 	"year", "month", "day", "file_key_date",
 }
 
+// The columns of session_registry added after the view was deployed, which the
+// view appends after its extras, in order: CREATE OR REPLACE VIEW cannot insert
+// a column before one a deployed view already has.
+var sessionRegistryViewAppended = []string{"table_data_purged_at"}
+
 // selectNames returns the output names of a select list: the alias after AS,
 // else the column after its table prefix. Commas inside parentheses or a
 // string literal do not split.
@@ -90,13 +95,14 @@ func selectNames(list string) []string {
 }
 
 // Both sides of the view select session_registry's columns, in jets_schema.json's
-// order, then the extras, in order. No database needed.
+// order, then the extras, in order, then the registry's columns appended later.
+// No database needed.
 func TestSessionRegistryViewColumns(t *testing.T) {
 	var want []string
 	for _, d := range purgetest.SchemaDefinitions(t) {
 		if d.TableName == "session_registry" {
 			for _, c := range d.Columns {
-				if !c.Deleted {
+				if !c.Deleted && !slices.Contains(sessionRegistryViewAppended, c.ColumnName) {
 					want = append(want, c.ColumnName)
 				}
 			}
@@ -106,6 +112,7 @@ func TestSessionRegistryViewColumns(t *testing.T) {
 		t.Fatal("jets_schema.json has no table session_registry")
 	}
 	want = append(want, sessionRegistryViewExtras...)
+	want = append(want, sessionRegistryViewAppended...)
 
 	sides := strings.Split(sessionRegistryViewStatement(t), "UNION ALL")
 	if len(sides) != 2 {
