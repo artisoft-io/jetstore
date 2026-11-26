@@ -21,7 +21,7 @@ which properties were withheld.
 
 ## The list
 
-![The open incidents, each with its client, object type, first seen, last seen and count: inc_20002 on session 1767949200304, worker not terminated, triaged with no hypothesis, and inc_20001 on session 1767868200303, worker failed, diagnosed with two hypotheses; neither has a cause claimed.](../../../../assets/screenshots/user/screens/incidents/incidents-open.png)
+![The open incidents, each with its client, first seen, last seen and count (the object type blank, since neither run's input is a staged file): inc_20002 on session 1767949200304, worker not terminated, triaged with no hypothesis, and inc_20001 on session 1767868200303, worker failed, diagnosed with two hypotheses; neither has a cause claimed.](../../../../assets/screenshots/user/screens/incidents/incidents-open.png)
 
 The picker chooses **Open incidents** (the default), **Adjudicated**, or **All incidents**.
 **Refresh** reads the list again. **Find by session** takes a session id and opens the incidents
@@ -41,7 +41,7 @@ session was deleted or purged) has no client, so it is listed only when no clien
 |---|---|
 | **Incident** | The incident's id, linked to its page, and the session it concerns: a run's, or, for a feed incident, the session in which a delivery was registered. |
 | **Client** | The client the incident's session is registered to: the run's, or the delivery's. Blank when no registration remains. |
-| **Object type** | The object type of that registration: the run's main object type, or the delivery's. Blank when no registration remains. |
+| **Object type** | The type of the objects in the file the incident concerns: a run's main input file, or the delivered file, read from the file's staging record by its file key. This is the file's object type, not the domain key its input is registered under. Blank when the file has no staging record, as for a run whose input is a domain table or a job's failure, or when no registration remains. |
 | **Detected** | When it was raised. |
 | **First seen**, **Last seen** | For a feed incident, the earliest and the latest of the deliveries it stands for, by when each was registered. For a run incident, first seen is the start of the run it was written on, kept after that run is deleted, and last seen is the start of the latest run of its [run condition](#the-run-condition-of-a-run-incident) still held, or *no run held* when none is. For any other incident, and a run incident written before run conditions, the time of its own session, in both. |
 | **Count** | For a feed incident, how many deliveries of its condition it stands for: the deliveries placed in it, as its page's [Condition](#the-condition-of-a-feed-incident) section counts them, so a delivery that went to a later incident of the same condition is not counted. For a run incident, how many runs of its run condition **still held** are placed in it: the count falls as retention deletes runs. For any other incident, and a run incident written before run conditions, 1. Hover to see which. |
@@ -54,7 +54,7 @@ session was deleted or purged) has no client, so it is listed only when no clien
 **Adjudicated** lists the incidents a person has given a verdict on that settles them: *verified*,
 *reclassified* or *suppressed as benign*.
 
-![The adjudicated incidents: inc_20003 on session 1767778200302, per-record failures reported, its error code under the locus, with its client, object type, first seen, last seen and count, and the cause Source content change, verified.](../../../../assets/screenshots/user/screens/incidents/incidents-adjudicated.png)
+![The adjudicated incidents: inc_20003 on session 1767778200302, per-record failures reported, its error code under the locus, with its client, first seen, last seen and count (the object type blank), and the cause Source content change, verified.](../../../../assets/screenshots/user/screens/incidents/incidents-adjudicated.png)
 
 **An empty list is not evidence that nothing went wrong.** Incidents are written by shadow triage,
 which runs where the detection task is deployed; the Detection screen says whether it has run.
