@@ -353,6 +353,7 @@ def handler(event, context):
     return {'status': 'ok'}
 `)),
 	})
+	jsComp.InferLifecycleHookLambda = lifecycleLambda
 	if phiTagName != nil {
 		awscdk.Tags_Of(lifecycleLambda).Add(phiTagName, jsii.String("true"), nil)
 	}

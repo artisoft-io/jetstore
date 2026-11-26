@@ -499,6 +499,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	jetstorestack.AddElbAlarms(stack, "UiElb", jsComp.UiLoadBalancer, alarmAction, props)
 	jetstorestack.AddJetStoreAlarms(stack, alarmAction, props)
 
+	// Add an Errors alarm on each Lambda that runs unattended, once every Lambda is built
+	jsComp.AddLambdaErrorAlarms(stack, alarmAction, props)
+
 	// Add the RDS alerts
 	jetstorestack.AddRdsAlarms(stack, jsComp.RdsCluster, alarmAction, props)
 
@@ -690,7 +693,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_S3_KMS_KEY_ARN (optional, default to account default KMS key) Server side encryption of s3 objects
 // JETS_SECRETS_ROTATION_DAYS (required, nbr of days to trigger secret rotation, default 30 days)
 // JETS_SENTINEL_FILE_NAME (optional, fixed file name for multipart sentinel file - file of size 0)
-// JETS_SNS_ALARM_TOPIC_ARN (optional, sns topic for sending alarm)
+// JETS_SNS_ALARM_TOPIC_ARN (optional but recommended, sns topic every alarm sends to, the Lambda Errors
+//   alarms included; unset, the alarms exist and notify nobody)
 // JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY (optional, path to handler code for sqs register key lambda)
 // JETS_API_GATEWAY_LAMBDA_ENTRY (optional, path to handler code for api gateway lambda)
 // JETS_API_GATEWAY_EXEC_ROLE_NAME (optional, exec role of api gateway, required when api gateway is deployed)
