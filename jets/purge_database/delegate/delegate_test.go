@@ -93,7 +93,17 @@ func TestPurgeRulesUnitTestRuns(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	runs, checks := purgeRulesUnitTestRuns(pool, time.Now().Add(-30*24*time.Hour))
+	// A dry run counts what a real run deletes and leaves every row (JM-349).
+	runs, checks := purgeRulesUnitTestRuns(pool, time.Now().Add(-30*24*time.Hour), true)
+	if runs != 2 || checks != 2 {
+		t.Errorf("the dry run counts %d runs and %d checks, want 2 and 2", runs, checks)
+	}
+	var left int
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM jetsapi.rules_unit_test_execution`).Scan(&left)
+	if left != len(keys) {
+		t.Errorf("the dry run left %d of %d runs", left, len(keys))
+	}
+	runs, checks = purgeRulesUnitTestRuns(pool, time.Now().Add(-30*24*time.Hour), false)
 	if runs != 2 || checks != 2 {
 		t.Errorf("purged %d runs and %d checks, want 2 and 2", runs, checks)
 	}
@@ -126,7 +136,16 @@ func TestPurgeDetectionRuns(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if n := purgeDetectionRuns(pool, time.Now().Add(-30*24*time.Hour)); n != 2 {
+	// A dry run counts what a real run deletes and leaves every row (JM-349).
+	if n := purgeDetectionRuns(pool, time.Now().Add(-30*24*time.Hour), true); n != 2 {
+		t.Errorf("the dry run counts %d, want 2", n)
+	}
+	var left int
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM jetsapi.agentic_detection_run`).Scan(&left)
+	if left != len(rows) {
+		t.Errorf("the dry run left %d of %d records", left, len(rows))
+	}
+	if n := purgeDetectionRuns(pool, time.Now().Add(-30*24*time.Hour), false); n != 2 {
 		t.Errorf("purged %d, want 2", n)
 	}
 	for ref, want := range map[string]int{"old ok": 0, "old failed": 0, "old requested": 1, "recent ok": 1} {

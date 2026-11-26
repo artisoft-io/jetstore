@@ -267,11 +267,15 @@ func OrphanCandidates(ctx context.Context, db *pgxpool.Pool, before time.Time) (
 				WHEN bool_or(source_type = 'domain_table') THEN 'domain_table' ELSE min(source_type) END`
 		}
 		col := pgx.Identifier{source.column}.Sanitize()
+		// A row with no session is no session's: s3_object_event's session_id is
+		// null until its registration reserves one, and stays null for an event
+		// that registers nothing. Grouped in, the nulls would make one candidate
+		// with no id, which no age excludes, and fail the read (JM-350).
 		parts = append(parts, fmt.Sprintf(`SELECT %s AS session_id, %s AS last_update, %s AS client, %s AS source_type,
 				%s AS source_period_key, %d AS rank
-			FROM %s GROUP BY %s`,
+			FROM %s WHERE %s IS NOT NULL GROUP BY %s`,
 			col, pick("last_update", "max", "NULL::timestamp"), pick("client", "min", "NULL::text"), sourceType,
-			pick("source_period_key", "min", "NULL::int"), rank, pgx.Identifier{"jetsapi", table}.Sanitize(), col))
+			pick("source_period_key", "min", "NULL::int"), rank, pgx.Identifier{"jetsapi", table}.Sanitize(), col, col))
 	}
 	if len(parts) == 0 {
 		return nil, nil
