@@ -84,6 +84,30 @@ var failS3Event = func(fileKey, sequencer string, dbpool *pgxpool.Pool) {
 	}
 }
 
+// recordS3Failure records a failed registration as a failure of the register
+// keys job (datatable.RecordJobFailure), so it is seen on the Pipelines Status
+// screen and by the agentic triage, not only in this lambda's log and as a
+// failed s3_object_event row nothing reads. A failure to record is logged: the
+// handler still returns the registration's error, and Lambda retries as before.
+// The record is written even when the invocation's context is done, as when it
+// timed out, since that is the failure being recorded.
+var recordS3Failure = func(ctx context.Context, dbpool *pgxpool.Pool, fileKey string, cause error) {
+	if dbpool == nil {
+		log.Printf("WARNING the failed registration of %s is not recorded: no database", fileKey)
+		return
+	}
+	sessionId, err := datatable.RecordJobFailure(context.WithoutCancel(ctx), dbpool, datatable.JobFailure{
+		Job:     datatable.JobRegisterKeys,
+		FileKey: fileKey,
+		Details: cause.Error(),
+	})
+	if err != nil {
+		log.Printf("WARNING the failed registration of %s could not be recorded: %v", fileKey, err)
+		return
+	}
+	log.Printf("Recorded the failed registration of %s under session %s", fileKey, sessionId)
+}
+
 // recordS3Session records the input session the registration reserved. A failure
 // is logged: a delivery taking the event over then registers under a new session,
 // as every one did before the session was recorded.
@@ -182,10 +206,30 @@ func handler(ctx context.Context, s3Event events.S3Event) error {
 }
 
 func processMessage(ctx context.Context, dbpool *pgxpool.Pool, record events.S3EventRecord) (err error) {
-	fileKey, err := url.QueryUnescape(record.S3.Object.Key)
+	// A registration that fails, or panics, is recorded once per event: not
+	// when the event's row was already failed, so Lambda's retries of one event
+	// add no record. An event the duplicate check does not track (no sequencer,
+	// or a claim that failed) cannot tell a retry apart and is recorded on each
+	// failed attempt. This deferred call runs after the claim's own, which marks
+	// the event failed.
+	fileKey := record.S3.Object.Key
+	var retryOfFailed bool
+	defer func() {
+		if r := recover(); r != nil {
+			if !retryOfFailed {
+				recordS3Failure(ctx, dbpool, fileKey, fmt.Errorf("panic while registering: %v", r))
+			}
+			panic(r)
+		}
+		if err != nil && !retryOfFailed {
+			recordS3Failure(ctx, dbpool, fileKey, err)
+		}
+	}()
+	unescaped, err := url.QueryUnescape(record.S3.Object.Key)
 	if err != nil {
 		return fmt.Errorf("while unescaping file key: %v", err)
 	}
+	fileKey = unescaped
 	fileSize := record.S3.Object.Size
 	sequencer := record.S3.Object.Sequencer
 	log.Printf("S3 event: key: %s, size: %d, sequencer: %s\n", fileKey, fileSize, sequencer)
@@ -215,6 +259,7 @@ func processMessage(ctx context.Context, dbpool *pgxpool.Pool, record events.S3E
 				fileKey, sequencer, status)
 			return nil
 		default:
+			retryOfFailed = status == eventFailed
 			if sessionId != "" {
 				log.Printf("S3 event for %s (sequencer %s) was left unfinished by an earlier invocation; resuming under session %s",
 					fileKey, sequencer, sessionId)

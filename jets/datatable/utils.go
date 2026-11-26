@@ -70,18 +70,26 @@ func GetSchemaProviderJsonFromPipelineKey(dbpool *pgxpool.Pool, peKey int) (stri
 // input_registry. The purge (jets/purge_database) deletes input_registry rows after
 // RETENTION_DAYS and keeps pipeline_execution_status rows for six months, so an old
 // execution is still listed, and a resubmission of it fails at its first step.
+//
+// A row with pipeline_config_key 0 is a job's failure (RecordJobFailure), not a
+// run: there is no pipeline to run again, and it is refused as such, before the
+// input checks, whose messages would be false for it.
 func CheckResubmittable(ctx context.Context, dbpool *pgxpool.Pool, sessionId string) error {
 	var hasKey, registered bool
+	var configKey int
 	err := dbpool.QueryRow(ctx, `
-		SELECT pe.main_input_registry_key IS NOT NULL,
+		SELECT pe.pipeline_config_key, pe.main_input_registry_key IS NOT NULL,
 			EXISTS (SELECT 1 FROM jetsapi.input_registry ir WHERE ir.key = pe.main_input_registry_key)
 		FROM jetsapi.pipeline_execution_status pe
-		WHERE pe.session_id = $1`, sessionId).Scan(&hasKey, &registered)
+		WHERE pe.session_id = $1`, sessionId).Scan(&configKey, &hasKey, &registered)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		return fmt.Errorf("error: no pipeline execution with session_id %s", sessionId)
 	case err != nil:
 		return fmt.Errorf("while checking the input of session_id %s: %v", sessionId, err)
+	case configKey == 0:
+		return fmt.Errorf("error: session_id %s is the failure of a job, not a pipeline run: "+
+			"it has nothing to resubmit, the job runs again on its own schedule or event", sessionId)
 	case !hasKey:
 		return fmt.Errorf("error: the pipeline execution with session_id %s has no main input", sessionId)
 	case !registered:

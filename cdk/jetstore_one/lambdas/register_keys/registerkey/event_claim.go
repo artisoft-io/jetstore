@@ -51,22 +51,30 @@ type eventDB interface {
 }
 
 // claimEvent takes the event for this invocation. It returns true when this
-// invocation should register it, with the input session an earlier invocation
-// recorded when it takes over an unfinished registration (empty otherwise), and
-// false with the existing row's status when another delivery has registered it or
-// is registering it. inFlight is how long a started row is taken to belong to a
-// running invocation.
+// invocation should register it, with the status the row had before (empty for
+// a new event, failed or started when it takes over an earlier invocation's)
+// and the input session an earlier invocation recorded when it takes over an
+// unfinished registration (empty otherwise); and false with the existing row's
+// status when another delivery has registered it or is registering it. inFlight
+// is how long a started row is taken to belong to a running invocation.
+//
+// The status before the claim is what lets a failed registration be recorded
+// once (recordS3Failure): a retry of an event already failed adds no record.
 func claimEvent(ctx context.Context, db eventDB, fileKey, sequencer string,
 	inFlight time.Duration) (claimed bool, status, sessionId string, err error) {
 
-	stmt := `INSERT INTO jetsapi.s3_object_event (file_key, sequencer, status, started_at)
+	// prior reads the row as it stood before the statement: every part of one
+	// statement sees the same snapshot, so the upsert's change is not in it.
+	stmt := `WITH prior AS (
+			SELECT status FROM jetsapi.s3_object_event WHERE file_key = $1 AND sequencer = $2)
+		INSERT INTO jetsapi.s3_object_event (file_key, sequencer, status, started_at)
 		VALUES ($1, $2, $3, now())
 		ON CONFLICT (file_key, sequencer) DO UPDATE
 			SET status = EXCLUDED.status, started_at = now(), completed_at = NULL
 			WHERE s3_object_event.status = $5
 			   OR (s3_object_event.status = $3
 			       AND s3_object_event.started_at < now() - make_interval(secs => $4))
-		RETURNING status, coalesce(session_id, '')`
+		RETURNING coalesce((SELECT status FROM prior), ''), coalesce(session_id, '')`
 	err = db.QueryRow(ctx, stmt, fileKey, sequencer, eventStarted, inFlight.Seconds(), eventFailed).
 		Scan(&status, &sessionId)
 	switch {

@@ -12,6 +12,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/agentic/retention"
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/sessionpurge"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -146,7 +147,16 @@ type purgeConfig struct {
 // A session or an incident that fails is logged and retried by the next run; it
 // is not an error of the run, which would have the lambda retried, and neither
 // is a failure of the agentic sweep or of the audit retention, which are logged.
-func purgeSessions(ctx context.Context, dbpool *pgxpool.Pool, cfg purgeConfig) error {
+//
+// Every run that goes wrong, whether it stops with an error or only fails some
+// of its work, records one failure of the purge job (recordRun), so the failure
+// is seen on the Pipelines Status screen and by the agentic triage rather than
+// only in the lambda's log. A dry run records too: its failure is the job's
+// failure, and the sessions it fails are those a real run would fail.
+func purgeSessions(ctx context.Context, dbpool *pgxpool.Pool, cfg purgeConfig) (err error) {
+	var problems []string
+	defer func() { recordRun(ctx, dbpool, cfg, err, problems) }()
+
 	purgeFrom := cfg.Now.AddDate(0, 0, -cfg.RetentionDays)
 	mode := "real run"
 	if cfg.DryRun {
@@ -175,15 +185,16 @@ func purgeSessions(ctx context.Context, dbpool *pgxpool.Pool, cfg purgeConfig) e
 		// The sweep runs in the dry run's transaction, after its sessions, so it
 		// sees them deleted as a real run would.
 		opts.AfterDryRun = func(ctx context.Context, tx pgx.Tx) error {
-			sweepIncidents(ctx, tx, sweepOpts, "DRY RUN, nothing written: ")
+			problems = append(problems, sweepIncidents(ctx, tx, sweepOpts, "DRY RUN, nothing written: ")...)
 			return nil
 		}
 		report, err := sessionpurge.ExecuteRequests(ctx, dbpool, append(sessionCands, orphans...), opts)
 		logReport("DRY RUN, nothing written: ", &report)
+		problems = append(problems, failedSessions(&report)...)
 		if err != nil {
 			return fmt.Errorf("while executing the dry run: %v", err)
 		}
-		purgeAuditTrail(ctx, dbpool, cfg, "DRY RUN, nothing written: ")
+		problems = append(problems, purgeAuditTrail(ctx, dbpool, cfg, "DRY RUN, nothing written: ")...)
 		return nil
 	}
 
@@ -195,11 +206,12 @@ func purgeSessions(ctx context.Context, dbpool *pgxpool.Pool, cfg purgeConfig) e
 	}
 	report, err := sessionpurge.Execute(ctx, dbpool, opts)
 	logReport("", &report)
+	problems = append(problems, failedSessions(&report)...)
 	if err != nil {
 		return fmt.Errorf("while executing the session deletions: %v", err)
 	}
-	sweepIncidents(ctx, dbpool, sweepOpts, "")
-	purgeAuditTrail(ctx, dbpool, cfg, "")
+	problems = append(problems, sweepIncidents(ctx, dbpool, sweepOpts, "")...)
+	problems = append(problems, purgeAuditTrail(ctx, dbpool, cfg, "")...)
 
 	archiveFrom := cfg.Now.AddDate(0, 0, -archiveDays)
 	n, err := sessionpurge.PurgeArchive(ctx, dbpool, archiveFrom)
@@ -245,8 +257,10 @@ func logReport(prefix string, r *sessionpurge.Report) {
 // sweepIncidents runs the agentic retention sweep and logs its report: the
 // incidents deleted, those kept because a delivery or run still held is placed
 // in them, and the rows per table. A failure is logged, not returned: the
-// incidents are swept again by the next run.
-func sweepIncidents(ctx context.Context, db retention.DB, opts retention.Options, prefix string) {
+// incidents are swept again by the next run. What failed is returned as lines
+// for the run's failure record, none when nothing did.
+func sweepIncidents(ctx context.Context, db retention.DB, opts retention.Options, prefix string) []string {
+	var problems []string
 	r, err := retention.Sweep(ctx, db, opts)
 	log.Printf("Incident retention: %s%s", prefix, r.Summary())
 	for _, t := range r.Tables() {
@@ -254,24 +268,29 @@ func sweepIncidents(ctx context.Context, db retention.DB, opts retention.Options
 	}
 	if len(r.FailedIncidents) > 0 {
 		log.Printf("   incident retention: failed, retried by the next run: %s", strings.Join(r.FailedIncidents, ", "))
+		problems = append(problems, fmt.Sprintf("%d incidents failed to delete, retried by the next run: %s",
+			len(r.FailedIncidents), listed(r.FailedIncidents)))
 	}
 	if err != nil {
 		log.Println("Warning: while sweeping the agentic incidents:", err)
+		problems = append(problems, fmt.Sprintf("the incident retention sweep failed: %v", err))
 	}
+	return problems
 }
 
 // purgeAuditTrail purges the agent's audit trail older than its retention, or
-// says it is kept when none is set. A failure is logged, not returned.
-func purgeAuditTrail(ctx context.Context, db *pgxpool.Pool, cfg purgeConfig, prefix string) {
+// says it is kept when none is set. A failure is logged, not returned, and is
+// returned as a line for the run's failure record.
+func purgeAuditTrail(ctx context.Context, db *pgxpool.Pool, cfg purgeConfig, prefix string) []string {
 	if cfg.AuditRetentionDays < 1 {
 		log.Println("Agent audit retention: AGENT_AUDIT_RETENTION_DAYS is not set, the audit trail is kept")
-		return
+		return nil
 	}
 	before := cfg.Now.AddDate(0, 0, -cfg.AuditRetentionDays)
 	r, err := retention.PurgeAudit(ctx, db, before, cfg.DryRun)
 	if err != nil {
 		log.Println("Warning: while purging the agent audit trail:", err)
-		return
+		return []string{fmt.Sprintf("the agent audit retention failed: %v", err)}
 	}
 	log.Printf("Agent audit retention: %srows written before %s", prefix, before.UTC().Format(time.RFC3339))
 	for _, t := range []string{retention.AgentAuditTable, retention.AgentRunTable, retention.ApprovalEventTable} {
@@ -282,6 +301,72 @@ func purgeAuditTrail(ctx context.Context, db *pgxpool.Pool, cfg purgeConfig, pre
 	for _, n := range r.Notes {
 		log.Printf("   agent audit retention: %s", n)
 	}
+	return nil
+}
+
+// recordFailure records a failure of the purge job; a variable so a test can
+// make the record itself fail. Production code must not reassign it.
+var recordFailure = datatable.RecordJobFailure
+
+// maxListed is how many sessions or incidents a failure record names; the rest
+// are counted. The log names them all.
+const maxListed = 50
+
+// recordRun records the run as one failure of the purge job when it went wrong:
+// runErr is the error that stopped it, and problems the work it failed and went
+// on from (sessions it could not delete, the incident sweep, the audit
+// retention). One row per run, however many things failed, so a session that
+// fails every day is one failure a day, not one per session. A run that went
+// right records nothing. The record is written even when the run's context was
+// cancelled, since a cancelled run is a failed one, and a failure to record is
+// logged: the run's own error is what the lambda returns.
+func recordRun(ctx context.Context, dbpool *pgxpool.Pool, cfg purgeConfig, runErr error, problems []string) {
+	if runErr == nil && len(problems) == 0 {
+		return
+	}
+	var lines []string
+	if cfg.DryRun {
+		lines = append(lines, "dry run, nothing was deleted")
+	}
+	if runErr != nil {
+		lines = append(lines, "the purge stopped: "+runErr.Error())
+	}
+	lines = append(lines, problems...)
+	sessionId, err := recordFailure(context.WithoutCancel(ctx), dbpool, datatable.JobFailure{
+		Job:     datatable.JobPurgeData,
+		Details: strings.Join(lines, "\n"),
+	})
+	if err != nil {
+		log.Println("Warning: the purge's failure could not be recorded:", err)
+		return
+	}
+	log.Printf("Recorded the purge's failure under session %s", sessionId)
+}
+
+// failedSessions is the record's line for the sessions a run failed to delete,
+// with the error of each, or none.
+func failedSessions(r *sessionpurge.Report) []string {
+	if len(r.FailedSessions) == 0 {
+		return nil
+	}
+	named := make([]string, 0, min(len(r.FailedSessions), maxListed))
+	for _, id := range r.FailedSessions[:min(len(r.FailedSessions), maxListed)] {
+		named = append(named, fmt.Sprintf("%s (%s)", id, r.FailedErrors[id]))
+	}
+	more := ""
+	if n := len(r.FailedSessions) - len(named); n > 0 {
+		more = fmt.Sprintf(", and %d more", n)
+	}
+	return []string{fmt.Sprintf("%d sessions failed to delete, retried by the next run: %s%s",
+		len(r.FailedSessions), strings.Join(named, "; "), more)}
+}
+
+// listed names up to maxListed ids and counts the rest.
+func listed(ids []string) string {
+	if len(ids) <= maxListed {
+		return strings.Join(ids, ", ")
+	}
+	return fmt.Sprintf("%s, and %d more", strings.Join(ids[:maxListed], ", "), len(ids)-maxListed)
 }
 
 // purgeRulesUnitTestRuns deletes the rules unit test runs last updated on or
