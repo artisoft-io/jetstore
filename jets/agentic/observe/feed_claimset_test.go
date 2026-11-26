@@ -386,7 +386,7 @@ func TestClaimSetStatementQuotesEveryProfileName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stmt := ClaimSetStatement(table, p.ClaimSet, []string{h.paid})
+	stmt := ClaimSetSummaryStatement(table, p.ClaimSet, []string{"session_id", h.key, h.date, h.member, h.paid})
 	rest := strings.ReplaceAll(stmt, table.Sanitize(), "")
 	for _, n := range []string{h.key, h.date, h.member, h.paid} {
 		rest = strings.ReplaceAll(rest, pgx.Identifier{n}.Sanitize(), "")

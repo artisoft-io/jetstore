@@ -10,12 +10,17 @@ package observe
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/url"
 	"os"
+	"reflect"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/agentic/feedprofile"
+	"github.com/artisoft-io/jetstore/jets/agentic/observe/feedfixture"
 	"github.com/artisoft-io/jetstore/jets/keyset"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -111,5 +116,171 @@ func TestClaimSetSummaryHashesAsKeysetDoes(t *testing.T) {
 	if small.DistinctKeys != 5 || small.Fingerprint != nil || small.Sketch != nil || !small.DatesInMonths ||
 		small.Newest == nil || small.Newest.Day() != 1 {
 		t.Errorf("a delivery of five keys and one member: %+v", small)
+	}
+}
+
+// Criteria 138 to 140 on the fixture. The summaries a run computes carry no
+// member-level value; once written, a run with every claim row deleted
+// computes none and reaches the same verdicts, details and anomalies as the
+// run that read the rows, all five checks; and every overlap estimate is
+// within its stated error of the exact count of shared keys.
+func TestClaimSetChecksJudgeFromSummariesOnceRowsAreGone(t *testing.T) {
+	pool := claimSetTestPoolWith(t, "observe_claimset_summary_test", feedfixture.Install)
+	ctx := context.Background()
+	profiled, unprofiled := claimSetTestFeeds(t, pool)
+	feeds := append(slices.Clone(profiled), unprofiled...)
+	o := claimSetTestOptions()
+	before, sums, err := SummariseClaimSets(ctx, pool, feeds, o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sums) == 0 {
+		t.Fatal("the run computed no summary")
+	}
+	n, err := WriteClaimSetSummaries(ctx, pool, sums)
+	if err != nil || n != len(sums) {
+		t.Fatalf("wrote %d of %d summaries: %v", n, len(sums), err)
+	}
+
+	// 138: no member, key or amount in any stored row.
+	var dump string
+	if err := pool.QueryRow(ctx, `SELECT string_agg(row_to_json(s)::text, ' ') FROM jetsapi.claim_set_summary s`).
+		Scan(&dump); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range feedfixture.Canaries() {
+		if strings.Contains(dump, c) {
+			t.Errorf("a stored summary carries the canary %s", c)
+		}
+	}
+
+	// 140: the estimate against the exact count, while the rows are here.
+	estimated := 0
+	for _, v := range before {
+		a := v.Aggregates
+		if v.Detector != ClaimSetDeliveryOverlap || a == nil || !a.SharedKeysEstimated || a.Summary == nil ||
+			a.PredecessorSummary == nil {
+			continue
+		}
+		f := claimSetFeedNamed(t, profiled, v.TableName)
+		table, _ := ClaimSetTable(f.Profile.ClaimSet.Table)
+		key := claimSetKeyText(f.Profile.ClaimSet)
+		var exact int64
+		if err := pool.QueryRow(ctx, fmt.Sprintf(`SELECT count(*) FROM (
+			SELECT %[2]s FROM %[1]s WHERE session_id = $1 INTERSECT SELECT %[2]s FROM %[1]s WHERE session_id = $2) s`,
+			table.Sanitize(), key), a.Summary.SessionID, a.PredecessorSummary.SessionID).Scan(&exact); err != nil {
+			t.Fatal(err)
+		}
+		if math.Abs(float64(a.SharedKeys-exact)) > a.SharedKeysError {
+			t.Errorf("%s %s: %d shared keys estimated %d, beyond the stated error %.1f", v.TableName, v.SessionID,
+				exact, a.SharedKeys, a.SharedKeysError)
+		}
+		if !strings.Contains(v.Detail, "estimated") {
+			t.Errorf("the overlap detail does not say it is an estimate: %s", v.Detail)
+		}
+		estimated++
+	}
+	if estimated == 0 {
+		t.Error("no overlap verdict compared two sketches")
+	}
+
+	// 139: the rows go, the summaries stay.
+	for _, f := range profiled {
+		table, _ := ClaimSetTable(f.Profile.ClaimSet.Table)
+		if _, err := pool.Exec(ctx, "DELETE FROM "+table.Sanitize()); err != nil &&
+			!strings.Contains(err.Error(), "42P01") {
+			t.Fatal(err)
+		}
+	}
+	after, again, err := SummariseClaimSets(ctx, pool, feeds, o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(again) != 0 {
+		t.Errorf("with the rows gone the run computed %d summaries", len(again))
+	}
+	if len(after) != len(before) {
+		t.Fatalf("%d verdicts from summaries, %d from rows", len(after), len(before))
+	}
+	judged := 0
+	for i := range before {
+		b, a := before[i], after[i]
+		if b.Detector != a.Detector || b.SessionID != a.SessionID || b.Verdict != a.Verdict || b.Reason != a.Reason ||
+			b.Detail != a.Detail || !reflect.DeepEqual(b.Anomalies, a.Anomalies) {
+			t.Errorf("%s %s %s: from rows %s %q, from summaries %s %q\n  %s\n  %s", b.Detector, b.TableName,
+				b.SessionID, b.Verdict, b.Reason, a.Verdict, a.Reason, b.Detail, a.Detail)
+		}
+		if b.Verdict != ClaimSetNotJudged {
+			judged++
+		}
+	}
+	if judged == 0 {
+		t.Error("nothing was judged")
+	}
+
+	// A span declared later: on a histogram bound it is judged; off one, with
+	// the rows gone, it is not, and says why.
+	for _, span := range []int{31, 33} {
+		var changed []feedprofile.Feed
+		for _, f := range profiled {
+			if f.Profile.MaxServiceDateSpanDays != nil {
+				f.Profile.MaxServiceDateSpanDays = &span
+				changed = append(changed, f)
+			}
+		}
+		if len(changed) == 0 {
+			t.Fatal("no fixture feed declares a span")
+		}
+		vs, err := DetectClaimSets(ctx, pool, changed, o)
+		if err != nil {
+			t.Fatal(err)
+		}
+		undecided := 0
+		for _, v := range vs {
+			if v.Detector == ClaimSetServiceDateSpan && v.Reason == ClaimSetSummaryDeclarationChanged {
+				undecided++
+			}
+		}
+		if (span == 31) != (undecided == 0) {
+			t.Errorf("a span of %d: %d verdicts not judged for a changed declaration", span, undecided)
+		}
+	}
+}
+
+func claimSetFeedNamed(t *testing.T, feeds []feedprofile.Feed, table string) feedprofile.Feed {
+	t.Helper()
+	for _, f := range feeds {
+		if f.TableName == table {
+			return f
+		}
+	}
+	t.Fatalf("no feed %s", table)
+	return feedprofile.Feed{}
+}
+
+// A comparison with a delivery of fewer distinct keys than the minimum is not
+// judged, and says so; delivery_overlap's anomalies are one generation ahead.
+func TestClaimSetSmallDeliveriesAreNotCompared(t *testing.T) {
+	var a ClaimSetAggregates
+	a.DistinctKeys, a.PredecessorDistinctKeys = 4, 400
+	f := feedprofile.Feed{TableName: "t", Profile: feedprofile.Profile{ClaimSet: &feedprofile.ClaimSet{
+		KeyColumns: []string{"k"}}}}
+	prev := &claimSetDelivery{session: "P"}
+	adv := true
+	a.Advanced = &adv
+	o := ClaimSetOptions{MinMembers: 11, Generation: 1}
+	for _, det := range []string{ClaimSetDeliveryOverlap, ClaimSetDeliveryUnchanged} {
+		v := ClaimSetVerdict{Detector: det}
+		if det == ClaimSetDeliveryOverlap {
+			claimSetOverlap(&v, f, claimSetDelivery{session: "S"}, prev, &a, o)
+		} else {
+			claimSetUnchanged(&v, f, claimSetDelivery{session: "S"}, prev, &a, o)
+		}
+		if v.Verdict != ClaimSetNotJudged || v.Reason != ClaimSetSmallDelivery {
+			t.Errorf("%s: %s %q", det, v.Verdict, v.Reason)
+		}
+	}
+	if ClaimSetGeneration(ClaimSetDeliveryOverlap, 1) != 2 || ClaimSetGeneration(ClaimSetDeliveryUnchanged, 1) != 1 {
+		t.Error("the generations")
 	}
 }

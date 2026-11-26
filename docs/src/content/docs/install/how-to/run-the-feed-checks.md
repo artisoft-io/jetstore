@@ -114,9 +114,10 @@ the Query Tool on the client's installation (`workspace_ide`).
    row with one text column.
 3. Copy that text, as it is, onto the end of `results.txt`. Do the same for every part of the round.
 4. Run the command from step 1 again. It prints the next round. Repeat steps 2 to 4 until it prints
-   *The export is complete*. With `-client` there are three rounds: the feeds, then their
-   registrations and claim-set tables, then one statement per delivery. Without `-client` the first
-   round lists the clients, and there are four.
+   *The export is complete*. With `-client` there are four rounds: the feeds, then their
+   registrations and claim-set tables, then one summary statement per delivery with the summaries
+   already stored, then, for each delivery judged, the pipeline run that read it. Without `-client`
+   the first round lists the clients, and there are five.
 5. Judge the results:
 
    ```bash
@@ -140,5 +141,7 @@ asked for again, so a round can be resumed.
 
 **What leaves the client's database** is what the checks themselves read: the source configurations
 of the feeds, each delivery's registration (session, client and org, file key, period and file size), the column names
-of the claim-set tables, and per delivery a dozen counts, a lag and a span. No claim, key, member or
-date of service is in a result.
+of the claim-set tables, and per delivery its summary: counts, a lag and a span, the newest and
+oldest date of service (the first of the month for a delivery of few members), a histogram, the rows
+carrying a value per column, and a fingerprint and a 12 KB sketch of its keys, computed inside the
+database. No claim, key or member is in a result.

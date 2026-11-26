@@ -436,8 +436,9 @@ func TestFeedProcessJudgesTheExportedResultsAsItJudgesInProcess(t *testing.T) {
 	o := feedProcessBackfill()
 	profiles := feedProcessProfiles(t)
 	results, rounds := feedProcessRunExport(t, pool, nil, profiles, o)
-	if rounds != 4 {
-		t.Errorf("%d rounds; clients, feeds, registrations and columns, then the deliveries make four", rounds)
+	if rounds != 5 {
+		t.Errorf("%d rounds; clients, feeds, registrations and columns, the deliveries' summaries, then the runs "+
+			"that read them make five", rounds)
 	}
 	parsed, err := ReadFeedProcessResults(strings.NewReader(results))
 	if err != nil {
@@ -471,8 +472,8 @@ func TestFeedProcessJudgesTheExportedResultsAsItJudgesInProcess(t *testing.T) {
 			clients = append(clients, f.Client)
 		}
 	}
-	if _, n := feedProcessRunExport(t, pool, clients, profiles, o); n != 3 {
-		t.Errorf("with the clients named, %d rounds, want 3", n)
+	if _, n := feedProcessRunExport(t, pool, clients, profiles, o); n != 4 {
+		t.Errorf("with the clients named, %d rounds, want 4", n)
 	}
 
 	// Results that answer only part of the run are refused, not judged.

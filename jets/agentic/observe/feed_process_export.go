@@ -24,7 +24,9 @@ package observe
 // content checks' statement for a delivery names the delivery's session and
 // its predecessor's, which the feed's registrations give -- so an export runs
 // in rounds: the source configuration, then the registrations and the
-// claim-set tables' columns, then one statement per delivery. Each round is
+// claim-set tables' columns, then one summary statement per delivery and the
+// stored summaries, then, for each delivery judged, the run that read the
+// session its summary names. Each round is
 // what the process asked for and could not be answered; an export with
 // nothing left to ask is complete.
 //
@@ -249,8 +251,16 @@ func feedProcessLabel(sql string, args []any) string {
 		return "the file registrations of the feeds, from which both families read their deliveries"
 	case sql == claimSetColumnsSQL:
 		return "the columns of claim-set table " + arg(0) + "." + arg(1)
-	case strings.HasPrefix(sql, "WITH cur_session AS"):
-		return "the content-check aggregates of session " + arg(0) + " against " + arg(1)
+	case strings.Contains(sql, "claimset_key"):
+		return "the claim-set summary of session " + arg(0)
+	case sql == ClaimSetRunStatement():
+		return "the run that read session " + arg(0) + ", its retain window and spans"
+	case sql == claimSetSummaryTableSQL:
+		return "whether the claim-set summary table exists"
+	case sql == claimSetStoredSummariesSQL:
+		return "the stored claim-set summaries of the feeds"
+	case sql == claimSetSketchesSQL:
+		return "the stored key sketches of feed " + arg(0)
 	case strings.Contains(sql, "jetsapi.source_config"):
 		return "the feeds of client " + arg(0)
 	}
