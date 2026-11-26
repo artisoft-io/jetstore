@@ -81,7 +81,7 @@ export interface IncidentRow {
   runRef: string;
   /** RFC3339. */
   detectedAt: string;
-  /** One of the nine loci — where the evidence sits. Never empty. */
+  /** One of the loci — where the evidence sits. Never empty. */
   locus: string;
   /** One of the imported ten, or "" when nothing has claimed a cause. */
   classification: string;
@@ -102,6 +102,12 @@ export interface IncidentRow {
    * why it may be shown where a message may not.
    */
   errorCode?: string;
+  /**
+   * The job that failed, on a `job_failed` incident only: the process name of
+   * the job's row (`purge_data`, `register_keys`, or a workspace's custom
+   * Lambda). Sent **only where it is set**, as `errorCode` is.
+   */
+  job?: string;
 }
 
 /** Mirrors audit.Evidence — a value object, stored inline as jsonb. */
@@ -792,6 +798,13 @@ export const LOCUS_GLOSS: Record<string, { meaning: string; cannotSee: string; l
     meaning:
       "A delivery that arrived departs from what the feed's profile declares: its size, freshness, span of service dates, completeness, overlap with earlier deliveries, or a repeat of the last one.",
     cannotSee: "Whether the delivery or the declaration is wrong: a departure from a profile nobody has revised is not a fault in the feed.",
+  },
+  // A job is not a pipeline: its failure is a row of its own, with no
+  // configuration and no input, and the incident names the job.
+  job_failed: {
+    meaning:
+      "A JetStore job, or a workspace's custom Lambda, recorded a failure: the purge, file registration, or another job that is not a pipeline run.",
+    cannotSee: "Anything beyond the job's own error text, and a failure the job could not record, such as one where it could not reach the database.",
   },
 };
 

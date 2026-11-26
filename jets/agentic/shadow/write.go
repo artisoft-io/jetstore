@@ -173,6 +173,9 @@ type SessionResult struct {
 	// Zero is the ordinary case: jetsapi.anomaly is deployed nowhere that has
 	// not migrated since it was added, and no detector runs on a schedule.
 	Anomalies int
+	// Sentinel reports that the session is triage.SentinelSession and was
+	// skipped: nothing was classified or written, and Report is empty.
+	Sentinel bool
 }
 
 // Run classifies one session, ranks what it found, and writes one incident per
@@ -246,6 +249,14 @@ func (w *Writer) Run(ctx context.Context, db DB, sessionId string) (*SessionResu
 	}
 	if w.Actor == "" {
 		return nil, errors.New("Writer.Actor is empty: every incident_event carries an actor, and an unattributable transition is the one thing that record exists to prevent")
+	}
+	// The legacy shared session holds the failures of many jobs under one id,
+	// and triage reads one header per session, so classifying it would read
+	// one failure of many and key every one of them on one incident. It is
+	// skipped, and the caller counts it.
+	if sessionId == triage.SentinelSession {
+		return &SessionResult{SessionId: sessionId, Report: &triage.Report{SessionId: sessionId},
+			Ranking: &rca.Ranking{}, Sentinel: true}, nil
 	}
 	severity := w.Severity
 	if severity == "" {
@@ -1080,6 +1091,11 @@ func raisedLoci(ctx context.Context, db DB, sessionId string) (raised, error) {
 // classifier answers `not_evaluable` there rather than `present`, so the cost is
 // a wasted read rather than a wrong incident.
 //
+// **It leaves out triage.SentinelSession**, the shared session a workspace's
+// custom Lambdas wrote their failures under before a job's failure had a
+// session of its own: one session id on many headers, which triage cannot read
+// one failure at a time. SentinelHeaders counts what it left out.
+//
 // It reads the live table rather than pipeline_execution_history on purpose: a
 // run whose session was deleted has lost the record every run locus reads, so
 // selecting it would cost a read and return nine not-evaluable findings.
@@ -1092,8 +1108,9 @@ func RecentSessions(ctx context.Context, db DB, since time.Time, client, process
 		  WHERE start_time >= $1
 		    AND ($2 = '' OR client = $2)
 		    AND ($3 = '' OR process_name = $3)
+		    AND session_id <> $5
 		  ORDER BY start_time DESC, key DESC
-		  LIMIT $4`, since, client, process, limit)
+		  LIMIT $4`, since, client, process, limit, triage.SentinelSession)
 	if err != nil {
 		return nil, fmt.Errorf("while listing recent sessions: %w", err)
 	}
@@ -1107,6 +1124,21 @@ func RecentSessions(ctx context.Context, db DB, since time.Time, client, process
 		out = append(out, s)
 	}
 	return out, rows.Err()
+}
+
+// SentinelHeaders counts the run headers on triage.SentinelSession that
+// RecentSessions, with the same window and filters, leaves out.
+func SentinelHeaders(ctx context.Context, db DB, since time.Time, client, process string) (int, error) {
+	var n int
+	if err := db.QueryRow(ctx,
+		`SELECT count(*) FROM jetsapi.pipeline_execution_status
+		  WHERE start_time >= $1
+		    AND ($2 = '' OR client = $2)
+		    AND ($3 = '' OR process_name = $3)
+		    AND session_id = $4`, since, client, process, triage.SentinelSession).Scan(&n); err != nil {
+		return 0, fmt.Errorf("while counting the headers on the shared session %s: %w", triage.SentinelSession, err)
+	}
+	return n, nil
 }
 
 // RecentFeedSessions returns the sessions carrying a feed anomaly detected
@@ -1162,6 +1194,10 @@ type Selection struct {
 	Sessions []string // both, each once (MergeSessions)
 	// FeedsSkipped says why no feed session was selected, or is "".
 	FeedsSkipped string
+	// Sentinel counts the run headers in the window on
+	// triage.SentinelSession, which no run selection includes
+	// (SentinelHeaders).
+	Sentinel int
 }
 
 // ErrFeedsOnlyWithProcess: a delivery belongs to no process, so a feeds-only
@@ -1199,8 +1235,13 @@ func SelectSessions(ctx context.Context, db DB, from time.Time, client, process 
 		case !anomalies:
 			return sel, ErrFeedsOnlyWithoutAnomalies
 		}
-	} else if sel.Runs, err = RecentSessions(ctx, db, from, client, process, limit); err != nil {
-		return sel, err
+	} else {
+		if sel.Runs, err = RecentSessions(ctx, db, from, client, process, limit); err != nil {
+			return sel, err
+		}
+		if sel.Sentinel, err = SentinelHeaders(ctx, db, from, client, process); err != nil {
+			return sel, err
+		}
 	}
 	switch {
 	case process != "":

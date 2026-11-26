@@ -657,6 +657,10 @@ func listIncidents(ctx context.Context, ops agenticOps, a *AgenticAction) (*map[
 		if sp.ErrorCode != "" {
 			row["errorCode"] = sp.ErrorCode
 		}
+		// Only where set: the incident of a job's failure names the job.
+		if sp.Job != "" {
+			row["job"] = sp.Job
+		}
 		out = append(out, row)
 	}
 	return &map[string]any{

@@ -191,6 +191,7 @@ type summary struct {
 	Hypotheses      int                    `json:"hypothesesWritten"`
 	AlreadyRaised   int                    `json:"alreadyRaised"`
 	Grouped         int                    `json:"groupedIntoABurst"`
+	SentinelSkipped int                    `json:"sentinelSkipped"`
 	UnmappedLoci    []string               `json:"unmappedLoci"`
 	Census          map[string]locusCensus `json:"census"`
 	FeedsAssessed   int                    `json:"feedsAssessedForProposals"`
@@ -249,7 +250,13 @@ func doJob(ctx context.Context, db *pgxpool.Pool, extent *triage.Extent, sum *su
 				len(sel.Feeds), from.Format(time.RFC3339))
 		}
 		sum.FeedSessions = len(sel.Feeds)
+		sum.SentinelSkipped = sel.Sentinel
 		sessions = sel.Sessions
+	}
+	if sum.SentinelSkipped > 0 {
+		log.Printf("%d run header(s) on the shared session %s skipped: a workspace's custom Lambdas wrote "+
+			"their failures there before a job's failure had a session of its own, and triage reads one "+
+			"header per session, so they raise no incident", sum.SentinelSkipped, triage.SentinelSession)
 	}
 	sum.Runs = len(sessions)
 	if len(sessions) == 0 {
@@ -266,6 +273,12 @@ func doJob(ctx context.Context, db *pgxpool.Pool, extent *triage.Extent, sum *su
 		res, err := w.Run(ctx, db, s)
 		if err != nil {
 			return err
+		}
+		if res.Sentinel {
+			// Named with -session: skipped by the writer, and counted here.
+			sum.SentinelSkipped++
+			log.Printf("%s: the shared session of the custom Lambdas' legacy failures, skipped and counted", s)
+			continue
 		}
 		for i := range res.Report.Findings {
 			f := &res.Report.Findings[i]

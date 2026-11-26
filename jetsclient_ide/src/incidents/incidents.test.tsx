@@ -1246,3 +1246,48 @@ describe("a purged incident", () => {
     expect(list.textContent).toContain(sentence);
   });
 });
+
+describe("a job's failure", () => {
+  const jobIncident = "inc_1767000000001_job_failed";
+  const jobRow = {
+    ...triagedRow,
+    incidentId: jobIncident,
+    sessionId: "1767000000001",
+    locus: "job_failed",
+    job: "purge_data",
+    client: "",
+    objectType: "",
+    firstSeen: "2026-11-22T03:00:00Z",
+    lastSeen: "2026-11-24T03:00:00Z",
+    count: 3,
+    fromCondition: false,
+    fromRunCondition: true,
+  };
+
+  it("names the job beside its locus on the list", async () => {
+    const { api } = await clientWith({
+      list_incidents: { body: { incidents: [jobRow, triagedRow], total: 2, ...vocabularies } },
+    });
+    renderAt(api, "/incidents");
+    const tr = (await screen.findByRole("link", { name: jobIncident })).closest("tr")!;
+    const locus = [...tr.querySelectorAll("td")].find((td) => td.textContent?.includes("Job failed"))!;
+    expect(locus.querySelector("code")!.textContent).toBe("purge_data");
+    const other = screen.getByRole("link", { name: "inc_1" }).closest("tr")!;
+    expect(other.querySelector("code.incident-code")).toBeNull();
+  });
+
+  it("names the job on its page, with what the locus cannot see", async () => {
+    const { api } = await clientWith({
+      get_incident: {
+        body: {
+          ...disclosed,
+          incident: { ...detail, incidentId: jobIncident, locus: "job_failed", job: "purge_data", hypotheses: [] },
+        },
+      },
+    });
+    renderAt(api, `/incidents/${jobIncident}`);
+    expect((await screen.findByText("Job")).nextElementSibling!.textContent).toContain("purge_data");
+    expect(screen.getAllByText("Job failed").length).toBeGreaterThan(0);
+    expect(screen.getByText(/could not reach the database/)).toBeTruthy();
+  });
+});

@@ -253,6 +253,17 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
                 </p>
               )}
             </dd>
+            {incident.job !== undefined && incident.job !== "" && (
+              <>
+                <dt>Job</dt>
+                <dd>
+                  <code className="incident-code">{incident.job}</code>
+                  <p className="empty-sub">
+                    The job that failed. Its failures are one incident until you give a verdict on it.
+                  </p>
+                </dd>
+              </>
+            )}
             {incident.errorCode !== undefined && incident.errorCode !== "" && (
               <>
                 <dt>Error code</dt>

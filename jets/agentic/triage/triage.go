@@ -4,7 +4,7 @@
 //
 // # Two more loci, and they are not positions in a run
 //
-// The vocabulary has eleven members. The last two, delivery_overdue and
+// The vocabulary has twelve members. Two of them, delivery_overdue and
 // delivery_departs_profile, are positions in a feed's deliveries: a feed
 // detector compares a delivery with the feed's declared profile and writes an
 // anomaly with subject feed, and the locus is a predicate over that anomaly row
@@ -17,6 +17,19 @@
 // member, and reports them NotEvaluable on a session that is not a delivery of
 // a profiled feed and carries no feed anomaly, which is every run's own
 // session: a locus that was never asked is not one that did not fire.
+//
+// # A twelfth, and it is a job rather than a pipeline
+//
+// job_failed is a job's failure. JetStore's own jobs (the purge, file
+// registration) and a workspace's custom Lambdas record a failure as a run
+// header with no pipeline configuration (pipeline_config_key 0), no input
+// session and status failed, under a session reserved and registered for it.
+// Such a header is a job's row (RunHeader.Job), and it is evaluated at
+// job_failed only: every run locus reads NotEvaluable on it, so a job that
+// failed is never read as a run that did not start, which its terminal header
+// and absent worker rows would otherwise say. On every other session job_failed
+// is NotEvaluable. A header on the legacy shared session SentinelSession is
+// none of this package's business: the shadow writer skips it and counts it.
 //
 // # A locus is not a cause, and this package emits only loci
 //
@@ -69,7 +82,7 @@
 // aggregate. A classifier that returns only what fired supplies numerators and
 // no denominators — the count of sessions in which a locus was *evaluated and
 // did not fire* is not recoverable from a list of hits. So Classify emits one
-// Finding per locus per session unconditionally, eleven of them, and the denominator for a locus is the
+// Finding per locus per session unconditionally, twelve of them, and the denominator for a locus is the
 // count of its Present and Absent verdicts, with the NotEvaluable ones excluded
 // and reported separately rather than folded into either.
 //
@@ -88,8 +101,8 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/observe"
 )
 
-// The eleven loci: nine positions in a run's execution record, then two in a
-// feed's deliveries. These are the members of
+// The twelve loci: nine positions in a run's execution record, then two in a
+// feed's deliveries, then a job's failure. These are the members of
 // jetsapi.incident's incident_locus_ck; TestLociMatchDDL asserts them against
 // the generated DDL so a regeneration that adds or removes one fails the suite
 // rather than an insert, which is the guard observe.TestVocabulariesMatchDDL
@@ -98,7 +111,8 @@ import (
 // The order is how early the failure occurs, which is also
 // roughly the order of how little the record retains about it — except for
 // the last two, which are appended because the vocabulary is never
-// renumbered. A delivery precedes the run that loads it.
+// renumbered. A delivery precedes the run that loads it, and the job locus is
+// appended after both for the same reason.
 const (
 	// LocusRunNotStarted — the run header is terminal and there is no worker
 	// row at all.
@@ -135,7 +149,19 @@ const (
 	// feed's declared profile. Read from a feed anomaly with any signal other
 	// than arrival; the signal says which departure.
 	LocusDeliveryDepartsProfile = "delivery_departs_profile"
+	// LocusJobFailed — a job's failure: a run header that is a job's row
+	// (RunHeader.Job) at status failed. Evaluated on a job's row only; every
+	// other locus is NotEvaluable there, and it is NotEvaluable everywhere
+	// else.
+	LocusJobFailed = "job_failed"
 )
+
+// SentinelSession is the shared session a workspace's custom Lambdas wrote
+// their failures under before a job's failure had a session of its own: one
+// session id on many headers, so triage, which reads one header per session,
+// would collapse every such failure into one incident. A header on it raises
+// nothing; the shadow writer skips it and counts it.
+const SentinelSession = "F000000000000"
 
 // Loci is the vocabulary in section 9.4's order. A caller reporting per class
 // iterates this rather than the findings it happens to hold, so a locus that
@@ -152,6 +178,7 @@ var Loci = []string{
 	LocusWrittenNotArrived,
 	LocusDeliveryOverdue,
 	LocusDeliveryDepartsProfile,
+	LocusJobFailed,
 }
 
 // DeliveryLoci are the two loci that are positions in a feed's deliveries
@@ -159,6 +186,13 @@ var Loci = []string{
 // runs — the step census, the shard localisation — has nothing to count for
 // these.
 var DeliveryLoci = []string{LocusDeliveryOverdue, LocusDeliveryDepartsProfile}
+
+// IsPipelineRunLocus reports whether a locus is one of the nine positions in a
+// pipeline run's execution record: neither a delivery locus nor the job
+// locus.
+func IsPipelineRunLocus(locus string) bool {
+	return slices.Contains(Loci, locus) && !slices.Contains(DeliveryLoci, locus) && locus != LocusJobFailed
+}
 
 // Verdict is one locus's answer for one run. It is three-valued rather than
 // boolean, and NotEvaluable is the member the package exists to keep separate:
@@ -283,6 +317,9 @@ type Report struct {
 	// Evaluable counts the findings that are not NotEvaluable. It is the
 	// denominator criterion 44 asks for, at the grain of one run.
 	Evaluable int
+	// Job reports that the session's header is a job's row (RunHeader.Job),
+	// so only job_failed was evaluated and the run loci say nothing about it.
+	Job bool
 }
 
 // Fired returns the loci that hold, in section 9.4's order.

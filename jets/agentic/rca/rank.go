@@ -97,6 +97,12 @@ func (r Ranker) Rank(in *Input) *Ranking {
 		case triage.Present:
 			present = append(present, l)
 		case triage.NotEvaluable:
+			// A pipeline run is never asked about a job, and a job's row never
+			// about a run: those verdicts say what the session is, not what
+			// could not be looked at, so they are not unasked.
+			if (l == triage.LocusJobFailed) != in.Report.Job {
+				continue
+			}
 			out.UnaskedLoci = append(out.UnaskedLoci, l)
 		}
 	}
