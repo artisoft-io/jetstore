@@ -173,30 +173,42 @@ func TestClaimSetStatementCountsRowsOutsideTheSpan(t *testing.T) {
 		t.Fatal(err)
 	}
 	cs := &feedprofile.ClaimSet{Table: "claims", KeyColumns: []string{"k"}, ServiceDateColumn: "d", MemberColumn: "m"}
-	stmt := ClaimSetStatement(pgx.Identifier{"public", "claims"}, cs, nil)
+	columns := []string{"session_id", "k", "d", "m"}
+	stmt := ClaimSetSummaryStatement(pgx.Identifier{"public", "claims"}, cs, columns)
 	arrival := time.Date(2026, 4, 2, 0, 0, 0, 0, time.UTC)
 	d := claimSetDelivery{session: "S", ordinal: 1, arrival: &arrival}
 	span := 30
-	a, err := claimSetAggregate(ctx, pool, stmt, d, nil, nil, 11, &span)
+	o := ClaimSetOptions{MinMembers: 11, Now: arrival}
+	f := feedprofile.Feed{TableName: "claims", Profile: feedprofile.Profile{ClaimSet: cs, MaxServiceDateSpanDays: &span}}
+	a, err := claimSetSummarise(ctx, pool, stmt, columns, f, d, o)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if a.Rows != 14 || a.DatedRows != 13 || a.OutOfSpanRows == nil || *a.OutOfSpanRows != 2 ||
-		a.SpanDays == nil || *a.SpanDays != 300 {
-		t.Errorf("with a span of 30: %d rows, %d dated, %v outside, span %v", a.Rows, a.DatedRows,
-			a.OutOfSpanRows, a.SpanDays)
+	if a == nil || a.Rows != 14 || a.DatedRows != 13 || a.OutOfSpan == nil || *a.OutOfSpan != 2 ||
+		a.SpanDays == nil || *a.SpanDays != 300 || !a.settled || a.DatesInMonths {
+		t.Fatalf("with a span of 30: %+v", a)
 	}
-	none, err := claimSetAggregate(ctx, pool, stmt, d, nil, nil, 11, nil)
+	// The histogram agrees: 30 is one of its bounds.
+	if n, ok := a.Histogram.outside(30); !ok || n != 2 {
+		t.Errorf("the histogram counts %d outside 30 days (%v): %+v", n, ok, a.Histogram)
+	}
+	if n, _ := a.Histogram.outside(0); n != 12 {
+		t.Errorf("the histogram counts %d rows behind the newest day, want 12", n)
+	}
+	if a.Present["d"] != 13 || a.Present["k"] != 14 || a.Present["session_id"] != 14 {
+		t.Errorf("present counts %v", a.Present)
+	}
+	f.Profile.MaxServiceDateSpanDays = nil
+	none, err := claimSetSummarise(ctx, pool, stmt, columns, f, d, o)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if none.OutOfSpanRows != nil || none.DatedRows != 13 {
-		t.Errorf("with no span: %v outside, %d dated", none.OutOfSpanRows, none.DatedRows)
+	if none.OutOfSpan != nil || none.DatedRows != 13 {
+		t.Errorf("with no span: %v outside, %d dated", none.OutOfSpan, none.DatedRows)
 	}
 
 	// The export prints the statement with its arguments as literals.
-	text, err := FeedProcessRender(stmt, []any{d.session, (*string)(nil), arrival.Format(time.DateOnly),
-		(*int)(nil), 11, &span})
+	text, err := FeedProcessRender(stmt, []any{d.session, arrival.Format(time.DateOnly), (*int)(nil), 11, &span})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,7 +233,7 @@ func TestClaimSetStatementCountsRowsOutsideTheSpan(t *testing.T) {
 	}
 	sd, _ := cols[9].(int64)
 	spanDays = &sd
-	dated, _ = cols[10].(int64)
+	dated, _ = cols[5].(int64)
 	outside, _ = cols[11].(int64)
 	if dated != 13 || outside != 2 || *spanDays != 300 {
 		t.Errorf("the rendered statement: span %d, %d dated, %d outside", *spanDays, dated, outside)
@@ -293,13 +305,30 @@ func TestClaimSetStatementReadsTheRunsDrops(t *testing.T) {
 		t.Fatal(err)
 	}
 	cs := &feedprofile.ClaimSet{Table: "claims", KeyColumns: []string{"k"}, ServiceDateColumn: "d", MemberColumn: "m"}
-	stmt := ClaimSetStatement(pgx.Identifier{"public", "claims"}, cs, nil)
+	columns := []string{"session_id", "k", "d", "m"}
+	stmt := ClaimSetSummaryStatement(pgx.Identifier{"public", "claims"}, cs, columns)
 	arrival := time.Date(2026, 4, 2, 0, 0, 0, 0, time.UTC)
 	span := 30
+	f := feedprofile.Feed{TableName: "claims", Profile: feedprofile.Profile{ClaimSet: cs, MaxServiceDateSpanDays: &span}}
+	o := ClaimSetOptions{MinMembers: 11, Now: arrival}
+	// read summarises the delivery, then reads the run that read it, as a run
+	// of the checks does.
 	read := func(session string) *ClaimSetAggregates {
 		t.Helper()
-		a, err := claimSetAggregate(ctx, pool, stmt, claimSetDelivery{session: session, ordinal: 1, arrival: &arrival},
-			nil, nil, 11, &span)
+		d := claimSetDelivery{session: session, ordinal: 1, arrival: &arrival}
+		s, err := claimSetSummarise(ctx, pool, stmt, columns, f, d, o)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var claims *string
+		if s != nil {
+			claims = &s.SessionID
+		}
+		run, err := claimSetReadRun(ctx, pool, d, claims)
+		if err != nil {
+			t.Fatal(err)
+		}
+		a, err := claimSetAggregatesOf(s, nil, run, d, f, o)
 		if err != nil {
 			t.Fatal(err)
 		}

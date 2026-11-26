@@ -116,8 +116,8 @@ func TestFeedProcessExportJudgesReprocessingAsItRuns(t *testing.T) {
 	o := feedProcessBackfill()
 	profiles := feedReprocessingProfiles(t)
 	results, rounds := feedProcessRunExport(t, pool, nil, profiles, o)
-	if rounds != 4 {
-		t.Errorf("%d rounds, want four", rounds)
+	if rounds != 5 {
+		t.Errorf("%d rounds, want five", rounds)
 	}
 	parsed, err := ReadFeedProcessResults(strings.NewReader(results))
 	if err != nil {
