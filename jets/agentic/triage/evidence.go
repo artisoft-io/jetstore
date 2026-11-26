@@ -85,15 +85,20 @@ func ReadExtent(ctx context.Context, db observe.DB) (*Extent, error) {
 // was caught and not where, and the one machine-readable class the platform
 // computes is discarded before the database.
 type RunHeader struct {
-	Key            int64
-	SessionId      string
-	Client         string
-	ProcessName    string
-	MainObjectType string
-	Status         string
-	FailureDetails string
-	StartTime      time.Time
-	LastUpdate     time.Time
+	Key int64
+	// PipelineConfigKey is 0 on a job's row, which has no pipeline
+	// configuration; InputSessionId is "" there too, and on any header whose
+	// input_session_id is null. Job reads the two.
+	PipelineConfigKey int64
+	InputSessionId    string
+	SessionId         string
+	Client            string
+	ProcessName       string
+	MainObjectType    string
+	Status            string
+	FailureDetails    string
+	StartTime         time.Time
+	LastUpdate        time.Time
 	// ArchivedAt is set when the run's session was deleted and the header was
 	// read from the archive, with ArchiveReason (retention, orphan or user).
 	// The run's worker rows, channel details, process_errors and stored
@@ -125,11 +130,13 @@ func (h *RunHeader) Terminal() bool {
 	return false
 }
 
-const headerSQL = `SELECT key, session_id, client, process_name, main_object_type,
+const headerSQL = `SELECT key, pipeline_config_key, coalesce(input_session_id, ''), session_id, client,
+    process_name, main_object_type,
     status, coalesce(failure_details, ''), start_time, last_update, NULL::timestamp, ''
   FROM jetsapi.pipeline_execution_status WHERE session_id = $1`
 
-const headerHistorySQL = `SELECT key, session_id, client, process_name, main_object_type,
+const headerHistorySQL = `SELECT key, pipeline_config_key, coalesce(input_session_id, ''), session_id, client,
+    process_name, main_object_type,
     status, coalesce(failure_details, ''), start_time, last_update, archived_at, coalesce(archive_reason, '')
   FROM jetsapi.pipeline_execution_history WHERE session_id = $1`
 
@@ -150,7 +157,7 @@ func ReadHeader(ctx context.Context, db observe.DB, sessionId string, history bo
 		stmt = headerHistorySQL
 	}
 	err := db.QueryRow(ctx, stmt, sessionId).Scan(
-		&h.Key, &h.SessionId, &h.Client, &h.ProcessName, &h.MainObjectType,
+		&h.Key, &h.PipelineConfigKey, &h.InputSessionId, &h.SessionId, &h.Client, &h.ProcessName, &h.MainObjectType,
 		&h.Status, &h.FailureDetails, &h.StartTime, &h.LastUpdate, &h.ArchivedAt, &h.ArchiveReason)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
@@ -534,7 +541,7 @@ type Evidence struct {
 	Survey *ConfigSurvey
 }
 
-// Gather reads everything the eleven predicates need for one session, in one
+// Gather reads everything the twelve predicates need for one session, in one
 // call: the run's record for the nine run loci, and the session's feed
 // anomalies, registrations and source configuration for the two delivery loci.
 //

@@ -195,6 +195,22 @@ describe("DetectionScreen", () => {
     );
   });
 
+  it("says how many failures on the shared legacy session were skipped, and says nothing when none was", async () => {
+    const triage = scheduled[1]!;
+    const withSentinel = { ...triage, summary: { ...triage.summary, sentinelSkipped: 2 } };
+    const { api } = await clientWith({ list_detection_runs: deployedList([scheduled[0]!, withSentinel]) });
+    renderScreen(api);
+    expect((await screen.findByTestId("sentinel-skipped")).textContent).toMatch(
+      /2 failures on the shared legacy session skipped, not classified/,
+    );
+    cleanup();
+
+    const none = await clientWith({ list_detection_runs: deployedList(scheduled) });
+    renderScreen(none.api);
+    await screen.findByText(/3 runs classified/);
+    expect(screen.queryByTestId("sentinel-skipped")).toBeNull();
+  });
+
   it("shows the feed checks, the feeds they did not judge and the feeds they could not read", async () => {
     const { api } = await clientWith({
       list_detection_runs: deployedList([

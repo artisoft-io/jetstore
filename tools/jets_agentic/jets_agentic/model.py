@@ -101,8 +101,8 @@ class IncidentClassification(StrEnum):
 
 class IncidentLocus(StrEnum):
     """**Ours entirely, and it is the taxonomy the triage design derived from
-    the execution record** (11 values: nine positions in a run's record, then
-    two positions in a feed's deliveries). Not in the proposal at any level.
+    the execution record** (12 values: nine positions in a run's record, then
+    two positions in a feed's deliveries, then a job's failure). Not in the proposal at any level.
 
     **A locus is where in the record a cause would have to have left its
     evidence; it is not a cause.** The triage design's finding is that the
@@ -150,6 +150,16 @@ class IncidentLocus(StrEnum):
     The names are observations against a declaration, not diagnoses:
     *overdue* and *departs* say what was seen, not that the feed is at fault,
     and the declaration may be what is wrong.
+
+    **The twelfth, `job_failed`, is a job's failure, and it is appended for the
+    same reason.** JetStore's jobs (the purge, file registration) and a
+    workspace's custom Lambdas record a failure as a run header with no
+    pipeline configuration, no input session and status `failed`, under a
+    session of its own. Triage evaluates such a header at this locus only, and
+    every run locus reads `not_evaluable` on it, so a job is never read as a
+    run that did not start. Its failures are grouped as a run's are, by client,
+    process name and locus, and a job records only its failures, so its
+    condition ends at a person's verdict rather than at an absent run.
     """
 
     # row 1: header terminal, zero worker rows.
@@ -178,6 +188,13 @@ class IncidentLocus(StrEnum):
     # from the feed's declared profile (size, freshness, span, completeness,
     # overlap, repetition).
     delivery_departs_profile = "delivery_departs_profile"
+    # A job's failure: a run header with no pipeline configuration
+    # (`pipeline_config_key` 0) and no input session, at status `failed`, which
+    # JetStore's jobs and a workspace's custom Lambdas write when they fail. A
+    # job is not a pipeline, so none of the nine run positions describes it
+    # (`run_not_started` would say a run was submitted and never ran), and it
+    # is appended rather than placed with them, by the rule above.
+    job_failed = "job_failed"
 
 
 class RunFindingVerdict(StrEnum):

@@ -388,6 +388,12 @@ function TriageDetail({
         already raised
         {s.dryRun && " (dry run)"}
       </div>
+      {(s.sentinelSkipped ?? 0) > 0 && (
+        <div data-testid="sentinel-skipped">
+          {count(s.sentinelSkipped, "failure", "failures")} on the shared legacy session skipped, not
+          classified
+        </div>
+      )}
       {s.attestationRead && (
         <div
           className={s.attestationHeld ? "detection-held" : "detection-error"}

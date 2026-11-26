@@ -236,8 +236,11 @@ func TestTheLocusAndClassCensusesCarryTheirDenominators(t *testing.T) {
 	// The other half of the class denominator: two run loci are in no row of the gate's
 	// table, so a run exhibiting either produces no hypothesis for it. The two delivery
 	// loci were in no row for one release and now carry three classes each.
-	// TestLociThatMapToNoCauseClass pins which two. A census that did not say so would
-	// report a zero that looks like a measurement.
+	// job_failed, a job's failure, is in no row either: the table's classes are
+	// causes of a pipeline run's or a delivery's failure, and widening it for a
+	// job is the table's change to make. TestLociThatMapToNoCauseClass pins which
+	// three. A census that did not say so would report a zero that looks like a
+	// measurement.
 	unmapped := 0
 	for _, l := range triage.Loci {
 		if len(ClassesFor(l)) == 0 {
@@ -245,8 +248,8 @@ func TestTheLocusAndClassCensusesCarryTheirDenominators(t *testing.T) {
 			t.Logf("locus %s maps to no cause class, so it contributes to no class denominator", l)
 		}
 	}
-	if unmapped != 2 {
-		t.Errorf("%d loci map to no cause class, want 2", unmapped)
+	if unmapped != 3 {
+		t.Errorf("%d loci map to no cause class, want 3", unmapped)
 	}
 }
 

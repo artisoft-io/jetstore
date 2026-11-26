@@ -341,6 +341,9 @@ type IncidentSpan struct {
 	FromRunCondition bool
 	// ErrorCode is the incident's error code, "" when it has none.
 	ErrorCode string
+	// Job is, on a job_failed incident, the name of the job that failed; ""
+	// at any other locus.
+	Job string
 }
 
 // readIncidentSpans reads the span of each incident of one list page.
@@ -406,7 +409,7 @@ func readIncidentSpans(ctx context.Context, db pgxPool, incs []audit.IncidentSum
 			if rs.FromRunCondition {
 				span = rs
 			} else {
-				span.ErrorCode = rs.ErrorCode
+				span.ErrorCode, span.Job = rs.ErrorCode, rs.Job
 			}
 		}
 		r := resolved[feedcondition.SessionLocus{Session: inc.SessionId, Locus: inc.Locus}]
