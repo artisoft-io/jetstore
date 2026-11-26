@@ -233,7 +233,7 @@ export function IncidentsScreen({ api }: { api: ApiClient }) {
       </div>
 
       <div className="body">
-        <main className="main">
+        <main className="main main-scroll">
           {notMigrated !== "" ? (
             <div className="empty" role="status">
               <p>The incident tables are not installed in this database.</p>
