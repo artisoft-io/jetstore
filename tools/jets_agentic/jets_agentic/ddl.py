@@ -756,6 +756,60 @@ CREATE TABLE IF NOT EXISTS jetsapi.run_finding (
              CHECK (verdict <> '{quiet}' OR error_code <> '')
 );
 {run_finding_locus_check}-- stmt
+-- One summary of one delivery of a profiled feed, which the five claim-set checks judge
+-- from, so they still judge once the claim rows are gone. Written by feed_detect before it
+-- judges (jets/agentic/observe/feed_claimset_summary.go, which says what each column holds
+-- and how), and later by a pipeline operator that computes the same row from its records.
+-- **No column holds a member, a claim key, an amount, or a date of a delivery with fewer
+-- distinct members than the run's minimum**: the dates of such a delivery are the first of
+-- their month, and a delivery with fewer distinct keys than that minimum keeps no
+-- fingerprint and no sketch, because the fingerprint of one claim is that claim's hash.
+--
+-- The key set is hashed by the one rule in jets/keyset: key_fingerprint is the sum of the
+-- distinct keys' hashes modulo 2^64, stored as the bigint of the same 64 bits, and
+-- key_sketch a HyperLogLog of 2^14 registers packed 6 bits each, 12,288 bytes.
+--
+-- delivery_session_id is the delivery's registration session, which its anomalies are
+-- keyed on; session_id is the session whose rows were read, a pipeline run's as a rule, and
+-- the row is deleted with it by both deletion paths, not with the session's table data.
+-- key_columns, service_date_column and member_column are the declaration the row was
+-- computed under, so a profile that changes them makes the row stale rather than wrong.
+-- lag_exceeds and out_of_span_count are decided on the exact days against the declaration
+-- named beside them, at summary time.
+CREATE TABLE IF NOT EXISTS jetsapi.claim_set_summary (
+  table_name                       text NOT NULL,
+  delivery_session_id              text NOT NULL,
+  session_id                       text NOT NULL,
+  client                           text NOT NULL,
+  summary_version                  integer NOT NULL,
+  summarised_at                    timestamp with time zone NOT NULL,
+  key_columns                      text[] NOT NULL,
+  service_date_column              text NOT NULL,
+  member_column                    text NOT NULL,
+  row_count                        bigint NOT NULL,
+  distinct_key_count               bigint NOT NULL,
+  member_count                     bigint NOT NULL,
+  dated_row_count                  bigint NOT NULL,
+  newest_service_date              date,
+  oldest_service_date              date,
+  dates_in_months                  boolean NOT NULL,
+  span_days                        bigint,
+  lag_exceeds                      boolean,
+  lag_declared_days                integer,
+  out_of_span_count                bigint,
+  span_declared_days               integer,
+  service_date_histogram           jsonb,
+  present_counts                   jsonb NOT NULL,
+  key_fingerprint                  bigint,
+  key_sketch                       bytea,
+  PRIMARY KEY (table_name, delivery_session_id),
+  CONSTRAINT claim_set_summary_sketch_ck
+             CHECK (key_sketch IS NULL OR octet_length(key_sketch) = 12288)
+);
+-- stmt
+CREATE INDEX IF NOT EXISTS claim_set_summary_session_idx
+  ON jetsapi.claim_set_summary (session_id);
+-- stmt
 -- One ranked causal hypothesis for an incident, emitted with the table above.
 --
 -- **contradicting_evidence is NOT NULL because the model marks it required, and that
