@@ -20,6 +20,14 @@ type Options struct {
 	// empty takes every reason. The apiserver passes ReasonUser, so a user's
 	// Delete never waits behind a retention backlog; the purge lambda passes none.
 	Reasons []Reason
+	// AfterDryRun, when set, is called at the end of a dry run with the dry
+	// run's transaction, before it is rolled back: it sees every deletion the
+	// dry run made, so work that follows the session deletions (the purge's
+	// agentic retention sweep) can report what it would do after a real run.
+	// It is called even when the dry run has no session to delete. Whatever it
+	// writes is rolled back with the rest; an error it returns is returned by
+	// ExecuteRequests. A real run never calls it.
+	AfterDryRun func(ctx context.Context, tx pgx.Tx) error
 }
 
 // Report says what a run did, or for a dry run what it would have done.
@@ -49,30 +57,43 @@ func newReport() Report {
 // ArchiveTable is the key in Report.Rows for the status rows archived.
 const ArchiveTable = "jetsapi.pipeline_execution_status_archive"
 
-// fixedTables are deleted from by session_id after the domain tables, in this
-// order. session_registry is not among them: it is deleted last of all, after the
-// coordinator tables and the archive move. Each is guarded as a domain table is,
-// so a database not yet migrated skips the tables it lacks.
-var fixedTables = []string{
-	"input_registry",
-	"input_loader_status",
-	"process_errors",
+// fixedTables are deleted from by their session column after the domain
+// tables, in this order. session_registry is not among them: it is deleted last
+// of all, after the coordinator tables and the archive move. Each is guarded as a
+// domain table is, so a database not yet migrated skips the tables it lacks.
+var fixedTables = []fixedTable{
+	{"input_registry", "session_id"},
+	{"input_loader_status", "session_id"},
+	{"process_errors", "session_id"},
 	// The verdicts shadow triage stores per run locus (jets/agentic/audit's
 	// DDL): a deleted run is no position of any run condition, so nothing
 	// reads its verdict once its session is gone.
-	"run_finding",
-	"pipeline_execution_details",
-	"pipeline_execution_channel_details",
-	"cpipes_execution_status",
-	"cpipes_execution_status_details",
-	"report_execution_status",
-	"compute_pipes_shard_registry",
-	"compute_pipes_partitions_registry",
-	"cpipes_results",
-	"cpipes_metrics",
-	"session_reservation",
-	"pipeline_lock",
-	"s3_object_event",
+	{"run_finding", "session_id"},
+	// The detectors' readings of a delivery or a run (jets/agentic/audit's
+	// DDL). Their evidence is the session's registration and data, deleted
+	// here, so a deleted delivery is no position of any feed condition. The
+	// incidents raised on them are not deleted with the session: a condition
+	// still open keeps its incident, and the agentic retention sweep deletes
+	// an incident once no session it stands for is held.
+	{"anomaly", "anomaly_session_id"},
+	{"pipeline_execution_details", "session_id"},
+	{"pipeline_execution_channel_details", "session_id"},
+	{"cpipes_execution_status", "session_id"},
+	{"cpipes_execution_status_details", "session_id"},
+	{"report_execution_status", "session_id"},
+	{"compute_pipes_shard_registry", "session_id"},
+	{"compute_pipes_partitions_registry", "session_id"},
+	{"cpipes_results", "session_id"},
+	{"cpipes_metrics", "session_id"},
+	{"session_reservation", "session_id"},
+	{"pipeline_lock", "session_id"},
+	{"s3_object_event", "session_id"},
+}
+
+// fixedTable is a jetsapi table the purge deletes from, and the column holding
+// the session id in it.
+type fixedTable struct {
+	name, column string
 }
 
 // statusColumns are pipeline_execution_status's columns, every one, in
@@ -93,15 +114,17 @@ var archiveStmt = func() string {
 		SELECT %s, $2 FROM jetsapi.pipeline_execution_status WHERE session_id = $1`, cols, cols)
 }()
 
-// table is one table deleted from by session_id.
+// table is one table deleted from by its session column.
 type table struct {
-	name  string // the key in Report.Rows
-	ident string // quoted, for the statement and for to_regclass
+	name   string // the key in Report.Rows
+	ident  string // quoted, for the statement and for to_regclass
+	column string // the column holding the session id, unquoted
 }
 
 // resolveTables returns the tables to delete from: every table_name registered in
 // input_registry, then the fixed tables, each kept only if it resolves to a table
-// with a session_id column. A name that does not is logged and skipped.
+// with its session column (session_id for a domain table). A name that does not
+// is logged and skipped.
 func resolveTables(ctx context.Context, db *pgxpool.Pool) ([]table, error) {
 	var candidates []table
 	rows, err := db.Query(ctx, `SELECT DISTINCT table_name FROM jetsapi.input_registry ORDER BY table_name`)
@@ -116,26 +139,27 @@ func resolveTables(ctx context.Context, db *pgxpool.Pool) ([]table, error) {
 		}
 		// An unqualified name, quoted as today's purge quoted it, so it resolves
 		// through the search path to the same table.
-		candidates = append(candidates, table{name: name, ident: pgx.Identifier{name}.Sanitize()})
+		candidates = append(candidates, table{name: name, ident: pgx.Identifier{name}.Sanitize(), column: "session_id"})
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	for _, name := range fixedTables {
-		candidates = append(candidates, table{name: "jetsapi." + name, ident: pgx.Identifier{"jetsapi", name}.Sanitize()})
+	for _, f := range fixedTables {
+		candidates = append(candidates, table{name: "jetsapi." + f.name,
+			ident: pgx.Identifier{"jetsapi", f.name}.Sanitize(), column: f.column})
 	}
 
-	idents := make([]string, len(candidates))
+	idents, columns := make([]string, len(candidates)), make([]string, len(candidates))
 	for i := range candidates {
-		idents[i] = candidates[i].ident
+		idents[i], columns[i] = candidates[i].ident, candidates[i].column
 	}
 	// to_regclass returns NULL for a name that does not resolve, rather than
 	// raising, so one statement sorts the whole list.
 	rows, err = db.Query(ctx, `SELECT t.ident
-		FROM unnest($1::text[]) AS t(ident)
+		FROM unnest($1::text[], $2::text[]) AS t(ident, col)
 		JOIN pg_class c ON c.oid = to_regclass(t.ident) AND c.relkind IN ('r', 'p')
-		JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = 'session_id' AND NOT a.attisdropped`, idents)
+		JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = t.col AND NOT a.attisdropped`, idents, columns)
 	if err != nil {
 		return nil, fmt.Errorf("while resolving the tables to purge: %w", err)
 	}
@@ -162,7 +186,7 @@ func resolveTables(ctx context.Context, db *pgxpool.Pool) ([]table, error) {
 		}
 	}
 	if len(skipped) > 0 {
-		log.Printf("sessionpurge: %d registered tables skipped, not a table or no session_id column: %s",
+		log.Printf("sessionpurge: %d registered tables skipped, not a table or no session column: %s",
 			len(skipped), strings.Join(skipped, ", "))
 	}
 	return out, nil
@@ -230,7 +254,7 @@ func ExecuteRequests(ctx context.Context, db *pgxpool.Pool, reqs []Request, opts
 // executor could form a deadlock cycle with it.
 func run(ctx context.Context, db *pgxpool.Pool, reqs []Request, opts Options, claim bool) (Report, error) {
 	report := newReport()
-	if len(reqs) == 0 {
+	if len(reqs) == 0 && !(opts.DryRun && opts.AfterDryRun != nil) {
 		return report, nil
 	}
 	tables, err := resolveTables(ctx, db)
@@ -289,6 +313,11 @@ func run(ctx context.Context, db *pgxpool.Pool, reqs []Request, opts Options, cl
 			for name, n := range res.rows {
 				report.Rows[name] += n
 			}
+		}
+	}
+	if opts.DryRun && opts.AfterDryRun != nil {
+		if err := opts.AfterDryRun(ctx, dry); err != nil {
+			return report, fmt.Errorf("after the dry run's sessions: %w", err)
 		}
 	}
 	return report, nil
@@ -400,7 +429,8 @@ func deleteRows(ctx context.Context, tx pgx.Tx, r *Request, tables []table, clai
 	}
 
 	for _, t := range tables {
-		if err = exec(t.name, "DELETE FROM "+t.ident+" WHERE session_id = $1", r.SessionID); err != nil {
+		if err = exec(t.name, "DELETE FROM "+t.ident+" WHERE "+pgx.Identifier{t.column}.Sanitize()+" = $1",
+			r.SessionID); err != nil {
 			return res, err
 		}
 	}

@@ -30,8 +30,8 @@ that would not pull or a container stopped for memory, is shown with what AWS re
 
 ## The table
 
-One row per task, newest first. **The table is paged**: 10 tasks a page to start with, and
-**Rows per page** offers 10, 20 or 50, with buttons for the first, previous, next and last page. The
+One row per task, newest first. **The table is paged**: 20 tasks a page to start with, and
+**Rows per page** offers 20, 40, 100 or 200, with buttons for the first, previous, next and last page. The
 screen reads the most recent 500 command rows, about five months of daily tasks, and pages them
 itself, so a task's three commands are always on one row.
 

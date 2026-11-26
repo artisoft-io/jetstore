@@ -70,7 +70,7 @@ type Filter = "open" | "adjudicated" | "all";
  * The page sizes offered, the first being where the list starts. The list is
  * paged on the server: a deployment's incidents run to hundreds.
  */
-export const INCIDENT_PAGE_SIZES = [50, 100, 150] as const;
+export const INCIDENT_PAGE_SIZES = [20, 40, 100, 200] as const;
 
 const STATUSES_FOR: Record<Filter, string[]> = {
   open: OPEN_STATUSES,
@@ -233,7 +233,7 @@ export function IncidentsScreen({ api }: { api: ApiClient }) {
       </div>
 
       <div className="body">
-        <main className="main">
+        <main className="main main-scroll">
           {notMigrated !== "" ? (
             <div className="empty" role="status">
               <p>The incident tables are not installed in this database.</p>

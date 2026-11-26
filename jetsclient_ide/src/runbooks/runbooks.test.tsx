@@ -269,9 +269,13 @@ describe("parseTyped", () => {
 });
 
 describe("polling and the frontier", () => {
-  it("polls while the executor works, and not while a person is asked or the run is paused", () => {
+  it("polls while the run reads running, and not once it is paused or final", () => {
     expect(shouldPoll(runWith("running", [step({ step_key: 1, sequence: 1, step_id: "w", type: "wait", status: "waiting" })]))).toBe(true);
-    expect(shouldPoll(runWith("running", [ddlAwaiting]))).toBe(false);
+    // A step awaiting a person on a run that still reads running: a read
+    // between the step's write and the run's. The run is re-read until it
+    // reads paused, which is what offers the controls.
+    expect(shouldPoll(runWith("running", [ddlAwaiting]))).toBe(true);
+    expect(shouldPoll(runWith("paused", [ddlAwaiting]))).toBe(false);
     expect(shouldPoll(runWith("paused", []))).toBe(false);
     expect(shouldPoll(runWith("completed", []))).toBe(false);
   });
@@ -843,6 +847,31 @@ describe("the run screen", () => {
     expect(settled).toBe(3);
     await new Promise((r) => setTimeout(r, 60));
     expect(reads).toBe(settled);
+  });
+
+  // After Continue, a read can see the next step awaiting input while the run
+  // still reads running. The screen re-reads until the run reads paused and
+  // then offers Record, with nobody clicking Refresh.
+  it("after Continue, offers Record once the run reads paused, without a Refresh", async () => {
+    let reads = 0;
+    const hold = step({ step_key: 102, sequence: 2, step_id: "hold", type: "pause", status: "awaiting_input" });
+    const manual = step({ step_key: 107, sequence: 3, step_id: "confirm_box", type: "manual", status: "awaiting_input" });
+    const between = runWith("running", [queryDone, { ...hold, status: "completed" }, manual]);
+    const { api, actions } = await clientWith({
+      ...sessionsScript(),
+      get_run: () => {
+        reads += 1;
+        return { body: { run: reads === 1 ? runWith("paused", [queryDone, hold]) : runWith("paused", [queryDone, { ...hold, status: "completed" }, manual]) } };
+      },
+      continue: { body: { run: between } },
+    });
+    renderAt(api, "/runbooks/run/12", 10);
+    fireEvent.click(await screen.findByRole("button", { name: "Continue" }));
+    await waitFor(() => expect(actions("continue").length).toBe(1));
+    const panel = await screen.findByRole("region", { name: "Record confirm_box" });
+    expect(within(panel).getByRole("button", { name: "Record" })).toBeTruthy();
+    expect(reads).toBeGreaterThan(1);
+    expect(actions("get_run").length).toBe(reads);
   });
 
   it("says why, and sends nothing, without the capability", async () => {

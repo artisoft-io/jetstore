@@ -20,7 +20,7 @@ returns to Home. A run with no errors shows an empty table.
 
 ![Process Errors of the run with errors, scrolled to its last columns: 27 errors raised on hc:Seconday_Diagnosis_Code1, each reading DiagnosisDescriptionLookup: no row for key M5450 or M5451, with the claim, and the first row selected.](../../../../assets/screenshots/user/screens/process-errors/process-errors.png)
 
-The rows are sorted by member, 50 to a page. Select one error to use the buttons.
+The rows are sorted by member, 20 to a page. Select one error to use the buttons.
 
 | Column | What it holds |
 |---|---|

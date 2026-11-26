@@ -301,22 +301,22 @@ describe("the incident list's pages, client and span", () => {
     return { body: { incidents: rows, total: 120, ...vocabularies } };
   };
 
-  it("starts at 50 rows, offers 50, 100 and 150, and asks the server for each page", async () => {
+  it("starts at 20 rows, offers 20, 40, 100 and 200, and asks the server for each page", async () => {
     const { api, sent } = await clientWith({ list_incidents: pageOf });
     renderAt(api, "/incidents");
     await screen.findByRole("link", { name: "inc_0" });
-    expect(sent[sent.length - 1]).toMatchObject({ limit: 50, offset: 0, client: "" });
+    expect(sent[sent.length - 1]).toMatchObject({ limit: 20, offset: 0, client: "" });
     const size = screen.getByLabelText("Rows per page") as HTMLSelectElement;
-    expect([...size.options].map((o) => o.value)).toEqual(["50", "100", "150"]);
-    expect(screen.getByText("1–50 of 120")).toBeTruthy();
+    expect([...size.options].map((o) => o.value)).toEqual(["20", "40", "100", "200"]);
+    expect(screen.getByText("1–20 of 120")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Next page" }));
-    await screen.findByRole("link", { name: "inc_50" });
-    expect(sent[sent.length - 1]).toMatchObject({ limit: 50, offset: 50 });
+    await screen.findByRole("link", { name: "inc_20" });
+    expect(sent[sent.length - 1]).toMatchObject({ limit: 20, offset: 20 });
 
-    fireEvent.change(size, { target: { value: "150" } });
+    fireEvent.change(size, { target: { value: "200" } });
     await screen.findByText("1–120 of 120");
-    expect(sent[sent.length - 1]).toMatchObject({ limit: 150, offset: 0 });
+    expect(sent[sent.length - 1]).toMatchObject({ limit: 200, offset: 0 });
   });
 
   it("sends the shell's client and shows each row's client, object type and span", async () => {
@@ -1213,5 +1213,36 @@ describe("a run condition and a per-record failure's codes", () => {
       screen.getByText(/a later run of process loader's run condition for client client_a, whose incident is on session run-1/),
     ).toBeTruthy();
     expect(screen.getByText(code)).toBeTruthy();
+  });
+});
+
+// The purge deletes an incident once no session it stood for is held. A link to
+// it (a proposal it prompted, a later incident's account) lands on a page that
+// says so rather than on a failure, and a page whose account names one says it
+// was purged.
+describe("a purged incident", () => {
+  it("is said to be purged on its own page, not reported as a failure", async () => {
+    const sentence =
+      "Incident inc_17_delivery_overdue was purged: the session it was written on, 17, has been deleted, and no delivery or run still held stands for it.";
+    const { api } = await clientWith({ get_incident: { status: 410, body: { error: sentence } } });
+    renderAt(api, "/incidents/inc_17_delivery_overdue");
+    await screen.findByText("Incident inc_17_delivery_overdue is no longer held.");
+    expect(screen.getByText(sentence)).toBeTruthy();
+    expect(screen.getByTestId("banner").textContent).toBe("");
+  });
+
+  it("is named as purged on the page of an incident whose account names it", async () => {
+    const sentence = "Incident inc_17_delivery_overdue was purged: the session it was written on, 17, has been deleted.";
+    const body = {
+      ...triageWritten,
+      incident: {
+        ...triageWritten.incident,
+        purgedIncidents: [{ incidentId: "inc_17_delivery_overdue", sessionId: "17", deleted: true, sentence }],
+      },
+    };
+    const { api } = await clientWith({ get_incident: { body } });
+    renderAt(api, `/incidents/${triageWritten.incident.incidentId}`);
+    const list = await screen.findByRole("list", { name: "Purged incidents" });
+    expect(list.textContent).toContain(sentence);
   });
 });

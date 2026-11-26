@@ -409,6 +409,7 @@ CREATE TABLE IF NOT EXISTS jetsapi.incident (
   incident_client                  text,
   incident_process_name            text,
   incident_anchor_start_time       timestamp with time zone,
+  incident_feed                    text,
   CONSTRAINT incident_locus_ck CHECK (incident_locus IN ('run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile')),
   CONSTRAINT incident_classification_ck
              CHECK (classification IS NULL OR classification IN ('source_delivery_failure', 'source_content_change', 'transport_failure', 'parse_failure', 'validation_breach', 'transformation_defect', 'infrastructure_failure', 'dependency_failure', 'capacity_or_cost_deviation', 'benign_variation')),
@@ -451,6 +452,8 @@ ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_process_name text
 -- stmt
 ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_anchor_start_time timestamp with time zone;
 -- stmt
+ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_feed text;
+-- stmt
 -- incident_locus_ck follows incident_locus's vocabulary onto a table created before the
 -- vocabulary last changed. See _replaced_vocabulary_check in the emitter.
 DO $$
@@ -487,6 +490,16 @@ CREATE INDEX IF NOT EXISTS incident_status_idx
 CREATE INDEX IF NOT EXISTS incident_run_condition_idx
   ON jetsapi.incident (incident_client, incident_process_name, incident_locus, incident_anchor_start_time)
   WHERE incident_client IS NOT NULL;
+-- stmt
+-- "Which incidents stand for this feed condition", the same lookup for a delivery locus: a
+-- feed condition's incidents are found by their key (the feed and the locus) and their
+-- position (the anchor delivery's arrival, its session id read as a time), so that an
+-- incident whose first delivery was deleted with its session is still its condition's.
+-- Partial, because only a feed incident written with keys carries one; one written before
+-- is found by its session, as every feed incident was.
+CREATE INDEX IF NOT EXISTS incident_feed_condition_idx
+  ON jetsapi.incident (incident_feed, incident_locus, incident_anchor_start_time)
+  WHERE incident_feed IS NOT NULL;
 -- stmt
 -- What triage found at each run locus of each run it classified, and for each error code
 -- at per_record_failures_reported: the verdict a run condition is read from.

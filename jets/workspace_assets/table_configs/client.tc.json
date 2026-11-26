@@ -18,7 +18,7 @@
   ],
   "sortColumn": "client",
   "sortAscending": true,
-  "rowsPerPage": 100,
+  "rowsPerPage": 20,
   "isCheckboxVisible": true,
   "isCheckboxSingleSelect": true,
   "formStateBinding": {

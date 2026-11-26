@@ -25,9 +25,10 @@
  *
  * ## Polling
  *
- * While the executor is working (`shouldPoll`), the run is re-read every few
- * seconds; it stops when the run is paused or finished, or when a step waits on
- * a person, because nothing changes then until somebody acts.
+ * While the run reads `running` (`shouldPoll`), it is re-read every few
+ * seconds; it stops when the run is paused or finished, because nothing
+ * changes then until somebody acts. A step awaiting a person on a run that
+ * still reads `running` does not stop it: the controls wait for the run.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";

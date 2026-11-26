@@ -186,8 +186,27 @@ Terminal state reporting for every state machine.
 
 ## Purge Data Lambda (optional)
 
-Deletes sessions past the retention window.
+Deletes sessions past the retention window, and the agentic rows nothing still held stands for.
 
+- **What goes with a session**: every row of it, in every table, the detectors' readings of it
+  (`jetsapi.anomaly`) and shadow triage's verdicts on its runs (`jetsapi.run_finding`) included.
+  Its incidents are not deleted with it: a feed or process that keeps failing the same way has one
+  incident, on its first delivery or run, and later ones join it, so deleting the incident with its
+  first session would raise a second one for the same fault.
+- **When an incident goes**: after the sessions, in the same run, the purge deletes each incident no
+  session it stands for is still held: its own session is gone (no registration, run, input or
+  reading left) and no delivery or run still held is placed in it. Its hypotheses, remediations and
+  events go with it, one transaction per incident. A person's verdict goes with its incident, so
+  read verdicts before their incidents' sessions age out.
+- **The agent's audit trail** (`jetsapi.agent_audit`, `agent_run`, `approval_event`,
+  `change_proposal`) is kept by default. `AGENT_AUDIT_RETENTION_DAYS` sets a retention of its own:
+  whole runs of `agent_audit` whose latest row is older go, the append-only guard lifted for the
+  deletion and restored in the same transaction (the database user must own the table, or the
+  table is kept and the log says so); `agent_run` rows older, once their audit rows have gone; and
+  `approval_event` rows decided before it. `change_proposal` has no timestamp and is always kept.
+- **Dry run**: unless `PURGE_DRY_RUN` is exactly `false`, the purge logs what it would delete, the
+  incidents and the audit rows included, and deletes nothing. The log has one line per table under
+  `Session purge:`, `Incident retention:` and `Agent audit retention:`.
 - **Deployment**: `RETENTION_DAYS` non-empty. `PURGE_DATA_SCHEDULED_HOUR_UTC` sets the daily
   EventBridge cron hour, default 7 UTC.
 - **IAM / SG**: **own generated role** with `RdsSecret.GrantRead`; `VpcEndpointsSg` + `RdsAccessSg`;

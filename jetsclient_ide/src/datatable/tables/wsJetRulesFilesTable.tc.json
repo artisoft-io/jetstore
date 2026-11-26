@@ -25,7 +25,7 @@
   "sortColumn": "source_file_name",
   "sortColumnTable": "workspace_control",
   "sortAscending": true,
-  "rowsPerPage": 50,
+  "rowsPerPage": 20,
   "isCheckboxVisible": true,
   "formStateBinding": {
     "keyColumnIdx": 0,

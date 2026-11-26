@@ -367,6 +367,16 @@ body {
 }
 
 .main { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+/* A list screen's column (Incidents, Proposals, Detection): it scrolls, so a
+   long page of rows stays inside it. Without `overflow` the rows overflowed
+   `.main` and the whole page scrolled, carrying the shell's footer (the build
+   information) up into the middle of the table. `position: relative` keeps a
+   table's screen-reader caption (`.sr-only`, absolutely positioned) inside this
+   scroller rather than placed against the page, and `flex-shrink: 0` keeps each
+   block its own height, as the detail screens' columns do (`.proposal-detail`,
+   `.runbook-detail`). */
+.main-scroll { position: relative; overflow: auto; }
+.main-scroll > * { flex-shrink: 0; }
 
 /* ---------- file tree ---------- */
 .tree { display: flex; flex-direction: column; min-height: 0; height: 100%; }

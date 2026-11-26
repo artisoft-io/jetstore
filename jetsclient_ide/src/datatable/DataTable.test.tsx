@@ -212,6 +212,20 @@ describe("DataTable", () => {
     expect(screen.queryByLabelText("Rows per page")).toBeNull();
   });
 
+  it("keeps the footer at a larger page size the rows fit on, so the smaller one can be chosen again", async () => {
+    // 30 rows at 20 per page: two pages. At 40 they fit on one, and the footer
+    // stays, or 20 could not be chosen again.
+    render(<Harness config={sourceConfig} fetcher={respondWith([["1", "a", "v", "t", "s", "c", "d"]], 30)} />);
+    await screen.findByText("a");
+    const select = screen.getByLabelText("Rows per page") as HTMLSelectElement;
+    expect([...select.options].map((o) => o.value)).toEqual(["20", "40", "100", "200"]);
+    fireEvent.change(select, { target: { value: "40" } });
+    await waitFor(() => expect((screen.getByLabelText("Rows per page") as HTMLSelectElement).value).toBe("40"));
+    expect(screen.getByRole("button", { name: "Next page" }).hasAttribute("disabled")).toBe(true);
+    fireEvent.change(screen.getByLabelText("Rows per page"), { target: { value: "20" } });
+    await waitFor(() => expect((screen.getByLabelText("Rows per page") as HTMLSelectElement).value).toBe("20"));
+  });
+
   it("blanks the column header of a one-column table that already has a caption", async () => {
     // `ufClientOrVendorOption` captioned itself *Select one of the
     // following options:* and its single column header read *Select one of the

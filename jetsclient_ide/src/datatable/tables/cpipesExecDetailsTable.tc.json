@@ -43,7 +43,7 @@
     }
   ],
   "sortColumn": "total_input_files_size_mb",
-  "rowsPerPage": 10,
+  "rowsPerPage": 20,
   "isCheckboxSingleSelect": true,
   "formStateBinding": {
     "keyColumnIdx": 0

@@ -34,6 +34,29 @@
 // a condition, as a day's burst was written on its last delivery before
 // conditions, stays, and the condition's other deliveries join it.
 //
+// # A condition's incidents: by key and position
+//
+// **A feed incident carries its key and its position**: the feed
+// (incident_feed) and the arrival of the delivery it is written on, its
+// session id read as a time (incident_anchor_start_time), the value a feed's
+// positions are ordered by. With the locus that is the condition's key. So a
+// condition's incidents are found by them, not by their sessions: the
+// incidents at the feed and the locus positioned after the feed's position
+// before the condition's first member, and before the position that ends it
+// (Feed.IncidentsOn). **A delivery deleted with its session is no position**:
+// its registration and its anomalies are gone, so it neither ends a condition
+// nor joins one, and an incident written on it is still found by its position,
+// so the condition's later deliveries join it rather than raising a second.
+//
+// Where nothing lies between a condition and the next one at the locus (the
+// purged-era day boundary), a deleted delivery between them is the later
+// condition's. Next to a session carrying another feed's finding at the locus
+// too, it is the neighbouring condition's on its side of that session, since a
+// shared session's condition of one holds only its own incident, which is no
+// one feed's. **An incident written before feed incidents carried a key** is
+// found by its session, as every feed incident was: it is its condition's
+// while its session is a position, and no condition's once it is not.
+//
 // **A person's verdict** is a human incident_event to `reclassified`,
 // `suppressed_as_benign` or `verified`, the earliest one counting
 // (audit.EarliestHumanVerdicts). A finding detected after it is new evidence and
@@ -69,15 +92,41 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/triage"
 )
 
-// Incident is an incident at a delivery locus on one of a feed's positions.
+// Incident is an incident at a delivery locus of a feed: on one of its
+// positions, or carrying the feed's key and a position that is no longer one.
 type Incident struct {
 	IncidentId string
 	SessionId  string
 	Locus      string
 	Status     string
+	// Feed is the feed the incident carries as its key, "" for an incident
+	// written before feed incidents carried one.
+	Feed string
+	// Position is the arrival of the delivery the incident is written on, kept
+	// on the incident after that delivery is deleted: the stored position for
+	// an incident with a key, the session id read as a time for one without,
+	// and zero for a session id that is not a time.
+	Position time.Time
 	// Verdict is the incident's first human verdict, or nil when a person has
 	// given none.
 	Verdict *audit.IncidentTransition
+}
+
+// Keyed reports whether the incident carries a feed condition's key and a
+// position, so a condition finds it after its session is deleted.
+func (i *Incident) Keyed() bool { return i != nil && i.Feed != "" && !i.Position.IsZero() }
+
+// before orders an incident against a position as a feed orders its positions:
+// by arrival, then session id.
+func (i *Incident) before(at time.Time, session string) bool {
+	return before(i.Position, i.SessionId, at, session)
+}
+
+func before(at time.Time, session string, than time.Time, thanSession string) bool {
+	if !at.Equal(than) {
+		return at.Before(than)
+	}
+	return session < thanSession
 }
 
 // VerdictSentence renders the incident's verdict for a basis.
@@ -96,22 +145,50 @@ type Feed struct {
 	History *triage.FeedHistory
 	// Conditions are the feed's conditions at every locus its anomalies reach.
 	Conditions []triage.Condition
-	// Incidents are the incidents at a delivery locus on the feed's positions,
-	// by locus and then by session.
+	// Incidents are the incidents at a delivery locus read for the feed, by
+	// locus and then by their own session: those on its positions, and those
+	// carrying its key, whose session may no longer be a position.
 	Incidents map[string]map[string]*Incident
 	// IncidentsRead reports whether jetsapi.incident was there to read.
 	IncidentsRead bool
 
-	order map[string]int // session -> place in the feed's order; unordered sessions absent
+	order     map[string]int // session -> place in the feed's order; unordered sessions absent
+	positions []triage.FeedPosition
 }
 
-// Read computes one feed's conditions and reads the incidents on its positions
-// and their first human verdicts. It writes nothing.
+// readIncidentsSQL reads the incidents at the delivery loci read for a feed:
+// those on its positions ($2), and those carrying its key ($3), wherever they
+// sit.
+const readIncidentsSQL = `SELECT incident_id, incident_session_id, incident_locus, status,
+       coalesce(incident_feed, ''), incident_anchor_start_time
+  FROM jetsapi.incident
+ WHERE incident_locus = ANY($1::text[]) AND incident_session_id = ANY($2::text[])
+UNION
+SELECT incident_id, incident_session_id, incident_locus, status,
+       incident_feed, incident_anchor_start_time
+  FROM jetsapi.incident
+ WHERE incident_feed = $3 AND incident_locus = ANY($1::text[]) AND incident_anchor_start_time IS NOT NULL
+ ORDER BY 1`
+
+// readIncidentsNoKeySQL is readIncidentsSQL on a database whose incidents
+// carry no feed key, migrated before incident_feed.
+const readIncidentsNoKeySQL = `SELECT incident_id, incident_session_id, incident_locus, status,
+       '', CAST(NULL AS timestamp with time zone)
+  FROM jetsapi.incident
+ WHERE incident_locus = ANY($1::text[]) AND incident_session_id = ANY($2::text[])
+ ORDER BY incident_id`
+
+const tablesSQL = `SELECT to_regclass('jetsapi.input_registry') IS NOT NULL,
+       to_regclass('jetsapi.incident') IS NOT NULL, to_regclass('jetsapi.incident_event') IS NOT NULL,
+       EXISTS (SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'jetsapi' AND table_name = 'incident' AND column_name = 'incident_feed')`
+
+// Read computes one feed's conditions and reads its incidents, those on its
+// positions and those carrying its key, with their first human verdicts. It
+// writes nothing.
 func Read(ctx context.Context, db observe.DB, feed string) (*Feed, error) {
-	var registry, incidents, events bool
-	if err := db.QueryRow(ctx, `SELECT to_regclass('jetsapi.input_registry') IS NOT NULL,
-	       to_regclass('jetsapi.incident') IS NOT NULL, to_regclass('jetsapi.incident_event') IS NOT NULL`).
-		Scan(&registry, &incidents, &events); err != nil {
+	var registry, incidents, events, keyed bool
+	if err := db.QueryRow(ctx, tablesSQL).Scan(&registry, &incidents, &events, &keyed); err != nil {
 		return nil, fmt.Errorf("while asking which tables feed %s's conditions can be read from: %w", feed, err)
 	}
 	h, err := triage.ReadFeedHistory(ctx, db, feed, registry)
@@ -133,19 +210,26 @@ func Read(ctx context.Context, db observe.DB, feed string) (*Feed, error) {
 		}
 	}
 	slices.Sort(sessions)
-	rows, err := db.Query(ctx, `SELECT incident_id, incident_session_id, incident_locus, status
-		  FROM jetsapi.incident
-		 WHERE incident_locus = ANY($1::text[]) AND incident_session_id = ANY($2::text[])
-		 ORDER BY incident_id`, triage.DeliveryLoci, sessions)
+	stmt, args := readIncidentsNoKeySQL, []any{triage.DeliveryLoci, sessions}
+	if keyed {
+		stmt, args = readIncidentsSQL, []any{triage.DeliveryLoci, sessions, feed}
+	}
+	rows, err := db.Query(ctx, stmt, args...)
 	if err != nil {
 		return nil, fmt.Errorf("while reading the incidents on feed %s's deliveries: %w", feed, err)
 	}
 	var ids []string
 	for rows.Next() {
 		inc := &Incident{}
-		if err := rows.Scan(&inc.IncidentId, &inc.SessionId, &inc.Locus, &inc.Status); err != nil {
+		var at *time.Time
+		if err := rows.Scan(&inc.IncidentId, &inc.SessionId, &inc.Locus, &inc.Status, &inc.Feed, &at); err != nil {
 			rows.Close()
 			return nil, fmt.Errorf("while scanning an incident of feed %s: %w", feed, err)
+		}
+		if at != nil && inc.Feed != "" {
+			inc.Position = at.UTC()
+		} else {
+			inc.Feed = ""
 		}
 		f.add(inc)
 		ids = append(ids, inc.IncidentId)
@@ -171,39 +255,234 @@ func Read(ctx context.Context, db observe.DB, feed string) (*Feed, error) {
 	return f, nil
 }
 
+// FeedsOf returns the feed each of the named incidents carries as its key,
+// for those that carry one: the feed whose condition finds the incident after
+// the delivery it is written on is deleted. A database whose incidents carry
+// no feed key returns none.
+func FeedsOf(ctx context.Context, db observe.DB, incidentIds []string) (map[string]string, error) {
+	out := map[string]string{}
+	if len(incidentIds) == 0 {
+		return out, nil
+	}
+	var keyed bool
+	if err := db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM information_schema.columns
+		WHERE table_schema = 'jetsapi' AND table_name = 'incident' AND column_name = 'incident_feed')`).Scan(&keyed); err != nil {
+		return nil, fmt.Errorf("while asking whether incidents carry a feed key: %w", err)
+	}
+	if !keyed {
+		return out, nil
+	}
+	rows, err := db.Query(ctx, `SELECT incident_id, incident_feed FROM jetsapi.incident
+		WHERE incident_id = ANY($1::text[]) AND incident_feed IS NOT NULL AND incident_anchor_start_time IS NOT NULL`,
+		incidentIds)
+	if err != nil {
+		return nil, fmt.Errorf("while reading the feed keys of %d incidents: %w", len(incidentIds), err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, feed string
+		if err := rows.Scan(&id, &feed); err != nil {
+			return nil, fmt.Errorf("while scanning an incident's feed key: %w", err)
+		}
+		out[id] = feed
+	}
+	return out, rows.Err()
+}
+
+// ReadKeyed reads the feed an incident carries as its key, and returns it with
+// the incident as the feed holds it; both nil when the incident carries no
+// key. It is how a reader finds the condition of an incident whose own
+// delivery is deleted, which ResolveSession cannot: that delivery's anomalies
+// went with it.
+func ReadKeyed(ctx context.Context, db observe.DB, incidentId string) (*Feed, *Incident, error) {
+	feeds, err := FeedsOf(ctx, db, []string{incidentId})
+	if err != nil || feeds[incidentId] == "" {
+		return nil, nil, err
+	}
+	f, err := Read(ctx, db, feeds[incidentId])
+	if err != nil {
+		return nil, nil, err
+	}
+	inc := f.IncidentById(incidentId)
+	if inc == nil {
+		return nil, nil, nil
+	}
+	return f, inc, nil
+}
+
 // FromHistory computes a feed's conditions with no incident read: the
 // conditions alone, or a Feed to which a test adds incidents.
 func FromHistory(h *triage.FeedHistory) *Feed {
 	f := &Feed{Feed: h.Feed, History: h, Conditions: h.Conditions(),
-		Incidents: map[string]map[string]*Incident{}, order: map[string]int{}}
-	for i, p := range h.Positions() {
+		Incidents: map[string]map[string]*Incident{}, order: map[string]int{}, positions: h.Positions()}
+	for i, p := range f.positions {
 		f.order[p.SessionId] = i
 	}
 	return f
 }
 
-// AddIncident records an incident on one of the feed's positions, as Read
-// does from the database. It is for a test, or for a caller that holds
-// incidents read another way.
+// AddIncident records an incident of the feed, as Read does from the
+// database: on one of its positions or, carrying the feed's key and a
+// position, anywhere. It is for a test, or for a caller that holds incidents
+// read another way. An incident with no key is given its session's arrival as
+// its position, as Read gives one.
 func (f *Feed) AddIncident(inc Incident) { f.add(&inc) }
 
 func (f *Feed) add(inc *Incident) {
+	if !inc.Keyed() {
+		inc.Feed, inc.Position = "", time.Time{}
+		if at, ok := triage.SessionArrival(inc.SessionId); ok {
+			inc.Position = at
+		}
+	}
 	if f.Incidents[inc.Locus] == nil {
 		f.Incidents[inc.Locus] = map[string]*Incident{}
 	}
 	f.Incidents[inc.Locus][inc.SessionId] = inc
 }
 
-// IncidentsOn returns the incidents on a condition's members, in the
-// condition's order.
+// IncidentsOn returns the incidents a condition holds, by position: those on
+// its members, and those carrying the feed's key whose position lies between
+// the condition's bounding ends (holds).
 func (f *Feed) IncidentsOn(c *triage.Condition) []*Incident {
 	var out []*Incident
-	for _, m := range c.Members {
-		if inc := f.Incidents[c.Locus][m.SessionId]; inc != nil {
+	for _, inc := range f.Incidents[c.Locus] {
+		if f.holds(c, inc) {
 			out = append(out, inc)
 		}
 	}
+	slices.SortFunc(out, func(a, b *Incident) int {
+		switch {
+		case a.before(b.Position, b.SessionId):
+			return -1
+		case b.before(a.Position, a.SessionId):
+			return 1
+		}
+		return strings.Compare(a.IncidentId, b.IncidentId)
+	})
 	return out
+}
+
+// holds reports whether a condition holds an incident at its locus. An
+// incident on one of its members is its own, keyed or not. Otherwise only an
+// incident carrying the feed's key, on a session that is no position of the
+// feed (a delivery deleted with its session), is held, by its position: after
+// the feed's position before the condition's first member, and before the
+// position that ends the condition. Where that position carries a finding at
+// the locus too, a day boundary, the deleted deliveries between them are the
+// next condition's, so the condition holds only those before its last member;
+// next to a session shared with another feed's finding they stay this one's,
+// since a shared session's condition holds no incident but its own. A
+// condition of one on an unordered or shared session holds only its own.
+func (f *Feed) holds(c *triage.Condition, inc *Incident) bool {
+	if inc.Locus != c.Locus {
+		return false
+	}
+	if c.IndexOf(inc.SessionId) >= 0 {
+		return true
+	}
+	if c.Unordered || c.Shared || inc.Feed != f.Feed || !inc.Keyed() {
+		return false
+	}
+	if _, ok := f.order[inc.SessionId]; ok {
+		return false // a position that is not a member is another condition's, or ends this one
+	}
+	if at, ok := f.order[c.First().SessionId]; ok && at > 0 {
+		lo := f.positions[at-1]
+		if !before(lo.Arrival, lo.SessionId, inc.Position, inc.SessionId) {
+			return false
+		}
+	}
+	switch c.End {
+	case "":
+		return true
+	case triage.EndDayBoundary:
+		last := c.Last()
+		return inc.before(last.Arrival, last.SessionId)
+	default:
+		at, ok := f.order[c.EndedBy]
+		if !ok {
+			return false
+		}
+		hi := f.positions[at]
+		return inc.before(hi.Arrival, hi.SessionId)
+	}
+}
+
+// ConditionOf returns the condition holding an incident of the feed: the one
+// its session is a member of, or, for an incident carrying the feed's key on a
+// session that is no position (a delivery deleted with its session), the one
+// that holds it by its position (holds). Nil when no condition holds it.
+func (f *Feed) ConditionOf(inc *Incident) *triage.Condition {
+	if inc == nil {
+		return nil
+	}
+	if c := triage.ConditionAt(f.Conditions, inc.SessionId, inc.Locus); c != nil {
+		return c
+	}
+	for i := range f.Conditions {
+		if c := &f.Conditions[i]; f.holds(c, inc) {
+			return c
+		}
+	}
+	return nil
+}
+
+// ConditionOfOrNil is ConditionOf on a feed that may be nil, as ReadKeyed
+// returns for an incident with no key.
+func (f *Feed) ConditionOfOrNil(inc *Incident) *triage.Condition {
+	if f == nil {
+		return nil
+	}
+	return f.ConditionOf(inc)
+}
+
+// Members returns the condition holding an incident and the members Resolve
+// places in it: those it joins, and its own delivery while that is a
+// position. It is what says whether an incident still stands for a delivery
+// the database holds. Nil when no condition holds the incident.
+func (f *Feed) Members(inc *Incident) (*triage.Condition, []triage.ConditionMember) {
+	c := f.ConditionOf(inc)
+	if c == nil {
+		return nil, nil
+	}
+	var out []triage.ConditionMember
+	for _, m := range c.Members {
+		p := f.Resolve(m.SessionId, c.Locus)
+		if (p.Kind == Join || p.Kind == AlreadyRaised) && p.Target != nil && p.Target.IncidentId == inc.IncidentId {
+			out = append(out, m)
+		}
+	}
+	return c, out
+}
+
+// IncidentBefore returns the latest incident a condition holds that is
+// positioned before inc, or nil: an earlier incident of the same condition,
+// found by position, so it is found after the delivery it is written on is
+// deleted.
+func (f *Feed) IncidentBefore(c *triage.Condition, inc *Incident) *Incident {
+	if c == nil || inc == nil {
+		return nil
+	}
+	var out *Incident
+	for _, o := range f.IncidentsOn(c) {
+		if o.IncidentId != inc.IncidentId && o.before(inc.Position, inc.SessionId) {
+			out = o
+		}
+	}
+	return out
+}
+
+// IncidentById returns the incident of the feed with this id, or nil.
+func (f *Feed) IncidentById(id string) *Incident {
+	for _, bySession := range f.Incidents {
+		for _, inc := range bySession {
+			if inc.IncidentId == id {
+				return inc
+			}
+		}
+	}
+	return nil
 }
 
 // PreviousCondition returns the latest condition of the feed at the locus
@@ -303,13 +582,24 @@ func (f *Feed) Resolve(session, locus string) Placement {
 			"holds it", session, f.Feed)
 		return p
 	}
+	// The latest incident the condition holds at or before the session (one on
+	// the session itself is already raised, above), else the earliest after it.
 	at := c.IndexOf(session)
+	m := c.Members[at]
+	incs := f.IncidentsOn(c)
 	var target *Incident
-	for i := at; i >= 0 && target == nil; i-- {
-		target = f.Incidents[locus][c.Members[i].SessionId]
+	for _, inc := range incs {
+		if inc.before(m.Arrival, m.SessionId) {
+			target = inc
+		}
 	}
-	for i := at + 1; i < len(c.Members) && target == nil; i++ {
-		target = f.Incidents[locus][c.Members[i].SessionId]
+	for _, inc := range incs {
+		if target != nil {
+			break
+		}
+		if !inc.before(m.Arrival, m.SessionId) {
+			target = inc
+		}
 	}
 	switch {
 	case target != nil && target.Verdict != nil && c.Members[at].FirstDetected.After(target.Verdict.TransitionedAt):

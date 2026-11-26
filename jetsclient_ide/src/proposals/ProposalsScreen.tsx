@@ -81,7 +81,7 @@ const OPEN_STATES = [
 type Filter = "pending" | "open" | "all";
 
 /** The page sizes offered, the first being where the list starts; paged on the server. */
-export const PROPOSAL_PAGE_SIZES = [50, 100, 150] as const;
+export const PROPOSAL_PAGE_SIZES = [20, 40, 100, 200] as const;
 
 /** What the server is asked for, per filter. `all` sends none and means all. */
 const STATES_FOR: Record<Filter, string[]> = {
@@ -191,7 +191,7 @@ export function ProposalsScreen({ api }: { api: ApiClient }) {
       </div>
 
       <div className="body">
-        <main className="main">
+        <main className="main main-scroll">
           {rows.length === 0 && loaded ? (
             <div className="empty">
               <p>{EMPTY_FOR[filter]}</p>

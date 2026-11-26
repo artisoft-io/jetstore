@@ -16,7 +16,7 @@ test("A staging table and a domain table, from the Data Registry", async ({ page
   await press(page, "View Loaded Data");
   await waitForTable(page);
   await expect(page).toHaveURL(/\/domainTableViewer\/CI_D1_hc(:|%3A)Eligibility\/1767603600101$/);
-  await expect(page.getByText("1–10 of 22")).toBeVisible();
+  await expect(page.getByText("1–20 of 22")).toBeVisible();
   await shot(page, "staging-table");
 
   // The same members, after Map_Eligibility mapped them into hc:Eligibility.

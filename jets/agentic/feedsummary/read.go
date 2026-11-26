@@ -60,9 +60,36 @@ func Read(ctx context.Context, db observe.DB, inc *audit.Incident) (*Input, erro
 		return nil, fmt.Errorf("the feed findings of incident %s cannot be read: %s", inc.IncidentId, ev.Note)
 	}
 	at := ev.At(inc.Locus)
+	var fc *feedcondition.Feed
 	if len(at) == 0 {
-		return nil, fmt.Errorf("incident %s has no feed anomaly at %s on session %s", inc.IncidentId, inc.Locus,
-			inc.SessionId)
+		// The delivery the incident is written on was deleted with its session,
+		// and its anomalies with it. An incident carrying its feed's key still
+		// stands for the deliveries of its condition placed in it, and is
+		// summarised from the earliest of them.
+		var from string
+		if fc, from, err = keyedEvidence(ctx, db, inc); err != nil {
+			return nil, err
+		}
+		if fc == nil {
+			return nil, fmt.Errorf("incident %s has no feed anomaly at %s on session %s", inc.IncidentId, inc.Locus,
+				inc.SessionId)
+		}
+		if ev, err = triage.ReadFeedEvidence(ctx, db, from, ext); err != nil {
+			return nil, err
+		}
+		if !ev.Read {
+			return nil, fmt.Errorf("the feed findings of incident %s cannot be read: %s", inc.IncidentId, ev.Note)
+		}
+		at = nil
+		for _, a := range ev.At(inc.Locus) {
+			if a.SubjectRef == fc.Feed {
+				at = append(at, a)
+			}
+		}
+		if len(at) == 0 {
+			return nil, fmt.Errorf("incident %s has no feed anomaly at %s on session %s, nor on session %s of its "+
+				"condition", inc.IncidentId, inc.Locus, inc.SessionId, from)
+		}
 	}
 	tables := []string{}
 	for _, a := range at {
@@ -72,6 +99,9 @@ func Read(ctx context.Context, db observe.DB, inc *audit.Incident) (*Input, erro
 	}
 	sort.Strings(tables)
 	table := tables[0]
+	if fc != nil {
+		table = fc.Feed
+	}
 	in := &Input{
 		IncidentID: inc.IncidentId,
 		Locus:      inc.Locus,
@@ -110,15 +140,32 @@ func Read(ctx context.Context, db observe.DB, inc *audit.Incident) (*Input, erro
 		})
 	}
 
-	fc, err := feedcondition.Read(ctx, db, table)
-	if err != nil {
-		return nil, err
+	if fc == nil {
+		if fc, err = feedcondition.Read(ctx, db, table); err != nil {
+			return nil, err
+		}
 	}
 	in.Condition = conditionOf(fc, inc.IncidentId, inc.SessionId, inc.Locus)
 	if err := in.Validate(); err != nil {
 		return nil, fmt.Errorf("incident %s: %w", inc.IncidentId, err)
 	}
 	return in, nil
+}
+
+// keyedEvidence finds, for an incident carrying its feed's key, the feed and
+// the earliest delivery of its condition still placed in it, whose findings
+// are the condition's; a nil feed when the incident carries no key or no
+// delivery is placed in it.
+func keyedEvidence(ctx context.Context, db observe.DB, inc *audit.Incident) (*feedcondition.Feed, string, error) {
+	f, kinc, err := feedcondition.ReadKeyed(ctx, db, inc.IncidentId)
+	if err != nil || f == nil {
+		return nil, "", err
+	}
+	_, members := f.Members(kinc)
+	if len(members) == 0 {
+		return nil, "", nil
+	}
+	return f, members[0].SessionId, nil
 }
 
 func feedOf(table string, d *triage.DeclaredFeed, ev *triage.FeedEvidence, detected time.Time) (Feed, Declaration) {
@@ -309,10 +356,25 @@ func parseFinding(a observe.Anomaly, required []string) (Finding, bool) {
 // condition: so the summary names the deliveries the writer joined to this
 // incident and no other reading of them. It reads nothing, and returns nil when
 // no condition of the feed holds the session at the locus.
+//
+// **An incident carrying the feed's key is found by it** when its own session
+// is no position, its delivery deleted with its session: the condition is the
+// one holding it by its position, and the incident before it the latest that
+// condition holds before it, by position.
 func conditionOf(f *feedcondition.Feed, incident, session, locus string) *Condition {
+	self := f.IncidentById(incident)
 	c := triage.ConditionAt(f.Conditions, session, locus)
+	if c == nil && self != nil {
+		c = f.ConditionOf(self)
+	}
 	if c == nil {
 		return nil
+	}
+	if self == nil {
+		self = &feedcondition.Incident{IncidentId: incident, SessionId: session, Locus: locus}
+		if at, ok := triage.SessionArrival(session); ok {
+			self.Position = at
+		}
 	}
 	out := &Condition{Total: len(c.Members), SameDay: c.SameDay, Shared: c.Shared}
 	if c.Unordered {
@@ -348,6 +410,9 @@ func conditionOf(f *feedcondition.Feed, incident, session, locus string) *Condit
 		out.Others = append(out.Others, o)
 	}
 	slices.Sort(out.Others)
+	if len(held) == 0 {
+		return nil
+	}
 	out.Held = len(held)
 	for _, i := range held {
 		if !c.Members[i].Delivery {
@@ -357,7 +422,6 @@ func conditionOf(f *feedcondition.Feed, incident, session, locus string) *Condit
 	fi, li := held[0], held[len(held)-1]
 	out.First, out.Last = c.Members[fi].Arrival, c.Members[li].Arrival
 
-	self := f.Incidents[locus][session]
 	switch {
 	case li == len(c.Members)-1 && c.Open():
 		out.End = EndOpen
@@ -373,18 +437,15 @@ func conditionOf(f *feedcondition.Feed, incident, session, locus string) *Condit
 		next := c.Members[li+1]
 		out.EndedAt, out.EndedInto = next.Arrival, owner[li+1]
 		out.End = EndNextIncident
-		if self != nil && self.Verdict != nil && next.FirstDetected.After(self.Verdict.TransitionedAt) {
+		if self.Verdict != nil && next.FirstDetected.After(self.Verdict.TransitionedAt) {
 			out.End = EndVerdict
 			out.Verdict, out.VerdictAt = self.Verdict.ToStatus, self.Verdict.TransitionedAt.UTC()
 		}
 	}
 
 	// The incident before this one: an earlier incident of the same
-	// condition, or the feed's previous condition at the locus.
-	var before *feedcondition.Incident
-	for j := fi - 1; j >= 0 && before == nil; j-- {
-		before = f.Incidents[locus][c.Members[j].SessionId]
-	}
+	// condition, by position, or the feed's previous condition at the locus.
+	before := f.IncidentBefore(c, self)
 	prev := &out.Previous
 	switch {
 	case before != nil:

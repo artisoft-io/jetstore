@@ -23,6 +23,9 @@ administrator account hold; without it the menu entry is disabled, and the serve
 | **Active User?** | `1` if the account can sign in, `0` if not. A newly registered account is `0`. |
 | **Last Updated** | When the account last changed. |
 
+The table shows 20 accounts a page, by name. With more than 20, a footer pages through them, and
+**Rows per page** offers 20, 40, 100 or 200.
+
 The `system` account is the one JetStore uses to start pipelines automatically; it cannot sign in.
 
 | Button | What it does |

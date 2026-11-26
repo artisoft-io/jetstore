@@ -45,7 +45,7 @@ eligibility file from `D1` for January 2026.
    source input column should be one the loaded file has; **Configure Mapping** changes the mapping,
    which needs `client_config`. See [Source Mapping](/docs/user/screens/flows/source-mapping/).
 
-   ![Source Mapping's File Mapping step for CI_D1_hc:Eligibility: each target data property, such as hc:Member_ID, with its source input column, first ten of 27 rows.](../../../../assets/screenshots/user/how-to/load-and-map-a-file/file-mapping.png)
+   ![Source Mapping's File Mapping step for CI_D1_hc:Eligibility: each target data property, such as hc:Member_ID, with its source input column, first 20 of 27 rows.](../../../../assets/screenshots/user/how-to/load-and-map-a-file/file-mapping.png)
 
 7. **Run the mapping pipeline**, here `Map_Eligibility`, with the file as its main input: see
    [Run a pipeline](/docs/user/how-to/run-a-pipeline/).

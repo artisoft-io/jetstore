@@ -43,7 +43,7 @@ import {
  * The page sizes offered, the first being where the list starts. A row is one
  * task, and the screen pages them in memory.
  */
-export const DETECTION_PAGE_SIZES = [10, 20, 50] as const;
+export const DETECTION_PAGE_SIZES = [20, 40, 100, 200] as const;
 
 /** How often the screen re-reads while a run is in flight. */
 const POLL_MS = 10_000;
@@ -172,7 +172,7 @@ export function DetectionScreen({ api }: { api: ApiClient }) {
       </div>
 
       <div className="body">
-        <main className="main">
+        <main className="main main-scroll">
           {list?.deploymentError && (
             <div className="empty" role="alert">
               <p>The detection task is configured incompletely on this deployment.</p>

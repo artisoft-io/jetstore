@@ -49,7 +49,7 @@ interface Posted {
   body: Record<string, unknown>;
 }
 
-function stubServer(options: { conflict?: boolean } = {}) {
+function stubServer(options: { conflict?: boolean; total?: number } = {}) {
   const posts: Posted[] = [];
   const fetchImpl = vi.fn(async (url: string | URL, init?: RequestInit) => {
     const path = String(url);
@@ -72,7 +72,7 @@ function stubServer(options: { conflict?: boolean } = {}) {
     switch (body["action"]) {
       case "read":
         return new Response(
-          JSON.stringify({ rows: configs, totalRowCount: configs.length }),
+          JSON.stringify({ rows: configs, totalRowCount: options.total ?? configs.length }),
           { status: 200 },
         );
       case "raw_query_map": {
@@ -109,7 +109,7 @@ function Banners() {
   );
 }
 
-async function mount(options: { conflict?: boolean } = {}) {
+async function mount(options: { conflict?: boolean; total?: number } = {}) {
   const { fetchImpl, posts } = stubServer(options);
   const api = new ApiClient("", fetchImpl);
   await api.login("user@example.com", "pw");
@@ -166,6 +166,18 @@ describe("the screen", () => {
     expect(button("Delete").hasAttribute("disabled")).toBe(true);
     await selectRow();
     await waitFor(() => expect(button("Delete").hasAttribute("disabled")).toBe(false));
+  });
+});
+
+describe("paging", () => {
+  it("asks for 20 rows a page and offers 20, 40, 100 and 200", async () => {
+    const { posts } = await mount({ total: 30 });
+    const read = posts.map((p) => p.body).find((b) => b["action"] === "read")!;
+    expect(read["limit"]).toBe(20);
+    expect(read["offset"]).toBe(0);
+    const select = screen.getByLabelText("Rows per page") as HTMLSelectElement;
+    expect([...select.options].map((o) => o.value)).toEqual(["20", "40", "100", "200"]);
+    expect(select.value).toBe("20");
   });
 });
 

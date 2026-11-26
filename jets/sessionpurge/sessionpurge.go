@@ -186,17 +186,19 @@ func RetentionCandidates(ctx context.Context, db *pgxpool.Pool, before time.Time
 const ClientUnknown = "(unknown)"
 
 // orphanSourceTables are the jetsapi tables OrphanCandidates reads session ids
-// from: every table the executor deletes from by session_id, session_registry
-// aside. The order ranks them as sources of an orphan's client and source period:
-// input_registry first, then pipeline_execution_status, then the rest.
-func orphanSourceTables() []string {
-	out := []string{"input_registry", "pipeline_execution_status"}
+// from, with the column holding them: every table the executor deletes from,
+// session_registry aside. The order ranks them as sources of an orphan's client
+// and source period: input_registry first, then pipeline_execution_status, then
+// the rest.
+func orphanSourceTables() []fixedTable {
+	out := []fixedTable{{"input_registry", "session_id"}, {"pipeline_execution_status", "session_id"}}
 	for _, t := range fixedTables {
-		if t != "input_registry" {
+		if t.name != "input_registry" {
 			out = append(out, t)
 		}
 	}
-	return append(out, "pipeline_coordinator_map_items", "pipeline_coordinator_lock")
+	return append(out, fixedTable{"pipeline_coordinator_map_items", "session_id"},
+		fixedTable{"pipeline_coordinator_lock", "session_id"})
 }
 
 // OrphanCandidates reads, without writing, the session ids found in any jetsapi
@@ -216,10 +218,14 @@ func orphanSourceTables() []string {
 // client gets ClientUnknown.
 func OrphanCandidates(ctx context.Context, db *pgxpool.Pool, before time.Time) ([]Request, error) {
 	sources := orphanSourceTables()
+	names := make([]string, len(sources))
+	for i := range sources {
+		names[i] = sources[i].name
+	}
 	rows, err := db.Query(ctx, `SELECT table_name, array_agg(column_name::text)
 		FROM information_schema.columns
 		WHERE table_schema = 'jetsapi' AND table_name = ANY($1::text[])
-		GROUP BY table_name`, sources)
+		GROUP BY table_name`, names)
 	if err != nil {
 		return nil, fmt.Errorf("while reading the columns of the session tables: %w", err)
 	}
@@ -244,10 +250,10 @@ func OrphanCandidates(ctx context.Context, db *pgxpool.Pool, before time.Time) (
 	// One aggregate per table, so a large table is reduced to its sessions before
 	// the union.
 	var parts []string
-	for rank, table := range sources {
-		cols := columns[table]
-		if !cols["session_id"] {
-			continue // not migrated yet, or no session_id: nothing to read
+	for rank, source := range sources {
+		table, cols := source.name, columns[source.name]
+		if !cols[source.column] {
+			continue // not migrated yet, or no session column: nothing to read
 		}
 		pick := func(col, agg, null string) string {
 			if cols[col] {
@@ -260,11 +266,12 @@ func OrphanCandidates(ctx context.Context, db *pgxpool.Pool, before time.Time) (
 			sourceType = `CASE WHEN bool_or(source_type = 'file') THEN 'file'
 				WHEN bool_or(source_type = 'domain_table') THEN 'domain_table' ELSE min(source_type) END`
 		}
-		parts = append(parts, fmt.Sprintf(`SELECT session_id, %s AS last_update, %s AS client, %s AS source_type,
+		col := pgx.Identifier{source.column}.Sanitize()
+		parts = append(parts, fmt.Sprintf(`SELECT %s AS session_id, %s AS last_update, %s AS client, %s AS source_type,
 				%s AS source_period_key, %d AS rank
-			FROM %s GROUP BY session_id`,
-			pick("last_update", "max", "NULL::timestamp"), pick("client", "min", "NULL::text"), sourceType,
-			pick("source_period_key", "min", "NULL::int"), rank, pgx.Identifier{"jetsapi", table}.Sanitize()))
+			FROM %s GROUP BY %s`,
+			col, pick("last_update", "max", "NULL::timestamp"), pick("client", "min", "NULL::text"), sourceType,
+			pick("source_period_key", "min", "NULL::int"), rank, pgx.Identifier{"jetsapi", table}.Sanitize(), col))
 	}
 	if len(parts) == 0 {
 		return nil, nil

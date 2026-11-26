@@ -28,6 +28,7 @@ var c config
 // JETS_REGION
 // RETENTION_DAYS site global rentention days, delete sessions if > 0
 // PURGE_DRY_RUN a dry run unless exactly "false": the purge reports and deletes nothing
+// AGENT_AUDIT_RETENTION_DAYS optional: the agent audit trail is purged after this many days; unset, never
 
 func main() {
 	// Create logger.
@@ -60,6 +61,13 @@ func main() {
 	}
 	c.DryRun = delegate.IsDryRun(os.Getenv("PURGE_DRY_RUN"))
 	logger.Infof("env PURGE_DRY_RUN: '%s', dry run: %v", os.Getenv("PURGE_DRY_RUN"), c.DryRun)
+	auditDays, err := delegate.AuditRetentionDays(os.Getenv("AGENT_AUDIT_RETENTION_DAYS"))
+	if err != nil {
+		logger.Error(err)
+		c.IsValid = false
+	}
+	logger.Infof("env AGENT_AUDIT_RETENTION_DAYS: '%s', audit trail kept for %d days (0: never purged)",
+		os.Getenv("AGENT_AUDIT_RETENTION_DAYS"), auditDays)
 	if !c.IsValid {
 		logger.Fatal("Invalid configuration, exiting program")
 	}

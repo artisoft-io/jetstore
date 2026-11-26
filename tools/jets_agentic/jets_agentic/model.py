@@ -1012,9 +1012,22 @@ class Incident(JetsaEntity):
         default=None,
     )
     incident_anchor_start_time: datetime | None = prop(
-        "For an incident at a run locus, the start time of the run it is written on, the first run of "
-        "its condition: the incident's position among the process's runs, which orders it against the "
-        "runs that join it and survives that run's deletion. Null where incident_client is.",
+        "The incident's position in its condition's order, kept on the incident so that it survives "
+        "the deletion of the session it is written on. For an incident at a run locus, the start time "
+        "of the run it is written on, the first run of its condition, among the process's runs. For an "
+        "incident at a delivery locus, the delivery's arrival: its session id read as epoch "
+        "milliseconds, the value a feed condition orders its positions by. Null on an incident that "
+        "carries no key: where incident_client and incident_feed are both null.",
+        default=None,
+    )
+    incident_feed: str | None = prop(
+        "For an incident at a delivery locus, the feed it is for: the subject ref of the feed anomalies "
+        "that place it, which is the feed's input_registry.table_name. With incident_locus it is the "
+        "key of the feed condition the incident stands for, and incident_anchor_start_time its "
+        "position, so the incident is found by its key and position after the delivery it is written "
+        "on has been deleted. Null at a run locus, on a feed incident written before feed incidents "
+        "carried a key, on a session whose id is not a time (it has no position), and on a session "
+        "carrying findings of two feeds at the locus, whose incident cannot be one feed's.",
         default=None,
     )
 

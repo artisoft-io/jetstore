@@ -30,6 +30,9 @@ Any signed-in user can open it; reading the table needs `jetstore_read`, and sav
 | **User** | Who saved it last. |
 | **Loaded At** | When it was saved. |
 
+The table shows 20 configurations a page, newest first. With more than 20, a footer pages through
+them, and **Rows per page** offers 20, 40, 100 or 200.
+
 | Button | What it does |
 |---|---|
 | **Add/Update Rule Configuration** | Opens the *Rule Configuration* dialog: empty to add one, filled from the selected row to update it. |

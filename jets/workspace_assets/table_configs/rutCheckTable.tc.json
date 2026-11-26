@@ -12,7 +12,7 @@
   "sortColumn": "key",
   "sortColumnTable": "rules_unit_test_check",
   "sortAscending": true,
-  "rowsPerPage": 50,
+  "rowsPerPage": 20,
   "source": "query",
   "apiAction": "workspace_read",
   "from": [

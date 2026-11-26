@@ -34,7 +34,7 @@ Reading needs `jetstore_read`; pasting a mapping needs `client_config`.
 
 ## Step 2: the mapping
 
-![The mapping of CI_D1_hc:PharmacyClaim, ten rows of 43 to a page: each data property with its source column, and the Configure Mapping, Paste File Mapping and Download File Mapping buttons.](../../../../../assets/screenshots/user/screens/flows/source-mapping/file-mapping.png)
+![The mapping of CI_D1_hc:PharmacyClaim, 20 rows of 43 to a page: each data property with its source column, and the Configure Mapping, Paste File Mapping and Download File Mapping buttons.](../../../../../assets/screenshots/user/screens/flows/source-mapping/file-mapping.png)
 
 One row per mapped data property:
 
