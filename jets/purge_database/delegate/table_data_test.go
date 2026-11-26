@@ -281,3 +281,47 @@ func TestTableDataBadValueRefusesTheRun(t *testing.T) {
 		}
 	}
 }
+
+// A session whose rows in a profiled feed's claim table feed_detect has not yet
+// summarised is held: the dry run reports it held and writes nothing, the real
+// run leaves it unmarked with its claim rows, and the other sessions are purged
+// as before.
+func TestTableDataHoldsUnsummarisedClaims(t *testing.T) {
+	pool := jobFailureTestDB(t)
+	seedTableData(t, pool)
+	purgetest.Seed(t, pool, purgetest.Session{ID: "held", Client: "c1", Registered: true, LastUpdate: daysAgo(10),
+		DomainTables: []string{"Claims"}})
+	purgetest.Exec(t, pool, `INSERT INTO jetsapi.source_config (object_type, client, table_name, user_email, feed_profile_json)
+		VALUES ('Claims', 'c1', 'Claims', 'u@x', '{"claim_set": {"table": "Claims"}}'::jsonb)`)
+	before := purgetest.RowCounts(t, pool)
+
+	dryLog, err := runTableData(t, pool, "7", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(dryLog, "1 held (claim rows not yet summarised)") ||
+		!strings.Contains(dryLog, "table data: held, claim rows feed_detect has not yet summarised: held") {
+		t.Errorf("the dry run does not report the held session:\n%s", dryLog)
+	}
+	if got := purgetest.RowCounts(t, pool); !maps.Equal(got, before) {
+		t.Errorf("the dry run wrote: %v, was %v", got, before)
+	}
+
+	realLog, err := runTableData(t, pool, "7", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if done, due, refused, _ := tableDataReport(t, realLog); done != 1 || due != 3 || refused != 1 {
+		t.Errorf("done %d of %d due, %d refused; want mid done, busy refused, held held", done, due, refused)
+	}
+	if got := markedSessions(t, pool); !reflect.DeepEqual(got, []string{"mid"}) {
+		t.Errorf("marked %v, want mid alone", got)
+	}
+	var n int
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM public."Claims" WHERE session_id = 'held'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 2 {
+		t.Errorf("the held session has %d claim rows, want 2", n)
+	}
+}

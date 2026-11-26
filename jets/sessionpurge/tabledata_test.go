@@ -1,8 +1,10 @@
 package sessionpurge
 
 import (
+	"fmt"
 	"maps"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -163,5 +165,206 @@ func TestPurgeTableDataDeadline(t *testing.T) {
 	}
 	if got := purgetest.SessionRows(t, pool, "due"); !reflect.DeepEqual(got, before) {
 		t.Errorf("due changed: %v, was %v", got, before)
+	}
+}
+
+// profileClaims gives a source_config row whose feed profile names table as its
+// claim table.
+func profileClaims(t *testing.T, pool *pgxpool.Pool, table string) {
+	t.Helper()
+	purgetest.Exec(t, pool, `INSERT INTO jetsapi.source_config (object_type, client, table_name, user_email, feed_profile_json)
+		VALUES ($1, 'c1', $1, 'u@x', jsonb_build_object('claim_set', jsonb_build_object('table', $1::text)))`, table)
+}
+
+// feedDetectRun records a feed_detect run started at started, as detectrun
+// records one, with status and a summary saying whether it was a dry run.
+func feedDetectRun(t *testing.T, pool *pgxpool.Pool, ref string, started time.Time, status string, dry bool) {
+	t.Helper()
+	purgetest.Exec(t, pool, `INSERT INTO jetsapi.agentic_detection_run
+		(task_ref, command, trigger, status, started_at, summary)
+		VALUES ($1, 'feed_detect', 'schedule', $2, $3::timestamptz, $4)`, ref, status, started,
+		fmt.Sprintf(`{"dryRun":%v,"mode":"window"}`, dry))
+}
+
+// A session with rows in a profiled feed's claim table, no summary, and no
+// feed_detect run since its load keeps its table data, counted as held, and is
+// selected again. A session with no claim rows is purged beside it.
+func TestPurgeTableDataHoldsUnsummarisedClaims(t *testing.T) {
+	pool := purgetest.DB(t, testDB)
+	purgetest.Seed(t, pool, purgetest.Session{ID: "claims", Client: "c1", Registered: true, LastUpdate: days(10),
+		DomainTables: []string{"Claims", "DomainA"}})
+	purgetest.Seed(t, pool, purgetest.Session{ID: "other", Client: "c1", Registered: true, LastUpdate: days(10),
+		DomainTables: []string{"DomainA"}})
+	profileClaims(t, pool, "Claims")
+	profileClaims(t, pool, "public.Absent") // a table that does not exist is skipped
+	createClaimSetSummary(t, pool)
+	// Runs that release nothing: one before the load, one failed, one a dry run.
+	feedDetectRun(t, pool, "before", days(11), "ok", false)
+	feedDetectRun(t, pool, "failed", days(9), "failed", false)
+	feedDetectRun(t, pool, "dry", days(9), "ok", true)
+
+	before := purgetest.SessionRows(t, pool, "claims")
+	now := time.Now()
+	report, err := PurgeTableData(ctx, pool, now.AddDate(0, 0, -7), now.AddDate(0, 0, -30), Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Candidates != 2 || report.Held != 1 || report.Done != 1 ||
+		!reflect.DeepEqual(report.HeldSessions, []string{"claims"}) {
+		t.Errorf("report %+v; want 2 due, claims held, other done", report)
+	}
+	if got := purgetest.SessionRows(t, pool, "claims"); !reflect.DeepEqual(got, before) {
+		t.Errorf("a held session changed: %v, was %v", got, before)
+	}
+	if n := count(t, pool, `SELECT count(*) FROM public."DomainA" WHERE session_id = 'other'`); n != 0 {
+		t.Errorf("other kept %d rows in DomainA, want 0", n)
+	}
+	if !strings.Contains(report.Summary(), "1 held") {
+		t.Errorf("the summary line does not count the held session: %s", report.Summary())
+	}
+
+	// Selected again by the next run, and held again.
+	report, err = PurgeTableData(ctx, pool, now.AddDate(0, 0, -7), now.AddDate(0, 0, -30), Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Candidates != 1 || report.Held != 1 || report.Done != 0 {
+		t.Errorf("second run %+v; want claims due and held again", report)
+	}
+}
+
+// A held session is released once a summary names it, and its table data goes.
+func TestPurgeTableDataReleasedBySummary(t *testing.T) {
+	pool := purgetest.DB(t, testDB)
+	purgetest.Seed(t, pool, purgetest.Session{ID: "claims", Client: "c1", Registered: true, LastUpdate: days(10),
+		DomainTables: []string{"Claims"}})
+	profileClaims(t, pool, "Claims")
+	createClaimSetSummary(t, pool, "claims")
+	now := time.Now()
+	report, err := PurgeTableData(ctx, pool, now.AddDate(0, 0, -7), now.AddDate(0, 0, -30), Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Held != 0 || report.Done != 1 {
+		t.Errorf("report %+v; want the summarised session done", report)
+	}
+	if n := count(t, pool, `SELECT count(*) FROM public."Claims" WHERE session_id = 'claims'`); n != 0 {
+		t.Errorf("%d claim rows left, want 0", n)
+	}
+	if n := count(t, pool, `SELECT count(*) FROM jetsapi.claim_set_summary WHERE session_id = 'claims'`); n != 1 {
+		t.Errorf("the summary went with the table data: %d rows, want 1", n)
+	}
+}
+
+// A held session is released by a feed_detect run that started after its load
+// and ended ok without summarising it: it never will.
+func TestPurgeTableDataReleasedByLaterRun(t *testing.T) {
+	pool := purgetest.DB(t, testDB)
+	purgetest.Seed(t, pool, purgetest.Session{ID: "claims", Client: "c1", Registered: true, LastUpdate: days(10),
+		DomainTables: []string{"Claims"}})
+	profileClaims(t, pool, "Claims")
+	createClaimSetSummary(t, pool)
+	feedDetectRun(t, pool, "later", days(9), "ok", false)
+	now := time.Now()
+	report, err := PurgeTableData(ctx, pool, now.AddDate(0, 0, -7), now.AddDate(0, 0, -30), Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Held != 0 || report.Done != 1 {
+		t.Errorf("report %+v; want the session released and done", report)
+	}
+}
+
+// Without claim_set_summary, or without agentic_detection_run, the feature is
+// not deployed and nothing is held.
+func TestPurgeTableDataHoldsNothingUndeployed(t *testing.T) {
+	for _, missing := range []string{"claim_set_summary", "agentic_detection_run"} {
+		t.Run(missing, func(t *testing.T) {
+			pool := purgetest.DB(t, testDB)
+			purgetest.Seed(t, pool, purgetest.Session{ID: "claims", Client: "c1", Registered: true,
+				LastUpdate: days(10), DomainTables: []string{"Claims"}})
+			profileClaims(t, pool, "Claims")
+			if missing == "agentic_detection_run" {
+				createClaimSetSummary(t, pool)
+				purgetest.Exec(t, pool, `DROP TABLE jetsapi.agentic_detection_run`)
+			}
+			now := time.Now()
+			report, err := PurgeTableData(ctx, pool, now.AddDate(0, 0, -7), now.AddDate(0, 0, -30), Options{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if report.Held != 0 || report.Done != 1 {
+				t.Errorf("report %+v; want nothing held, the session done", report)
+			}
+		})
+	}
+}
+
+// A session with no rows in a claim table is not held, even with no summary
+// and no feed_detect run; nor is anything held where no profile names a table.
+func TestPurgeTableDataHoldsOnlyClaimRows(t *testing.T) {
+	pool := purgetest.DB(t, testDB)
+	purgetest.Seed(t, pool, purgetest.Session{ID: "plain", Client: "c1", Registered: true, LastUpdate: days(10),
+		DomainTables: []string{"DomainA"}})
+	purgetest.Seed(t, pool, purgetest.Session{ID: "unprofiled", Client: "c1", Registered: true, LastUpdate: days(10),
+		DomainTables: []string{"Claims"}})
+	purgetest.Exec(t, pool, `CREATE TABLE public."Profiled" (session_id text, v text)`)
+	profileClaims(t, pool, "Profiled")
+	createClaimSetSummary(t, pool)
+	now := time.Now()
+	report, err := PurgeTableData(ctx, pool, now.AddDate(0, 0, -7), now.AddDate(0, 0, -30), Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Held != 0 || report.Done != 2 {
+		t.Errorf("report %+v; want nothing held, both done", report)
+	}
+}
+
+// A dry run reports a held session and writes nothing; and the session
+// deletion still deletes a held session whole at RETENTION_DAYS, claim rows
+// included.
+func TestPurgeTableDataHoldDryRunAndRetention(t *testing.T) {
+	pool := purgetest.DB(t, testDB)
+	purgetest.Seed(t, pool, purgetest.Session{ID: "held", Client: "c1", Registered: true, LastUpdate: days(10),
+		DomainTables: []string{"Claims"}})
+	purgetest.Seed(t, pool, purgetest.Session{ID: "old", Client: "c1", Registered: true, LastUpdate: days(40),
+		DomainTables: []string{"Claims"}})
+	profileClaims(t, pool, "Claims")
+	createClaimSetSummary(t, pool)
+	before := purgetest.RowCounts(t, pool)
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	report, err := PurgeTableData(ctx, tx, now.AddDate(0, 0, -7), now.AddDate(0, 0, -30), Options{DryRun: true})
+	if rbErr := tx.Rollback(ctx); rbErr != nil {
+		t.Fatal(rbErr)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Candidates != 1 || report.Held != 1 || report.Done != 0 ||
+		!reflect.DeepEqual(report.HeldSessions, []string{"held"}) {
+		t.Errorf("dry run %+v; want held reported", report)
+	}
+	if got := purgetest.RowCounts(t, pool); !reflect.DeepEqual(got, before) {
+		t.Errorf("the dry run wrote: %v, was %v", got, before)
+	}
+
+	// The whole-session deletion is unchanged: a held session past
+	// RETENTION_DAYS goes, its claim rows with it.
+	queue(t, pool, retention("old"))
+	whole, err := Execute(ctx, pool, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if whole.Done != 1 {
+		t.Fatalf("whole deletion %+v; want old deleted", whole)
+	}
+	if n := count(t, pool, `SELECT count(*) FROM public."Claims" WHERE session_id = 'old'`); n != 0 {
+		t.Errorf("%d claim rows of a deleted session left, want 0", n)
 	}
 }

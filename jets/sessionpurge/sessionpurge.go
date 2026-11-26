@@ -27,6 +27,8 @@
 // PurgeTableData is the second, shorter clock: it deletes a registered session's
 // rows from the domain tables and process_errors only, keeps everything else,
 // and marks session_registry.table_data_purged_at so the session is done once.
+// It holds a session whose claim rows the agentic layer has not yet summarised
+// (claimSetHold), never past the session deletion's own clock.
 package sessionpurge
 
 import (

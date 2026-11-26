@@ -241,6 +241,17 @@ func resetDomainTablesArgs(runInitScripts, usingSshTunnel bool) []string {
 // sessionpurge.ReasonUser, since a reset is an admin's deletion of every session.
 // The reset's other session tables (input_loader_status and the rest) are left
 // as they were: none of them is a run, and the orphan sweep removes them.
+//
+// **The claim-set summaries are the exception, and are truncated with the
+// registries** (jetsapi.claim_set_summary, created by jets-agentic, so only
+// where it exists). A summary stands in for a delivery's claim rows, which the
+// reset has just dropped with every domain table, and it is read only for a
+// delivery still in input_registry, which the reset truncates: no summary can
+// be read again, and its whole purpose is gone the moment the data is. The
+// agentic layer's judgements on those deliveries, anomaly and run_finding, are
+// left as the reset leaves every other session table: they are a record of what
+// was found, the incidents raised on them are retired by the agentic retention
+// sweep, and the orphan sweep removes them.
 func resetSessionTables(ctx context.Context, dbpool *pgxpool.Pool) error {
 	tx, err := dbpool.Begin(ctx)
 	if err != nil {
@@ -263,6 +274,15 @@ func resetSessionTables(ctx context.Context, dbpool *pgxpool.Pool) error {
 		return err
 	}
 	log.Printf("Archived %d pipeline_execution_status rows to pipeline_execution_status_archive", n)
+	var summaries bool
+	if err = tx.QueryRow(ctx, `SELECT to_regclass('jetsapi.claim_set_summary') IS NOT NULL`).Scan(&summaries); err != nil {
+		return fmt.Errorf("while looking for jetsapi.claim_set_summary: %v", err)
+	}
+	if summaries {
+		if err = truncate("claim_set_summary"); err != nil {
+			return err
+		}
+	}
 	if err = truncate("session_registry"); err != nil {
 		return err
 	}
