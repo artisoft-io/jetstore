@@ -689,10 +689,12 @@ func claimSetRunOf(param string) string {
 // read the registration, by input_session_id or by its main input's
 // registration key, and has rows in t, completed runs first and the earliest
 // first. It returns no row when no such session has a row, and none for a
-// NULL parameter. Every session it compares is indexed in t.
+// NULL parameter. Every session it compares is indexed in t. Beside the
+// session s it returns its rank o: 0 for the registration's own, 1 for a
+// completed run, 2 for any other, which is a load that may not be finished.
 func claimSetSessionOf(t, param string) string {
 	return fmt.Sprintf(`
-  SELECT z.s FROM (
+  SELECT z.s, z.o FROM (
     SELECT %[2]s::text AS s, 0 AS o, 0::bigint AS k
      WHERE EXISTS (SELECT 1 FROM %[1]s x WHERE x.session_id = %[2]s::text)
     UNION ALL
