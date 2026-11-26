@@ -12,6 +12,15 @@ package audit
 // registrations, in that order, when the page is read. A proposal an incident
 // triggered has its incident's; a proposal an authoring run produced has none.
 //
+// **The object type is the file's, file_key_staging.object_type by file key,
+// and not the registry's object_type column.** input_registry.object_type and
+// pipeline_execution_status.main_object_type hold the domain key the input is
+// grouped under (the IDE labels both "Domain Key"), which takes the same values
+// an object type does and is often a different one. A delivery's object type is
+// its file's; a run's is its main input file's (main_input_file_key).
+// file_key_staging is unique by file key. An input that is not a staged file (a
+// domain table) reads "".
+//
 // **A registration the purge has removed leaves the row without a client**, so
 // it reads "" and a client filter does not show it. That is the same thing the
 // IDE's client filter does on every other table, where `client = <selection>`
@@ -58,13 +67,14 @@ type registration struct{ client, objectType string }
 func readRegistration(ctx context.Context, db Querier, session string) (registration, error) {
 	rows, err := db.Query(ctx, `SELECT to_regclass('jetsapi.pipeline_execution_status') IS NOT NULL,
 	       to_regclass('jetsapi.input_registry') IS NOT NULL,
-	       to_regclass('jetsapi.session_registry') IS NOT NULL`)
+	       to_regclass('jetsapi.session_registry') IS NOT NULL,
+	       to_regclass('jetsapi.file_key_staging') IS NOT NULL`)
 	if err != nil {
 		return registration{}, fmt.Errorf("while asking which registry tables exist: %w", err)
 	}
-	var runs, inputs, sessions bool
+	var runs, inputs, sessions, staged bool
 	if rows.Next() {
-		err = rows.Scan(&runs, &inputs, &sessions)
+		err = rows.Scan(&runs, &inputs, &sessions, &staged)
 	}
 	rows.Close()
 	if err == nil {
@@ -74,22 +84,28 @@ func readRegistration(ctx context.Context, db Querier, session string) (registra
 		return registration{}, fmt.Errorf("while asking which registry tables exist: %w", err)
 	}
 	var clients, types []string
-	pick := func(table, client, objectType string) {
+	client := func(table string) {
 		clients = append(clients, fmt.Sprintf(
-			"(SELECT max(r.%s) FROM jetsapi.%s r WHERE r.session_id = %s)", client, table, session))
-		if objectType != "" {
-			types = append(types, fmt.Sprintf(
-				"(SELECT max(r.%s) FROM jetsapi.%s r WHERE r.session_id = %s)", objectType, table, session))
-		}
+			"(SELECT max(r.client) FROM jetsapi.%s r WHERE r.session_id = %s)", table, session))
 	}
 	if runs {
-		pick("pipeline_execution_status", "client", "main_object_type")
+		client("pipeline_execution_status")
+		if staged {
+			types = append(types, fmt.Sprintf(`(SELECT max(f.object_type) FROM jetsapi.pipeline_execution_status r
+				JOIN jetsapi.file_key_staging f ON f.file_key = r.main_input_file_key
+				WHERE r.session_id = %s)`, session))
+		}
 	}
 	if inputs {
-		pick("input_registry", "client", "object_type")
+		client("input_registry")
+		if staged {
+			types = append(types, fmt.Sprintf(`(SELECT max(f.object_type) FROM jetsapi.input_registry r
+				JOIN jetsapi.file_key_staging f ON f.file_key = r.file_key
+				WHERE r.session_id = %s)`, session))
+		}
 	}
 	if sessions {
-		pick("session_registry", "client", "")
+		client("session_registry")
 	}
 	join := func(parts []string) string {
 		return "coalesce(" + strings.Join(append(parts, "''"), ", ") + ")"

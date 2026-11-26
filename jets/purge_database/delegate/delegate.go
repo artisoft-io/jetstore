@@ -128,7 +128,8 @@ type purgeConfig struct {
 
 // purgeSessions is the purge, given a database:
 //
-//  1. Rules unit test runs and detection runs, by age, in a dry run too.
+//  1. Rules unit test runs and detection runs, by age; a dry run counts them
+//     in a transaction it rolls back.
 //  2. A dry run reads the retention and orphan candidates, runs them through
 //     sessionpurge.ExecuteRequests with every transaction rolled back, logs the
 //     report and stops. It writes nothing.
@@ -155,8 +156,8 @@ func purgeSessions(ctx context.Context, dbpool *pgxpool.Pool, cfg purgeConfig) e
 
 	// Rules unit test runs are not sessions, so they are purged by age, as they
 	// were before the session purge was rebuilt.
-	purgeRulesUnitTestRuns(dbpool, purgeFrom)
-	purgeDetectionRuns(dbpool, purgeFrom)
+	purgeRulesUnitTestRuns(dbpool, purgeFrom, cfg.DryRun)
+	purgeDetectionRuns(dbpool, purgeFrom, cfg.DryRun)
 
 	sessionCands, err := sessionpurge.RetentionCandidates(ctx, dbpool, purgeFrom)
 	if err != nil {
@@ -290,24 +291,31 @@ func purgeAuditTrail(ctx context.Context, db *pgxpool.Pool, cfg purgeConfig, pre
 // the apiserver has not migrated yet has neither table. purgeFrom is cast to
 // timestamptz because last_update is a timestamp without time zone and pgx
 // would otherwise encode it by its wall clock in its own location.
-func purgeRulesUnitTestRuns(dbpool *pgxpool.Pool, purgeFrom time.Time) (runs, checks int64) {
-	ctx := context.Background()
-	tag, err := dbpool.Exec(ctx, `DELETE FROM jetsapi.rules_unit_test_check WHERE execution_key IN (
-		SELECT key FROM jetsapi.rules_unit_test_execution
-		WHERE last_update <= $1::timestamptz AND status NOT IN ('queued', 'executing'))`, purgeFrom)
+//
+// A dry run deletes in a transaction it rolls back, so it counts what a real
+// run would delete and writes nothing (JM-349: it once deleted for real).
+func purgeRulesUnitTestRuns(dbpool *pgxpool.Pool, purgeFrom time.Time, dryRun bool) (runs, checks int64) {
+	err := ageTx(dbpool, dryRun, func(ctx context.Context, tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `DELETE FROM jetsapi.rules_unit_test_check WHERE execution_key IN (
+			SELECT key FROM jetsapi.rules_unit_test_execution
+			WHERE last_update <= $1::timestamptz AND status NOT IN ('queued', 'executing'))`, purgeFrom)
+		if err != nil {
+			return fmt.Errorf("while purging rules_unit_test_check: %w", err)
+		}
+		checks = tag.RowsAffected()
+		tag, err = tx.Exec(ctx, `DELETE FROM jetsapi.rules_unit_test_execution
+			WHERE last_update <= $1::timestamptz AND status NOT IN ('queued', 'executing')`, purgeFrom)
+		if err != nil {
+			return fmt.Errorf("while purging rules_unit_test_execution: %w", err)
+		}
+		runs = tag.RowsAffected()
+		return nil
+	})
 	if err != nil {
-		log.Println("Warning: while purging rules_unit_test_check:", err)
+		log.Println("Warning:", err)
 		return 0, 0
 	}
-	checks = tag.RowsAffected()
-	tag, err = dbpool.Exec(ctx, `DELETE FROM jetsapi.rules_unit_test_execution
-		WHERE last_update <= $1::timestamptz AND status NOT IN ('queued', 'executing')`, purgeFrom)
-	if err != nil {
-		log.Println("Warning: while purging rules_unit_test_execution:", err)
-		return 0, checks
-	}
-	runs = tag.RowsAffected()
-	log.Printf("Purged %d rules unit test runs and %d of their checks\n", runs, checks)
+	log.Printf("%sPurged %d rules unit test runs and %d of their checks\n", dryRunPrefix(dryRun), runs, checks)
 	return runs, checks
 }
 
@@ -317,14 +325,49 @@ func purgeRulesUnitTestRuns(dbpool *pgxpool.Pool, purgeFrom time.Time) (runs, ch
 // retention sweep, not here. A run still
 // requested or running is kept whatever its age, as purgeRulesUnitTestRuns keeps
 // a queued test, and errors are logged and not returned for the same reason:
-// an unmigrated database has no table.
-func purgeDetectionRuns(dbpool *pgxpool.Pool, purgeFrom time.Time) int64 {
-	tag, err := dbpool.Exec(context.Background(), `DELETE FROM jetsapi.agentic_detection_run
-		WHERE last_update <= $1::timestamptz AND status NOT IN ('requested', 'running')`, purgeFrom)
+// an unmigrated database has no table. A dry run counts and writes nothing, as
+// purgeRulesUnitTestRuns's does.
+func purgeDetectionRuns(dbpool *pgxpool.Pool, purgeFrom time.Time, dryRun bool) int64 {
+	var n int64
+	err := ageTx(dbpool, dryRun, func(ctx context.Context, tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `DELETE FROM jetsapi.agentic_detection_run
+			WHERE last_update <= $1::timestamptz AND status NOT IN ('requested', 'running')`, purgeFrom)
+		if err != nil {
+			return fmt.Errorf("while purging agentic_detection_run: %w", err)
+		}
+		n = tag.RowsAffected()
+		return nil
+	})
 	if err != nil {
-		log.Println("Warning: while purging agentic_detection_run:", err)
+		log.Println("Warning:", err)
 		return 0
 	}
-	log.Printf("Purged %d agentic detection run records\n", tag.RowsAffected())
-	return tag.RowsAffected()
+	log.Printf("%sPurged %d agentic detection run records\n", dryRunPrefix(dryRun), n)
+	return n
+}
+
+// ageTx runs one of the age purges in a transaction, committed by a real run
+// and rolled back by a dry run.
+func ageTx(dbpool *pgxpool.Pool, dryRun bool, purge func(ctx context.Context, tx pgx.Tx) error) error {
+	ctx := context.Background()
+	tx, err := dbpool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("while starting an age purge: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	if err := purge(ctx, tx); err != nil {
+		return err
+	}
+	if dryRun {
+		return nil // rolled back by the deferred Rollback
+	}
+	return tx.Commit(ctx)
+}
+
+// dryRunPrefix is the prefix of a dry run's log lines.
+func dryRunPrefix(dryRun bool) string {
+	if dryRun {
+		return "DRY RUN, nothing written: "
+	}
+	return ""
 }

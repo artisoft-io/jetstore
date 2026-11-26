@@ -65,6 +65,12 @@ func TestIncidentListPagesAndFiltersByClient(t *testing.T) {
 			t.Errorf("incident %s has client %q and object type %q; every fixture session is registered",
 				row["incidentId"], row["client"], row["objectType"])
 		}
+		// The fixture registers every delivery under one domain key, in
+		// input_registry.object_type, and stages each file under its feed's own
+		// object type: the list shows the file's object type.
+		if row["objectType"] == feedfixture.DomainKey {
+			t.Errorf("incident %s shows the domain key %q as its object type", row["incidentId"], row["objectType"])
+		}
 		byClient[row["client"].(string)]++
 	}
 	for client, n := range byClient {
@@ -92,6 +98,17 @@ func TestIncidentListPagesAndFiltersByClient(t *testing.T) {
 func TestIncidentListSpansAreTheConditions(t *testing.T) {
 	pool := conditionDB(t, "agentic_list_spans")
 	_, starts := plantRunCondition(t, pool, "client_r", "loader")
+	// A run's object type is its main input file's, in file_key_staging.
+	ctx := context.Background()
+	var mainFile, wantType string
+	if err := pool.QueryRow(ctx, `SELECT file_key, object_type FROM jetsapi.file_key_staging
+		ORDER BY file_key LIMIT 1`).Scan(&mainFile, &wantType); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE jetsapi.pipeline_execution_status SET main_input_file_key = $1
+		WHERE client = 'client_r'`, mainFile); err != nil {
+		t.Fatal(err)
+	}
 	list := listIncidentsPage(t, pool, AgenticAction{})
 	feedRows, runRows := 0, 0
 	for _, r := range list["incidents"].([]any) {
@@ -99,6 +116,9 @@ func TestIncidentListSpansAreTheConditions(t *testing.T) {
 		id := row["incidentId"].(string)
 		if !slices.Contains(triage.DeliveryLoci, row["locus"].(string)) {
 			runRows++
+			if row["objectType"] != wantType {
+				t.Errorf("run incident %s shows object type %v, want its main input file's %s", id, row["objectType"], wantType)
+			}
 			c, ok := readIncident(t, pool, id)["runCondition"].(map[string]any)
 			if !ok {
 				t.Errorf("run incident %s carries no run condition", id)
