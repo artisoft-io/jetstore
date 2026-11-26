@@ -318,7 +318,8 @@ const HAND_MAINTAINED_KEYS = [
   // (2026-10-11).
   "workspaceChangesTable",
   // 25 rows per page rather than 50, as the flow's first table has, so the
-  // Start Pipeline steps page alike (2026-10-15).
+  // Start Pipeline steps page alike (2026-10-15); 20 since 2026-11-25, with
+  // that first table and every other paged list.
   "main_input_registry_key",
   // Delete User declares user_admin rather than the Dart's user_profile, the
   // capability delete/users now requires server-side (2026-11-07). Its fixture
@@ -361,6 +362,12 @@ const HAND_MAINTAINED_KEYS = [
   "inputRecordsFromProcessErrorTable",
   "wsDataModelFilesTable",
   "wsJetRulesFilesTable",
+  // The flow tables, on the same reasoning (2026-11-25).
+  "fmFileMappingTableUF",
+  "pcInjectedProcessInputKeys",
+  "pcMainProcessInputKey",
+  "pcMergedProcessInputKeys",
+  "wpClientList",
 ] as const;
 
 /**
@@ -547,9 +554,9 @@ describe("the 28 configurations still translated from the flow fixture", () => {
     // **21 on 2026-11-14**, with `wsMainSupportFilesTable`; the total is unchanged.
     // **22 on 2026-11-25**, with `ruleConfigv2Table` (20 rows per page); the
     // total is unchanged.
-    // **28 the same day**, with six more tables that start at 20 rows per
-    // page; the total is unchanged.
-    expect(Object.keys(handMaintained).length).toBe(28);
+    // **33 the same day**, with eleven more tables that start at 20 rows per
+    // page, six screen tables and five flow tables; the total is unchanged.
+    expect(Object.keys(handMaintained).length).toBe(33);
     // **64 since 2026-10-11**: the three rules unit test tables
     // of the rules unit test harness, written rather than translated.
     // **5 and 63 since 2026-11-08**: *Session Registry* and *Archived

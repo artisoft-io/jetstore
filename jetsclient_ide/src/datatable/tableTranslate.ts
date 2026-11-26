@@ -119,10 +119,11 @@ const AUTHORABLE_API_ACTIONS: readonly string[] = ["workspace_read", "preview_fi
  * Both are `startPipelineUF`'s and neither is referenced by any other flow or
  * screen — checked across the 14 installed `.form.json` documents, which is what
  * makes the change local to the flow the report was about. The Dart set both to
- * 100.
+ * 100. `pipeline_config_key` pages at 20 since 2026-11-25, the size every paged
+ * list starts at; `spSummaryDataSources` draws no footer and keeps 25.
  */
 export const ROWS_PER_PAGE: Readonly<Record<string, number>> = {
-  pipeline_config_key: 25,
+  pipeline_config_key: 20,
   spSummaryDataSources: 25,
 };
 
