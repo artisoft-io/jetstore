@@ -20,7 +20,7 @@ which properties were withheld.
 
 ## The list
 
-![The open incidents: inc_20002 on session 1767949200304, worker not terminated, triaged with no hypothesis, and inc_20001 on session 1767868200303, worker failed, diagnosed with two hypotheses; neither has a cause claimed.](../../../../assets/screenshots/user/screens/incidents/incidents-open.png)
+![The open incidents, each with its client, object type, first seen, last seen and count: inc_20002 on session 1767949200304, worker not terminated, triaged with no hypothesis, and inc_20001 on session 1767868200303, worker failed, diagnosed with two hypotheses; neither has a cause claimed.](../../../../assets/screenshots/user/screens/incidents/incidents-open.png)
 
 The picker chooses **Open incidents** (the default), **Adjudicated**, or **All incidents**.
 **Refresh** reads the list again. **Find by session** takes a session id and opens the incidents
@@ -53,7 +53,7 @@ session was deleted or purged) has no client, so it is listed only when no clien
 **Adjudicated** lists the incidents a person has given a verdict on that settles them: *verified*,
 *reclassified* or *suppressed as benign*.
 
-![The adjudicated incidents: inc_20003 on session 1767778200302, per-record failures reported, with the cause Source content change, verified.](../../../../assets/screenshots/user/screens/incidents/incidents-adjudicated.png)
+![The adjudicated incidents: inc_20003 on session 1767778200302, per-record failures reported, its error code under the locus, with its client, object type, first seen, last seen and count, and the cause Source content change, verified.](../../../../assets/screenshots/user/screens/incidents/incidents-adjudicated.png)
 
 **An empty list is not evidence that nothing went wrong.** Incidents are written by shadow triage,
 which runs where the detection task is deployed; the Detection screen says whether it has run.
@@ -197,14 +197,14 @@ delivery before claiming a cause.
 
 ## An incident
 
-![The page of inc_20001: what the record evidences (locus Worker failed, with what it cannot see; session; source type and file key, nothing registered under this session; raised by run_20010; detected; no step; shard 2; no confounders), what has been claimed (no cause, severity high, model version), and the first ranked hypothesis with its supporting and contradicting evidence.](../../../../assets/screenshots/user/screens/incidents/incident.png)
+![The page of inc_20001: what the record evidences (locus Worker failed, with what it cannot see; session; source type and file key, nothing registered under this session; raised by run_20010; detected; no step; shard 2; no confounders), what has been claimed (no cause, severity high, model version), the Run condition heading with its note that the incident has no key to find a run condition by, and the first ranked hypothesis with its supporting and contradicting evidence.](../../../../assets/screenshots/user/screens/incidents/incident.png)
 
 | Section | What it shows |
 |---|---|
 | **Summary** | On a feed incident only: a few paragraphs saying what was found, in words. See [The summary of a feed incident](#the-summary-of-a-feed-incident) below. |
 | **Condition** | On a feed incident only: the deliveries of the condition the incident stands for, how it ended or that it is still open, and the previous incident at the locus. See [The condition of a feed incident](#the-condition-of-a-feed-incident) below. |
 | **What the record evidences** | The **locus**, what it means and what it **cannot see**; for per-record failures, the incident's **error code**, the **error codes in this run** with their rows, and a link to the session's process errors (see [The run condition of a run incident](#the-run-condition-of-a-run-incident)); the **session**; the **source type** and **file key** of each input registered under that session, `file` or `domain_table`, which find its runs on Home's *Pipelines Status* (*Set Session Id* with the session, or *Set Filters* with the file key); what **raised** it, with whether corrections to it reach an audit chain; when it was **detected**; the **step** and **shard** it is localised to, when it is; and the **confounders**, what the detector could not rule out. |
-| **Run condition** | On a run incident whose condition holds more than its own run: the runs it stands for, still held, from when to when. See [The run condition of a run incident](#the-run-condition-of-a-run-incident) below. |
+| **Run condition** | On a run incident whose condition holds more than its own run: the runs it stands for, still held, from when to when. On a run incident with no key to find its condition by, or whose runs have all been deleted, the heading with a note saying which. See [The run condition of a run incident](#the-run-condition-of-a-run-incident) below. |
 | **What has been claimed** | The **cause**, if any, the **severity** and the **model version** that raised it. |
 | **Ranked hypotheses** | The causes proposed, best first. Each shows its confidence and cause category, the counts it was ranked on, and its **supporting** and **contradicting** evidence, each item with its source. A hypothesis contradicted more than supported, or raised at another locus, is marked. |
 | **How this incident got here** | Every transition of its status: from, to, by *a person* or *the system itself*, when, and why. A cause set by a transition is shown too. |
