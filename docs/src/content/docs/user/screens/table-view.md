@@ -23,9 +23,9 @@ alphabetical order, and they come from the table rather than from a configuratio
 shows any table. A staging table has one text column for each column of the file, with the file's
 headers as names, and a `session_id`; a domain table has the data model's properties, such as
 `hc:Member_ID`, and JetStore's own columns, such as `jets:key` and the domain key. The table has no
-buttons, and shows 10 rows to a page.
+buttons, and shows 20 rows to a page.
 
-![The staging table CI_D1_hc:Eligibility, at the eligibility file's session: the file's columns, Effective_Date to Member_ID and beyond, and the first 10 of its 22 rows.](../../../../assets/screenshots/user/screens/table-view/staging-table.png)
+![The staging table CI_D1_hc:Eligibility, at the eligibility file's session: the file's columns, Effective_Date to Member_ID and beyond, and the first 20 of its 22 rows.](../../../../assets/screenshots/user/screens/table-view/staging-table.png)
 
 ![The domain table hc:Eligibility, at the session of the Map_Eligibility run: the same 22 members, mapped, with their domain key and shard columns.](../../../../assets/screenshots/user/screens/table-view/domain-table.png)
 

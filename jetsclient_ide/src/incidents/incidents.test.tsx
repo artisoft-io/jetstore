@@ -301,22 +301,22 @@ describe("the incident list's pages, client and span", () => {
     return { body: { incidents: rows, total: 120, ...vocabularies } };
   };
 
-  it("starts at 50 rows, offers 50, 100 and 150, and asks the server for each page", async () => {
+  it("starts at 20 rows, offers 20, 40, 100 and 200, and asks the server for each page", async () => {
     const { api, sent } = await clientWith({ list_incidents: pageOf });
     renderAt(api, "/incidents");
     await screen.findByRole("link", { name: "inc_0" });
-    expect(sent[sent.length - 1]).toMatchObject({ limit: 50, offset: 0, client: "" });
+    expect(sent[sent.length - 1]).toMatchObject({ limit: 20, offset: 0, client: "" });
     const size = screen.getByLabelText("Rows per page") as HTMLSelectElement;
-    expect([...size.options].map((o) => o.value)).toEqual(["50", "100", "150"]);
-    expect(screen.getByText("1–50 of 120")).toBeTruthy();
+    expect([...size.options].map((o) => o.value)).toEqual(["20", "40", "100", "200"]);
+    expect(screen.getByText("1–20 of 120")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Next page" }));
-    await screen.findByRole("link", { name: "inc_50" });
-    expect(sent[sent.length - 1]).toMatchObject({ limit: 50, offset: 50 });
+    await screen.findByRole("link", { name: "inc_20" });
+    expect(sent[sent.length - 1]).toMatchObject({ limit: 20, offset: 20 });
 
-    fireEvent.change(size, { target: { value: "150" } });
+    fireEvent.change(size, { target: { value: "200" } });
     await screen.findByText("1–120 of 120");
-    expect(sent[sent.length - 1]).toMatchObject({ limit: 150, offset: 0 });
+    expect(sent[sent.length - 1]).toMatchObject({ limit: 200, offset: 0 });
   });
 
   it("sends the shell's client and shows each row's client, object type and span", async () => {

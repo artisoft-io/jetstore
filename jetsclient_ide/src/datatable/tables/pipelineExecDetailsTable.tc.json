@@ -77,7 +77,7 @@
   ],
   "sortColumn": "shard_id",
   "sortAscending": true,
-  "rowsPerPage": 10,
+  "rowsPerPage": 20,
   "isCheckboxSingleSelect": true,
   "formStateBinding": {
     "keyColumnIdx": 0

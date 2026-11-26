@@ -10,7 +10,7 @@
   ],
   "sortColumn": "process_name",
   "sortAscending": true,
-  "rowsPerPage": 100,
+  "rowsPerPage": 20,
   "isCheckboxVisible": true,
   "formStateBinding": {
     "keyColumnIdx": 0,

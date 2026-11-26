@@ -352,6 +352,15 @@ const HAND_MAINTAINED_KEYS = [
   // 20 rows per page rather than the Dart's 50, so the Rules Configuration
   // screen pages at 20, 40, 100 or 200 (2026-11-25).
   "ruleConfigv2Table",
+  // 20 rows per page rather than the Dart's 10 or 50, so every paged list
+  // starts at 20 and offers 20, 40, 100 or 200 (2026-11-25). Their fixture
+  // entries stay as the Flutter record.
+  "pipelineExecDetailsTable",
+  "cpipesExecDetailsTable",
+  "inputTable",
+  "inputRecordsFromProcessErrorTable",
+  "wsDataModelFilesTable",
+  "wsJetRulesFilesTable",
 ] as const;
 
 /**
@@ -538,7 +547,9 @@ describe("the 28 configurations still translated from the flow fixture", () => {
     // **21 on 2026-11-14**, with `wsMainSupportFilesTable`; the total is unchanged.
     // **22 on 2026-11-25**, with `ruleConfigv2Table` (20 rows per page); the
     // total is unchanged.
-    expect(Object.keys(handMaintained).length).toBe(22);
+    // **28 the same day**, with six more tables that start at 20 rows per
+    // page; the total is unchanged.
+    expect(Object.keys(handMaintained).length).toBe(28);
     // **64 since 2026-10-11**: the three rules unit test tables
     // of the rules unit test harness, written rather than translated.
     // **5 and 63 since 2026-11-08**: *Session Registry* and *Archived
@@ -1079,7 +1090,7 @@ describe("the two execution-detail tables, which are one screen behind two route
     expect([status.sortColumn, status.sortAscending]).toEqual(["shard_id", true]);
     expect([stats.sortColumn, stats.sortAscending]).toEqual(["total_input_files_size_mb", undefined]);
     expect([status.columns.length, stats.columns.length]).toEqual([12, 7]);
-    expect([status.rowsPerPage, stats.rowsPerPage]).toEqual([10, 10]);
+    expect([status.rowsPerPage, stats.rowsPerPage]).toEqual([20, 20]);
   });
 
   it("carries the second and last calculatedAs in the corpus, which stays a fragment", () => {

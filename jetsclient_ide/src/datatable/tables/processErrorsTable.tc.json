@@ -74,7 +74,7 @@
   ],
   "sortColumn": "grouping_key",
   "sortAscending": true,
-  "rowsPerPage": 50,
+  "rowsPerPage": 20,
   "isCheckboxVisible": true,
   "isCheckboxSingleSelect": true,
   "formStateBinding": {
