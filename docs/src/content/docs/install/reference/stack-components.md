@@ -296,6 +296,36 @@ Rotates all four secrets.
 - **Alarms** (`jetstore_alarms.go`): pipeline failures (`autoLoaderFailed`, `autoServerFailed`), ELB
   target response time / 5XX / unhealthy hosts, and RDS disk queue depth, CPU (above
   `JETS_CPU_UTILIZATION_ALARM_THRESHOLD` percent, default 60), serverless capacity and freeable memory. Each fires an SNS action only when `JETS_SNS_ALARM_TOPIC_ARN` is set.
+- **Lambda error alarms** (`AddLambdaErrorAlarms`, `jetstore_alarms.go`): one alarm on the `Errors`
+  metric of each Lambda that runs unattended and that the stack built, named `<field>Errors` plus
+  the stack suffix (`PurgeDataLambdaErrors`, for one). It fires on any error: the sum is 1 or more
+  in one period, and a period with no invocation does not count. Most failures of these Lambdas
+  also leave a row in the database (a failed pipeline, a failed S3 event); these alarms are for the
+  ones that cannot, because the Lambda stopped before reaching the database, at a setting it reads
+  at start-up, or because the database itself was unreachable. The alarm names the Lambda; its log
+  group holds the error.
+
+  | Lambda | Triggered by | Period |
+  |---|---|---|
+  | `PurgeDataLambda` (only when `RETENTION_DAYS` is set) | the daily schedule | 1 hour |
+  | `SecretRotationLambda` | each secret's rotation schedule | 1 hour |
+  | `RegisterKeyV2Lambda` | S3 object events | 5 minutes |
+  | `SqsRegisterKeyLambda` (only when built) | the SQS queue | 5 minutes |
+  | `StatusUpdateLambda` | the state machines | 5 minutes |
+  | `CpipesStartShardingLambda`, `CpipesStartReducingLambda`, `CpipesNodeLambda`, and `CpipesNativeNodeLambda` and `CpipesPythonNodeLambda` when deployed | the compute pipes state machines | 5 minutes |
+  | `RunReportsLambda`, `CpipesRunReportsLambda` (whichever is built) | the state machines | 5 minutes |
+  | `InferLifecycleHookLambda` (only with the infer server) | an infer instance launching | 5 minutes |
+
+  A scheduled run that fails is retried twice by Lambda within a few minutes, so its period is an
+  hour: the run and its retries make one notification, and the alarm stays in `ALARM` for the rest
+  of the hour. The compute pipes node Lambda records a failed run's error in the database and then
+  returns it (`CoordinateComputePipes`), so its alarm also fires on failures the pipeline's
+  execution status shows. The API Gateway Lambda has no alarm, because its caller receives the
+  error.
+
+  **Set `JETS_SNS_ALARM_TOPIC_ARN`.** Without it these alarms, like the others, exist and change
+  state in the CloudWatch console but notify nobody, and a failure that left no row in the database
+  is then seen only by someone reading the Lambda's log.
 - **Bastion host**: built only when `BASTION_HOST_KEYPAIR_NAME` is set. Public subnet, SSH from
   `Peer_AnyIpv4()`, allowed to reach Aurora on 5432. Tagged PHI/PII `false`.
 - **Tagging**: `JETS_TAG_NAME_PHI` / `_PII` / `_DESCRIPTION` enable per-resource tags;

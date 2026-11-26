@@ -6,6 +6,7 @@ import (
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awscloudwatch"
 	awselb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsrds"
 	jsii "github.com/aws/jsii-runtime-go"
 )
@@ -166,5 +167,110 @@ func AddRdsAlarms(stack awscdk.Stack, rds awsrds.DatabaseCluster,
 	})
 	if alarmAction != nil {
 		alarm.AddAlarmAction(alarmAction)
+	}
+}
+
+// Lambda Errors alarms
+// --------------------
+// A Lambda that runs unattended -- on a schedule, on an S3 or SQS event, from a state machine or
+// from Secrets Manager -- has no caller to see it fail. Most of its failures leave a row in the
+// database (a failed pipeline, a failed s3_object_event), but the ones that stop it before or
+// because of the database do not: a bad setting at start-up, the database unreachable, or a
+// credential that no longer works. Its Errors metric is the one place those show outside its log,
+// so each such Lambda gets an alarm on it.
+//
+// Excluded deliberately, and listed in lambdaErrorAlarmExcluded so the coverage test can tell an
+// exclusion from an omission: ApiGatewayLambda, whose caller receives the error as an HTTP
+// response, and ApiGatewayTestLambda, which is a test endpoint.
+
+// Two periods, because the two kinds of trigger differ in how a failure arrives.
+const (
+	// lambdaErrorEventPeriodMinutes is for event-driven Lambdas: a failure is usually one of
+	// many invocations, and five minutes is the period every other alarm in the stack uses.
+	lambdaErrorEventPeriodMinutes = 5
+	// lambdaErrorScheduledPeriodMinutes is for Lambdas run on a schedule of a day or more. An
+	// asynchronous invocation that fails is retried twice over a few minutes, so a five-minute
+	// period can split one failed run across two periods and two notifications; an hour holds
+	// a run and its retries in one, and leaves the alarm in ALARM for the rest of the hour,
+	// which is what someone opening the console without an alarm topic will see.
+	lambdaErrorScheduledPeriodMinutes = 60
+)
+
+// lambdaErrorAlarm is one Lambda to watch. Field names the JetStoreStackComponents field the
+// function is held in, and gives the alarm its name.
+type lambdaErrorAlarm struct {
+	Field         string
+	Function      awslambda.IFunction
+	PeriodMinutes float64
+}
+
+// lambdaErrorAlarmExcluded names the Lambda fields of JetStoreStackComponents deliberately left
+// without an Errors alarm, with the reason.
+var lambdaErrorAlarmExcluded = map[string]string{
+	"ApiGatewayLambda":     "its caller receives the error as an HTTP response",
+	"ApiGatewayTestLambda": "a test endpoint",
+}
+
+// lambdaErrorAlarms lists every Lambda that runs unattended, built or not: a Lambda the
+// deployment did not build has a nil Function and is skipped by AddLambdaErrorAlarms.
+func (jsComp *JetStoreStackComponents) lambdaErrorAlarms() []lambdaErrorAlarm {
+	event := func(field string, fn awslambda.IFunction) lambdaErrorAlarm {
+		return lambdaErrorAlarm{Field: field, Function: fn, PeriodMinutes: lambdaErrorEventPeriodMinutes}
+	}
+	scheduled := func(field string, fn awslambda.IFunction) lambdaErrorAlarm {
+		return lambdaErrorAlarm{Field: field, Function: fn, PeriodMinutes: lambdaErrorScheduledPeriodMinutes}
+	}
+	// A nil interface field converts to a nil awslambda.IFunction, whatever its declared type,
+	// so the nil test in AddLambdaErrorAlarms holds for each of these.
+	return []lambdaErrorAlarm{
+		// Daily, on an EventBridge rule (RunPurgeDataLambdaDaily), when RETENTION_DAYS is set.
+		scheduled("PurgeDataLambda", jsComp.PurgeDataLambda),
+		// Invoked by Secrets Manager on each secret's rotation schedule.
+		scheduled("SecretRotationLambda", jsComp.SecretRotationLambda),
+		// Register keys: S3 object events, and the optional SQS queue.
+		event("RegisterKeyV2Lambda", jsComp.RegisterKeyV2Lambda),
+		event("SqsRegisterKeyLambda", jsComp.SqsRegisterKeyLambda),
+		// The state machines' Lambdas.
+		event("StatusUpdateLambda", jsComp.StatusUpdateLambda),
+		event("CpipesStartShardingLambda", jsComp.CpipesStartShardingLambda),
+		event("CpipesStartReducingLambda", jsComp.CpipesStartReducingLambda),
+		event("CpipesNodeLambda", jsComp.CpipesNodeLambda),
+		event("CpipesNativeNodeLambda", jsComp.CpipesNativeNodeLambda),
+		event("CpipesPythonNodeLambda", jsComp.CpipesPythonNodeLambda),
+		event("RunReportsLambda", jsComp.RunReportsLambda),
+		event("CpipesRunReportsLambda", jsComp.CpipesRunReportsLambda),
+		// EventBridge, on the infer auto scaling group's instance launch.
+		event("InferLifecycleHookLambda", jsComp.InferLifecycleHookLambda),
+	}
+}
+
+// AddLambdaErrorAlarms adds an alarm on the Errors metric of each unattended Lambda the stack
+// built: any error, summed over the Lambda's period, in one datapoint. Missing data -- no
+// invocation -- is not breaching. Like every other alarm here, it is created whether or not
+// JETS_SNS_ALARM_TOPIC_ARN is set, and sends to the topic only when it is.
+func (jsComp *JetStoreStackComponents) AddLambdaErrorAlarms(stack awscdk.Stack, alarmAction awscloudwatch.IAlarmAction, props *JetstoreOneStackProps) {
+	for _, la := range jsComp.lambdaErrorAlarms() {
+		if la.Function == nil {
+			continue
+		}
+		alarm := awscloudwatch.NewAlarm(stack, props.MkId(la.Field+"ErrorsAlarm"), &awscloudwatch.AlarmProps{
+			AlarmName:         props.MkId(la.Field + "Errors"),
+			EvaluationPeriods: jsii.Number(1),
+			DatapointsToAlarm: jsii.Number(1),
+			Threshold:         jsii.Number(1),
+			AlarmDescription: jsii.String(fmt.Sprintf(
+				"%s Errors >= 1 for 1 datapoints within %g minutes: a failure that may have left no row "+
+					"in the database (a setting read at start-up, the database unreachable); see the function's log",
+				la.Field, la.PeriodMinutes)),
+			ComparisonOperator: awscloudwatch.ComparisonOperator_GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+			TreatMissingData:   awscloudwatch.TreatMissingData_NOT_BREACHING,
+			Metric: la.Function.MetricErrors(&awscloudwatch.MetricOptions{
+				Period:    awscdk.Duration_Minutes(jsii.Number(la.PeriodMinutes)),
+				Statistic: jsii.String("Sum"),
+			}),
+		})
+		if alarmAction != nil {
+			alarm.AddAlarmAction(alarmAction)
+		}
 	}
 }
