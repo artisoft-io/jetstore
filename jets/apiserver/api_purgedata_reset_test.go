@@ -62,3 +62,28 @@ func TestResetSessionTablesArchivesEveryRun(t *testing.T) {
 			counts["jetsapi.input_loader_status"], counts["jetsapi.source_period"])
 	}
 }
+
+// A reset drops every domain table and unregisters every delivery, so no
+// claim-set summary can be read again: the summaries are truncated with the
+// registries. A database without the table resets as before (the test above).
+func TestResetSessionTablesClearsClaimSetSummaries(t *testing.T) {
+	pool := purgetest.DB(t, "jm_purgedata_reset")
+	ctx := context.Background()
+	purgetest.Seed(t, pool, purgetest.Session{ID: "1001", Client: "c1", Registered: true,
+		DomainTables: []string{"ObjectA"}})
+	purgetest.Exec(t, pool, `CREATE TABLE jetsapi.claim_set_summary (
+		table_name text NOT NULL, delivery_session_id text NOT NULL, session_id text NOT NULL,
+		PRIMARY KEY (table_name, delivery_session_id))`)
+	purgetest.Exec(t, pool, `INSERT INTO jetsapi.claim_set_summary VALUES ('ObjectA', '1001', '1001')`)
+
+	if err := resetSessionTables(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM jetsapi.claim_set_summary`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Errorf("claim_set_summary holds %d rows after the reset, want 0", n)
+	}
+}

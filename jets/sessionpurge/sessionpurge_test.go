@@ -578,6 +578,10 @@ func TestCandidates(t *testing.T) {
 	purgetest.Exec(t, pool, `UPDATE jetsapi.pipeline_execution_status SET last_update = now() WHERE session_id = 'orph-recent'`)
 	purgetest.Seed(t, pool, purgetest.Session{ID: "orph-queued", Client: "c1", LastUpdate: old})
 	queue(t, pool, Request{SessionID: "orph-queued", Client: "c1", Reason: ReasonOrphan, RequestedBy: RequestedByPurge})
+	// An S3 event that registered nothing has no session: it is no candidate,
+	// and does not fail the read (JM-350).
+	purgetest.Exec(t, pool, `INSERT INTO jetsapi.s3_object_event (file_key, sequencer, status, started_at)
+		VALUES ('client=c1/no_session.csv', '0001', 'done', now() - interval '100 days')`)
 
 	before := days(30)
 	ret, err := RetentionCandidates(ctx, pool, before)

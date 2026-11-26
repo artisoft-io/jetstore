@@ -52,8 +52,10 @@ type RunIncidentKey struct {
 }
 
 // Keyed reports whether the incident carries a run condition's key, so a
-// condition can find it.
-func (k RunIncidentKey) Keyed() bool { return k.Client != "" && k.Process != "" && !k.Anchor.IsZero() }
+// condition can find it. **The client may be empty**: a job with no client
+// (the purge) writes its failures with an empty one, and its incident carries
+// it as written. The process name and the position are what a key needs.
+func (k RunIncidentKey) Keyed() bool { return k.Process != "" && !k.Anchor.IsZero() }
 
 // Key is the run condition's key at a locus.
 func (k RunIncidentKey) Key(locus string) runcondition.Key {
@@ -172,6 +174,9 @@ type RunIncidentDetail struct {
 	// then says why.
 	Condition *IncidentRunCondition
 	Note      string
+	// Job is, on a job_failed incident, the name of the job that failed, the
+	// process name its key carries; "" at any other locus.
+	Job string
 }
 
 // runConditionOf builds the incident's condition from its key's history: the
@@ -245,6 +250,9 @@ func readRunIncident(ctx context.Context, db observe.DB, inc *audit.Incident) (*
 		return nil, err
 	}
 	d := &RunIncidentDetail{Key: keys[inc.IncidentId]}
+	if inc.Locus == triage.LocusJobFailed {
+		d.Job = d.Key.Process
+	}
 	if inc.Locus == triage.LocusPerRecordFailuresReported {
 		if d.Codes, err = readRunCodes(ctx, db, inc.SessionId); err != nil {
 			return nil, err
@@ -310,6 +318,10 @@ func runCodesPayload(cs []RunCode) []map[string]any {
 // as the writer's basis adds nothing for one: it is what every run incident
 // was before run conditions, and the list already counts it as one run.
 func addRunIncident(row map[string]any, d *RunIncidentDetail) {
+	// Only where set: the incident of a job's failure names the job.
+	if d.Job != "" {
+		row["job"] = d.Job
+	}
 	if d.Key.ErrorCode != "" {
 		row["errorCode"] = d.Key.ErrorCode
 	}
@@ -348,6 +360,9 @@ func readRunSpans(ctx context.Context, db observe.DB, incs []audit.IncidentSumma
 			continue
 		}
 		sp := IncidentSpan{ErrorCode: k.ErrorCode}
+		if inc.Locus == triage.LocusJobFailed {
+			sp.Job = k.Process
+		}
 		if !k.Keyed() {
 			// A code and no key: the run had no live header when it was
 			// written. Its span is its own session's, which the caller sets.

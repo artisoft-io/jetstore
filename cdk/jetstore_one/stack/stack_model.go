@@ -177,6 +177,10 @@ type JetStoreStackComponents struct {
 	InferTaskContainer    awsecs.ContainerDefinition
 	PersistentVolume      awsec2.Volume
 	InferAutoScalingGroup awsautoscaling.AutoScalingGroup
+	// InferLifecycleHookLambda attaches the persistent volume to a new infer instance. Nil
+	// unless the infer server is built. Kept here, rather than as a local of BuildInferEc2, so
+	// that AddLambdaErrorAlarms can watch it.
+	InferLifecycleHookLambda awslambda.Function
 }
 
 func (jsComp *JetStoreStackComponents) DoBuildInferServer() bool {

@@ -15,6 +15,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -40,11 +41,16 @@ type eventSeams struct {
 	completes []string
 	releases  []string // failed events
 	recorded  []string // sessions recorded
+	failures  []string // failed registrations recorded as the job's failure
 }
 
 func withEventSeams(t *testing.T, s *eventSeams) {
 	t.Helper()
 	savedClaim, savedComplete, savedRelease, savedRecord := claimS3Event, completeS3Event, failS3Event, recordS3Session
+	savedFailure := recordS3Failure
+	recordS3Failure = func(_ context.Context, _ *pgxpool.Pool, fileKey string, cause error) {
+		s.failures = append(s.failures, fileKey+": "+cause.Error())
+	}
 	savedInput, savedSchema := s3InputPrefix, s3SchemaPrefix
 	s3InputPrefix, s3SchemaPrefix = "input/", "schema_triggers/"
 	claimS3Event = func(_ context.Context, _ *pgxpool.Pool, fileKey, sequencer string,
@@ -63,6 +69,7 @@ func withEventSeams(t *testing.T, s *eventSeams) {
 	}
 	t.Cleanup(func() {
 		claimS3Event, completeS3Event, failS3Event, recordS3Session = savedClaim, savedComplete, savedRelease, savedRecord
+		recordS3Failure = savedFailure
 		s3InputPrefix, s3SchemaPrefix = savedInput, savedSchema
 	})
 }
@@ -127,6 +134,56 @@ func TestEventClaimFailedRegistrationMarksFailed(t *testing.T) {
 	if len(s.releases) != 1 || len(s.completes) != 0 {
 		t.Errorf("completes %q, releases %q; want the event marked failed and not completed", s.completes, s.releases)
 	}
+	if len(s.failures) != 1 || s.failures[0] != testInputKey+": database unavailable" {
+		t.Errorf("failures recorded %q, want the registration's error once", s.failures)
+	}
+}
+
+// A failed registration is recorded once per event (R-213): a retry that takes
+// over an event already failed records nothing, whatever it does; a takeover of
+// an event whose invocation died started, which recorded nothing, records; an
+// event the duplicate check cannot track records each time; a registration that
+// succeeds records nothing.
+func TestEventClaimFailureRecordedOnce(t *testing.T) {
+	failing := func(t *testing.T) {
+		saved := registerFileKeys
+		registerFileKeys = func(*datatable.DataTableContext, *datatable.RegisterFileKeyAction, string) error {
+			return errors.New("no source_config")
+		}
+		t.Cleanup(func() { registerFileKeys = saved })
+	}
+	for _, c := range []struct {
+		name      string
+		seams     eventSeams
+		sequencer string
+		fail      bool
+		want      int
+	}{
+		{"first delivery fails", eventSeams{claimed: true}, "0A1B", true, 1},
+		{"retry of a failed event fails", eventSeams{claimed: true, status: eventFailed, sessionId: "1700000000000"}, "0A1B", true, 0},
+		{"takeover of a dead invocation fails", eventSeams{claimed: true, status: eventStarted}, "0A1B", true, 1},
+		{"untracked event fails", eventSeams{}, "", true, 1},
+		{"claim error, then the registration fails", eventSeams{claimErr: errors.New("no table")}, "0A1B", true, 1},
+		{"retry of a failed event succeeds", eventSeams{claimed: true, status: eventFailed}, "0A1B", false, 0},
+		{"first delivery succeeds", eventSeams{claimed: true}, "0A1B", false, 0},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			s := c.seams
+			withEventSeams(t, &s)
+			if c.fail {
+				failing(t)
+			} else {
+				withCapturedRegistration(t)
+			}
+			err := processMessage(context.Background(), nil, inputRecord(testInputKey, c.sequencer))
+			if (err != nil) != c.fail {
+				t.Fatalf("processMessage: %v, want an error %v", err, c.fail)
+			}
+			if len(s.failures) != c.want {
+				t.Errorf("failures recorded %q, want %d", s.failures, c.want)
+			}
+		})
+	}
 }
 
 // A panic during registration marks the event failed too, and still panics.
@@ -148,6 +205,9 @@ func TestEventClaimPanicMarksFailed(t *testing.T) {
 	}()
 	if len(s.releases) != 1 || len(s.completes) != 0 {
 		t.Errorf("completes %q, releases %q; want the event marked failed and not completed", s.completes, s.releases)
+	}
+	if len(s.failures) != 1 || !strings.Contains(s.failures[0], "panic while registering: boom") {
+		t.Errorf("failures recorded %q, want the panic once", s.failures)
 	}
 }
 
@@ -275,9 +335,10 @@ func TestEventClaimAgainstPostgres(t *testing.T) {
 		return ok, status
 	}
 
-	// A new event is claimed; a second delivery while it is started is not.
-	if ok, _ := claim("a.csv", "01", hour); !ok {
-		t.Fatal("the first delivery was not claimed")
+	// A new event is claimed, with no status before; a second delivery while it
+	// is started is not.
+	if ok, prior := claim("a.csv", "01", hour); !ok || prior != "" {
+		t.Fatalf("the first delivery: claimed %v, prior status %q; want claimed, none", ok, prior)
 	}
 	if ok, status := claim("a.csv", "01", hour); ok || status != eventStarted {
 		t.Fatalf("a delivery in flight: claimed %v, status %q; want not claimed, started", ok, status)
@@ -302,16 +363,18 @@ func TestEventClaimAgainstPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	time.Sleep(20 * time.Millisecond)
-	if ok, _ := claim("b.csv", "01", 10*time.Millisecond); !ok || lastSession != "1700000000001" {
-		t.Fatalf("a started row past the window: claimed %v with session %q, want taken over with 1700000000001", ok, lastSession)
+	if ok, prior := claim("b.csv", "01", 10*time.Millisecond); !ok || lastSession != "1700000000001" || prior != eventStarted {
+		t.Fatalf("a started row past the window: claimed %v with session %q, prior %q; want taken over with 1700000000001, started",
+			ok, lastSession, prior)
 	}
 	// Failed, the next delivery takes it over at once, within the window, and
 	// resumes under the same session.
 	if err := failEvent(ctx, dbpool, "b.csv", "01"); err != nil {
 		t.Fatal(err)
 	}
-	if ok, _ := claim("b.csv", "01", hour); !ok || lastSession != "1700000000001" {
-		t.Fatalf("a failed event: claimed %v with session %q, want taken over with 1700000000001", ok, lastSession)
+	if ok, prior := claim("b.csv", "01", hour); !ok || lastSession != "1700000000001" || prior != eventFailed {
+		t.Fatalf("a failed event: claimed %v with session %q, prior %q; want taken over with 1700000000001, failed",
+			ok, lastSession, prior)
 	}
 	// Concurrent deliveries: exactly one is claimed.
 	var wg sync.WaitGroup
@@ -360,9 +423,85 @@ func TestEventClaimAgainstPostgres(t *testing.T) {
 	}
 }
 
+// TestEventFailureRecordedOnceAgainstPostgres runs processMessage with the real
+// claim and the real record: an event whose registration fails is recorded as one
+// failure of the register keys job, with its file key, client and period, and
+// Lambda's retry of the same event, failing again, records nothing more. A new
+// write of the key is a new event and records again.
+func TestEventFailureRecordedOnceAgainstPostgres(t *testing.T) {
+	dsn := os.Getenv("JETS_TEST_DSN")
+	if dsn == "" {
+		t.Skip("JETS_TEST_DSN is not set")
+	}
+	ctx := context.Background()
+	dbpool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dbpool.Close()
+	createTables(t, dbpool, "s3_object_event", "pipeline_execution_status", "session_registry", "source_period",
+		"session_reservation", "client_registry")
+	savedInput, savedSchema := s3InputPrefix, s3SchemaPrefix
+	s3InputPrefix, s3SchemaPrefix = "input/", "schema_triggers/"
+	savedRegister := registerFileKeys
+	registerFileKeys = func(*datatable.DataTableContext, *datatable.RegisterFileKeyAction, string) error {
+		return errors.New("no source_config for this file")
+	}
+	t.Cleanup(func() {
+		s3InputPrefix, s3SchemaPrefix = savedInput, savedSchema
+		registerFileKeys = savedRegister
+	})
+
+	count := func() int {
+		t.Helper()
+		var n int
+		if err := dbpool.QueryRow(ctx, `SELECT count(*) FROM jetsapi.pipeline_execution_status
+			WHERE process_name = $1 AND pipeline_config_key = 0`, datatable.JobRegisterKeys).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	for attempt := 1; attempt <= 3; attempt++ {
+		if err := processMessage(ctx, dbpool, inputRecord(testInputKey, "0A1B")); err == nil {
+			t.Fatalf("attempt %d: the failed registration returned no error", attempt)
+		}
+		if n := count(); n != 1 {
+			t.Fatalf("after attempt %d of one event: %d failures recorded, want 1", attempt, n)
+		}
+	}
+	var client, fileKey, details, sourceType string
+	var year, month, day int
+	if err := dbpool.QueryRow(ctx, `SELECT pe.client, pe.main_input_file_key, pe.failure_details, sr.source_type,
+			sp.year, sp.month, sp.day
+		FROM jetsapi.pipeline_execution_status pe
+			JOIN jetsapi.session_registry sr ON sr.session_id = pe.session_id
+			JOIN jetsapi.source_period sp ON sp.key = pe.source_period_key`).
+		Scan(&client, &fileKey, &details, &sourceType, &year, &month, &day); err != nil {
+		t.Fatal(err)
+	}
+	if client != "CI" || fileKey != testInputKey || details != "no source_config for this file" ||
+		sourceType != datatable.SessionSourceTypeJob || year != 2026 || month != 9 || day != 16 {
+		t.Errorf("recorded client %q, file key %q, details %q, source type %q, period %d-%d-%d",
+			client, fileKey, details, sourceType, year, month, day)
+	}
+	if err := processMessage(ctx, dbpool, inputRecord(testInputKey, "0A1C")); err == nil {
+		t.Fatal("the failed registration returned no error")
+	}
+	if n := count(); n != 2 {
+		t.Errorf("a new write of the key: %d failures recorded, want 2", n)
+	}
+}
+
 // createEventTable creates jetsapi.s3_object_event as the migration would, from
 // its declaration in jets/jets_schema.json, replacing any left by an earlier run.
 func createEventTable(t *testing.T, dbpool *pgxpool.Pool) {
+	t.Helper()
+	createTables(t, dbpool, "s3_object_event")
+}
+
+// createTables creates the named jetsapi tables from their declarations in
+// jets/jets_schema.json, replacing any left by an earlier run.
+func createTables(t *testing.T, dbpool *pgxpool.Pool, names ...string) {
 	t.Helper()
 	content, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "jets", "jets_schema.json"))
 	if err != nil {
@@ -375,13 +514,19 @@ func createEventTable(t *testing.T, dbpool *pgxpool.Pool) {
 	if _, err := dbpool.Exec(context.Background(), "CREATE SCHEMA IF NOT EXISTS jetsapi"); err != nil {
 		t.Fatal(err)
 	}
-	for i := range tables {
-		if tables[i].TableName == "s3_object_event" {
-			if err := tables[i].UpdateTableSchema(dbpool, true); err != nil {
-				t.Fatalf("creating s3_object_event: %v", err)
+	for _, name := range names {
+		found := false
+		for i := range tables {
+			if tables[i].TableName == name {
+				if err := tables[i].UpdateTableSchema(dbpool, true); err != nil {
+					t.Fatalf("creating %s: %v", name, err)
+				}
+				found = true
+				break
 			}
-			return
+		}
+		if !found {
+			t.Fatalf("jets_schema.json declares no %s table", name)
 		}
 	}
-	t.Fatal("jets_schema.json declares no s3_object_event table")
 }

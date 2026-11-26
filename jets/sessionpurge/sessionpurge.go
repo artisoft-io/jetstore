@@ -23,6 +23,12 @@
 // ExecuteRequests is the dry run: the same work on requests held in memory, every
 // transaction rolled back. PurgeArchive and PurgeTombstones remove archived runs
 // and done deletion rows by age.
+//
+// PurgeTableData is the second, shorter clock: it deletes a registered session's
+// rows from the domain tables and process_errors only, keeps everything else,
+// and marks session_registry.table_data_purged_at so the session is done once.
+// It holds a session whose claim rows the agentic layer has not yet summarised
+// (claimSetHold), never past the session deletion's own clock.
 package sessionpurge
 
 import (
@@ -175,10 +181,15 @@ func RetentionCandidates(ctx context.Context, db *pgxpool.Pool, before time.Time
 	// before is cast to timestamptz because last_update is a timestamp without
 	// time zone, and pgx would otherwise encode it by its wall clock in its own
 	// location.
-	return readRequests(ctx, db, `SELECT session_id, client, source_type, month_period, $2::text, $3::text
+	//
+	// A session registered with no client, as a job's failure that serves no
+	// client is (datatable.RecordJobFailure), gets ClientUnknown, as an orphan
+	// does: a request with no client is refused, and would stop the whole run.
+	return readRequests(ctx, db, `SELECT session_id, coalesce(nullif(client, ''), $4), source_type, month_period,
+			$2::text, $3::text
 		FROM jetsapi.session_registry
 		WHERE last_update <= $1::timestamptz
-		ORDER BY session_id`, before, ReasonRetention, RequestedByPurge)
+		ORDER BY session_id`, before, ReasonRetention, RequestedByPurge, ClientUnknown)
 }
 
 // ClientUnknown is the client of an orphan found only in tables that carry no
@@ -267,11 +278,15 @@ func OrphanCandidates(ctx context.Context, db *pgxpool.Pool, before time.Time) (
 				WHEN bool_or(source_type = 'domain_table') THEN 'domain_table' ELSE min(source_type) END`
 		}
 		col := pgx.Identifier{source.column}.Sanitize()
+		// A row with no session is no session's: s3_object_event's session_id is
+		// null until its registration reserves one, and stays null for an event
+		// that registers nothing. Grouped in, the nulls would make one candidate
+		// with no id, which no age excludes, and fail the read (JM-350).
 		parts = append(parts, fmt.Sprintf(`SELECT %s AS session_id, %s AS last_update, %s AS client, %s AS source_type,
 				%s AS source_period_key, %d AS rank
-			FROM %s GROUP BY %s`,
+			FROM %s WHERE %s IS NOT NULL GROUP BY %s`,
 			col, pick("last_update", "max", "NULL::timestamp"), pick("client", "min", "NULL::text"), sourceType,
-			pick("source_period_key", "min", "NULL::int"), rank, pgx.Identifier{"jetsapi", table}.Sanitize(), col))
+			pick("source_period_key", "min", "NULL::int"), rank, pgx.Identifier{"jetsapi", table}.Sanitize(), col, col))
 	}
 	if len(parts) == 0 {
 		return nil, nil

@@ -16,6 +16,11 @@
 // codes, each with its own threshold and its own verdict, so each code has
 // conditions of its own.
 //
+// **A job's failures are run conditions too**, at locus job_failed with the
+// job's name as the process: a job writes a row only when it fails, so its
+// condition holds every failure from the first, and ends only at a person's
+// verdict (IsRunLocus).
+//
 // **The positions** are the process's live runs for that client, the rows of
 // jetsapi.pipeline_execution_status, in start_time then session order. **A
 // deleted run is no position**: it neither ends a condition nor joins one, and
@@ -101,9 +106,16 @@ func Rank(v string) int {
 	return -1
 }
 
-// IsRunLocus reports whether a locus is a position in a run's execution record,
-// one of the nine a run condition can be keyed on, rather than in a feed's
-// deliveries.
+// IsRunLocus reports whether a locus is one a run condition can be keyed on:
+// the nine positions in a run's execution record, and job_failed, a job's
+// failure, rather than a position in a feed's deliveries.
+//
+// **A job's failures are grouped as a run's are**, by client, process name and
+// locus, so a job that fails on five days is one condition of five runs with
+// one incident. A job writes a row only when it fails, so its runs all read
+// present at job_failed and nothing reads absent: its condition ends only at a
+// person's verdict, after which a later failure raises a new incident naming
+// the judged one, as for any run condition.
 func IsRunLocus(locus string) bool {
 	return slices.Contains(triage.Loci, locus) && !slices.Contains(triage.DeliveryLoci, locus)
 }
@@ -133,11 +145,18 @@ type Row struct {
 //     threshold, or a debug code), with its stored rows. **A code with no row on
 //     a run whose "" row is present or absent is absent for that run**; a run
 //     whose "" row is not evaluable is not evaluable for every code.
+//
+// **Only the loci that apply to the session are stored**: on a job's row
+// (Report.Job) the job_failed row alone, and on any other session the nine run
+// loci and no job_failed row, which would say only that a pipeline run is not a
+// job. A run with no row at a locus is one triage never classified there, so
+// it neither joins nor ends a condition, which is what either row would have
+// said.
 func RowsOf(r *triage.Report, at time.Time) []Row {
 	var out []Row
 	for i := range r.Findings {
 		f := &r.Findings[i]
-		if !IsRunLocus(f.Locus) {
+		if !IsRunLocus(f.Locus) || r.Job != (f.Locus == triage.LocusJobFailed) {
 			continue
 		}
 		out = append(out, Row{SessionId: r.SessionId, Locus: f.Locus, Verdict: string(f.Verdict),

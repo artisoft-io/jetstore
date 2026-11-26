@@ -2598,6 +2598,11 @@
         "dataType": "datetime",
         "default": "now()",
         "isNotNull": true
+      },
+      {
+        "columnName": "table_data_purged_at",
+        "description": "When the purge deleted the session's rows from the domain tables and process_errors, on DOMAIN_TABLES_RETENTION_DAYS, keeping the session itself; null while they are kept. A session marked is never selected again (sessionpurge.PurgeTableData).",
+        "dataType": "timestamptz"
       }
     ],
     "indexes": [

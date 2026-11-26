@@ -124,7 +124,7 @@ func TestClaimSetSessionOfPicksTheRun(t *testing.T) {
 		  (50, NULL, 'R5', 'P50', 'completed')`); err != nil {
 		t.Fatal(err)
 	}
-	stmt := "SELECT (" + claimSetSessionOf(pgx.Identifier{"public", "hc:Claim"}.Sanitize(), "$1") + ")"
+	stmt := "SELECT (SELECT q.s FROM (" + claimSetSessionOf(pgx.Identifier{"public", "hc:Claim"}.Sanitize(), "$1") + ") q)"
 	for _, c := range []struct {
 		registration *string
 		want         *string

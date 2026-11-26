@@ -306,6 +306,7 @@ text jetsa:INCIDENT_LOCUS_PER_RECORD_FAILURES_UNREPORTABLE = "per_record_failure
 text jetsa:INCIDENT_LOCUS_WRITTEN_NOT_ARRIVED = "written_not_arrived";
 text jetsa:INCIDENT_LOCUS_DELIVERY_OVERDUE = "delivery_overdue";
 text jetsa:INCIDENT_LOCUS_DELIVERY_DEPARTS_PROFILE = "delivery_departs_profile";
+text jetsa:INCIDENT_LOCUS_JOB_FAILED = "job_failed";
 
 # jetsa:severity enum (Severity)
 text jetsa:SEVERITY_INFO = "info";

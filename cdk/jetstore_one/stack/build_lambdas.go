@@ -311,7 +311,9 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 			// PURGE_DRY_RUN unset, or anything but "false", is a dry run: the purge
 			// reports what it would delete and deletes nothing (delegate.IsDryRun).
 			// AGENT_AUDIT_RETENTION_DAYS unset, the agent audit trail is never purged
-			// (delegate.AuditRetentionDays).
+			// (delegate.AuditRetentionDays). DOMAIN_TABLES_RETENTION_DAYS unset, a
+			// session's table data goes with the session, on RETENTION_DAYS
+			// (delegate.DomainTablesRetentionDays).
 			Environment: &map[string]*string{
 				"JETS_DSN_SECRET":              jsComp.RdsSecret.SecretName(),
 				"JETS_REGION":                  jsii.String(os.Getenv("AWS_REGION")),
@@ -319,6 +321,7 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 				"RETENTION_DAYS":               jsii.String(os.Getenv("RETENTION_DAYS")),
 				"PURGE_DRY_RUN":                jsii.String(os.Getenv("PURGE_DRY_RUN")),
 				"AGENT_AUDIT_RETENTION_DAYS":   jsii.String(os.Getenv("AGENT_AUDIT_RETENTION_DAYS")),
+				"DOMAIN_TABLES_RETENTION_DAYS": jsii.String(os.Getenv("DOMAIN_TABLES_RETENTION_DAYS")),
 				"JETS_s3_INPUT_PREFIX":         jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 				"JETS_s3_OUTPUT_PREFIX":        jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
 				"JETS_s3_STAGE_PREFIX":         jsii.String(GetS3StagePrefix()),

@@ -204,9 +204,36 @@ Deletes sessions past the retention window, and the agentic rows nothing still h
   deletion and restored in the same transaction (the database user must own the table, or the
   table is kept and the log says so); `agent_run` rows older, once their audit rows have gone; and
   `approval_event` rows decided before it. `change_proposal` has no timestamp and is always kept.
+- **Table data on a clock of its own**: `DOMAIN_TABLES_RETENTION_DAYS` deletes a session's table
+  data earlier than the session, for an installation that keeps no member data longer than it must.
+  Unset or empty, it is `RETENTION_DAYS`, and the purge does what it did before the variable
+  existed. Set below `RETENTION_DAYS`, each run, after the session deletions and under the same
+  deadline, takes every registered session older than it and not deleted whole that run, and
+  deletes the session's rows from **every domain table** (each table named in
+  `input_registry.table_name`, the data a pipeline wrote and a file's staging table alike) and from
+  **`jetsapi.process_errors`**, whose rows carry the encoded rules session and messages that can
+  quote a value. One transaction per session; a session with a pending or submitted run on it, or
+  reading it, is left for the next run. **A profiled feed's claim rows are held until they are
+  summarised**: a session with rows in a table some feed profile names as its `claim_set.table` is
+  left for the next run, counted as held, while no `jetsapi.claim_set_summary` row names it and no
+  `feed_detect` run has ended ok since the session's last update; a `feed_detect` run that has, and
+  wrote no summary for it, never will, so the session is released. The hold never lasts past
+  `RETENTION_DAYS`, when the session is deleted whole as before, and an installation without the
+  agentic layer's summary table holds nothing. Everything else stays until `RETENTION_DAYS`: the session's
+  registration and input registry rows, its runs and their details, its agentic rows and the
+  summary the agentic layer keeps of a delivery (`jetsapi.claim_set_summary`, deleted with the
+  session). The session is then marked, `session_registry.table_data_purged_at`, shown as *Table
+  Data Purged At* on the *Session Registry* tab, and never selected again. A value above
+  `RETENTION_DAYS` is capped to it and the cap logged; a value that is not a whole number of days, 1
+  or more, refuses the run, recorded as the purge job's failure.
+- **What a short table-data clock costs**: no pipeline reads a table (its inputs are files, stages
+  and memory), so pipelines are unaffected. What reads the rows is people and reports: a report run
+  again on a session whose table data is gone, or a look at its rows from the Query Tool or the
+  *Process Errors* screen, finds none. Run a session's reports before its table data ages out.
 - **Dry run**: unless `PURGE_DRY_RUN` is exactly `false`, the purge logs what it would delete, the
-  incidents and the audit rows included, and deletes nothing. The log has one line per table under
-  `Session purge:`, `Incident retention:` and `Agent audit retention:`.
+  table data, the incidents and the audit rows included, and deletes nothing. The log opens with both
+  clocks, and has one line per table under `Session purge:`, `Table data purge:` (lines
+  `table data: N rows from T`, and the sessions held for a summary), `Incident retention:` and `Agent audit retention:`.
 - **Deployment**: `RETENTION_DAYS` non-empty. `PURGE_DATA_SCHEDULED_HOUR_UTC` sets the daily
   EventBridge cron hour, default 7 UTC.
 - **IAM / SG**: **own generated role** with `RdsSecret.GrantRead`; `VpcEndpointsSg` + `RdsAccessSg`;
@@ -296,6 +323,37 @@ Rotates all four secrets.
 - **Alarms** (`jetstore_alarms.go`): pipeline failures (`autoLoaderFailed`, `autoServerFailed`), ELB
   target response time / 5XX / unhealthy hosts, and RDS disk queue depth, CPU (above
   `JETS_CPU_UTILIZATION_ALARM_THRESHOLD` percent, default 60), serverless capacity and freeable memory. Each fires an SNS action only when `JETS_SNS_ALARM_TOPIC_ARN` is set.
+- **Lambda error alarms** (`AddLambdaErrorAlarms`, `jetstore_alarms.go`): one alarm on the `Errors`
+  metric of each Lambda that runs unattended and whose failure nothing else records, named
+  `<field>Errors` plus the stack suffix (`PurgeDataLambdaErrors`, for one). It fires on any error:
+  the sum is 1 or more in one period, and a period with no invocation does not count. These alarms
+  are for failures that leave no row in the database, because the Lambda stopped before reaching
+  it, at a setting it reads at start-up, or because the database itself was unreachable. The alarm
+  names the Lambda; its log group holds the error.
+
+  | Lambda | Triggered by | Period |
+  |---|---|---|
+  | `PurgeDataLambda` (only when `RETENTION_DAYS` is set) | the daily schedule | 1 hour |
+  | `SecretRotationLambda` | each secret's rotation schedule | 1 hour |
+  | `RegisterKeyV2Lambda` | S3 object events | 5 minutes |
+  | `SqsRegisterKeyLambda` (only when built) | the SQS queue | 5 minutes |
+  | `StatusUpdateLambda` | the state machines | 5 minutes |
+  | `InferLifecycleHookLambda` (only with the infer server) | an infer instance launching | 5 minutes |
+
+  A scheduled run that fails is retried twice by Lambda within a few minutes, so its period is an
+  hour: the run and its retries make one notification, and the alarm stays in `ALARM` for the rest
+  of the hour.
+
+  **Not alarmed, and why.** The compute pipes state machine runs its Lambdas (the sharding and
+  reducing starters, the node Lambdas, and the run-reports Lambda) under a catch that routes any
+  failure to the status update, which records it in `pipeline_execution_status`. An alarm on them
+  would notify on every routine pipeline failure, such as a bad input file. The status update is
+  alarmed instead: if it fails, nothing records the run's failure. The API Gateway Lambda has no
+  alarm because its caller receives the error.
+
+  **Set `JETS_SNS_ALARM_TOPIC_ARN`.** Without it these alarms, like the others, exist and change
+  state in the CloudWatch console but notify nobody, and a failure that left no row in the database
+  is then seen only by someone reading the Lambda's log.
 - **Bastion host**: built only when `BASTION_HOST_KEYPAIR_NAME` is set. Public subnet, SSH from
   `Peer_AnyIpv4()`, allowed to reach Aurora on 5432. Tagged PHI/PII `false`.
 - **Tagging**: `JETS_TAG_NAME_PHI` / `_PII` / `_DESCRIPTION` enable per-resource tags;

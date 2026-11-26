@@ -304,6 +304,13 @@ export function IncidentsScreen({ api }: { api: ApiClient }) {
                         // incident per code, so the locus alone does not say which.
                         <code className="incident-code incident-list-code">{r.errorCode}</code>
                       )}
+                      {r.job !== undefined && r.job !== "" && (
+                        // A job's failure names the job, as a per-record
+                        // failure names its code.
+                        <code className="incident-code incident-list-code" title="The job that failed">
+                          {r.job}
+                        </code>
+                      )}
                     </td>
                     <td>
                       {r.classification === "" ? (

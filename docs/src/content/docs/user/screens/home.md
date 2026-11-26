@@ -26,6 +26,16 @@ Every run of a pipeline, the latest first: one row per run, with its status, its
 session. What each status means is in
 [Pipelines and sessions](/docs/user/concepts/pipelines-and-sessions/#what-a-runs-status-means).
 
+**A job's failure is listed here too**, as a `failed` row. A job is work JetStore runs that is not a
+pipeline: the purge, which deletes sessions past their retention (process name `purge_data`), and the
+registration of the files that arrive (`register_keys`), as well as an installation's own Lambdas,
+under names of their own. The row's failure details say what went wrong: for `register_keys`, the
+error that stopped the file's registration, with the file in *Main Input File Key*; for `purge_data`,
+the error that stopped the run, or the sessions it could not delete and why. Each failure has a
+session of its own, of source type `job` on the *Session Registry* tab. A file that fails to register
+is listed once, however many times it is retried; a purge that goes wrong is listed once per run. A
+`purge_data` row has no client, so filtering on a client hides it.
+
 ![The Pipelines Status tab: nine runs of the CI client's pipelines, three completed Map runs and six runs of Patient_Profile_Template, pending, submitted, interrupted, failed, errors and completed, with the tab's buttons above them; the runs that ended show an input count, and two Map runs a dropped count, 13 and 0; the span columns are further right.](../../../../assets/screenshots/user/screens/home/pipelines-status.png)
 
 | Column | What it holds |
@@ -68,7 +78,7 @@ The second and third rows act on the selected run:
 | **View Failure Details** | Opens the run's failure details, the error that stopped it, in a dialog. Empty for a run that did not fail. | |
 | **View Execution Stats** | Opens [CPIPES Execution Details](/docs/user/screens/cpipes-execution-details/) for the run: each step, totalled over its nodes. | |
 | **View Incident** | Opens the incidents the run belongs to on the [Incidents](/docs/user/screens/incidents/#finding-a-sessions-incidents) screen: those on its own session, and those of the input it read, including the incident of a feed's standing condition that the input's delivery joined without an incident of its own. | `agent_supervision` |
-| **Resubmit** | Runs the selected run again, on the same inputs, under a new session, with the workspace as it is compiled now. Refused when an input the run read has since been deleted. | `run_pipelines` |
+| **Resubmit** | Runs the selected run again, on the same inputs, under a new session, with the workspace as it is compiled now. Refused when an input the run read has since been deleted, and for a job's failure, which has no pipeline to run again. | `run_pipelines` |
 | **Get Run Manifest** | Copies the run's manifest to the clipboard: the document a completed run writes, describing what it delivered (see [The run manifest](/docs/developer/compute-pipes/run-manifest/)). Enabled for a completed run only. | `jetstore_read` |
 | **Get Schema Event** | Copies to the clipboard the schema event of the input the run was started from. | `jetstore_read` |
 
@@ -121,7 +131,7 @@ it has been deleted. It is where sessions are deleted. See
 |---|---|
 | Session ID | the session |
 | Client | its client; `(unknown)` when it could not be read |
-| Source Type | `file` for a file's delivery, `domain_table` for a pipeline's output |
+| Source Type | `file` for a file's delivery, `domain_table` for a pipeline's output, `job` for a job's failure (see *Pipelines Status* above) |
 | Year, Month, Day | its source period; the day is empty for a deleted session |
 | File Key | the file key of the session's input registry entries |
 | Process Name | the pipeline whose run is this session, for a `domain_table` session |
@@ -131,6 +141,7 @@ it has been deleted. It is where sessions are deleted. See
 | Deletion Reason | `user`, `retention` or `orphan` |
 | Deletion Requested By | who deleted it, or `purge` for the retention purge |
 | Deletion Requested At | when |
+| Table Data Purged At | when the scheduled purge deleted the session's rows from the data and staging tables and its process errors, keeping the session; empty while they are kept. Only an installation whose table data has a shorter retention than its sessions fills it (see [Deleting a session](/docs/user/concepts/pipelines-and-sessions/#deleting-a-session)) |
 
 | Button | What it does | Capability |
 |---|---|---|

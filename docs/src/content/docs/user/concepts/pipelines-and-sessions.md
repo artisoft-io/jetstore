@@ -113,6 +113,14 @@ record of what ran survives the data.
 Deleting a session needs the `delete_session` capability. An installation may also delete sessions
 older than its retention period on a schedule, by the same path.
 
+An installation may also keep a session's **table data** for less time than the session. The
+scheduled purge then deletes, at the shorter age, the session's rows in the data and staging tables
+and its process errors, and keeps everything else, its registration, its runs and their details,
+until the session itself ages out. The *Session Registry* tab shows when, under *Table Data Purged
+At*. Pipelines do not read those rows, but a report run again on such a session, or a look at its
+rows, finds none. See
+[Purge Data Lambda](/docs/install/reference/stack-components/#purge-data-lambda-optional).
+
 The detection checks' findings on a session, and shadow triage's verdicts on its runs, go with it.
 Its incidents do not, at once: an incident stands for every delivery or run of its condition, so it
 stays while one of them is held, and the scheduled purge deletes it, with its hypotheses and history,

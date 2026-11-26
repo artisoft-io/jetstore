@@ -84,6 +84,36 @@ func main() {
 }
 ```
 
+**A failure the handler detects, before or instead of starting a pipeline, is recorded with
+`datatable.RecordJobFailure`** (`jets/datatable/job_failure.go`), not only logged. It reserves a
+session for the failure, registers it with source type `job`, and writes one `failed` row in
+`pipeline_execution_status` with `pipeline_config_key` 0, the Lambda's name as the process name and
+the error as the failure details. The failure then shows on the Pipelines Status tab of the
+[Home screen](/docs/user/screens/home/#pipelines-status), the agentic triage reads it, and the
+retention purge deletes it with its session. The stock register-key and purge Lambdas record their
+own failures the same way, under the process names `register_keys` and `purge_data`.
+
+```go
+if err != nil {
+	if _, recErr := datatable.RecordJobFailure(ctx, dbpool, datatable.JobFailure{
+		Job:     "example_listener", // the row's process name
+		FileKey: fileKey,            // optional: gives the client and period, as registration reads them
+		Details: err.Error(),
+	}); recErr != nil {
+		log.Println("the failure could not be recorded:", recErr)
+	}
+	return err
+}
+```
+
+**Record each failure under the session the helper reserves, not under a fixed session id shared by
+every failure.** A row written by hand under one shared id makes every failure of every job one
+session: the agentic triage reads one run where there were many and gives them one incident, the
+purge dates them all by the newest, and the row cannot be told from a pipeline run by its session.
+`JobFailure` leaves the client empty when there is no file key, for a job that serves no client, and
+takes today as the period when the key carries no date. Resubmitting such a row is refused: a job's
+failure has no pipeline to run again.
+
 **The compute-pipes node Lambda's site `main` is the stock `cp_node` plus one option**:
 `compute_pipes.WithOperators(...)` on its `CoordinateComputePipes` call, which registers the site's
 own operators. `jets_ws/go/` holds a reference operator and its registry, and its readme gives the

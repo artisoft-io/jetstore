@@ -51,25 +51,40 @@ package observe
 // re-run maps it again later. The statement returns the session it read for
 // each, which is a run's identifier and no claim value, and the verdict's
 // detail names it. The delivery stays keyed on its registration's session.
-// Each delivery is one statement, and the statement returns aggregates only:
-// counts of rows, distinct keys, distinct members and shared keys, a lag and a
-// span in whole days, the counts of rows with a date of service and of those
-// outside the declared span, the present count of each required field, and
-// three booleans computed inside the database. No key, member, date of service or
-// fingerprint is returned:
+//
+// # The checks judge from summaries
+//
+// Each delivery is summarised once, by one statement over its session's rows,
+// into a row of jetsapi.claim_set_summary (feed_claimset_summary.go), and the
+// five checks judge from the summaries of the delivery and its predecessor
+// alone, so they judge a delivery whose claim rows have since been purged.
+// The statement returns aggregates only, and no member, claim key or amount
+// leaves the database:
 //
 //   - the lag of the newest date of service behind the arrival is a number of
-//     days, never a date, and for a delivery with fewer distinct members than
-//     ClaimSetOptions.MinMembers it is a number of calendar months, because the
-//     newest date of a small delivery may belong to a handful of members;
-//     whether it exceeds the declared lag is decided inside the database on the
-//     exact days, so the coarsening changes what is recorded and not the
-//     verdict;
-//   - two deliveries' key sets are compared inside the database, by counting
-//     the distinct keys each holds and the keys they share. The sets are equal
-//     when the three counts are; the record says equal or not equal, and no
-//     hash of a key set is computed or stored;
-//   - whether the newest date of service advanced is a boolean.
+//     days, and for a delivery with fewer distinct members than
+//     ClaimSetOptions.MinMembers a number of calendar months, because the
+//     summary keeps a small delivery's dates as the first of their month;
+//     whether it exceeds the declared lag is decided on the exact days when
+//     the summary is written, so the coarsening changes what is recorded and
+//     not the verdict;
+//   - two deliveries' key sets are compared by a fingerprint and a sketch of
+//     each, computed inside the database by package keyset's rules. The
+//     fingerprint, the sum of the distinct keys' 64-bit hashes, tells equal
+//     sets from unequal ones but for a collision of about one in 2^64, so
+//     delivery_unchanged is exact. The sketch, a HyperLogLog of 2^14
+//     registers, estimates the keys two deliveries share, so delivery_overlap
+//     judges an estimate, and its detail states the estimate and its error. A
+//     delivery with fewer distinct keys than MinMembers keeps neither, because
+//     the fingerprint of one claim is that claim's hash, and is not compared
+//     (small_delivery);
+//   - whether the newest date of service advanced is compared on the two
+//     summaries' newest dates, by month when either is a small delivery's.
+//
+// delivery_overlap is one generation ahead of the run's generation: it began
+// judging an estimate where it had counted, and a change of verdicts derives
+// new identifiers. The other four reach the verdicts they reached when they
+// read the rows.
 //
 // # Records a retain window dropped
 //
@@ -129,12 +144,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/agentic/feedprofile"
+	"github.com/artisoft-io/jetstore/jets/keyset"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -196,6 +213,14 @@ const (
 	ClaimSetPredecessorNotLoaded = "predecessor_no_claim_rows"
 	// ClaimSetColumnAbsent: a column the profile names is not in the table.
 	ClaimSetColumnAbsent = "column_absent"
+	// ClaimSetSmallDelivery: the delivery or its predecessor has fewer
+	// distinct keys than MinMembers, so its summary keeps no fingerprint or
+	// sketch, and the two are not compared.
+	ClaimSetSmallDelivery = "small_delivery"
+	// ClaimSetSummaryDeclarationChanged: the delivery's rows are gone and its
+	// summary was written under another declaration than the profile's now,
+	// one the summary cannot answer.
+	ClaimSetSummaryDeclarationChanged = "summary_declaration_changed"
 	// ClaimSetNoServiceDates: no row of the delivery, or of its predecessor
 	// where the check reads it, carries a date of service.
 	ClaimSetNoServiceDates = "no_service_dates"
@@ -230,8 +255,8 @@ func DefaultClaimSetOptions() ClaimSetOptions {
 	return ClaimSetOptions{MinMembers: claimSetDefaultMinMembers, Generation: claimSetDefaultGeneration}
 }
 
-// ClaimSetAggregates are what one delivery's statement returns. They are the
-// only values that leave the database, and none is member-level.
+// ClaimSetAggregates are what a check reads of one delivery: its summary and
+// its predecessor's, and the run that read it. None is member-level.
 type ClaimSetAggregates struct {
 	Rows         int64 // rows of the delivery's session
 	DistinctKeys int64 // distinct values of the declared key columns
@@ -239,7 +264,16 @@ type ClaimSetAggregates struct {
 	// Predecessor* and SharedKeys are zero when there is no predecessor.
 	PredecessorRows         int64
 	PredecessorDistinctKeys int64
-	SharedKeys              int64 // distinct keys in both deliveries
+	// SharedKeys is the distinct keys in both deliveries, estimated from their
+	// sketches when SharedKeysEstimated, and SharedKeysError is the error
+	// stated with it, keyset.Bound: three standard errors and three keys. Zero, and not estimated, when either delivery has
+	// no sketch.
+	SharedKeys          int64
+	SharedKeysEstimated bool
+	SharedKeysError     float64
+	// KeysEqual is whether the two key sets are equal, by their fingerprints
+	// and distinct counts; nil when either has no fingerprint.
+	KeysEqual *bool
 	// Lag is the newest date of service behind the arrival, in days, or in
 	// calendar months when LagInMonths. Nil when no row carries a date.
 	Lag         *int64
@@ -276,6 +310,15 @@ type ClaimSetAggregates struct {
 	// Dropped are the records that run's retain window dropped; nil when it
 	// had no window.
 	Dropped *ClaimSetDropped
+	// Summary and PredecessorSummary are what the checks judged from; nil
+	// where the delivery has none, as when its rows were never loaded.
+	Summary, PredecessorSummary *ClaimSetSummary
+	// undecidable names, per detector, what the summaries cannot answer under
+	// the declaration now.
+	undecidable map[string]string
+	// presentColumns are the declared required fields the summary counts, in
+	// the profile's order, as Present is; absentRequired the ones it does not.
+	presentColumns, absentRequired []string
 }
 
 // ClaimSetDropped are the records a run's map_record retain window dropped
@@ -367,21 +410,35 @@ func claimSetDeliveriesOf(regs *FeedRegistrations, table string, o ClaimSetOptio
 // ClaimSetDetectors. A feed whose statement fails contributes no verdict, and
 // its error is joined into the returned error; the other feeds' verdicts are
 // returned beside it.
+//
+// It writes nothing: the summaries it computes for deliveries with none are
+// judged from and dropped. SummariseClaimSets returns them for writing.
 func DetectClaimSets(ctx context.Context, db DB, feeds []feedprofile.Feed, o ClaimSetOptions) ([]ClaimSetVerdict, error) {
+	vs, _, err := SummariseClaimSets(ctx, db, feeds, o)
+	return vs, err
+}
+
+// SummariseClaimSets is DetectClaimSets, and returns besides the verdicts the
+// summaries it computed that are to be written (WriteClaimSetSummaries): one
+// for each delivery of a judged feed registered by the end of the window,
+// predecessors included, whose rows are present and which had no summary
+// under the declaration now.
+func SummariseClaimSets(ctx context.Context, db DB, feeds []feedprofile.Feed,
+	o ClaimSetOptions) ([]ClaimSetVerdict, []ClaimSetSummary, error) {
 	tables := make([]string, len(feeds))
 	for i, f := range feeds {
 		tables[i] = f.TableName
 	}
 	regs, err := ReadFeedRegistrations(ctx, db, tables)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	return detectClaimSetsFrom(ctx, db, feeds, regs, o)
 }
 
-// detectClaimSetsFrom is DetectClaimSets over registrations already read.
+// detectClaimSetsFrom is SummariseClaimSets over registrations already read.
 func detectClaimSetsFrom(ctx context.Context, db DB, feeds []feedprofile.Feed, regs *FeedRegistrations,
-	o ClaimSetOptions) ([]ClaimSetVerdict, error) {
+	o ClaimSetOptions) ([]ClaimSetVerdict, []ClaimSetSummary, error) {
 	if o.MinMembers <= 0 {
 		o.MinMembers = claimSetDefaultMinMembers
 	}
@@ -391,17 +448,32 @@ func detectClaimSetsFrom(ctx context.Context, db DB, feeds []feedprofile.Feed, r
 	if o.Now.IsZero() {
 		o.Now = time.Now().UTC()
 	}
+	var judged []string
+	for _, f := range feeds {
+		for _, det := range ClaimSetDetectors {
+			if claimSetFieldGate(det, f) == "" {
+				judged = append(judged, f.TableName)
+				break
+			}
+		}
+	}
+	stored, err := readClaimSetSummaries(ctx, db, judged)
+	if err != nil {
+		return nil, nil, err
+	}
 	var out []ClaimSetVerdict
+	var sums []ClaimSetSummary
 	var errs []error
 	for _, f := range feeds {
-		vs, err := claimSetFeed(ctx, db, f, claimSetDeliveriesOf(regs, f.TableName, o), o)
+		vs, ss, err := claimSetFeed(ctx, db, f, claimSetDeliveriesOf(regs, f.TableName, o), stored[f.TableName], o)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("feed %s: %w", f.TableName, err))
 			continue
 		}
 		out = append(out, vs...)
+		sums = append(sums, ss...)
 	}
-	return out, errors.Join(errs...)
+	return out, sums, errors.Join(errs...)
 }
 
 // ClaimSetAnomalies returns the anomalies the firing verdicts carry.
@@ -494,28 +566,31 @@ func ClaimSetTable(name string) (pgx.Identifier, error) {
 }
 
 const claimSetColumnsSQL = `SELECT column_name FROM information_schema.columns
- WHERE table_schema = $1 AND table_name = $2`
+ WHERE table_schema = $1 AND table_name = $2 ORDER BY ordinal_position`
 
-// claimSetColumns returns the columns of the table, or nil when it does not
-// exist. The names are bound parameters: this lookup splices nothing.
-func claimSetColumns(ctx context.Context, db DB, table pgx.Identifier) (map[string]bool, error) {
+// claimSetColumns returns the columns of the table, as a set and in order, or
+// nil when it does not exist. The names are bound parameters: this lookup
+// splices nothing.
+func claimSetColumns(ctx context.Context, db DB, table pgx.Identifier) (map[string]bool, []string, error) {
 	rows, err := db.Query(ctx, claimSetColumnsSQL, table[0], table[1])
 	if err != nil {
-		return nil, fmt.Errorf("while reading the columns of the claim-set table: %w", err)
+		return nil, nil, fmt.Errorf("while reading the columns of the claim-set table: %w", err)
 	}
 	defer rows.Close()
 	var cols map[string]bool
+	var order []string
 	for rows.Next() {
 		var c string
 		if err := rows.Scan(&c); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if cols == nil {
 			cols = map[string]bool{}
 		}
 		cols[c] = true
+		order = append(order, c)
 	}
-	return cols, rows.Err()
+	return cols, order, rows.Err()
 }
 
 // claimSetReadable is what the catalogue says about a feed's declared columns:
@@ -563,61 +638,18 @@ func claimSetQuoteList(names []string) string {
 	return strings.Join(q, ", ")
 }
 
-// ClaimSetStatement is the one statement that reads a delivery and its
-// predecessor. It is a single statement with no semicolon, so an export can
-// print it as it runs. Its parameters are:
+// ClaimSetRunStatement reads the pipeline run that read a delivery, for its
+// drops and its spans, which stay on the run's records rather than in the
+// summary. It is a single statement with no semicolon. Its parameters are:
 //
-//	$1 the delivery's session id
-//	$2 the predecessor's session id, or NULL
-//	$3 the arrival date, as text YYYY-MM-DD (UTC)
-//	$4 the declared lag in days, or NULL
-//	$5 the minimum distinct-member count for a lag in days
-//	$6 the declared span in days, or NULL
+//	$1 the delivery's registration session id
+//	$2 the session whose rows the summary read, or NULL
 //
-// $1 and $2 are each resolved to the session holding its claims, the
-// registration's own or a pipeline run's that read it (claimSetSessionOf), and
-// the statement returns both resolved sessions after the aggregates. Then it
-// returns, for the run that read the delivery (claimSetRunOf), its session, its
-// input span and core span, and its retain window and drops, summed over its
-// nodes not in progress.
-//
-// Every name in it comes from the profile and is quoted by pgx.Identifier.
-// required are the required-field columns to count, in order.
-func ClaimSetStatement(table pgx.Identifier, cs *feedprofile.ClaimSet, required []string) string {
-	q := func(c string) string { return pgx.Identifier{c}.Sanitize() }
-	keys := make([]string, len(cs.KeyColumns))
-	keyAliases := make([]string, len(cs.KeyColumns))
-	for i, k := range cs.KeyColumns {
-		keyAliases[i] = fmt.Sprintf("claimset_k%d", i+1)
-		keys[i] = fmt.Sprintf("%s AS %s", q(k), keyAliases[i])
-	}
-	present := make([]string, len(required))
-	presentCounts := make([]string, len(required))
-	for i, c := range required {
-		present[i] = fmt.Sprintf(", NULLIF(btrim((%s)::text), '') IS NOT NULL AS claimset_p%d", q(c), i+1)
-		presentCounts[i] = fmt.Sprintf("count(*) FILTER (WHERE claimset_p%d)", i+1)
-	}
-	keyList := strings.Join(keyAliases, ", ")
-	t := table.Sanitize()
-	dos := q(cs.ServiceDateColumn)
-	return fmt.Sprintf(`WITH cur_session AS (%[8]s
-), prev_session AS (%[9]s
-), cur AS (
-  SELECT %[2]s, (%[3]s)::date AS claimset_dos, (%[4]s)::text AS claimset_member%[5]s
-    FROM %[1]s WHERE session_id = (SELECT s FROM cur_session)
-), prev AS (
-  SELECT %[2]s, (%[3]s)::date AS claimset_dos
-    FROM %[1]s WHERE session_id = (SELECT s FROM prev_session)
-), cur_keys AS (SELECT DISTINCT %[6]s FROM cur
-), prev_keys AS (SELECT DISTINCT %[6]s FROM prev
-), c AS (
-  SELECT count(*) AS n_rows, count(DISTINCT claimset_member) AS n_members,
-         max(claimset_dos) AS newest, min(claimset_dos) AS oldest,
-         count(claimset_dos) AS n_dated,
-         ARRAY[%[7]s]::bigint[] AS present
-    FROM cur
-), p AS (SELECT count(*) AS n_rows, max(claimset_dos) AS newest FROM prev
-), run AS (%[10]s
+// It returns the run's session, its input span and core span, and its retain
+// window and drops, summed over its nodes not in progress (claimSetRunOf).
+func ClaimSetRunStatement() string {
+	return fmt.Sprintf(`WITH cur_session AS (SELECT $2::text AS s
+), run AS (%s
 ), drops AS (
   SELECT max(retain_window_column) AS col, max(retain_window_days_before)::bigint AS days_before,
          max(retain_window_days_after)::bigint AS days_after,
@@ -628,31 +660,43 @@ func ClaimSetStatement(table pgx.Identifier, cs *feedprofile.ClaimSet, required 
    WHERE pipeline_execution_status_key = (SELECT key FROM run) AND status != 'in progress'
      AND retain_window_days_before IS NOT NULL
 )
-SELECT c.n_rows, c.n_members,
-       (SELECT count(*) FROM cur_keys),
-       p.n_rows,
-       (SELECT count(*) FROM prev_keys),
-       (SELECT count(*) FROM (SELECT %[6]s FROM cur_keys INTERSECT SELECT %[6]s FROM prev_keys) s),
-       CASE WHEN c.n_members >= $5::int THEN ($3::text::date - c.newest)::bigint
-            ELSE ((date_part('year', $3::text::date) * 12 + date_part('month', $3::text::date))
-                - (date_part('year', c.newest) * 12 + date_part('month', c.newest)))::bigint END,
-       c.n_members < $5::int,
-       ($3::text::date - c.newest) > $4::int,
-       (c.newest - c.oldest)::bigint,
-       c.n_dated,
-       CASE WHEN $6::int IS NULL THEN NULL
-            ELSE (SELECT count(*) FROM cur WHERE claimset_dos < c.newest - $6::int) END,
-       CASE WHEN p.n_rows = 0 THEN NULL ELSE c.newest > p.newest END,
-       c.present,
-       (SELECT s FROM cur_session),
-       (SELECT s FROM prev_session),
-       (SELECT session_id FROM run),
+SELECT (SELECT session_id FROM run),
        (SELECT input_span_days FROM run)::bigint,
        (SELECT input_core_span_days FROM run)::bigint,
        drops.col, drops.days_before, drops.days_after, drops.no_date, drops.before_window, drops.after_window
-  FROM c, p, drops`, t, strings.Join(keys, ", "), dos, q(cs.MemberColumn),
-		strings.Join(present, ""), keyList, strings.Join(presentCounts, ", "),
-		claimSetSessionOf(t, "$1"), claimSetSessionOf(t, "$2"), claimSetRunOf("$1"))
+  FROM drops`, claimSetRunOf("$1"))
+}
+
+// claimSetRun is what ClaimSetRunStatement returns.
+type claimSetRun struct {
+	run                         *string
+	inputSpanDays, coreSpanDays *int64
+	dropped                     *ClaimSetDropped
+}
+
+// claimSetReadRun reads the run that read a delivery whose rows the session
+// claims holds, or held (nil for none).
+func claimSetReadRun(ctx context.Context, db DB, d claimSetDelivery, claims *string) (claimSetRun, error) {
+	var r claimSetRun
+	var col *string
+	var daysBefore, daysAfter *int64
+	var dropped ClaimSetDropped
+	err := db.QueryRow(ctx, ClaimSetRunStatement(), d.session, claims).Scan(&r.run, &r.inputSpanDays,
+		&r.coreSpanDays, &col, &daysBefore, &daysAfter, &dropped.NoDate, &dropped.BeforeWindow, &dropped.AfterWindow)
+	if err != nil {
+		return r, fmt.Errorf("while reading the run that read session %s: %w", d.session, err)
+	}
+	if daysBefore != nil && r.run != nil {
+		if col != nil {
+			dropped.Column = *col
+		}
+		dropped.DaysBefore = *daysBefore
+		if daysAfter != nil {
+			dropped.DaysAfter = *daysAfter
+		}
+		r.dropped = &dropped
+	}
+	return r, nil
 }
 
 // claimSetRunOf is the subquery that finds the pipeline run that read the
@@ -689,10 +733,12 @@ func claimSetRunOf(param string) string {
 // read the registration, by input_session_id or by its main input's
 // registration key, and has rows in t, completed runs first and the earliest
 // first. It returns no row when no such session has a row, and none for a
-// NULL parameter. Every session it compares is indexed in t.
+// NULL parameter. Every session it compares is indexed in t. Beside the
+// session s it returns its rank o: 0 for the registration's own, 1 for a
+// completed run, 2 for any other, which is a load that may not be finished.
 func claimSetSessionOf(t, param string) string {
 	return fmt.Sprintf(`
-  SELECT z.s FROM (
+  SELECT z.s, z.o FROM (
     SELECT %[2]s::text AS s, 0 AS o, 0::bigint AS k
      WHERE EXISTS (SELECT 1 FROM %[1]s x WHERE x.session_id = %[2]s::text)
     UNION ALL
@@ -705,48 +751,11 @@ func claimSetSessionOf(t, param string) string {
   ) z ORDER BY z.o, z.k LIMIT 1`, t, param, claimSetRegistrationSource)
 }
 
-func claimSetAggregate(ctx context.Context, db DB, stmt string, d claimSetDelivery, prev *claimSetDelivery,
-	maxLag *int, minMembers int, maxSpan *int) (*ClaimSetAggregates, error) {
-	var prevSession *string
-	if prev != nil {
-		prevSession = &prev.session
-	}
-	var arrival *string
-	if d.arrival != nil {
-		s := d.arrival.Format(time.DateOnly)
-		arrival = &s
-	}
-	a := &ClaimSetAggregates{}
-	var col *string
-	var daysBefore, daysAfter *int64
-	var dropped ClaimSetDropped
-	err := db.QueryRow(ctx, stmt, d.session, prevSession, arrival, maxLag, minMembers, maxSpan).Scan(
-		&a.Rows, &a.Members, &a.DistinctKeys, &a.PredecessorRows, &a.PredecessorDistinctKeys, &a.SharedKeys,
-		&a.Lag, &a.LagInMonths, &a.LagExceeds, &a.SpanDays, &a.DatedRows, &a.OutOfSpanRows, &a.Advanced, &a.Present,
-		&a.ClaimSession, &a.PredecessorClaimSession, &a.Run, &a.InputSpanDays, &a.CoreSpanDays,
-		&col, &daysBefore, &daysAfter, &dropped.NoDate, &dropped.BeforeWindow, &dropped.AfterWindow)
-	if err != nil {
-		return nil, fmt.Errorf("while aggregating session %s: %w", d.session, err)
-	}
-	if daysBefore != nil && a.Run != nil {
-		if col != nil {
-			dropped.Column = *col
-		}
-		dropped.DaysBefore = *daysBefore
-		if daysAfter != nil {
-			dropped.DaysAfter = *daysAfter
-		}
-		a.Dropped = &dropped
-	}
-	if arrival == nil {
-		a.Lag, a.LagExceeds = nil, nil
-	}
-	return a, nil
-}
-
+// claimSetFeed summarises the feed's deliveries that need it and judges the
+// ones in the window from the summaries. It returns the verdicts and the
+// summaries to write.
 func claimSetFeed(ctx context.Context, db DB, f feedprofile.Feed, deliveries []claimSetDelivery,
-	o ClaimSetOptions) ([]ClaimSetVerdict, error) {
-	var err error
+	stored map[string]*ClaimSetSummary, o ClaimSetOptions) ([]ClaimSetVerdict, []ClaimSetSummary, error) {
 	gates := map[string]string{}
 	anyJudged := false
 	for _, det := range ClaimSetDetectors {
@@ -754,21 +763,67 @@ func claimSetFeed(ctx context.Context, db DB, f feedprofile.Feed, deliveries []c
 		anyJudged = anyJudged || gates[det] == ""
 	}
 
-	var stmt string
 	var readable claimSetReadable
+	sums := map[string]*ClaimSetSummary{}
+	var toWrite []ClaimSetSummary
 	if anyJudged {
 		cs := f.Profile.ClaimSet
+		var stmt string
+		var columns []string
 		table, err := ClaimSetTable(cs.Table)
 		if err != nil {
 			readable = claimSetReadable{reason: ClaimSetNoClaimRows, detail: err.Error()}
 		} else {
-			cols, err := claimSetColumns(ctx, db, table)
+			cols, order, err := claimSetColumns(ctx, db, table)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			readable = claimSetCheckColumns(cs, f.Profile.RequiredFields, table, cols)
 			if readable.reason == "" {
-				stmt = ClaimSetStatement(table, cs, readable.presentRequired)
+				stmt, columns = ClaimSetSummaryStatement(table, cs, order), order
+			}
+		}
+		// Every delivery registered by the end of the window, predecessors
+		// included: a stored summary under the declaration now is used as it
+		// is; otherwise the rows are summarised where they are present, and a
+		// stale summary is kept where they are not.
+		for _, d := range deliveries {
+			s := stored[d.session]
+			if s != nil && s.fresh(f.Profile) {
+				sums[d.session] = s
+				continue
+			}
+			if stmt != "" {
+				c, err := claimSetSummarise(ctx, db, stmt, columns, f, d, o)
+				if err != nil {
+					return nil, nil, err
+				}
+				if c != nil {
+					sums[d.session] = c
+					if c.settled {
+						toWrite = append(toWrite, *c)
+					}
+					continue
+				}
+			}
+			if s != nil {
+				sums[d.session] = s
+			}
+		}
+		// The stored sketches the window's comparisons read.
+		if gates[ClaimSetDeliveryOverlap] == "" {
+			var need []*ClaimSetSummary
+			for i, d := range deliveries {
+				if i == 0 || !claimSetInWindow(d, o) {
+					continue
+				}
+				cur, prev := sums[d.session], sums[deliveries[i-1].session]
+				if cur != nil && prev != nil && cur.Fingerprint != nil && prev.Fingerprint != nil {
+					need = append(need, cur, prev)
+				}
+			}
+			if err := readClaimSetSketches(ctx, db, f.TableName, need); err != nil {
+				return nil, nil, err
 			}
 		}
 	}
@@ -783,10 +838,24 @@ func claimSetFeed(ctx context.Context, db DB, f feedprofile.Feed, deliveries []c
 			prev = &deliveries[i-1]
 		}
 		var agg *ClaimSetAggregates
-		if anyJudged && readable.reason == "" {
-			if agg, err = claimSetAggregate(ctx, db, stmt, d, prev, f.Profile.MaxServiceDateLagDays, o.MinMembers,
-				f.Profile.MaxServiceDateSpanDays); err != nil {
-				return nil, err
+		if anyJudged {
+			cur := sums[d.session]
+			var ps *ClaimSetSummary
+			if prev != nil {
+				ps = sums[prev.session]
+			}
+			if cur != nil || readable.reason == "" {
+				var claims *string
+				if cur != nil {
+					claims = &cur.SessionID
+				}
+				run, err := claimSetReadRun(ctx, db, d, claims)
+				if err != nil {
+					return nil, nil, err
+				}
+				if agg, err = claimSetAggregatesOf(cur, ps, run, d, f, o); err != nil {
+					return nil, nil, err
+				}
 			}
 		}
 		for _, det := range ClaimSetDetectors {
@@ -800,7 +869,150 @@ func claimSetFeed(ctx context.Context, db DB, f feedprofile.Feed, deliveries []c
 			out = append(out, v)
 		}
 	}
-	return out, nil
+	return out, toWrite, nil
+}
+
+// claimSetMonth is a date's month as a count of months.
+func claimSetMonth(t time.Time) int64 { return int64(t.Year())*12 + int64(t.Month()) }
+
+// claimSetDays is the whole days from a's date to b's.
+func claimSetDays(a, b time.Time) int64 {
+	da := time.Date(a.Year(), a.Month(), a.Day(), 0, 0, 0, 0, time.UTC)
+	db := time.Date(b.Year(), b.Month(), b.Day(), 0, 0, 0, 0, time.UTC)
+	return int64(db.Sub(da).Hours() / 24)
+}
+
+// claimSetAggregatesOf is what the checks read of a delivery: its summary
+// (nil for none), its predecessor's (nil for none, or no predecessor), and the
+// run that read it, judged against the profile now. Whatever a summary cannot
+// answer under the declaration now is named in undecidable, per detector.
+func claimSetAggregatesOf(cur, ps *ClaimSetSummary, run claimSetRun, d claimSetDelivery, f feedprofile.Feed,
+	o ClaimSetOptions) (*ClaimSetAggregates, error) {
+	p := f.Profile
+	a := &ClaimSetAggregates{Run: run.run, InputSpanDays: run.inputSpanDays, CoreSpanDays: run.coreSpanDays,
+		Dropped: run.dropped, Summary: cur, PredecessorSummary: ps, undecidable: map[string]string{}}
+	if ps != nil {
+		a.PredecessorRows, a.PredecessorDistinctKeys = ps.Rows, ps.DistinctKeys
+		s := ps.SessionID
+		a.PredecessorClaimSession = &s
+	}
+	if cur == nil {
+		return a, nil
+	}
+	a.Rows, a.DistinctKeys, a.Members, a.DatedRows = cur.Rows, cur.DistinctKeys, cur.Members, cur.DatedRows
+	s := cur.SessionID
+	a.ClaimSession = &s
+	a.SpanDays = cur.SpanDays
+	for _, rf := range p.RequiredFields {
+		if n, ok := cur.Present[rf.Column]; ok {
+			a.Present = append(a.Present, n)
+			a.presentColumns = append(a.presentColumns, rf.Column)
+		} else {
+			a.absentRequired = append(a.absentRequired, rf.Column)
+		}
+	}
+	if !cur.matches(p.ClaimSet) {
+		why := fmt.Sprintf("the delivery's rows are gone and its summary was written for the key %s, date of service "+
+			"%s and member %s, not the claim set declared now", claimSetQuoteList(cur.KeyColumns),
+			claimSetQuoteList([]string{cur.ServiceDateColumn}), claimSetQuoteList([]string{cur.MemberColumn}))
+		for _, det := range []string{ClaimSetServiceDateStale, ClaimSetServiceDateSpan, ClaimSetDeliveryOverlap,
+			ClaimSetDeliveryUnchanged} {
+			a.undecidable[det] = why
+		}
+	} else if ps != nil && !ps.matches(p.ClaimSet) {
+		why := "the predecessor's rows are gone and its summary was written for another claim set than the one " +
+			"declared now"
+		a.undecidable[ClaimSetDeliveryOverlap], a.undecidable[ClaimSetDeliveryUnchanged] = why, why
+	}
+
+	// The lag, in days or months, and whether it exceeds the declaration.
+	if cur.Newest != nil && d.arrival != nil {
+		arrival := d.arrival.UTC()
+		months := cur.DatesInMonths || cur.Members < int64(o.MinMembers)
+		lag := claimSetDays(*cur.Newest, arrival)
+		if months {
+			lag = claimSetMonth(arrival) - claimSetMonth(*cur.Newest)
+		}
+		a.Lag, a.LagInMonths = &lag, months
+		if max := p.MaxServiceDateLagDays; max != nil {
+			switch {
+			case !cur.DatesInMonths:
+				ex := claimSetDays(*cur.Newest, arrival) > int64(*max)
+				a.LagExceeds = &ex
+			case claimSetSameInt(cur.LagDeclaredDays, max) && cur.LagExceeds != nil:
+				ex := *cur.LagExceeds
+				a.LagExceeds = &ex
+			default:
+				a.undecidable[ClaimSetServiceDateStale] = fmt.Sprintf("the delivery's rows are gone and its summary "+
+					"keeps its dates by month, deciding its lag against %s, not the max_service_date_lag_days %d "+
+					"declared now", claimSetDeclaredDays(cur.LagDeclaredDays), *max)
+			}
+		}
+	}
+
+	// The rows outside the span.
+	if max := p.MaxServiceDateSpanDays; max != nil {
+		n, onBound := cur.Histogram.outside(*max)
+		switch {
+		case claimSetSameInt(cur.SpanDeclaredDays, max) && cur.OutOfSpan != nil:
+			v := *cur.OutOfSpan
+			a.OutOfSpanRows = &v
+		case cur.DatedRows == 0:
+			a.OutOfSpanRows = new(int64)
+		case onBound:
+			a.OutOfSpanRows = &n
+		default:
+			a.undecidable[ClaimSetServiceDateSpan] = fmt.Sprintf("the delivery's rows are gone and its summary "+
+				"counted the rows outside %s, not the max_service_date_span_days %d declared now, which is not "+
+				"one of its histogram's bounds", claimSetDeclaredDays(cur.SpanDeclaredDays), *max)
+		}
+	}
+	if ps == nil {
+		return a, nil
+	}
+
+	// Whether the newest date advanced: by month when either is a small
+	// delivery's.
+	if cur.Newest != nil && ps.Newest != nil {
+		var adv bool
+		if cur.DatesInMonths || ps.DatesInMonths {
+			adv = claimSetMonth(*cur.Newest) > claimSetMonth(*ps.Newest)
+		} else {
+			adv = cur.Newest.After(*ps.Newest)
+		}
+		a.Advanced = &adv
+	}
+
+	// The key sets: equal by fingerprint, shared by sketch.
+	if cur.Fingerprint != nil && ps.Fingerprint != nil {
+		eq := *cur.Fingerprint == *ps.Fingerprint && cur.DistinctKeys == ps.DistinctKeys
+		a.KeysEqual = &eq
+	}
+	if a.KeysEqual != nil && *a.KeysEqual {
+		a.SharedKeys, a.SharedKeysEstimated = cur.DistinctKeys, true
+		return a, nil
+	}
+	sa, err := cur.sketch()
+	if err != nil {
+		return nil, err
+	}
+	sb, err := ps.sketch()
+	if err != nil {
+		return nil, err
+	}
+	if sa != nil && sb != nil {
+		shared, se := keyset.Shared(cur.DistinctKeys, ps.DistinctKeys, sa, sb)
+		a.SharedKeys, a.SharedKeysEstimated, a.SharedKeysError = int64(math.Round(shared)), true, keyset.Bound(se)
+	}
+	return a, nil
+}
+
+// claimSetDeclaredDays names the declaration a summary decided against.
+func claimSetDeclaredDays(days *int) string {
+	if days == nil {
+		return "no declaration"
+	}
+	return fmt.Sprintf("%d days", *days)
 }
 
 // claimSetReadFromNote names the pipeline runs whose rows were read, where
@@ -873,13 +1085,17 @@ func claimSetJudge(v *ClaimSetVerdict, det string, f feedprofile.Feed, d claimSe
 		claimSetNotJudged(v, gate, detail)
 		return
 	}
-	if readable.reason != "" {
+	if readable.reason != "" && (a == nil || a.Summary == nil) {
 		claimSetNotJudged(v, readable.reason, readable.detail+"; not evaluable, which is not clean")
 		return
 	}
-	if det == ClaimSetFieldCompleteness && len(readable.absentRequired) > 0 {
+	absent := readable.absentRequired
+	if a.Summary != nil {
+		absent = a.absentRequired
+	}
+	if det == ClaimSetFieldCompleteness && len(absent) > 0 {
 		claimSetNotJudged(v, ClaimSetColumnAbsent, fmt.Sprintf("the claim-set table has no required field %s",
-			claimSetQuoteList(readable.absentRequired)))
+			claimSetQuoteList(absent)))
 		return
 	}
 	readsDrops := det == ClaimSetServiceDateStale || det == ClaimSetServiceDateSpan
@@ -909,13 +1125,17 @@ func claimSetJudge(v *ClaimSetVerdict, det string, f feedprofile.Feed, d claimSe
 			claimSetReprocessedNote(*prev)))
 		return
 	}
+	if why := a.undecidable[det]; why != "" {
+		claimSetNotJudged(v, ClaimSetSummaryDeclarationChanged, why+"; not evaluable, which is not clean")
+		return
+	}
 	switch det {
 	case ClaimSetServiceDateStale:
 		claimSetStale(v, f, d, a, o)
 	case ClaimSetServiceDateSpan:
 		claimSetSpan(v, f, d, a, o)
 	case ClaimSetFieldCompleteness:
-		claimSetCompleteness(v, f, d, a, readable.presentRequired, o)
+		claimSetCompleteness(v, f, d, a, a.presentColumns, o)
 	case ClaimSetDeliveryOverlap:
 		claimSetOverlap(v, f, d, prev, a, o)
 	case ClaimSetDeliveryUnchanged:
@@ -923,12 +1143,22 @@ func claimSetJudge(v *ClaimSetVerdict, det string, f feedprofile.Feed, d claimSe
 	}
 }
 
+// ClaimSetGeneration is a detector's generation in a run of the given one:
+// the run's, and one more for delivery_overlap, whose verdicts changed when it
+// began judging from sketches (see the file comment).
+func ClaimSetGeneration(det string, generation int) int {
+	if det == ClaimSetDeliveryOverlap {
+		return generation + 1
+	}
+	return generation
+}
+
 // claimSetAnomaly fills what every anomaly of these detectors shares. The
 // identifier is the detector, its generation, the feed and the delivery's
 // session, with a suffix for a per-column finding, so a re-run over the same
 // delivery derives the same row.
 func claimSetAnomaly(det string, f feedprofile.Feed, d claimSetDelivery, suffix string, o ClaimSetOptions) Anomaly {
-	ref := fmt.Sprintf("%s@%d", det, o.Generation)
+	ref := fmt.Sprintf("%s@%d", det, ClaimSetGeneration(det, o.Generation))
 	id := fmt.Sprintf("%s/%s/%s", ref, f.TableName, d.session)
 	if suffix != "" {
 		id += "/" + suffix
@@ -1234,15 +1464,39 @@ func claimSetCompleteness(v *ClaimSetVerdict, f feedprofile.Feed, d claimSetDeli
 	v.Detail = strings.Join(parts, "; ")
 }
 
+// claimSetSmall is the not-judged verdict of a comparison with a delivery, or
+// a predecessor, that keeps no fingerprint or sketch.
+func claimSetSmall(v *ClaimSetVerdict, f feedprofile.Feed, prev *claimSetDelivery, a *ClaimSetAggregates,
+	o ClaimSetOptions) {
+	claimSetNotJudged(v, ClaimSetSmallDelivery, fmt.Sprintf("the delivery has %d distinct keys and its predecessor, "+
+		"session %s, %d; a delivery with fewer than %d keeps no fingerprint or sketch of its keys, because the "+
+		"fingerprint of a few claims identifies them, so the two are not compared. %s", a.DistinctKeys,
+		prev.session, a.PredecessorDistinctKeys, o.MinMembers, claimSetKeyReport(f, a)))
+}
+
+// claimSetSketchNote says how the shared keys were counted, for a detail.
+func claimSetSketchNote(a *ClaimSetAggregates) string {
+	if a.KeysEqual != nil && *a.KeysEqual {
+		return "the two key sets are equal by their fingerprints, so the count is exact"
+	}
+	return fmt.Sprintf("the count is estimated from the two deliveries' HyperLogLog sketches of 2^14 registers, "+
+		"within %.0f keys, three standard errors of the merged sketch's estimate and three keys", a.SharedKeysError)
+}
+
 func claimSetOverlap(v *ClaimSetVerdict, f feedprofile.Feed, d claimSetDelivery, prev *claimSetDelivery,
 	a *ClaimSetAggregates, o ClaimSetOptions) {
+	if !a.SharedKeysEstimated {
+		claimSetSmall(v, f, prev, a, o)
+		return
+	}
 	keys := claimSetKeyReport(f, a)
+	sketch := claimSetSketchNote(a)
 	decl := fmt.Sprintf("claim_set, declared by %s on %s", f.Profile.DeclaredBy, f.Profile.DeclaredAt)
 	if f.Cumulative {
 		missing := a.PredecessorDistinctKeys - a.SharedKeys
-		v.Detail = fmt.Sprintf("%d of the predecessor's %d distinct keys are absent from this delivery; %s",
-			missing, a.PredecessorDistinctKeys, keys)
-		if missing == 0 {
+		v.Detail = fmt.Sprintf("an estimated %d of the predecessor's %d distinct keys are absent from this delivery; "+
+			"%s; %s", missing, a.PredecessorDistinctKeys, sketch, keys)
+		if float64(missing) <= a.SharedKeysError || missing <= 0 {
 			v.Verdict = ClaimSetSilent
 			return
 		}
@@ -1250,19 +1504,22 @@ func claimSetOverlap(v *ClaimSetVerdict, f feedprofile.Feed, d claimSetDelivery,
 		an.ObservedValue = fmt.Sprintf("%d keys absent", missing)
 		an.ExpectedMax = claimSetStrPtr("0 keys absent")
 		an.DeviationMagnitude = claimSetFloatPtr(float64(missing) / float64(a.PredecessorDistinctKeys))
-		an.ExpectedBasis = fmt.Sprintf("%d of the %d distinct keys of the predecessor, session %s, are absent from "+
-			"delivery %s. The feed is cumulative (source_config.is_cumulative), so each delivery should contain its "+
-			"predecessor, and this one does not. Keys are compared inside the database over distinct values of the "+
-			"declared key, never rows (%s); %s", missing, a.PredecessorDistinctKeys, prev.session, d.session, decl, keys)
+		an.ExpectedBasis = fmt.Sprintf("an estimated %d of the %d distinct keys of the predecessor, session %s, are "+
+			"absent from delivery %s, more than the estimate's error of %.0f keys. The feed is cumulative "+
+			"(source_config.is_cumulative), so each delivery should contain its predecessor, and this one does not. "+
+			"Keys are compared over distinct values of the declared key, never rows (%s), by the deliveries' "+
+			"summaries: %s; %s", missing, a.PredecessorDistinctKeys, prev.session, d.session, a.SharedKeysError,
+			decl, sketch, keys)
 		claimSetFire(v, an)
 		return
 	}
 	max := *f.Profile.MaxRedeliveredShare
 	share := float64(a.SharedKeys) / float64(a.DistinctKeys)
+	errShare := a.SharedKeysError / float64(a.DistinctKeys)
 	declShare := claimSetDeclaration(f.Profile, "max_redelivered_share", strconv.FormatFloat(max, 'f', -1, 64))
-	v.Detail = fmt.Sprintf("%d of %d distinct keys (%.1f%%) were in the predecessor; %s; %s",
-		a.SharedKeys, a.DistinctKeys, 100*share, declShare, keys)
-	if share <= max {
+	v.Detail = fmt.Sprintf("an estimated %d of %d distinct keys (%.1f%%, within %.1f%%) were in the predecessor; "+
+		"%s; %s; %s", a.SharedKeys, a.DistinctKeys, 100*share, 100*errShare, sketch, declShare, keys)
+	if share-errShare <= max {
 		v.Verdict = ClaimSetSilent
 		return
 	}
@@ -1272,22 +1529,26 @@ func claimSetOverlap(v *ClaimSetVerdict, f feedprofile.Feed, d claimSetDelivery,
 	if max > 0 {
 		an.DeviationMagnitude = claimSetFloatPtr((share - max) / max)
 	}
-	an.ExpectedBasis = fmt.Sprintf("%d of the %d distinct keys of delivery %s were already in its predecessor, "+
-		"session %s, a share of %.4f, above %s. The feed is incremental (source_config.is_cumulative), so a "+
-		"delivery should carry claims not delivered before. Keys are compared inside the database over distinct "+
-		"values of the declared key, never rows; %s", a.SharedKeys, a.DistinctKeys, d.session, prev.session, share,
-		declShare, keys)
+	an.ExpectedBasis = fmt.Sprintf("an estimated %d of the %d distinct keys of delivery %s were already in its "+
+		"predecessor, session %s, a share of %.4f within %.4f, above %s by more than the estimate's error. The feed "+
+		"is incremental (source_config.is_cumulative), so a delivery should carry claims not delivered before. "+
+		"Keys are compared over distinct values of the declared key, never rows, by the deliveries' summaries: "+
+		"%s; %s", a.SharedKeys, a.DistinctKeys, d.session, prev.session, share, errShare, declShare, sketch, keys)
 	claimSetFire(v, an)
 }
 
 func claimSetUnchanged(v *ClaimSetVerdict, f feedprofile.Feed, d claimSetDelivery, prev *claimSetDelivery,
 	a *ClaimSetAggregates, o ClaimSetOptions) {
-	equal := a.DistinctKeys == a.PredecessorDistinctKeys && a.SharedKeys == a.DistinctKeys
 	if a.Advanced == nil {
 		claimSetNotJudged(v, ClaimSetNoServiceDates,
 			"the delivery or its predecessor carries no date of service, so whether it advanced is unknown")
 		return
 	}
+	if a.KeysEqual == nil {
+		claimSetSmall(v, f, prev, a, o)
+		return
+	}
+	equal := *a.KeysEqual
 	sets := "not equal"
 	if equal {
 		sets = "equal"
@@ -1306,8 +1567,9 @@ func claimSetUnchanged(v *ClaimSetVerdict, f feedprofile.Feed, d claimSetDeliver
 	an.ObservedValue = "equal"
 	an.ExpectedBasis = fmt.Sprintf("delivery %s carries the same %d distinct keys as its predecessor, session %s, "+
 		"and its newest date of service is not later than the predecessor's: the delivery did not advance. The key "+
-		"sets are compared inside the database by counting the keys each holds and the keys they share, and only "+
-		"equal or not equal is recorded; the declared key is %s (claim_set, declared by %s on %s). %s",
+		"sets are compared by their summaries' fingerprints, the sum of the distinct keys' 64-bit hashes, and "+
+		"their distinct counts, which are equal but for a collision of about one in 2^64, and only equal or not "+
+		"equal is recorded; the declared key is %s (claim_set, declared by %s on %s). %s",
 		d.session, a.DistinctKeys, prev.session, claimSetQuoteList(f.Profile.ClaimSet.KeyColumns),
 		f.Profile.DeclaredBy, f.Profile.DeclaredAt, claimSetKeyReport(f, a))
 	claimSetFire(v, an)

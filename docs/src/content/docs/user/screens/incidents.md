@@ -6,7 +6,8 @@ kind: reference
 
 An **incident** is a problem that JetStore's detection found, or that a person raised: in a pipeline
 run, a worker that failed, one that never finished, records that failed or went missing; in a feed's
-deliveries, a delivery that did not come or one that departs from what the feed declares. JetStore
+deliveries, a delivery that did not come or one that departs from what the feed declares; or a
+JetStore job, such as the purge, that failed. JetStore
 separates two things about it. Its **locus** is *where the evidence sits* in the record, which the
 record establishes. Its **cause** is *a claim* about what produced it, which the record
 does not establish, and which a hypothesis or a person makes. The *Incidents* screen lists the
@@ -20,7 +21,7 @@ which properties were withheld.
 
 ## The list
 
-![The open incidents, each with its client, object type, first seen, last seen and count: inc_20002 on session 1767949200304, worker not terminated, triaged with no hypothesis, and inc_20001 on session 1767868200303, worker failed, diagnosed with two hypotheses; neither has a cause claimed.](../../../../assets/screenshots/user/screens/incidents/incidents-open.png)
+![The open incidents, each with its client, first seen, last seen and count (the object type blank, since neither run's input is a staged file): inc_20002 on session 1767949200304, worker not terminated, triaged with no hypothesis, and inc_20001 on session 1767868200303, worker failed, diagnosed with two hypotheses; neither has a cause claimed.](../../../../assets/screenshots/user/screens/incidents/incidents-open.png)
 
 The picker chooses **Open incidents** (the default), **Adjudicated**, or **All incidents**.
 **Refresh** reads the list again. **Find by session** takes a session id and opens the incidents
@@ -40,11 +41,11 @@ session was deleted or purged) has no client, so it is listed only when no clien
 |---|---|
 | **Incident** | The incident's id, linked to its page, and the session it concerns: a run's, or, for a feed incident, the session in which a delivery was registered. |
 | **Client** | The client the incident's session is registered to: the run's, or the delivery's. Blank when no registration remains. |
-| **Object type** | The object type of that registration: the run's main object type, or the delivery's. Blank when no registration remains. |
+| **Object type** | The type of the objects in the file the incident concerns: a run's main input file, or the delivered file, read from the file's staging record by its file key. This is the file's object type, not the domain key its input is registered under. Blank when the file has no staging record, as for a run whose input is a domain table or a job's failure, or when no registration remains. |
 | **Detected** | When it was raised. |
 | **First seen**, **Last seen** | For a feed incident, the earliest and the latest of the deliveries it stands for, by when each was registered. For a run incident, first seen is the start of the run it was written on, kept after that run is deleted, and last seen is the start of the latest run of its [run condition](#the-run-condition-of-a-run-incident) still held, or *no run held* when none is. For any other incident, and a run incident written before run conditions, the time of its own session, in both. |
 | **Count** | For a feed incident, how many deliveries of its condition it stands for: the deliveries placed in it, as its page's [Condition](#the-condition-of-a-feed-incident) section counts them, so a delivery that went to a later incident of the same condition is not counted. For a run incident, how many runs of its run condition **still held** are placed in it: the count falls as retention deletes runs. For any other incident, and a run incident written before run conditions, 1. Hover to see which. |
-| **Locus** *evidence* | Where the evidence sits, such as *Worker failed*. Hover for what the locus means. A per-record failures incident shows its **error code** beneath the locus, because each code is an incident of its own. |
+| **Locus** *evidence* | Where the evidence sits, such as *Worker failed*. Hover for what the locus means. A per-record failures incident shows its **error code** beneath the locus, because each code is an incident of its own, and a *Job failed* incident shows the **job** that failed. |
 | **Cause** *claim* | The cause claimed, or *not claimed*. |
 | **Severity** | *info*, *low*, *medium*, *high* or *critical*. |
 | **Status** | Where the incident is in its lifecycle. |
@@ -53,7 +54,7 @@ session was deleted or purged) has no client, so it is listed only when no clien
 **Adjudicated** lists the incidents a person has given a verdict on that settles them: *verified*,
 *reclassified* or *suppressed as benign*.
 
-![The adjudicated incidents: inc_20003 on session 1767778200302, per-record failures reported, its error code under the locus, with its client, object type, first seen, last seen and count, and the cause Source content change, verified.](../../../../assets/screenshots/user/screens/incidents/incidents-adjudicated.png)
+![The adjudicated incidents: inc_20003 on session 1767778200302, per-record failures reported, its error code under the locus, with its client, first seen, last seen and count (the object type blank), and the cause Source content change, verified.](../../../../assets/screenshots/user/screens/incidents/incidents-adjudicated.png)
 
 **An empty list is not evidence that nothing went wrong.** Incidents are written by shadow triage,
 which runs where the detection task is deployed; the Detection screen says whether it has run.
@@ -157,6 +158,30 @@ The incident's page shows its run condition as it stands now (see
 [The run condition of a run incident](#the-run-condition-of-a-run-incident) below), and a later
 run's session finds the condition's incident (see
 [Finding a session's incidents](#finding-a-sessions-incidents)).
+
+### A job's failure
+
+Not everything that fails is a pipeline run. JetStore's own jobs, such as the purge of old sessions
+and the registration of files as they arrive, and a workspace's custom Lambdas, record a failure as a
+row of its own: a status of *failed* under a session reserved for the failure, with no pipeline
+configuration and no input, and the job's error as its failure details. Shadow triage reads such a
+row at one locus, **Job failed**, and the incident names the job.
+
+- **A job's row is judged at *Job failed* only.** Its page shows the nine run loci as *not
+  evaluable*, because a job is not a pipeline run: a job that failed is never read as a run that did
+  not start.
+- **A job that fails day after day is one incident**, grouped like a run condition, by the job, its
+  client and the locus: the purge failing on five days is one incident standing for five runs, and
+  its count, first seen and last seen are those runs'.
+- **Only your verdict ends it.** A job records its failures and not its successes, so no later run
+  says the failure is gone. Once you give the incident a verdict, the job's next failure raises a new
+  incident naming the one you judged.
+- **No cause is proposed.** No cause class describes a job, so the incident has no hypothesis and stays
+  *triaged*; the job's error is in its run's failure details on Home's *Pipelines Status*.
+- **Failures written under the old shared session are skipped.** Before a job's failure had a session
+  of its own, a workspace's custom Lambdas wrote theirs under one session, `F000000000000`, shared by
+  all of them. Shadow triage raises nothing for that session, because it cannot tell its failures
+  apart, and the [Detection](/docs/user/screens/detection/) screen counts how many it skipped.
 
 ### Finding a session's incidents
 

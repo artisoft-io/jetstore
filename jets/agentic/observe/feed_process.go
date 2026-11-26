@@ -301,6 +301,9 @@ type FeedProcessResult struct {
 	DeliveryDetector []string
 	// ClaimSets holds the content checks' verdicts in the window.
 	ClaimSets []ClaimSetVerdict
+	// Summaries are the claim-set summaries the run computed for deliveries
+	// that had none, which WriteFeedProcess writes before the anomalies.
+	Summaries []ClaimSetSummary
 	// Anomalies are every finding, once each, dated at the step that would
 	// first have reported it.
 	Anomalies  []Anomaly
@@ -427,11 +430,12 @@ func RunFeedProcess(ctx context.Context, db DB, feeds FeedProcessFeeds, o FeedPr
 	// The five content checks, once, each delivery against its predecessor.
 	co := ClaimSetOptions{Since: o.Since, Until: o.AsOf.Add(time.Millisecond), Now: o.AsOf,
 		MinMembers: o.MinMembers, Generation: o.Generation}
-	verdicts, err := detectClaimSetsFrom(ctx, db, all, regs, co)
+	verdicts, sums, err := detectClaimSetsFrom(ctx, db, all, regs, co)
 	if err != nil {
 		res.FeedErrors = feedProcessFeedErrors(err)
 	}
 	res.ClaimSets = verdicts
+	res.Summaries = sums
 	byDetector := map[string]*FeedProcessCoverage{}
 	for _, det := range ClaimSetDetectors {
 		c := &FeedProcessCoverage{Detector: det}
@@ -541,12 +545,20 @@ func feedProcessFeedErrors(err error) []FeedProcessFeedError {
 // FeedProcessWritten is what WriteFeedProcess wrote.
 type FeedProcessWritten struct {
 	Inserted, Existing int
+	Summaries          int
 }
 
-// WriteFeedProcess writes the run's anomalies through InsertAnomalyIfNew, so a
-// run over a window an earlier run covered writes nothing twice.
+// WriteFeedProcess writes the run's claim-set summaries, then its anomalies
+// through InsertAnomalyIfNew, so a run over a window an earlier run covered
+// writes no anomaly twice. The summaries come first: they are what a later run
+// judges from once the rows are gone.
 func WriteFeedProcess(ctx context.Context, db Exec, res FeedProcessResult) (FeedProcessWritten, error) {
 	var w FeedProcessWritten
+	n, err := WriteClaimSetSummaries(ctx, db, res.Summaries)
+	w.Summaries = n
+	if err != nil {
+		return w, err
+	}
 	for i := range res.Anomalies {
 		isNew, err := InsertAnomalyIfNew(ctx, db, &res.Anomalies[i])
 		if err != nil {
@@ -581,6 +593,7 @@ func (r FeedProcessResult) Lines() []string {
 			len(r.Feeds.Clients), len(r.Feeds.Profiled), len(r.Feeds.Unprofiled)),
 		fmt.Sprintf("run: %s; %s; generation %d", mode, window, o.Generation),
 	}
+	out = append(out, fmt.Sprintf("claim-set summaries: %d computed for deliveries with none", len(r.Summaries)))
 	if len(r.Feeds.Unmatched) > 0 {
 		out = append(out, fmt.Sprintf("profiles: %d declared table name(s) match no feed: %s",
 			len(r.Feeds.Unmatched), strings.Join(r.Feeds.Unmatched, ", ")))
@@ -618,6 +631,7 @@ type FeedProcessSummary struct {
 	Found      int                    `json:"anomaliesFound"`
 	Written    int                    `json:"anomaliesWritten"`
 	Already    int                    `json:"anomaliesAlreadyRecorded"`
+	Summaries  int                    `json:"claimSetSummariesWritten"`
 	ByDetector map[string]int         `json:"byDetector"`
 	Coverage   []FeedProcessCoverage  `json:"coverage"`
 	FeedErrors []FeedProcessFeedError `json:"feedErrors,omitempty"`
@@ -627,7 +641,7 @@ type FeedProcessSummary struct {
 func (r FeedProcessResult) Summary(dryRun bool, w FeedProcessWritten) FeedProcessSummary {
 	s := FeedProcessSummary{DryRun: dryRun, Mode: "window", AsOf: r.Options.AsOf, Steps: len(r.Steps),
 		Clients: len(r.Feeds.Clients), Profiled: len(r.Feeds.Profiled), Unprofiled: len(r.Feeds.Unprofiled),
-		Unmatched: r.Feeds.Unmatched, Found: len(r.Anomalies), Written: w.Inserted, Already: w.Existing,
+		Unmatched: r.Feeds.Unmatched, Found: len(r.Anomalies), Written: w.Inserted, Already: w.Existing, Summaries: w.Summaries,
 		ByDetector: map[string]int{}, Coverage: r.Coverage, FeedErrors: r.FeedErrors}
 	if r.Options.Step > 0 && !r.Options.Since.IsZero() {
 		s.Mode = "backfill"

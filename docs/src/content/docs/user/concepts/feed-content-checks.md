@@ -1,6 +1,6 @@
 ---
 title: Feed content checks
-description: The five checks that read a delivery's claims against its feed profile, what each one reads, when it raises an anomaly, and why only counts and lags leave the database.
+description: The five checks that judge a delivery's claims against its feed profile, from a summary of each delivery that outlives its claims, what each one reads, when it raises an anomaly, and why no claim leaves the database.
 kind: explanation
 sidebar:
   order: 9
@@ -31,8 +31,8 @@ registered again is not a new delivery; see
 Each delivery is judged against its predecessor and nothing that came after it. So a check run over
 months of history says, for each delivery, what it would have said the day that delivery arrived.
 
-The checks read the claims of two deliveries, the delivery and its predecessor, by session id, which
-every table a pipeline writes carries and indexes. They do not read the whole table. They find it by
+The checks read the claims of a delivery by session id, which every table a pipeline writes carries
+and indexes. They do not read the whole table. They find it by
 the profile's `claim_set.table`: a name with a dot is read as `schema.table`, and a name with no dot
 is in the `public` schema, where pipelines write.
 
@@ -44,6 +44,29 @@ otherwise the earliest completed pipeline run that read the registration and wro
 it first arrived and a re-run maps it again later. The delivery is still named by its registration's
 session, and a verdict's detail names the pipeline run whose claims were read.
 
+## A summary of each delivery
+
+**The checks judge from a summary of each delivery, not from its claims**, so they still judge a
+delivery whose claims the retention period has since deleted. Before it judges, each run of
+`feed_detect` summarises every delivery of a profiled feed that has no summary yet and whose claims
+are still in the table, its predecessors included, so the first run summarises every delivery still
+held. The summary is a row of `jetsapi.claim_set_summary`, and it is deleted with the session whose
+claims it read, on the retention period, not with the claims themselves. Where the claims have a
+shorter retention of their own, the purge keeps a delivery's claims until a run of `feed_detect`
+has summarised them, or has run since without summarising them, but never past the session's
+retention period. A run with `-dry-run`
+judges from the summaries it computes and writes none.
+
+A summary holds counts (rows, distinct keys, distinct members, rows with a date of service), the
+newest and oldest date of service, the span between them, a histogram of the rows by days behind the
+newest, the number of rows carrying a value in **every** column of the table, and a fingerprint and a
+sketch of the delivery's keys. Whether the lag exceeds `max_service_date_lag_days`, and how many rows
+fall outside `max_service_date_span_days`, are decided on the exact days when the summary is written,
+against the declaration then. So a field added to `required_fields` later is judged on older
+deliveries too, and so is a span declared later on one of the histogram's bounds (0, 1, 7, 14, 21, 28,
+30, 31, 45, 60, 90, 120, 150, 180, 270, 365, 545, 730 or 1095 days). A change the summary cannot answer,
+on a delivery whose claims are gone, is reported as not judged rather than guessed.
+
 ## The five checks
 
 | Check | What it reads | It raises an anomaly when | Profile fields it needs |
@@ -51,7 +74,7 @@ session, and a verdict's detail names the pipeline run whose claims were read.
 | **Stale service dates** (`service_date_stale`) | the newest date of service in the delivery | the newest date of service is more than `max_service_date_lag_days` before the delivery's arrival | `claim_set`, `max_service_date_lag_days` |
 | **Wide service-date span** (`service_date_span`) | each row's date of service against the delivery's newest | the share of the delivery's rows with a date of service that are dated more than `max_service_date_span_days` before its newest is above `max_out_of_span_share`, which is 0 when absent, so that any such row fires. Incremental feeds only | `claim_set`, `max_service_date_span_days`; `max_out_of_span_share` is optional |
 | **Missing required field** (`field_completeness`) | each required field, row by row | the share of the delivery's rows carrying a value is below the field's `min_present_share`. A value is present when it is not empty | `claim_set`, `required_fields` |
-| **Claims delivered again** (`delivery_overlap`) | the distinct keys of the delivery and of its predecessor | *incremental feed*: the share of the delivery's keys already in its predecessor is above `max_redelivered_share`. *Cumulative feed*: some key of the predecessor is missing from the delivery, so the delivery lost claims | `claim_set`; `max_redelivered_share` for an incremental feed |
+| **Claims delivered again** (`delivery_overlap`) | the sketches of the delivery's keys and of its predecessor's | *incremental feed*: the estimated share of the delivery's keys already in its predecessor is above `max_redelivered_share` by more than the estimate's error. *Cumulative feed*: more of the predecessor's keys are estimated missing from the delivery than the estimate's error, so the delivery lost claims | `claim_set`; `max_redelivered_share` for an incremental feed |
 | **Delivery did not advance** (`delivery_unchanged`) | the distinct keys and the newest date of service of the delivery and of its predecessor | the delivery holds exactly its predecessor's keys **and** its newest date of service is no later than the predecessor's | `claim_set` |
 
 **The span is judged row by row, so a few late rows need not fire it.** With no
@@ -87,7 +110,20 @@ applies, and *wide service-date span* does not judge a cumulative feed, whose de
 reach back.
 
 **Keys are counted, never rows.** A claim is identified by the profile's `key_columns`, and the
-overlap and *did not advance* checks compare distinct values of those columns. So a delivery that
+overlap and *did not advance* checks compare distinct values of those columns.
+
+**Claims delivered again is an estimate, and says so.** Each summary keeps a *sketch* of its keys (a
+HyperLogLog of 16,384 registers, 12 KB), and two sketches estimate how many keys two deliveries
+share. The estimate's standard error is about 0.8% of the keys of the two together for large
+deliveries, and a key or two for small ones; the error stated with it is three standard errors and
+three keys. The check's detail and its anomaly's basis give the estimate and its error, and the
+check fires only when the estimate passes the declared share, or zero missing keys, by more than that
+error. So a few claims missing from a cumulative feed of many thousands can go unseen, and a share
+just above `max_redelivered_share` may not fire. *Delivery did not advance* stays exact: each summary
+also keeps a *fingerprint* of its keys, the sum of a 64-bit hash of each, and two key sets with the
+same fingerprint and the same number of keys are equal but for a chance of about one in 2^64. Its
+anomalies are written under generation 2 (`delivery_overlap@2`), so the findings of the estimate are
+not mistaken for the counted ones written before it. So a delivery that
 repeats last week's claims is found even when its file differs byte for byte, in a load time, a
 batch number or the order of its rows. Each of these two checks also reports how many rows the
 delivery has against how many distinct keys: when rows outnumber keys, the declared key may not
@@ -105,24 +141,31 @@ A check reports a delivery as **not judged**, with the reason, rather than as pa
 - the check compares with a predecessor and no earlier delivery survives. This is the feed's first
   delivery, or its earlier deliveries were purged by the retention period, and the two cannot be told
   apart, so the check says the history may be truncated;
-- the predecessor has no claims in the table.
+- the predecessor has no claims in the table, and no summary;
+- the check compares with a predecessor and the delivery or its predecessor has fewer distinct keys
+  than the small-delivery minimum (11 by default): its summary keeps no fingerprint or sketch, so the
+  two are not compared (`small_delivery`);
+- the delivery's claims are gone and its summary was written under a declaration the check cannot
+  read it against now, such as another `claim_set`, or a span off the histogram's bounds
+  (`summary_declaration_changed`).
 
 ## What leaves the database
 
-Claims are about members, and **only aggregates leave the database**. Each delivery is one query,
-and it returns counts of rows, distinct keys, distinct members and shared keys, a lag and a span in
-days, the number of rows carrying a date of service and of those outside the declared span, the
-number of rows carrying each required field, and yes-or-no answers. No claim, key, member
-or date of service is returned, written to an anomaly, or shown.
+Claims are about members, and **only aggregates leave the database**. Each delivery's summary is
+one query, which computes everything above inside the database, the fingerprint and the sketch
+included, so no claim, key or member is returned, written to the summary or an anomaly, or shown.
+The newest and oldest dates of service of a delivery are kept in its summary, and are never written
+to an anomaly.
 
 - **A lag, never a date.** *Stale service dates* records how many days the newest date of service is
-  behind the arrival. For a delivery with few distinct members (fewer than 11 by default) it records
-  the lag in calendar months instead, because the newest date of a small delivery may belong to a
-  handful of people. Whether the lag exceeds the declared one is still decided on the exact days,
-  inside the database.
-- **Equal or not equal, never a fingerprint.** *Delivery did not advance* compares the two key sets
-  inside the database, by counting the keys each holds and the keys they share. The anomaly says
-  *equal*; nothing that could be traced back to a key is computed or stored.
+  behind the arrival. For a delivery with few distinct members (fewer than 11 by default) the summary
+  keeps its dates as the first of their month and the check records the lag in calendar months,
+  because the newest date of a small delivery may belong to a handful of people. Whether the lag
+  exceeds the declared one is still decided on the exact days, when the summary is written.
+- **A fingerprint and a sketch, only of many keys.** The fingerprint and the sketch are computed from
+  a hash of each key and are kept only for a delivery of at least 11 distinct keys (by default):
+  the fingerprint of a single claim would be that claim's hash, and a short claim number can be found
+  from its hash by trying every number. An anomaly says *equal*, or gives an estimated count.
 - **Names are names.** The table and column names in a profile are read as names, however they are
   written, so a profile cannot make a check run anything but its own query.
 

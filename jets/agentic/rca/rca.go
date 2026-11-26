@@ -287,7 +287,8 @@ type Ranking struct {
 	// cause class, so no hypothesis was emitted for them. **Two of the nine run
 	// loci are permanently in this state** — step_never_started and
 	// per_record_failures_unreportable appear in no row of the table — and so
-	// are the two delivery loci until the table gains classes for them. A
+	// is job_failed, a job's failure, whose incident's evidence of why is the
+	// job's own error text. A
 	// caller counting hypotheses per locus needs to know the difference between
 	// a locus that produced none and a locus that was never asked.
 	UnmappedLoci []string

@@ -81,14 +81,14 @@ const registryRows: (string | null)[][] = [
  * `session_registry_view` rows, positional in `sessionRegistryTable.tc.json`'s
  * column order: session_id, client, source_type, year, month, day, file_key,
  * process_name, status, last_update, deletion_status,
- * deletion_reason, deletion_requested_by, deletion_requested_at, session_num,
- * source_period_key. A live file session, a mapping session with a deletion
+ * deletion_reason, deletion_requested_by, deletion_requested_at,
+ * table_data_purged_at, session_num, source_period_key. A live file session, a mapping session with a deletion
  * queued, and a user's tombstone.
  */
 const sessionRows: (string | null)[][] = [
-  ["1001", "acme", "file", "2026", "11", "1", "s3://in/claims.csv", null, null, "2026-11-01 10:00", null, null, null, null, "1001", "7"],
-  ["2002", "(unknown)", "domain_table", "2026", "11", "2", null, "map_records", "completed", "2026-11-02 10:00", "pending", "user", "u@x", "2026-11-08 09:00", "2002", "7"],
-  ["3003", "acme", "file", "2026", "11", null, null, null, null, "2026-11-04 10:00", "done", "user", "u@x", "2026-11-03 09:00", "3003", null],
+  ["1001", "acme", "file", "2026", "11", "1", "s3://in/claims.csv", null, null, "2026-11-01 10:00", null, null, null, null, null, "1001", "7"],
+  ["2002", "(unknown)", "domain_table", "2026", "11", "2", null, "map_records", "completed", "2026-11-02 10:00", "pending", "user", "u@x", "2026-11-08 09:00", null, "2002", "7"],
+  ["3003", "acme", "file", "2026", "11", null, null, null, null, "2026-11-04 10:00", "done", "user", "u@x", "2026-11-03 09:00", null, "3003", null],
 ];
 
 /** `process_config` rows, as the Session Registry filters' process list reads them. */

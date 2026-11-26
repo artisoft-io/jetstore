@@ -16,7 +16,9 @@ import (
 // failure, so each run locus is not evaluable instead, and says why. The
 // delivery loci are kept: they read the session's registration and anomalies,
 // not its run. written_not_arrived is kept too, because it is not evaluable on
-// any run and its own reason says why.
+// any run and its own reason says why. job_failed is replaced like a run
+// locus: a deleted job's session raises nothing new, as a deleted run's does
+// not, and a deleted run ends no condition.
 func (ev *Evidence) judgeDeletedRun(findings []Finding) {
 	if ev.Header == nil || !ev.Header.Deleted() {
 		return

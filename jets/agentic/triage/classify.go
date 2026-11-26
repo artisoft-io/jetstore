@@ -11,9 +11,9 @@ import (
 	"github.com/artisoft-io/jetstore/jets/errorcode"
 )
 
-// The nine predicates over the execution record, and the two over a feed's
-// deliveries. Each is a method on Classifier returning exactly one Finding, and
-// Classify calls all eleven in Loci's order.
+// The nine predicates over the execution record, the two over a feed's
+// deliveries, and the one over a job's row. Each is a method on Classifier returning exactly one Finding, and
+// Classify calls all twelve in Loci's order.
 //
 // # What each can and cannot distinguish is in the code rather than beside it
 //
@@ -63,7 +63,7 @@ func Default() Classifier {
 // Ref is the classifier_ref written on every finding.
 func (c Classifier) Ref() string { return fmt.Sprintf("triage@%d", c.Generation) }
 
-// Classify returns one Finding per locus, in Loci's order, always eleven of
+// Classify returns one Finding per locus, in Loci's order, always twelve of
 // them. See the package comment for why it does not return only the hits.
 func (c Classifier) Classify(ev *Evidence) *Report {
 	r := &Report{SessionId: ev.SessionId}
@@ -79,8 +79,10 @@ func (c Classifier) Classify(ev *Evidence) *Report {
 		c.writtenNotArrived(ev),
 		c.deliveryOverdue(ev),
 		c.deliveryDepartsProfile(ev),
+		c.jobFailed(ev),
 	}
 	ev.judgeDeletedRun(r.Findings)
+	r.Job = ev.judgeJobRow(r.Findings)
 	for i := range r.Findings {
 		r.Findings[i].SessionId = ev.SessionId
 		r.Findings[i].ClassifierRef = c.Ref()

@@ -112,6 +112,11 @@ export interface TriageSummary {
   attestation?: string;
   purgeRegime?: string;
   channelDetails?: boolean;
+  /**
+   * Run headers on the shared legacy session a workspace's custom Lambdas wrote
+   * their failures under, skipped rather than classified.
+   */
+  sentinelSkipped?: number;
 }
 
 /** What ECS says about a task the record has not seen finish. */
