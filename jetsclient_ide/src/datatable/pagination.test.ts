@@ -52,8 +52,9 @@ const documents: Array<[string, TableConfigDocument]> = dirs.flatMap((dir) =>
 
 /**
  * The largest page a document may ask for. The largest any asks for today is
- * 100 (`client`, `wpClientList`, `wpClientListRO`, `pcSummaryProcessInputs`);
- * the footer offers up to ten times that (`availableRowsPerPage`).
+ * 100 (`pcSummaryProcessInputs`, which draws no footer); every paged list starts
+ * at 20 (2026-11-25), and the footer offers up to ten times a table's own size
+ * (`availableRowsPerPage`).
  */
 const MAX_ROWS_PER_PAGE = 100;
 

@@ -388,20 +388,20 @@ describe("DetectionScreen paging", () => {
   const bodyRows = (container: HTMLElement) =>
     container.querySelectorAll(".detection-table > tbody > tr:not(.detection-expansion-row)").length;
 
-  it("starts at 10 tasks, offers 10, 20 and 50, and pages without asking again", async () => {
+  it("starts at 20 tasks, offers 20, 40, 100 and 200, and pages without asking again", async () => {
     const { api, sent } = await clientWith({ list_detection_runs: deployedList(tasks) });
     const { container } = renderScreen(api);
-    await screen.findByText("1–10 of 25");
+    await screen.findByText("1–20 of 25");
     expect(sent[0]).toMatchObject({ action: "list_detection_runs", limit: 500 });
-    expect(bodyRows(container)).toBe(10);
+    expect(bodyRows(container)).toBe(20);
     const size = screen.getByLabelText("Rows per page") as HTMLSelectElement;
-    expect([...size.options].map((o) => o.value)).toEqual(["10", "20", "50"]);
+    expect([...size.options].map((o) => o.value)).toEqual(["20", "40", "100", "200"]);
 
     const asked = sent.length;
     fireEvent.click(screen.getByRole("button", { name: "Last page" }));
     await screen.findByText("21–25 of 25");
     expect(bodyRows(container)).toBe(5);
-    fireEvent.change(size, { target: { value: "50" } });
+    fireEvent.change(size, { target: { value: "40" } });
     await screen.findByText("1–25 of 25");
     expect(bodyRows(container)).toBe(25);
     expect(sent.length).toBe(asked);

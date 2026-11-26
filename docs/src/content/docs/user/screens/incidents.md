@@ -28,8 +28,8 @@ that session belongs to (see [Finding a session's incidents](#finding-a-sessions
 the list shows each incident once, on the session it is written on, so a delivery that joined
 another delivery's incident has no row of its own here.
 
-**The list is paged**, newest first: 50 incidents a page to start with, and **Rows per page** offers
-50, 100 or 150. The footer says which rows are shown out of how many, with buttons for the first,
+**The list is paged**, newest first: 20 incidents a page to start with, and **Rows per page** offers
+20, 40, 100 or 200. The footer says which rows are shown out of how many, with buttons for the first,
 previous, next and last page. Changing the picker or the client goes back to the first page.
 
 **The client filter in the menu applies.** With a client selected, the list keeps the incidents whose

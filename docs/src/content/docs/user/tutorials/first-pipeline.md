@@ -64,7 +64,7 @@ step, is `completed`.
 3. Tick the eligibility row and press **View Loaded Data**. These are the vendor's own columns,
    exactly as they arrived, one row per member.
 
-![The staging table CI_D1_hc:Eligibility: the vendor's columns, Effective_Date to Member_ID, with the first ten of 22 members.](../../../../assets/screenshots/user/tutorials/first-pipeline/staging-table.png)
+![The staging table CI_D1_hc:Eligibility: the vendor's columns, Effective_Date to Member_ID, with the first 20 of 22 members.](../../../../assets/screenshots/user/tutorials/first-pipeline/staging-table.png)
 
 Look at the columns before you go further: they are what the source mapping expects to find. A
 missing or renamed column is the usual reason a new vendor's file maps badly.
@@ -95,7 +95,7 @@ row for `hc:Eligibility`, session `1767604500201`, and press **View Loaded Data*
 carry the data model's names, `hc:Member_ID` and the rest, and each row carries the member as its
 domain key.
 
-![The domain table hc:Eligibility: the data model's properties, with each member's id as hc:Eligibility:domain_key, first ten of 22 rows.](../../../../assets/screenshots/user/tutorials/first-pipeline/mapped-table.png)
+![The domain table hc:Eligibility: the data model's properties, with each member's id as hc:Eligibility:domain_key, first 20 of 22 rows.](../../../../assets/screenshots/user/tutorials/first-pipeline/mapped-table.png)
 
 ## 6. Patient_Profile_Template runs
 

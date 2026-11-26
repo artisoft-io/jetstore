@@ -17,7 +17,7 @@
   ],
   "sortColumn": "org",
   "sortAscending": true,
-  "rowsPerPage": 50,
+  "rowsPerPage": 20,
   "isCheckboxSingleSelect": true,
   "formStateBinding": {
     "keyColumnIdx": 0,

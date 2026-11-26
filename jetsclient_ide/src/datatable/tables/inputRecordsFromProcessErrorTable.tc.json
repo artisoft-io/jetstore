@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "label": "Input Records for Process Errors",
   "columns": [],
-  "rowsPerPage": 50,
+  "rowsPerPage": 20,
   "source": "query",
   "with": [
     {

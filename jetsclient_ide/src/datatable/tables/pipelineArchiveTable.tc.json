@@ -154,7 +154,7 @@
     }
   ],
   "sortColumn": "archived_at",
-  "rowsPerPage": 25,
+  "rowsPerPage": 20,
   "formStateBinding": {
     "keyColumnIdx": 0
   },

@@ -501,21 +501,21 @@ describe("the staging list's pages and client", () => {
     };
   };
 
-  it("starts at 50, offers 50, 100 and 150, and sends the shell's client", async () => {
+  it("starts at 20, offers 20, 40, 100 and 200, and sends the shell's client", async () => {
     setSelectedClient("client_a");
     const { api, sent } = await clientWith({ list_proposals: pageOf });
     const { container } = renderAt(api, "/proposals");
     await screen.findByRole("link", { name: "chg_p0" });
-    expect(sent[sent.length - 1]).toMatchObject({ limit: 50, offset: 0, client: "client_a" });
+    expect(sent[sent.length - 1]).toMatchObject({ limit: 20, offset: 0, client: "client_a" });
     const size = screen.getByLabelText("Rows per page") as HTMLSelectElement;
-    expect([...size.options].map((o) => o.value)).toEqual(["50", "100", "150"]);
+    expect([...size.options].map((o) => o.value)).toEqual(["20", "40", "100", "200"]);
     const headers = [...container.querySelectorAll("thead th")].map((th) => th.textContent);
     expect(headers.slice(0, 3)).toEqual(["Proposal", "Client", "Object type"]);
     const cells = [...screen.getByRole("link", { name: "chg_p0" }).closest("tr")!.querySelectorAll("td")];
     expect(cells.slice(0, 2).map((td) => td.textContent)).toEqual(["client_a", "MedicalClaim"]);
 
     fireEvent.click(screen.getByRole("button", { name: "Next page" }));
-    await screen.findByRole("link", { name: "chg_p50" });
-    expect(sent[sent.length - 1]).toMatchObject({ limit: 50, offset: 50, client: "client_a" });
+    await screen.findByRole("link", { name: "chg_p20" });
+    expect(sent[sent.length - 1]).toMatchObject({ limit: 20, offset: 20, client: "client_a" });
   });
 });

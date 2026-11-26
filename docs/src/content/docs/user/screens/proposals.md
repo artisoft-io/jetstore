@@ -22,8 +22,8 @@ The picker chooses what is listed: **Awaiting a decision** (the default: draft, 
 agent-reviewed and awaiting human approval), **Open proposals** (those, and the approved and deployed
 ones), or **All proposals**. **Refresh** reads the list again. The most recently decided come first.
 
-**The list is paged**: 50 proposals a page to start with, and **Rows per page** offers 50, 100 or
-150, with the same footer as the [Incidents](/docs/user/screens/incidents/) list. Changing the picker
+**The list is paged**: 20 proposals a page to start with, and **Rows per page** offers 20, 40, 100
+or 200, with the same footer as the [Incidents](/docs/user/screens/incidents/) list. Changing the picker
 or the client goes back to the first page.
 
 **The client filter in the menu applies.** A proposal drafted from an incident has that incident's

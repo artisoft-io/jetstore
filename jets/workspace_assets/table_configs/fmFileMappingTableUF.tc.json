@@ -57,7 +57,7 @@
   ],
   "sortColumn": "data_property",
   "sortAscending": true,
-  "rowsPerPage": 10,
+  "rowsPerPage": 20,
   "isCheckboxSingleSelect": true,
   "source": "query",
   "from": [

@@ -184,7 +184,7 @@ describe("the document is what the request is built from", () => {
       fromClauses: [{ schema: "jetsapi", table: "pipeline_execution_details" }],
       sortColumn: "shard_id",
       sortAscending: true,
-      limit: 10,
+      limit: 20,
     });
     cleanup();
 
@@ -194,7 +194,7 @@ describe("the document is what the request is built from", () => {
       fromClauses: [{ schema: "jetsapi", table: "cpipes_execution_status_details" }],
       sortColumn: "total_input_files_size_mb",
       sortAscending: false,
-      limit: 10,
+      limit: 20,
     });
   });
 
