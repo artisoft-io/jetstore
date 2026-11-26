@@ -113,6 +113,8 @@ matter, only the locus; a delivery with findings at both loci belongs to two con
 - **A delivery deleted with its findings is not counted at all**: it neither ends a condition nor
   splits it, and the incident stays the condition's incident when its own first delivery is deleted,
   because the incident keeps which feed it is for and where its delivery stood in the feed's order.
+  Its page still shows its condition, its later deliveries, and a summary read from the earliest of
+  them.
   An incident raised before incidents kept these is found through its own delivery, and belongs to
   no condition once that delivery and its findings are deleted.
 
@@ -337,6 +339,20 @@ says so and gives the reason; the rest of the incident is shown as usual. A run 
 summary.
 
 ![Lower on the same page: the second hypothesis, the two transitions by shadow triage, and the verdict section with a reason box, a cause list and three buttons: Reclassified, Remediation proposed and Suppressed as benign.](../../../../assets/screenshots/user/screens/incidents/incident-verdict.png)
+
+### An incident that has been purged
+
+**An incident goes once no session it stands for is held.** Deleting a session, by a person or by the
+installation's retention, deletes its findings, and its incident stays as long as a later delivery or
+run of its condition is held and placed in it. The scheduled purge deletes it once none is, with its
+hypotheses, its history and its verdicts.
+
+A link to it then opens a page saying **the incident is no longer held** and what became of it: it
+was purged when the session it was written on was deleted, or, when JetStore has no record of that
+session at all, it was purged or the link is mistyped. Such links are a proposal's trigger, on the
+*Proposals* screens, and the history of a later incident that names it, such as one raised after a
+person's verdict on it; that incident's page lists each incident its history names that has been
+purged, under *How this incident got here*.
 
 ### Recording a verdict
 

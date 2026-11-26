@@ -50,6 +50,7 @@ import {
   AGENT_PHI_ACCESS,
   AGENT_SUPERVISION,
   DeploymentNotMigratedError,
+  IncidentPurgedError,
   IncidentStateConflictError,
   IncidentsApi,
   LOCUS_GLOSS,
@@ -74,6 +75,7 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
 
   const [detail, setDetail] = useState<IncidentDetailResponse | null>(null);
   const [notMigrated, setNotMigrated] = useState("");
+  const [purged, setPurged] = useState("");
   const [busy, setBusy] = useState(false);
   const [rationale, setRationale] = useState("");
   const [classification, setClassification] = useState("");
@@ -84,11 +86,14 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
     if (incidentId === "" || !canSupervise) return;
     setBusy(true);
     setNotMigrated("");
+    setPurged("");
     try {
       setDetail(await incidents.get(incidentId));
     } catch (err) {
       if (err instanceof DeploymentNotMigratedError) {
         setNotMigrated(err.message);
+      } else if (err instanceof IncidentPurgedError) {
+        setPurged(err.message);
       } else if (!(err instanceof SessionExpiredError)) {
         setError(err instanceof Error ? err.message : String(err));
       }
@@ -164,6 +169,18 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
       <div className="empty" role="status">
         <p>The incident tables are not installed in this database.</p>
         <p className="empty-sub">{notMigrated}</p>
+        <p className="empty-sub">
+          <Link to="/incidents">Back to incidents</Link>
+        </p>
+      </div>
+    );
+  }
+
+  if (purged !== "") {
+    return (
+      <div className="empty" role="status">
+        <p>Incident {incidentId} is no longer held.</p>
+        <p className="empty-sub">{purged}</p>
         <p className="empty-sub">
           <Link to="/incidents">Back to incidents</Link>
         </p>
@@ -432,6 +449,15 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
 
           <h3>How this incident got here</h3>
           <Transitions rows={detail.transitions ?? []} />
+          {(incident.purgedIncidents ?? []).length > 0 && (
+            <ul className="purged-incidents" aria-label="Purged incidents">
+              {(incident.purgedIncidents ?? []).map((p) => (
+                <li key={p.incidentId} className="empty-sub">
+                  Named above, <code>{p.incidentId}</code>: {p.sentence}
+                </li>
+              ))}
+            </ul>
+          )}
 
           <h3>Your verdict</h3>
           {permitted.length === 0 ? (

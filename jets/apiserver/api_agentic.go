@@ -41,11 +41,13 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/agentic/audit"
 	"github.com/artisoft-io/jetstore/jets/agentic/detectrun"
 	"github.com/artisoft-io/jetstore/jets/agentic/feedsummary"
+	"github.com/artisoft-io/jetstore/jets/agentic/retention"
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/jackc/pgx/v5"
@@ -236,6 +238,32 @@ type agenticOps interface {
 	DetectionTarget() (awsi.AgenticDetectTarget, bool, error)
 	RunDetectionTask(ctx context.Context, t awsi.AgenticDetectTarget, env map[string]string, command []string) (string, error)
 	DescribeDetectionTasks(ctx context.Context, t awsi.AgenticDetectTarget, arns []string) (map[string]awsi.AgenticDetectTaskState, error)
+}
+
+// purgedReader is what says an incident the database does not hold was
+// purged. It is apart from agenticOps so a test's ops need not implement it: an
+// ops without it says nothing is purged, and a missing incident is a 404.
+type purgedReader interface {
+	PurgedIncidents(ctx context.Context, ids []string) ([]retention.Purged, error)
+}
+
+// purgedOf returns the ids among ids that name a purged incident, or none when
+// ops cannot say or the read fails (logged): a page is not failed for it.
+func purgedOf(ctx context.Context, ops agenticOps, ids []string) []retention.Purged {
+	r, ok := ops.(purgedReader)
+	if !ok || len(ids) == 0 {
+		return nil
+	}
+	p, err := r.PurgedIncidents(ctx, ids)
+	if err != nil {
+		log.Printf("while asking whether incidents %v were purged: %v", ids, err)
+		return nil
+	}
+	return p
+}
+
+func (o pgOps) PurgedIncidents(ctx context.Context, ids []string) ([]retention.Purged, error) {
+	return retention.ReadPurged(ctx, o.db, ids)
 }
 
 // pgOps is the production implementation over the server's pool.
@@ -656,6 +684,12 @@ func getIncident(ctx context.Context, ops agenticOps, a *AgenticAction, phi audi
 	if err != nil {
 		var missing *audit.ErrNoIncident
 		if errors.As(err, &missing) {
+			// **An incident the retention sweep deleted is said to be purged**,
+			// so a link to it (a proposal's trigger, a later incident's account)
+			// lands on a page that says what became of it, not on a failure.
+			if p := purgedOf(ctx, ops, []string{a.IncidentId}); len(p) == 1 {
+				return nil, http.StatusGone, errors.New(p[0].Sentence())
+			}
 			return nil, http.StatusNotFound, err
 		}
 		return nil, incidentErrorCode(err), err
@@ -782,6 +816,26 @@ func getIncident(ctx context.Context, ops agenticOps, a *AgenticAction, phi audi
 				// rather than by the row.
 				"rationale": t.Rationale,
 			})
+		}
+		// The incidents its account names that have been purged: an incident
+		// raised after a person's verdict names the judged one, which the
+		// retention sweep deletes once no session it stood for is held. Only
+		// where there is one, so an incident's page is otherwise as it was.
+		var named []string
+		for _, t := range ts {
+			for _, id := range retention.IncidentIdsIn(t.Rationale) {
+				if id != a.IncidentId && !slices.Contains(named, id) {
+					named = append(named, id)
+				}
+			}
+		}
+		if purged := purgedOf(ctx, ops, named); len(purged) > 0 {
+			list := make([]map[string]any, 0, len(purged))
+			for _, p := range purged {
+				list = append(list, map[string]any{"incidentId": p.IncidentId, "sessionId": p.SessionId,
+					"deleted": p.Deleted, "sentence": p.Sentence()})
+			}
+			row["purgedIncidents"] = list
 		}
 	} else {
 		log.Printf("while reading the transitions of incident %s: %v", a.IncidentId, err)
