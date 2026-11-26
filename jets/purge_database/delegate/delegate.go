@@ -10,8 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/agentic/retention"
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/sessionpurge"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -22,11 +24,17 @@ import (
 // USING_SSH_TUNNEL for testing or running locally
 // RETENTION_DAYS site global retention days, sessions are purged if > 0
 // PURGE_DRY_RUN a dry run unless exactly "false" (see IsDryRun)
+// AGENT_AUDIT_RETENTION_DAYS the agent's audit trail is purged after this many
+// days if set; unset, it is never purged (see AuditRetentionDays)
 
-// runBudget is how long a run starts sessions for: two minutes inside the
-// lambda's fifteen, so the session in hand, the archive and tombstone purges and
-// VACUUM can finish. What is left stays queued for the next run.
-const runBudget = 13 * time.Minute
+// runBudget is how long a run starts sessions for, and sweepBudget how long
+// after that the agentic retention sweep starts incidents for: two minutes
+// inside the lambda's fifteen are left, so the work in hand, the archive and
+// tombstone purges and VACUUM can finish. What is left is done by the next run.
+const (
+	runBudget   = 12 * time.Minute
+	sweepBudget = time.Minute
+)
 
 // archiveDays is how long an archived run is kept, from its own last_update, as
 // the live table kept it before runs were archived; the retention and orphan
@@ -43,6 +51,24 @@ const userTombstoneDays = 400
 // set the variable.
 func IsDryRun(value string) bool {
 	return strings.TrimSpace(value) != "false"
+}
+
+// AuditRetentionDays reads AGENT_AUDIT_RETENTION_DAYS: the days the agent's
+// audit trail (jetsapi.agent_audit, agent_run and approval_event) is kept.
+// Unset or empty is 0, never purged, which is the default: an audit trail is
+// out of any routine deletion unless a site decides otherwise. Anything that is
+// not a whole number of days, 1 or more, is an error.
+func AuditRetentionDays(value string) (int, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 0, nil
+	}
+	n, err := strconv.Atoi(value)
+	if err != nil || n < 1 {
+		return 0, fmt.Errorf("AGENT_AUDIT_RETENTION_DAYS must be a whole number of days, 1 or more, or unset; it is %q",
+			value)
+	}
+	return n, nil
 }
 
 // * TODO set retention_days at client level (client_registry)
@@ -62,6 +88,10 @@ func DoPurgeSessions() error {
 		return fmt.Errorf("retention days must be at least 1, we have %d", retentionDays)
 	}
 	dryRun := IsDryRun(os.Getenv("PURGE_DRY_RUN"))
+	auditDays, err := AuditRetentionDays(os.Getenv("AGENT_AUDIT_RETENTION_DAYS"))
+	if err != nil {
+		return err
+	}
 
 	// open db connection
 	// Get the dsn from the aws secret
@@ -79,18 +109,21 @@ func DoPurgeSessions() error {
 	defer dbpool.Close()
 
 	return purgeSessions(context.Background(), dbpool, purgeConfig{
-		RetentionDays: retentionDays,
-		DryRun:        dryRun,
-		Now:           start,
-		Deadline:      start.Add(runBudget),
+		RetentionDays:      retentionDays,
+		AuditRetentionDays: auditDays,
+		DryRun:             dryRun,
+		Now:                start,
+		Deadline:           start.Add(runBudget),
 	})
 }
 
 type purgeConfig struct {
 	RetentionDays int
-	DryRun        bool
-	Now           time.Time // the run's start, from which every age is counted
-	Deadline      time.Time // no session is started after it
+	// AuditRetentionDays is the agent audit trail's retention; 0 never purges it.
+	AuditRetentionDays int
+	DryRun             bool
+	Now                time.Time // the run's start, from which every age is counted
+	Deadline           time.Time // no session is started after it
 }
 
 // purgeSessions is the purge, given a database:
@@ -100,11 +133,18 @@ type purgeConfig struct {
 //     sessionpurge.ExecuteRequests with every transaction rolled back, logs the
 //     report and stops. It writes nothing.
 //  3. A real run queues the retention candidates, then the orphans, executes the
-//     queue until the deadline, purges the archive and the tombstones, and runs
-//     VACUUM.
+//     queue until the deadline, sweeps the agentic incidents no session they
+//     stand for is still held (jets/agentic/retention), purges the agent audit
+//     trail when its retention is set, purges the archive and the tombstones,
+//     and runs VACUUM.
 //
-// A session that fails is logged and retried by the next run; it is not an error
-// of the run, which would have the lambda retried.
+// A dry run sweeps the incidents inside its own transaction, after its
+// sessions, so it reports the incidents a real run would delete, and counts the
+// audit rows a real run would delete; it writes nothing.
+//
+// A session or an incident that fails is logged and retried by the next run; it
+// is not an error of the run, which would have the lambda retried, and neither
+// is a failure of the agentic sweep or of the audit retention, which are logged.
 func purgeSessions(ctx context.Context, dbpool *pgxpool.Pool, cfg purgeConfig) error {
 	purgeFrom := cfg.Now.AddDate(0, 0, -cfg.RetentionDays)
 	mode := "real run"
@@ -118,7 +158,7 @@ func purgeSessions(ctx context.Context, dbpool *pgxpool.Pool, cfg purgeConfig) e
 	purgeRulesUnitTestRuns(dbpool, purgeFrom)
 	purgeDetectionRuns(dbpool, purgeFrom)
 
-	retention, err := sessionpurge.RetentionCandidates(ctx, dbpool, purgeFrom)
+	sessionCands, err := sessionpurge.RetentionCandidates(ctx, dbpool, purgeFrom)
 	if err != nil {
 		return fmt.Errorf("while reading the retention candidates: %v", err)
 	}
@@ -126,19 +166,27 @@ func purgeSessions(ctx context.Context, dbpool *pgxpool.Pool, cfg purgeConfig) e
 	if err != nil {
 		return fmt.Errorf("while reading the orphan candidates: %v", err)
 	}
-	log.Printf("Candidates: %d sessions past retention, %d orphan sessions", len(retention), len(orphans))
+	log.Printf("Candidates: %d sessions past retention, %d orphan sessions", len(sessionCands), len(orphans))
 
 	opts := sessionpurge.Options{Deadline: cfg.Deadline, DryRun: cfg.DryRun}
+	sweepOpts := retention.Options{DryRun: cfg.DryRun, Deadline: cfg.Deadline.Add(sweepBudget)}
 	if cfg.DryRun {
-		report, err := sessionpurge.ExecuteRequests(ctx, dbpool, append(retention, orphans...), opts)
+		// The sweep runs in the dry run's transaction, after its sessions, so it
+		// sees them deleted as a real run would.
+		opts.AfterDryRun = func(ctx context.Context, tx pgx.Tx) error {
+			sweepIncidents(ctx, tx, sweepOpts, "DRY RUN, nothing written: ")
+			return nil
+		}
+		report, err := sessionpurge.ExecuteRequests(ctx, dbpool, append(sessionCands, orphans...), opts)
 		logReport("DRY RUN, nothing written: ", &report)
 		if err != nil {
 			return fmt.Errorf("while executing the dry run: %v", err)
 		}
+		purgeAuditTrail(ctx, dbpool, cfg, "DRY RUN, nothing written: ")
 		return nil
 	}
 
-	if _, err = sessionpurge.Queue(ctx, dbpool, retention); err != nil {
+	if _, err = sessionpurge.Queue(ctx, dbpool, sessionCands); err != nil {
 		return fmt.Errorf("while queueing the retention candidates: %v", err)
 	}
 	if _, err = sessionpurge.Queue(ctx, dbpool, orphans); err != nil {
@@ -149,6 +197,8 @@ func purgeSessions(ctx context.Context, dbpool *pgxpool.Pool, cfg purgeConfig) e
 	if err != nil {
 		return fmt.Errorf("while executing the session deletions: %v", err)
 	}
+	sweepIncidents(ctx, dbpool, sweepOpts, "")
+	purgeAuditTrail(ctx, dbpool, cfg, "")
 
 	archiveFrom := cfg.Now.AddDate(0, 0, -archiveDays)
 	n, err := sessionpurge.PurgeArchive(ctx, dbpool, archiveFrom)
@@ -191,6 +241,48 @@ func logReport(prefix string, r *sessionpurge.Report) {
 	}
 }
 
+// sweepIncidents runs the agentic retention sweep and logs its report: the
+// incidents deleted, those kept because a delivery or run still held is placed
+// in them, and the rows per table. A failure is logged, not returned: the
+// incidents are swept again by the next run.
+func sweepIncidents(ctx context.Context, db retention.DB, opts retention.Options, prefix string) {
+	r, err := retention.Sweep(ctx, db, opts)
+	log.Printf("Incident retention: %s%s", prefix, r.Summary())
+	for _, t := range r.Tables() {
+		log.Printf("   incident retention: %s%d rows from %s", prefix, r.Rows[t], t)
+	}
+	if len(r.FailedIncidents) > 0 {
+		log.Printf("   incident retention: failed, retried by the next run: %s", strings.Join(r.FailedIncidents, ", "))
+	}
+	if err != nil {
+		log.Println("Warning: while sweeping the agentic incidents:", err)
+	}
+}
+
+// purgeAuditTrail purges the agent's audit trail older than its retention, or
+// says it is kept when none is set. A failure is logged, not returned.
+func purgeAuditTrail(ctx context.Context, db *pgxpool.Pool, cfg purgeConfig, prefix string) {
+	if cfg.AuditRetentionDays < 1 {
+		log.Println("Agent audit retention: AGENT_AUDIT_RETENTION_DAYS is not set, the audit trail is kept")
+		return
+	}
+	before := cfg.Now.AddDate(0, 0, -cfg.AuditRetentionDays)
+	r, err := retention.PurgeAudit(ctx, db, before, cfg.DryRun)
+	if err != nil {
+		log.Println("Warning: while purging the agent audit trail:", err)
+		return
+	}
+	log.Printf("Agent audit retention: %srows written before %s", prefix, before.UTC().Format(time.RFC3339))
+	for _, t := range []string{retention.AgentAuditTable, retention.AgentRunTable, retention.ApprovalEventTable} {
+		if n, ok := r.Rows[t]; ok {
+			log.Printf("   agent audit retention: %s%d rows from %s", prefix, n, t)
+		}
+	}
+	for _, n := range r.Notes {
+		log.Printf("   agent audit retention: %s", n)
+	}
+}
+
 // purgeRulesUnitTestRuns deletes the rules unit test runs last updated on or
 // before purgeFrom, with their checks. A run still queued or executing is kept
 // whatever its age: the apiserver's start-up sweep is what ends those. Errors are
@@ -220,8 +312,9 @@ func purgeRulesUnitTestRuns(dbpool *pgxpool.Pool, purgeFrom time.Time) (runs, ch
 }
 
 // purgeDetectionRuns deletes the records of agentic detection runs last updated
-// on or before purgeFrom (jets/agentic/detectrun). The anomalies and incidents
-// those runs wrote are the audit store's and are not touched. A run still
+// on or before purgeFrom (jets/agentic/detectrun). The anomalies those runs
+// wrote are deleted with their sessions, and their incidents by the agentic
+// retention sweep, not here. A run still
 // requested or running is kept whatever its age, as purgeRulesUnitTestRuns keeps
 // a queued test, and errors are logged and not returned for the same reason:
 // an unmigrated database has no table.
