@@ -44,7 +44,9 @@ refused until the first is finished or aborted.
 ## A run
 
 The run's page, `/runbooks/run/<number>`, opens when the run starts, and from the run links of the
-list. While the run is working it is read again every few seconds, and the bar shows *Live*.
+list. While the run is *Running* it is read again every few seconds, and the bar shows *Live*; it
+stops once the run is *Paused* or finished, so the step waiting on you shows its controls without a
+**Refresh**.
 
 ![The bar of a paused run: Runbooks to go back, the Paused status, and the Continue, Skip, Retry, Abort and Refresh buttons.](../../../../assets/screenshots/user/screens/runbooks/run-paused-controls.png)
 
