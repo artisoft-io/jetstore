@@ -236,15 +236,33 @@ type IncidentCondition struct {
 // deliveries with the incident the resolver places each in, how it ends, and
 // the previous incident at the locus with its verdict. It returns nil with a
 // reason when no single feed's condition holds the incident's session.
+//
+// **An incident carrying its feed's key is found by it when its own delivery
+// is no position**: that delivery deleted with its session took its anomalies
+// with it, so ResolveSession finds no feed on it, and the condition the
+// incident still stands for is the one holding it by its position
+// (feedcondition.Feed.ConditionOf).
 func readIncidentCondition(ctx context.Context, db observe.DB, inc *audit.Incident) (*IncidentCondition, string, error) {
 	p, f, err := feedcondition.ResolveSession(ctx, db, inc.SessionId, inc.Locus)
 	if err != nil {
 		return nil, "", err
 	}
+	var c *triage.Condition
+	if f != nil {
+		c = triage.ConditionAt(f.Conditions, inc.SessionId, inc.Locus)
+	}
+	if c == nil {
+		kf, kinc, err := feedcondition.ReadKeyed(ctx, db, inc.IncidentId)
+		if err != nil {
+			return nil, "", err
+		}
+		if kc := kf.ConditionOfOrNil(kinc); kc != nil {
+			f, c = kf, kc
+		}
+	}
 	if f == nil {
 		return nil, p.Why, nil
 	}
-	c := triage.ConditionAt(f.Conditions, inc.SessionId, inc.Locus)
 	if c == nil {
 		return nil, fmt.Sprintf("no finding of feed %s at this locus is on session %s now", f.Feed, inc.SessionId), nil
 	}
@@ -268,19 +286,31 @@ func readIncidentCondition(ctx context.Context, db observe.DB, inc *audit.Incide
 		}
 		out.Deliveries = append(out.Deliveries, d)
 	}
-	// The previous incident: the latest on an earlier delivery of this
-	// condition, which is a judged incident this one was raised after, or else
-	// the incident of the feed's previous condition at the locus.
-	for i := c.IndexOf(inc.SessionId) - 1; i >= 0 && out.Previous == nil; i-- {
-		if prev := f.Incidents[c.Locus][c.Members[i].SessionId]; prev != nil {
-			out.Previous, out.PreviousInSame = prev, true
-		}
+	// The previous incident: the latest this condition holds before this one,
+	// by position, which is a judged incident this one was raised after, or
+	// else the incident of the feed's previous condition at the locus.
+	if prev := f.IncidentBefore(c, selfOf(f, inc)); prev != nil {
+		out.Previous, out.PreviousInSame = prev, true
 	}
 	if out.Previous == nil && !c.Unordered {
 		out.PreviousCondition = f.PreviousCondition(c.First().SessionId, c.Locus)
 		out.Previous = f.IncidentOf(out.PreviousCondition)
 	}
 	return out, "", nil
+}
+
+// selfOf is the incident as the feed holds it, or, when the feed did not read
+// it, the incident positioned at its session's arrival, as the feed would.
+func selfOf(f *feedcondition.Feed, inc *audit.Incident) *feedcondition.Incident {
+	if self := f.IncidentById(inc.IncidentId); self != nil {
+		return self
+	}
+	self := &feedcondition.Incident{IncidentId: inc.IncidentId, SessionId: inc.SessionId, Locus: inc.Locus,
+		Status: inc.Status}
+	if at, ok := triage.SessionArrival(inc.SessionId); ok {
+		self.Position = at
+	}
+	return self
 }
 
 // placement is where the resolver places a member's finding, and the incident
@@ -362,6 +392,10 @@ func readIncidentSpans(ctx context.Context, db pgxPool, incs []audit.IncidentSum
 	if err != nil {
 		return nil, err
 	}
+	keyed, err := keyedConditions(ctx, db, incs, resolved)
+	if err != nil {
+		return nil, err
+	}
 	for _, inc := range incs {
 		own := inc.DetectedAt
 		if t, ok := triage.SessionArrival(inc.SessionId); ok {
@@ -376,32 +410,98 @@ func readIncidentSpans(ctx context.Context, db pgxPool, incs []audit.IncidentSum
 			}
 		}
 		r := resolved[feedcondition.SessionLocus{Session: inc.SessionId, Locus: inc.Locus}]
-		if r.Feed != nil {
-			if c := triage.ConditionAt(r.Feed.Conditions, inc.SessionId, inc.Locus); c != nil {
-				var cs IncidentSpan
-				for _, m := range c.Members {
-					if _, in := placement(r.Feed, c, m.SessionId); in != inc.IncidentId {
-						continue
-					}
-					at := m.Arrival
-					if at.IsZero() {
-						at = m.FirstDetected
-					}
-					if cs.Count == 0 || at.Before(cs.First) {
-						cs.First = at
-					}
-					if cs.Count == 0 || at.After(cs.Last) {
-						cs.Last = at
-					}
-					cs.Count++
-				}
-				if cs.Count > 0 {
-					cs.FromCondition = true
-					span = cs
-				}
+		f, c := r.Feed, (*triage.Condition)(nil)
+		if f != nil {
+			c = triage.ConditionAt(f.Conditions, inc.SessionId, inc.Locus)
+		}
+		if c == nil {
+			if k, ok := keyed[inc.IncidentId]; ok {
+				f, c = k.feed, k.condition
+			}
+		}
+		if c != nil {
+			if cs := conditionSpan(f, c, inc.IncidentId); cs.Count > 0 {
+				span = cs
 			}
 		}
 		out[inc.IncidentId] = span
+	}
+	return out, nil
+}
+
+// conditionSpan is the span of the deliveries of a condition placed in an
+// incident, by arrival, FromCondition set; Count 0 when none is.
+func conditionSpan(f *feedcondition.Feed, c *triage.Condition, incidentId string) IncidentSpan {
+	var cs IncidentSpan
+	for _, m := range c.Members {
+		if _, in := placement(f, c, m.SessionId); in != incidentId {
+			continue
+		}
+		at := m.Arrival
+		if at.IsZero() {
+			at = m.FirstDetected
+		}
+		if cs.Count == 0 || at.Before(cs.First) {
+			cs.First = at
+		}
+		if cs.Count == 0 || at.After(cs.Last) {
+			cs.Last = at
+		}
+		cs.Count++
+	}
+	cs.FromCondition = cs.Count > 0
+	return cs
+}
+
+// keyedCondition is the feed and condition holding an incident by its key.
+type keyedCondition struct {
+	feed      *feedcondition.Feed
+	condition *triage.Condition
+}
+
+// keyedConditions finds, for the page's feed incidents that no condition
+// holds by their session (their delivery deleted with its session), the
+// condition holding each by its feed key and position, reading each feed once.
+func keyedConditions(ctx context.Context, db observe.DB, incs []audit.IncidentSummary,
+	resolved map[feedcondition.SessionLocus]feedcondition.Resolved) (map[string]keyedCondition, error) {
+	out := map[string]keyedCondition{}
+	var ids []string
+	for _, inc := range incs {
+		if !slices.Contains(triage.DeliveryLoci, inc.Locus) {
+			continue
+		}
+		r := resolved[feedcondition.SessionLocus{Session: inc.SessionId, Locus: inc.Locus}]
+		if r.Feed == nil || triage.ConditionAt(r.Feed.Conditions, inc.SessionId, inc.Locus) == nil {
+			ids = append(ids, inc.IncidentId)
+		}
+	}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	var table bool
+	if err := db.QueryRow(ctx, `SELECT to_regclass('jetsapi.anomaly') IS NOT NULL`).Scan(&table); err != nil || !table {
+		return out, err
+	}
+	feeds, err := feedcondition.FeedsOf(ctx, db, ids)
+	if err != nil {
+		return nil, err
+	}
+	read := map[string]*feedcondition.Feed{}
+	for _, id := range ids {
+		name, ok := feeds[id]
+		if !ok {
+			continue
+		}
+		f, ok := read[name]
+		if !ok {
+			if f, err = feedcondition.Read(ctx, db, name); err != nil {
+				return nil, err
+			}
+			read[name] = f
+		}
+		if c := f.ConditionOf(f.IncidentById(id)); c != nil {
+			out[id] = keyedCondition{feed: f, condition: c}
+		}
 	}
 	return out, nil
 }

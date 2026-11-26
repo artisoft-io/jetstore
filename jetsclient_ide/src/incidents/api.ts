@@ -222,6 +222,24 @@ export interface IncidentDetail extends IncidentRow {
   runCondition?: RunCondition;
   runConditionNote?: string;
   runConditionError?: string;
+  /**
+   * The incidents this incident's account names that have been purged: an
+   * incident raised after a person's verdict names the judged one, which the
+   * purge deletes once no session it stood for is still held. Absent when none
+   * is, and from a server older than this field.
+   */
+  purgedIncidents?: PurgedIncident[];
+}
+
+/** An incident the database no longer holds, named by another. */
+export interface PurgedIncident {
+  incidentId: string;
+  /** The session the incident was written on, which its id names. */
+  sessionId: string;
+  /** The database records that session's deletion. */
+  deleted: boolean;
+  /** What became of it, in a sentence, from the server. */
+  sentence: string;
 }
 
 /** One error code of a run, from `jetsapi.run_finding`. */
@@ -569,6 +587,20 @@ export class DeploymentNotMigratedError extends ApiError {
   }
 }
 
+/**
+ * Thrown when the server answers 410 on `get_incident`: the incident is not in
+ * the database, and neither is the session it was written on. The purge deletes
+ * an incident once no session it stood for is still held, so a link to one (a
+ * proposal it prompted, a later incident's account) lands here, and the screen
+ * says it was purged rather than failing. The message is the server's sentence.
+ */
+export class IncidentPurgedError extends ApiError {
+  constructor(message: string) {
+    super(message, 410);
+    this.name = "IncidentPurgedError";
+  }
+}
+
 export class IncidentsApi {
   constructor(private readonly api: ApiClient) {}
 
@@ -645,6 +677,9 @@ export class IncidentsApi {
     } catch (err) {
       if (err instanceof ApiError && err.status === 503) {
         throw new DeploymentNotMigratedError(err.message);
+      }
+      if (err instanceof ApiError && err.status === 410) {
+        throw new IncidentPurgedError(err.message);
       }
       throw err;
     }

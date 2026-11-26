@@ -1215,3 +1215,34 @@ describe("a run condition and a per-record failure's codes", () => {
     expect(screen.getByText(code)).toBeTruthy();
   });
 });
+
+// The purge deletes an incident once no session it stood for is held. A link to
+// it (a proposal it prompted, a later incident's account) lands on a page that
+// says so rather than on a failure, and a page whose account names one says it
+// was purged.
+describe("a purged incident", () => {
+  it("is said to be purged on its own page, not reported as a failure", async () => {
+    const sentence =
+      "Incident inc_17_delivery_overdue was purged: the session it was written on, 17, has been deleted, and no delivery or run still held stands for it.";
+    const { api } = await clientWith({ get_incident: { status: 410, body: { error: sentence } } });
+    renderAt(api, "/incidents/inc_17_delivery_overdue");
+    await screen.findByText("Incident inc_17_delivery_overdue is no longer held.");
+    expect(screen.getByText(sentence)).toBeTruthy();
+    expect(screen.getByTestId("banner").textContent).toBe("");
+  });
+
+  it("is named as purged on the page of an incident whose account names it", async () => {
+    const sentence = "Incident inc_17_delivery_overdue was purged: the session it was written on, 17, has been deleted.";
+    const body = {
+      ...triageWritten,
+      incident: {
+        ...triageWritten.incident,
+        purgedIncidents: [{ incidentId: "inc_17_delivery_overdue", sessionId: "17", deleted: true, sentence }],
+      },
+    };
+    const { api } = await clientWith({ get_incident: { body } });
+    renderAt(api, `/incidents/${triageWritten.incident.incidentId}`);
+    const list = await screen.findByRole("list", { name: "Purged incidents" });
+    expect(list.textContent).toContain(sentence);
+  });
+});
