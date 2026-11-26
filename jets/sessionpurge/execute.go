@@ -44,6 +44,10 @@ type Report struct {
 	// RefusedSessions and FailedSessions name the sessions behind Refused and
 	// Failed.
 	RefusedSessions, FailedSessions []string
+	// FailedErrors is the error each of FailedSessions failed with, by session,
+	// so the purge can record its failures with their causes (a dry run has no
+	// session_deletion row to read them from).
+	FailedErrors map[string]string
 	// Rows is the rows deleted per table, and under ArchiveTable the
 	// pipeline_execution_status rows archived. Domain tables are keyed by their
 	// input_registry.table_name, the fixed tables by their qualified name.
@@ -51,7 +55,7 @@ type Report struct {
 }
 
 func newReport() Report {
-	return Report{ByReason: map[Reason]int{}, Rows: map[string]int64{}}
+	return Report{ByReason: map[Reason]int{}, Rows: map[string]int64{}, FailedErrors: map[string]string{}}
 }
 
 // ArchiveTable is the key in Report.Rows for the status rows archived.
@@ -296,6 +300,7 @@ func run(ctx context.Context, db *pgxpool.Pool, reqs []Request, opts Options, cl
 		case err != nil:
 			report.Failed++
 			report.FailedSessions = append(report.FailedSessions, r.SessionID)
+			report.FailedErrors[r.SessionID] = err.Error()
 			log.Printf("sessionpurge: session %s (%s) failed and was rolled back: %v", r.SessionID, r.Reason, err)
 			if claim {
 				markFailed(db, r.SessionID, err)

@@ -175,10 +175,15 @@ func RetentionCandidates(ctx context.Context, db *pgxpool.Pool, before time.Time
 	// before is cast to timestamptz because last_update is a timestamp without
 	// time zone, and pgx would otherwise encode it by its wall clock in its own
 	// location.
-	return readRequests(ctx, db, `SELECT session_id, client, source_type, month_period, $2::text, $3::text
+	//
+	// A session registered with no client, as a job's failure that serves no
+	// client is (datatable.RecordJobFailure), gets ClientUnknown, as an orphan
+	// does: a request with no client is refused, and would stop the whole run.
+	return readRequests(ctx, db, `SELECT session_id, coalesce(nullif(client, ''), $4), source_type, month_period,
+			$2::text, $3::text
 		FROM jetsapi.session_registry
 		WHERE last_update <= $1::timestamptz
-		ORDER BY session_id`, before, ReasonRetention, RequestedByPurge)
+		ORDER BY session_id`, before, ReasonRetention, RequestedByPurge, ClientUnknown)
 }
 
 // ClientUnknown is the client of an orphan found only in tables that carry no

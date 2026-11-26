@@ -55,6 +55,11 @@ const (
 	// something. Set when a node running as an ecs task failed: the state machine
 	// only has the task's StoppedReason, not the error.
 	FailureSourceNodeErrorMessage = "node_error_message"
+	// FailureSourceJob: not an arm of the decoder either. A job that is not a
+	// pipeline, such as the purge or register keys, recorded its own error
+	// (RecordJobFailure in job_failure.go); FailureDetails is that error as the
+	// job wrote it, and the row's pipeline_config_key is 0.
+	FailureSourceJob = "job"
 )
 
 // FailureInfo is what the record keeps about a failed run: the prose that was
