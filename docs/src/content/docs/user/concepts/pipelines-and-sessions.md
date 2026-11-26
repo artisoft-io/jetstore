@@ -113,6 +113,12 @@ record of what ran survives the data.
 Deleting a session needs the `delete_session` capability. An installation may also delete sessions
 older than its retention period on a schedule, by the same path.
 
+The detection checks' findings on a session, and shadow triage's verdicts on its runs, go with it.
+Its incidents do not, at once: an incident stands for every delivery or run of its condition, so it
+stays while one of them is held, and the scheduled purge deletes it, with its hypotheses and history,
+once none is. A page that links to it then says it was purged. See
+[Incidents](/docs/user/screens/incidents/#an-incident-that-has-been-purged).
+
 ## See also
 
 - [Pipeline Configuration](/docs/user/screens/flows/pipeline-configuration/)
