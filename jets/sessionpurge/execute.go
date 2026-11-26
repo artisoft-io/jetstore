@@ -92,6 +92,11 @@ var fixedTables = []fixedTable{
 	{"session_reservation", "session_id"},
 	{"pipeline_lock", "session_id"},
 	{"s3_object_event", "session_id"},
+	// The summary of a delivery the agentic layer computes from a session's
+	// rows (jetsapi.claim_set_summary, created by jets-agentic). It holds no
+	// member-level value and goes with the session it summarises, never with
+	// its table data (PurgeTableData), which it outlives by design.
+	{"claim_set_summary", "session_id"},
 }
 
 // fixedTable is a jetsapi table the purge deletes from, and the column holding
@@ -123,13 +128,14 @@ type table struct {
 	name   string // the key in Report.Rows
 	ident  string // quoted, for the statement and for to_regclass
 	column string // the column holding the session id, unquoted
+	domain bool   // a table named in input_registry.table_name, not a fixed one
 }
 
 // resolveTables returns the tables to delete from: every table_name registered in
 // input_registry, then the fixed tables, each kept only if it resolves to a table
 // with its session column (session_id for a domain table). A name that does not
 // is logged and skipped.
-func resolveTables(ctx context.Context, db *pgxpool.Pool) ([]table, error) {
+func resolveTables(ctx context.Context, db Querier) ([]table, error) {
 	var candidates []table
 	rows, err := db.Query(ctx, `SELECT DISTINCT table_name FROM jetsapi.input_registry ORDER BY table_name`)
 	if err != nil {
@@ -143,7 +149,8 @@ func resolveTables(ctx context.Context, db *pgxpool.Pool) ([]table, error) {
 		}
 		// An unqualified name, quoted as today's purge quoted it, so it resolves
 		// through the search path to the same table.
-		candidates = append(candidates, table{name: name, ident: pgx.Identifier{name}.Sanitize(), column: "session_id"})
+		candidates = append(candidates, table{name: name, ident: pgx.Identifier{name}.Sanitize(), column: "session_id",
+			domain: true})
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {

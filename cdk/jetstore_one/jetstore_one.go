@@ -751,6 +751,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // RETENTION_DAYS site global rentention days, delete sessions if > 0
 // PURGE_DATA_SCHEDULED_HOUR_UTC hour of day to run purge_data, default 7 UTC
 // PURGE_DRY_RUN the purge lambda deletes only when exactly "false"; unset or anything else is a dry run
+// DOMAIN_TABLES_RETENTION_DAYS (optional) days a session's rows in the domain tables and process_errors are kept, the session itself kept to RETENTION_DAYS; unset, RETENTION_DAYS; capped to it
 // JETS_AGENTIC_DETECT_HOUR_UTC (optional) hour of day, 0 to 23 UTC, to run the agentic detection task (anomaly_detect, feed_detect, then shadow_triage); unset builds neither the task nor its schedule
 // TASK_MAX_CONCURRENCY (defaults to 1)
 // JETS_DEFAULT_ERROR_REPORTING (optional, defaults to on) false/off/0/no stops giving operators that name no error_channel a default one writing to jetsapi.process_errors; read by the two cpipes starter lambdas only
@@ -892,6 +893,7 @@ func main() {
 	log.Println("env JETS_PIPELINE_THROTTLING_JSON:", os.Getenv("JETS_PIPELINE_THROTTLING_JSON"))
 	log.Println("env RETENTION_DAYS:", os.Getenv("RETENTION_DAYS"))
 	log.Println("env PURGE_DRY_RUN:", os.Getenv("PURGE_DRY_RUN"))
+	log.Println("env DOMAIN_TABLES_RETENTION_DAYS:", os.Getenv("DOMAIN_TABLES_RETENTION_DAYS"))
 	log.Println("env PURGE_DATA_SCHEDULED_HOUR_UTC:", os.Getenv("PURGE_DATA_SCHEDULED_HOUR_UTC"))
 	log.Println("env JETS_AGENTIC_DETECT_HOUR_UTC:", os.Getenv("JETS_AGENTIC_DETECT_HOUR_UTC"))
 	log.Println("env TASK_MAX_CONCURRENCY:", os.Getenv("TASK_MAX_CONCURRENCY"))

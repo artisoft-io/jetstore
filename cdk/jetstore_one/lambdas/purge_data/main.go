@@ -29,6 +29,8 @@ var c config
 // RETENTION_DAYS site global rentention days, delete sessions if > 0
 // PURGE_DRY_RUN a dry run unless exactly "false": the purge reports and deletes nothing
 // AGENT_AUDIT_RETENTION_DAYS optional: the agent audit trail is purged after this many days; unset, never
+// DOMAIN_TABLES_RETENTION_DAYS optional: a session's rows in the domain tables and process_errors are
+// deleted after this many days, the session kept to RETENTION_DAYS; unset, RETENTION_DAYS
 
 func main() {
 	// Create logger.
@@ -68,6 +70,15 @@ func main() {
 	}
 	logger.Infof("env AGENT_AUDIT_RETENTION_DAYS: '%s', audit trail kept for %d days (0: never purged)",
 		os.Getenv("AGENT_AUDIT_RETENTION_DAYS"), auditDays)
+	// A bad DOMAIN_TABLES_RETENTION_DAYS is not fatal here: the purge refuses the
+	// run with the database open, so the refusal is recorded as the job's failure.
+	tableDays, capped, err := delegate.DomainTablesRetentionDays(os.Getenv("DOMAIN_TABLES_RETENTION_DAYS"), c.RetentionDays)
+	if err != nil {
+		logger.Error(err, "; every run is refused until it is corrected")
+	} else {
+		logger.Infof("env DOMAIN_TABLES_RETENTION_DAYS: '%s', table data kept for %d days (capped to RETENTION_DAYS: %v)",
+			os.Getenv("DOMAIN_TABLES_RETENTION_DAYS"), tableDays, capped)
+	}
 	if !c.IsValid {
 		logger.Fatal("Invalid configuration, exiting program")
 	}

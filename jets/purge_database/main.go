@@ -13,6 +13,8 @@ import (
 // USING_SSH_TUNNEL for testing or running locally
 // RETENTION_DAYS site global rentention days, delete session if > 0
 // PURGE_DRY_RUN a dry run unless exactly "false": the purge reports and deletes nothing
+// AGENT_AUDIT_RETENTION_DAYS the agent audit trail's retention; unset, never purged
+// DOMAIN_TABLES_RETENTION_DAYS the table data's retention; unset, RETENTION_DAYS
 
 func main() {
 	utils.UseJetStoreLogger()
