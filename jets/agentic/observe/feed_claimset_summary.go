@@ -63,12 +63,19 @@ package observe
 //
 // A pipeline writes a summary too: the compute pipes operator
 // claim_set_summary computes the same row from the delivery's mapped records
-// (package jets/claimset), under the run's session, once its step has read
-// every record, so a pipeline that does not load its claims keeps the checks.
-// It writes no judged mark; a run here finds the row stored, computes none for
-// the delivery, and judges and marks it as it does any stored summary.
-// TestClaimSetPackageWritesTheSameRow and
+// (package jets/claimset), one partial per node of a step sharded by member,
+// merged on one node, under the run's session, so a pipeline that does not
+// load its claims keeps the checks. It writes no judged mark; a run here finds
+// the row stored, computes none for the delivery, and judges and marks it as it
+// does any stored summary. TestClaimSetPackageWritesTheSameRow and
 // TestClaimSetSummariserMatchesTheStatement hold the two writers to one row.
+//
+// Each row says which path computed it (computed_by): database here, pipeline
+// for the operator. The two checks that compare a delivery with its
+// predecessor do not compare rows computed by different paths
+// (ClaimSetSummaryPathDiffers); the three that read one delivery read either.
+// Where the migration adding computed_by has not run, both writers write
+// without it and every row reads as database.
 //
 // A stored summary is kept when the rows are gone and the declaration has
 // changed: what it can still answer is judged, and a check that needs what it
@@ -163,6 +170,28 @@ type ClaimSetSummary struct {
 	// summary (claim_set_judged_at); nil when none has. A summary is written
 	// with none, and WriteFeedProcess marks the deliveries the run judged.
 	JudgedAt *time.Time
+	// ComputedBy is the path that computed the row (computed_by):
+	// ClaimSetComputedByDatabase for this package's statement,
+	// ClaimSetComputedByPipeline for the compute pipes operator's records.
+	ComputedBy string
+}
+
+// The paths that compute a summary row, as computed_by holds them. The two
+// compute the same row from the same claims, but from different readings of
+// them, the table's and the records', so two summaries computed by different
+// paths are not compared (ClaimSetSummaryPathDiffers).
+const (
+	ClaimSetComputedByDatabase = "database"
+	ClaimSetComputedByPipeline = "pipeline"
+)
+
+// computedBy is the summary's path, a row of a table without the column
+// being the feed detection's.
+func (s *ClaimSetSummary) computedBy() string {
+	if s.ComputedBy == "" {
+		return ClaimSetComputedByDatabase
+	}
+	return s.ComputedBy
 }
 
 // matches reports whether the summary was computed under the claim set
@@ -298,7 +327,8 @@ func claimSetSummarise(ctx context.Context, db DB, stmt string, columns []string
 	s := &ClaimSetSummary{TableName: f.TableName, DeliverySessionID: d.session, Client: f.Client,
 		Version: ClaimSetSummaryVersion, SummarisedAt: o.Now, KeyColumns: slices.Clone(p.ClaimSet.KeyColumns),
 		ServiceDateColumn: p.ClaimSet.ServiceDateColumn, MemberColumn: p.ClaimSet.MemberColumn,
-		LagDeclaredDays: p.MaxServiceDateLagDays, SpanDeclaredDays: p.MaxServiceDateSpanDays, sketchRead: true}
+		LagDeclaredDays: p.MaxServiceDateLagDays, SpanDeclaredDays: p.MaxServiceDateSpanDays, sketchRead: true,
+		ComputedBy: ClaimSetComputedByDatabase}
 	var session, newest, oldest, sketch *string
 	var hist, present []int64
 	err := db.QueryRow(ctx, stmt, d.session, arrival, p.MaxServiceDateLagDays, o.MinMembers,
@@ -352,11 +382,14 @@ func claimSetDate(s *string) (*time.Time, error) {
 	return &t, nil
 }
 
-// claimSetSummaryTableSQL says whether the summary table exists, and whether
-// it carries the judged mark, claim_set_judged_at.
+// claimSetSummaryTableSQL says whether the summary table exists, whether it
+// carries the judged mark, claim_set_judged_at, and whether it says which path
+// computed each row, computed_by.
 const claimSetSummaryTableSQL = `SELECT to_regclass('jetsapi.claim_set_summary') IS NOT NULL,
        EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = to_regclass('jetsapi.claim_set_summary')
-                  AND attname = 'claim_set_judged_at' AND NOT attisdropped)`
+                  AND attname = 'claim_set_judged_at' AND NOT attisdropped),
+       EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = to_regclass('jetsapi.claim_set_summary')
+                  AND attname = 'computed_by' AND NOT attisdropped)`
 
 // claimSetStoredSummariesCols are the columns the stored summaries are read
 // by, without their sketches, which are read only where a comparison needs
@@ -368,16 +401,25 @@ const claimSetStoredSummariesCols = `table_name, delivery_session_id, session_id
        present_counts::text, key_fingerprint`
 
 // claimSetStoredSummariesSQL reads the stored summaries of the feeds named,
-// with when each was judged; claimSetStoredSummariesUnmarkedSQL reads them
-// where the table has no judged mark.
+// with when each was judged and which path computed it; a table without
+// either column reads NULL for it (claimSetStoredSummariesStmt).
 const claimSetStoredSummariesSQL = `SELECT ` + claimSetStoredSummariesCols + `,
-       (extract(epoch FROM claim_set_judged_at) * 1000)::bigint
+       (extract(epoch FROM claim_set_judged_at) * 1000)::bigint, computed_by
   FROM jetsapi.claim_set_summary WHERE table_name = ANY($1::text[])
  ORDER BY table_name, delivery_session_id`
 
-const claimSetStoredSummariesUnmarkedSQL = `SELECT ` + claimSetStoredSummariesCols + `, NULL::bigint
-  FROM jetsapi.claim_set_summary WHERE table_name = ANY($1::text[])
- ORDER BY table_name, delivery_session_id`
+// claimSetStoredSummariesStmt is claimSetStoredSummariesSQL for a table
+// with or without the judged mark and the path.
+func claimSetStoredSummariesStmt(marks, paths bool) string {
+	s := claimSetStoredSummariesSQL
+	if !marks {
+		s = strings.Replace(s, "(extract(epoch FROM claim_set_judged_at) * 1000)::bigint", "NULL::bigint", 1)
+	}
+	if !paths {
+		s = strings.Replace(s, ", computed_by\n", ", NULL::text\n", 1)
+	}
+	return s
+}
 
 // claimSetSketchesSQL reads the sketches of the deliveries named, of one feed.
 const claimSetSketchesSQL = `SELECT delivery_session_id, encode(key_sketch, 'hex') FROM jetsapi.claim_set_summary
@@ -393,8 +435,8 @@ type claimSetStoredSummaries map[string]map[string]*ClaimSetSummary
 func readClaimSetSummaries(ctx context.Context, db DB, tables []string) (out claimSetStoredSummaries, marks bool,
 	err error) {
 	out = claimSetStoredSummaries{}
-	var exists bool
-	if err := db.QueryRow(ctx, claimSetSummaryTableSQL).Scan(&exists, &marks); err != nil {
+	var exists, paths bool
+	if err := db.QueryRow(ctx, claimSetSummaryTableSQL).Scan(&exists, &marks, &paths); err != nil {
 		return nil, false, fmt.Errorf("while looking for jetsapi.claim_set_summary: %w", err)
 	}
 	if !exists {
@@ -403,11 +445,7 @@ func readClaimSetSummaries(ctx context.Context, db DB, tables []string) (out cla
 	if len(tables) == 0 {
 		return out, marks, nil
 	}
-	stmt := claimSetStoredSummariesUnmarkedSQL
-	if marks {
-		stmt = claimSetStoredSummariesSQL
-	}
-	rows, err := db.Query(ctx, stmt, tables)
+	rows, err := db.Query(ctx, claimSetStoredSummariesStmt(marks, paths), tables)
 	if err != nil {
 		return nil, false, fmt.Errorf("while reading the claim-set summaries: %w", err)
 	}
@@ -416,11 +454,16 @@ func readClaimSetSummaries(ctx context.Context, db DB, tables []string) (out cla
 		s := &ClaimSetSummary{settled: true}
 		var newest, oldest, hist, present *string
 		var judged *int64
+		var computedBy *string
 		if err := rows.Scan(&s.TableName, &s.DeliverySessionID, &s.SessionID, &s.Client, &s.Version,
 			&s.KeyColumns, &s.ServiceDateColumn, &s.MemberColumn, &s.Rows, &s.DistinctKeys, &s.Members,
 			&s.DatedRows, &newest, &oldest, &s.DatesInMonths, &s.SpanDays, &s.LagExceeds, &s.LagDeclaredDays,
-			&s.OutOfSpan, &s.SpanDeclaredDays, &hist, &present, &s.Fingerprint, &judged); err != nil {
+			&s.OutOfSpan, &s.SpanDeclaredDays, &hist, &present, &s.Fingerprint, &judged, &computedBy); err != nil {
 			return nil, false, fmt.Errorf("while reading the claim-set summaries: %w", err)
+		}
+		s.ComputedBy = ClaimSetComputedByDatabase
+		if computedBy != nil {
+			s.ComputedBy = *computedBy
 		}
 		if judged != nil {
 			t := time.UnixMilli(*judged).UTC()
@@ -497,6 +540,28 @@ const claimSetUpsertSQL = `INSERT INTO jetsapi.claim_set_summary (table_name, de
   summary_version, summarised_at, key_columns, service_date_column, member_column, row_count, distinct_key_count,
   member_count, dated_row_count, newest_service_date, oldest_service_date, dates_in_months, span_days, lag_exceeds,
   lag_declared_days, out_of_span_count, span_declared_days, service_date_histogram, present_counts,
+  key_fingerprint, key_sketch, computed_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::date, $15::date, $16, $17, $18, $19, $20, $21,
+  $22::jsonb, $23::jsonb, $24, $25, $26)
+ON CONFLICT (table_name, delivery_session_id) DO UPDATE SET session_id = EXCLUDED.session_id,
+  client = EXCLUDED.client, summary_version = EXCLUDED.summary_version, summarised_at = EXCLUDED.summarised_at,
+  key_columns = EXCLUDED.key_columns, service_date_column = EXCLUDED.service_date_column,
+  member_column = EXCLUDED.member_column, row_count = EXCLUDED.row_count,
+  distinct_key_count = EXCLUDED.distinct_key_count, member_count = EXCLUDED.member_count,
+  dated_row_count = EXCLUDED.dated_row_count, newest_service_date = EXCLUDED.newest_service_date,
+  oldest_service_date = EXCLUDED.oldest_service_date, dates_in_months = EXCLUDED.dates_in_months,
+  span_days = EXCLUDED.span_days, lag_exceeds = EXCLUDED.lag_exceeds,
+  lag_declared_days = EXCLUDED.lag_declared_days, out_of_span_count = EXCLUDED.out_of_span_count,
+  span_declared_days = EXCLUDED.span_declared_days, service_date_histogram = EXCLUDED.service_date_histogram,
+  present_counts = EXCLUDED.present_counts, key_fingerprint = EXCLUDED.key_fingerprint,
+  key_sketch = EXCLUDED.key_sketch, computed_by = EXCLUDED.computed_by`
+
+// claimSetUpsertWithoutPathSQL is claimSetUpsertSQL for a table without
+// computed_by, as on a database the migration has not reached.
+const claimSetUpsertWithoutPathSQL = `INSERT INTO jetsapi.claim_set_summary (table_name, delivery_session_id, session_id, client,
+  summary_version, summarised_at, key_columns, service_date_column, member_column, row_count, distinct_key_count,
+  member_count, dated_row_count, newest_service_date, oldest_service_date, dates_in_months, span_days, lag_exceeds,
+  lag_declared_days, out_of_span_count, span_declared_days, service_date_histogram, present_counts,
   key_fingerprint, key_sketch)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::date, $15::date, $16, $17, $18, $19, $20, $21,
   $22::jsonb, $23::jsonb, $24, $25)
@@ -513,10 +578,39 @@ ON CONFLICT (table_name, delivery_session_id) DO UPDATE SET session_id = EXCLUDE
   present_counts = EXCLUDED.present_counts, key_fingerprint = EXCLUDED.key_fingerprint,
   key_sketch = EXCLUDED.key_sketch`
 
+// claimSetPathColumnSQL says whether the summary table carries computed_by.
+const claimSetPathColumnSQL = `SELECT EXISTS (SELECT 1 FROM pg_attribute
+  WHERE attrelid = to_regclass('jetsapi.claim_set_summary') AND attname = 'computed_by' AND NOT attisdropped)`
+
+// claimSetHasPathColumn says whether the summary table carries computed_by.
+// An Exec that cannot query, which no caller passes (a pool and a
+// transaction both can), is taken to write to a migrated table.
+func claimSetHasPathColumn(ctx context.Context, db Exec) (bool, error) {
+	q, ok := db.(DB)
+	if !ok {
+		return true, nil
+	}
+	var has bool
+	if err := q.QueryRow(ctx, claimSetPathColumnSQL).Scan(&has); err != nil {
+		return false, fmt.Errorf("while looking for jetsapi.claim_set_summary.computed_by: %w", err)
+	}
+	return has, nil
+}
+
 // WriteClaimSetSummaries writes summaries, replacing a stored row of the same
-// feed and delivery, and returns how many it wrote.
+// feed and delivery, and returns how many it wrote. It writes computed_by where
+// the table carries it, and leaves it out where the migration that adds it has
+// not run, so the order of a deployment's code and its migration does not
+// matter; a row without it reads as this path's (readClaimSetSummaries).
 func WriteClaimSetSummaries(ctx context.Context, db Exec, sums []ClaimSetSummary) (int, error) {
 	n := 0
+	if len(sums) == 0 {
+		return 0, nil
+	}
+	hasPath, err := claimSetHasPathColumn(ctx, db)
+	if err != nil {
+		return 0, err
+	}
 	for i := range sums {
 		s := &sums[i]
 		day := func(t *time.Time) *string {
@@ -542,11 +636,15 @@ func WriteClaimSetSummaries(ctx context.Context, db Exec, sums []ClaimSetSummary
 		if s.Present == nil {
 			present = []byte("{}")
 		}
-		if _, err := db.Exec(ctx, claimSetUpsertSQL, s.TableName, s.DeliverySessionID, s.SessionID, s.Client,
+		stmt := claimSetUpsertWithoutPathSQL
+		args := []any{s.TableName, s.DeliverySessionID, s.SessionID, s.Client,
 			s.Version, s.SummarisedAt, s.KeyColumns, s.ServiceDateColumn, s.MemberColumn, s.Rows, s.DistinctKeys,
 			s.Members, s.DatedRows, day(s.Newest), day(s.Oldest), s.DatesInMonths, s.SpanDays, s.LagExceeds,
-			s.LagDeclaredDays, s.OutOfSpan, s.SpanDeclaredDays, hist, string(present), s.Fingerprint,
-			s.Sketch); err != nil {
+			s.LagDeclaredDays, s.OutOfSpan, s.SpanDeclaredDays, hist, string(present), s.Fingerprint, s.Sketch}
+		if hasPath {
+			stmt, args = claimSetUpsertSQL, append(args, s.computedBy())
+		}
+		if _, err := db.Exec(ctx, stmt, args...); err != nil {
 			return n, fmt.Errorf("while writing the claim-set summary of %s session %s: %w", s.TableName,
 				s.DeliverySessionID, err)
 		}

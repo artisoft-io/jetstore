@@ -104,6 +104,10 @@ var CpipesContract = map[string]map[string]ContractField{
 		"name":                   {Required: true},
 		"same_columns_as_input":  {},
 	},
+	"ClaimSetSummarySpec/*": {
+		"comment": {},
+		"mode":    {Required: true, Values: []string{"partial", "merge"}},
+	},
 	"ClusterShardingInfo/*": {
 		"max_nbr_partitions":  {},
 		"multi_step_sharding": {},
@@ -1253,11 +1257,12 @@ var CpipesContract = map[string]map[string]ContractField{
 		"when":               {},
 	},
 	"TransformationSpec/claim_set_summary": {
-		"comment":            {},
-		"conditional_config": {},
-		"output_channel":     {Required: true},
-		"type":               {Required: true},
-		"when":               {},
+		"claim_set_summary_config": {Required: true},
+		"comment":                  {},
+		"conditional_config":       {},
+		"output_channel":           {},
+		"type":                     {Required: true},
+		"when":                     {},
 	},
 	"TransformationSpec/clustering": {
 		"clustering_config":  {Required: true},

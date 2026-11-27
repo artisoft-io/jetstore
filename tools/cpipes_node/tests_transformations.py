@@ -598,11 +598,12 @@ def test_a_builtin_is_handed_the_builder_env_and_a_site_operator_is_not(
 def test_a_builtin_block_reaches_args_by_a_name_derived_from_the_token():
     """The convention is the contract's, and this derives it rather than listing.
 
-    17 of the 20 transformation tokens name their block `{type}_config`; the
-    three that do not — `aggregate`, `claim_set_summary` and `high_freq` — carry
-    no block at all, which is why `getattr(..., None)` is the whole of the rule.
-    Measured over the union's own members, so a twenty-first token joins the
-    count by existing.
+    18 of the 20 transformation tokens name their block `{type}_config`; the
+    two that do not — `aggregate` and `high_freq` — carry no block at all,
+    which is why `getattr(..., None)` is the whole of the rule. Measured over
+    the union's own members, so a twenty-first token joins the count by
+    existing. `claim_set_summary` had no block until 2026-11-27, when its
+    `claim_set_summary_config` arrived to name its mode, partial or merge.
     """
     import typing
 
@@ -620,10 +621,9 @@ def test_a_builtin_block_reaches_args_by_a_name_derived_from_the_token():
     assert len(tokens) == 20
     assert sorted(t for t, has in tokens.items() if not has) == [
         "aggregate",
-        "claim_set_summary",
         "high_freq",
     ]
-    assert sum(tokens.values()) == 17
+    assert sum(tokens.values()) == 18
 
 
 def test_the_partition_writer_refuses_an_env_it_cannot_read_the_store_from():

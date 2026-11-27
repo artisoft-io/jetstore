@@ -778,7 +778,10 @@ CREATE TABLE IF NOT EXISTS jetsapi.run_finding (
 -- named beside them, at summary time. claim_set_judged_at is when a feed_detect run that
 -- writes first judged the delivery from this row, null until one has: a window run also
 -- judges the deliveries before its window that no run has judged, as a delivery whose
--- claims were mapped after the run whose window held it.
+-- claims were mapped after the run whose window held it. computed_by is the path that
+-- computed the row: database, feed_detect's statement over the claim-set table, or
+-- pipeline, the claim_set_summary operator over a pipeline's records. The two checks that
+-- compare a delivery with its predecessor do not compare rows computed by different paths.
 CREATE TABLE IF NOT EXISTS jetsapi.claim_set_summary (
   table_name                       text NOT NULL,
   delivery_session_id              text NOT NULL,
@@ -806,9 +809,12 @@ CREATE TABLE IF NOT EXISTS jetsapi.claim_set_summary (
   key_fingerprint                  bigint,
   key_sketch                       bytea,
   claim_set_judged_at              timestamp with time zone,
+  computed_by                      text NOT NULL DEFAULT 'database',
   PRIMARY KEY (table_name, delivery_session_id),
   CONSTRAINT claim_set_summary_sketch_ck
-             CHECK (key_sketch IS NULL OR octet_length(key_sketch) = 12288)
+             CHECK (key_sketch IS NULL OR octet_length(key_sketch) = 12288),
+  CONSTRAINT claim_set_summary_computed_by_ck
+             CHECK (computed_by IN ('database', 'pipeline'))
 );
 -- stmt
 -- claim_set_judged_at on a table created before it: added once, and every row there then
@@ -823,6 +829,20 @@ BEGIN
                     AND attname = 'claim_set_judged_at' AND NOT attisdropped) THEN
     ALTER TABLE jetsapi.claim_set_summary ADD COLUMN claim_set_judged_at timestamp with time zone;
     UPDATE jetsapi.claim_set_summary SET claim_set_judged_at = summarised_at;
+  END IF;
+END
+$$;
+-- stmt
+-- computed_by on a table created before it: added once, its default giving every row there
+-- database, since feed_detect was the only writer before the pipeline operator.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_attribute
+                  WHERE attrelid = 'jetsapi.claim_set_summary'::regclass
+                    AND attname = 'computed_by' AND NOT attisdropped) THEN
+    ALTER TABLE jetsapi.claim_set_summary ADD COLUMN computed_by text NOT NULL DEFAULT 'database';
+    ALTER TABLE jetsapi.claim_set_summary ADD CONSTRAINT claim_set_summary_computed_by_ck
+      CHECK (computed_by IN ('database', 'pipeline'));
   END IF;
 END
 $$;

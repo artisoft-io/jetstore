@@ -1079,6 +1079,12 @@ class RegexNode(_Base):
     use_scrubbed_value: bool | None = Field(default=None, description="Match against the scrubbed value rather than the raw one.")
 
 
+class ClaimSetSummarySpec(_Base):
+    """Configuration of the claim_set_summary operator: partial, on every node of a step whose input is sharded by member, or merge, on the one node of a later step that reads the partials."""
+    comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
+    mode: Literal["partial", "merge"] = Field(description="partial summarises the node's records and emits one partial record; merge adds every partial of the run and writes the delivery's summary row.")
+
+
 class RenderSpec(_Base):
     """Configuration of the render transformation operator: the template it applies, the column it reads and the column the rendered text lands in."""
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
@@ -1613,9 +1619,10 @@ class TransformationSpecRender(TransformationSpecBase):
 
 
 class TransformationSpecClaimSetSummary(TransformationSpecBase):
-    """Summarises a delivery's records into its claim-set summary row, read by the feed detection, and forwards every record unchanged."""
+    """Summarises a delivery's claim records into its claim-set summary row, read by the feed detection: one partial per node of a step sharded by member, then a merge of the partials on one node, which writes the row."""
     type: Literal["claim_set_summary"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.")
-    output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
+    claim_set_summary_config: ClaimSetSummarySpec = Field(description="Configuration of the claim_set_summary operator: its mode.")
+    output_channel: OutputChannelConfig | None = Field(default=None, description="The channel a partial is emitted on, whose channel spec carries the partial columns. Set in partial mode; a merge writes the summary row and takes none.")
 
 
 class TransformationSpecOverride(_Base):
@@ -1788,6 +1795,7 @@ _MATRIX_KEYS = {
     "PromptTemplateSpec": ("PromptTemplateSpec", "*"),
     "RegexNode": ("RegexNode", "*"),
     "RenderSpec": ("RenderSpec", "*"),
+    "ClaimSetSummarySpec": ("ClaimSetSummarySpec", "*"),
     "ReportCmdSpec": ("ReportCmdSpec", "s3_copy_file"),
     "S3CopyFileSpec": ("S3CopyFileSpec", "*"),
     "SchemaColumnSpec": ("SchemaColumnSpec", "*"),

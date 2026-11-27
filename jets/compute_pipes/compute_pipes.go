@@ -234,9 +234,9 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 				outputChannels = append(outputChannels, outputChannel)
 			default:
 				// Note the ollama operator falls here: it augments the input record in
-				// place, so its output channel shares the input channel's spec.
-				outputChannel := &transformationConfig.OutputChannel
-				outputChannels = append(outputChannels, outputChannel)
+				// place, so its output channel shares the input channel's spec. A
+				// claim_set_summary merge has none (claimSetSummaryOutputChannels).
+				outputChannels = append(outputChannels, claimSetSummaryOutputChannels(transformationConfig)...)
 			}
 			// The operators that report row level errors write to an error channel, which
 			// must be registered here too or it is missing from the channel registry.

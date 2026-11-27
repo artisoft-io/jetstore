@@ -705,7 +705,10 @@ def test_the_fixtures_fill_two_of_the_twenty_five_empty_types():
     # instance and without a re-pin, so the assertion was already failing at 32;
     # `TransformationSpecClaimSetSummary` is the claim_set_summary operator's, which
     # ships before the first configuration that uses it.
-    assert len(cov["empty"]) == 33
+    #
+    # **34 the same day**: `ClaimSetSummarySpec`, the operator's configuration block,
+    # arrived with its two modes, for the same reason.
+    assert len(cov["empty"]) == 34
     assert cov["filled_by_fixtures"] == ["DomainKeysSpec", "OllamaServerSpec", "OllamaSpec"]
 
 

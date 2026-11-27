@@ -13,6 +13,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"log"
 	"math"
 	"net/url"
 	"os"
@@ -138,40 +139,56 @@ func TestClaimSetSummaryTextIsPostgres(t *testing.T) {
 	}
 }
 
-// claimSetSummaryTestChannels are a source and a pass-through output channel
-// over columns.
-func claimSetSummaryTestChannels(columns []string) (*InputChannel, *OutputChannel, *ChannelRegistry) {
+// claimSetSummaryTestChannel is a channel spec over columns, with its column
+// map set.
+func claimSetSummaryTestChannel(name string, columns []string) (*ChannelSpec, *map[string]int) {
 	columnsMap := make(map[string]int, len(columns))
 	for i, c := range columns {
 		columnsMap[c] = i
 	}
-	spec := &ChannelSpec{Name: "claims", Columns: columns}
+	spec := &ChannelSpec{Name: name, Columns: columns}
 	spec.SetColumnsMap(&columnsMap)
+	return spec, &columnsMap
+}
+
+// claimSetSummaryTestResolved resolves what pipeline execution peKey's
+// summary is for, as the start of a step does, and returns the operator's
+// configuration in the given mode.
+func claimSetSummaryTestResolved(t *testing.T, pool *pgxpool.Pool, peKey int, mode string) *ClaimSetSummarySpec {
+	t.Helper()
+	steps := []PipeSpec{{Type: "fan_out", Apply: []TransformationSpec{{Type: ClaimSetSummaryOperatorType,
+		ClaimSetSummaryConfig: &ClaimSetSummarySpec{Mode: mode}}}}}
+	if err := resolveClaimSetSummaries(context.Background(), pool, peKey, steps); err != nil {
+		t.Fatal(err)
+	}
+	return steps[0].Apply[0].ClaimSetSummaryConfig
+}
+
+// runClaimSetSummaryPartial runs the partial mode over records as a node of a
+// fan_out would, with no database, and returns what reached its output
+// channel.
+func runClaimSetSummaryPartial(t *testing.T, config *ClaimSetSummarySpec, columns []string, records [][]any) [][]any {
+	t.Helper()
+	spec, columnsMap := claimSetSummaryTestChannel("claims", columns)
+	pspec, pcolumns := claimSetSummaryTestChannel("partial", claimset.PartialColumns)
 	registry := &ChannelRegistry{
 		ComputeChannels: map[string]*Channel{
-			"claims.out": {Name: "claims.out", Channel: make(chan []any), Columns: &columnsMap, Config: spec},
+			"partial.out": {Name: "partial.out", Channel: make(chan []any), Columns: pcolumns, Config: pspec},
 		},
 		ClosedChannels: make(map[string]bool),
 	}
-	outputCh, _ := registry.GetOutputChannel("claims.out")
-	return &InputChannel{Name: "claims.in", Columns: &columnsMap, Config: spec}, outputCh, registry
-}
-
-// runClaimSetSummary runs the operator over records as a fan_out would, and
-// returns what reached the output channel.
-func runClaimSetSummary(t *testing.T, bc *BuilderContext, columns []string, records [][]any) [][]any {
-	t.Helper()
-	source, _, registry := claimSetSummaryTestChannels(columns)
-	bc.channelRegistry = registry
-	pipe, err := bc.BuildPipeTransformationEvaluator(source, nil, nil, &TransformationSpec{
-		Type: ClaimSetSummaryOperatorType, OutputChannel: OutputChannelConfig{Name: "claims.out"}})
+	bc := &BuilderContext{done: make(chan struct{}), errCh: make(chan error, 1), env: map[string]any{},
+		channelRegistry: registry}
+	pipe, err := bc.BuildPipeTransformationEvaluator(&InputChannel{Name: "claims.in", Columns: columnsMap,
+		Config: spec}, nil, nil, &TransformationSpec{Type: ClaimSetSummaryOperatorType,
+		ClaimSetSummaryConfig: config, OutputChannel: OutputChannelConfig{Name: "partial.out"}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	var out [][]any
 	var wg sync.WaitGroup
 	wg.Go(func() {
-		for r := range registry.ComputeChannels["claims.out"].Channel {
+		for r := range registry.ComputeChannels["partial.out"].Channel {
 			out = append(out, r)
 		}
 	})
@@ -184,70 +201,209 @@ func runClaimSetSummary(t *testing.T, bc *BuilderContext, columns []string, reco
 		t.Fatal(err)
 	}
 	pipe.Finally()
-	registry.CloseChannel("claims.out")
+	registry.CloseChannel("partial.out")
 	wg.Wait()
 	return out
 }
 
-// Without a database the operator writes nothing and forwards every record,
-// unchanged and in order; so it does when a value has no text.
-func TestClaimSetSummaryForwardsEveryRecord(t *testing.T) {
+// runClaimSetSummaryMerge runs the merge mode over partials as the one node of
+// its step would. textual gives it every value as the text a staged csv file
+// holds.
+func runClaimSetSummaryMerge(t *testing.T, pool *pgxpool.Pool, config *ClaimSetSummarySpec, partials [][]any,
+	textual bool) {
+	t.Helper()
+	spec, columnsMap := claimSetSummaryTestChannel("partial", claimset.PartialColumns)
+	bc := &BuilderContext{dbpool: pool, done: make(chan struct{}), errCh: make(chan error, 1), env: map[string]any{},
+		channelRegistry: &ChannelRegistry{ComputeChannels: map[string]*Channel{}, ClosedChannels: map[string]bool{}}}
+	pipe, err := bc.BuildPipeTransformationEvaluator(&InputChannel{Name: "partial.in", Columns: columnsMap,
+		Config: spec}, nil, nil, &TransformationSpec{Type: ClaimSetSummaryOperatorType, ClaimSetSummaryConfig: config})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range partials {
+		r := slices.Clone(p)
+		if textual {
+			for i, v := range r {
+				if v != nil {
+					r[i] = fmt.Sprint(v)
+				}
+			}
+		}
+		if err := pipe.Apply(&r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := pipe.Done(); err != nil {
+		t.Fatal(err)
+	}
+	pipe.Finally()
+}
+
+// claimSetSummaryShardOfMember shards a record by its member's text, as a
+// splitter sharding on the member column does; a record with no member goes to
+// shard 0.
+func claimSetSummaryShardOfMember(member any, shards int) int {
+	text, _ := claimSetSummaryText(member)
+	if text == nil {
+		return 0
+	}
+	return int(claimset.MemberHash(*text) % uint64(shards))
+}
+
+// runClaimSetSummarySharded summarises a run's records as a pipeline does:
+// the start resolves the target, each of shards nodes summarises its records
+// in partial mode, with no database, and one node merges the partials and
+// writes the row. shardOf names each record's shard.
+func runClaimSetSummarySharded(t *testing.T, pool *pgxpool.Pool, peKey int, columns []string, records [][]any,
+	shards int, shardOf func(record []any) int, textual bool) {
+	t.Helper()
+	parts := make([][][]any, shards)
+	for _, r := range records {
+		k := shardOf(r)
+		parts[k] = append(parts[k], r)
+	}
+	partial := claimSetSummaryTestResolved(t, pool, peKey, ClaimSetSummaryPartial)
+	var partials [][]any
+	for k := range parts {
+		out := runClaimSetSummaryPartial(t, partial, columns, parts[k])
+		if len(out) != 1 {
+			t.Fatalf("shard %d emitted %d partials", k, len(out))
+		}
+		partials = append(partials, out...)
+	}
+	runClaimSetSummaryMerge(t, pool, claimSetSummaryTestResolved(t, pool, peKey, ClaimSetSummaryMerge), partials,
+		textual)
+}
+
+// The partial mode emits exactly one record, its partial, whatever it read,
+// and forwards none; a partial node is given no database. Without a resolved
+// target, as when the start of the step resolved none, the partial carries why
+// and counts nothing, and a merge of it writes nothing.
+func TestClaimSetSummaryPartialEmitsOneRecord(t *testing.T) {
 	columns := []string{"k", "m", "d"}
 	records := [][]any{{"a", "m1", time.Now()}, {"b", nil, nil}, {[]byte("x"), "m2", "not a date"}}
-	bc := &BuilderContext{done: make(chan struct{}), errCh: make(chan error, 1), env: map[string]any{}}
-	out := runClaimSetSummary(t, bc, columns, slices.Clone(records))
-	if !reflect.DeepEqual(out, records) {
-		t.Errorf("forwarded %v, want %v", out, records)
+	out := runClaimSetSummaryPartial(t, &ClaimSetSummarySpec{Mode: ClaimSetSummaryPartial}, columns, records)
+	if len(out) != 1 {
+		t.Fatalf("emitted %d records, want one partial", len(out))
+	}
+	pos := slices.Index(claimset.PartialColumns, claimset.PartialSkip)
+	if why, _ := out[0][pos].(string); !strings.Contains(why, "resolved no feed") {
+		t.Errorf("the partial's skip: %q", why)
+	}
+	p, err := claimset.PartialOf(func(c string) any { return out[0][slices.Index(claimset.PartialColumns, c)] })
+	if err != nil || p.Rows != 0 {
+		t.Errorf("the partial %+v (%v)", p, err)
+	}
+
+	// A resolved target with a data error on one record: the node gives up
+	// and says why, and still emits its one partial.
+	f := feedprofile.Feed{TableName: "t", Client: "c", Profile: feedprofile.Profile{DeclaredBy: "x",
+		ClaimSet: &feedprofile.ClaimSet{Table: "claims", KeyColumns: []string{"k"}, ServiceDateColumn: "d",
+			MemberColumn: "m"}}}
+	resolved, _ := json.Marshal(claimset.Resolution{Target: &claimset.Target{Feed: f, DeliverySession: "1",
+		Session: "s", Arrival: time.Now()}})
+	config := &ClaimSetSummarySpec{Mode: ClaimSetSummaryPartial, Resolved: resolved}
+	out = runClaimSetSummaryPartial(t, config, columns, records)
+	if len(out) != 1 {
+		t.Fatalf("emitted %d records, want one partial", len(out))
+	}
+	if why, _ := out[0][pos].(string); !strings.Contains(why, "the key column 'k' carries a []uint8") {
+		t.Errorf("the partial's skip: %q", why)
+	}
+	out = runClaimSetSummaryPartial(t, config, columns, records[:2])
+	p, err = claimset.PartialOf(func(c string) any { return out[0][slices.Index(claimset.PartialColumns, c)] })
+	if err != nil || p.Skip != "" || p.Rows != 2 || p.Keys.Count != 2 || p.Members != 1 || p.DatedRows != 1 {
+		t.Errorf("the partial %+v (%v)", p, err)
 	}
 }
 
-// A step carrying the operator runs on one node: the starters refuse more,
-// and the startup validation refuses it under a splitter.
-func TestClaimSetSummaryRunsOnOneNode(t *testing.T) {
-	steps := []PipeSpec{{Type: "fan_out", Apply: []TransformationSpec{{Type: "map_record"},
-		{Type: ClaimSetSummaryOperatorType}}}}
-	if err := validateClaimSetSummaryNodes(steps, 1, "s"); err != nil {
-		t.Errorf("one node refused: %v", err)
+// The partial is valid on any number of nodes and under a splitter; the merge
+// only on one node, outside a splitter and with no output channel. The
+// starters refuse a merge on more than one node, ValidatePipeSpecConfig
+// refuses the rest, and a save warns of each.
+func TestClaimSetSummaryNodes(t *testing.T) {
+	step := func(mode string) []PipeSpec {
+		return []PipeSpec{{Type: "fan_out", Apply: []TransformationSpec{{Type: "map_record"},
+			{Type: ClaimSetSummaryOperatorType, ClaimSetSummaryConfig: &ClaimSetSummarySpec{Mode: mode}}}}}
 	}
-	if err := validateClaimSetSummaryNodes(steps, 3, "s"); err == nil || !strings.Contains(err.Error(), "one node") {
-		t.Errorf("three nodes: %v", err)
-	}
-	if err := validateClaimSetSummaryNodes([]PipeSpec{{Type: "fan_out", Apply: []TransformationSpec{
-		{Type: "map_record"}}}}, 3, "s"); err != nil {
-		t.Errorf("a step without the operator refused: %v", err)
-	}
-
-	for _, pipeType := range []string{"fan_out", "splitter"} {
-		args := &CpipesStartup{}
-		pipeConfig := []PipeSpec{{Type: pipeType, InputChannel: InputChannelConfig{Name: "claims.in"},
-			Apply: []TransformationSpec{{Type: ClaimSetSummaryOperatorType,
-				OutputChannel: OutputChannelConfig{Name: "claims.out", SpecName: "claims"}}}}}
-		err := args.ValidatePipeSpecConfig(&ComputePipesConfig{}, pipeConfig)
-		if (pipeType == "splitter") != (err != nil && strings.Contains(err.Error(), "splitter")) {
-			t.Errorf("under a %s: %v", pipeType, err)
+	for _, n := range []int{1, 3, 40} {
+		if err := validateClaimSetSummaryNodes(step(ClaimSetSummaryPartial), n, "s"); err != nil {
+			t.Errorf("a partial on %d nodes refused: %v", n, err)
 		}
 	}
+	if err := validateClaimSetSummaryNodes(step(ClaimSetSummaryMerge), 1, "s"); err != nil {
+		t.Errorf("a merge on one node refused: %v", err)
+	}
+	if err := validateClaimSetSummaryNodes(step(ClaimSetSummaryMerge), 3, "s"); err == nil ||
+		!strings.Contains(err.Error(), "one node") {
+		t.Errorf("a merge on three nodes: %v", err)
+	}
 
-	// A save warns of the splitter, and of nothing else.
-	doc := `{"cluster_config": {}, "conditional_pipes_config": [{"pipes_config": [
-		{"type": "fan_out", "input_channel": {"name": "a"}, "apply": [{"type": "claim_set_summary",
-		  "output_channel": {"name": "b"}}]},
+	cpConfig := &ComputePipesConfig{Channels: []ChannelSpec{
+		{Name: "claims", Columns: []string{"k", "m", "d"}},
+		{Name: "partials", Columns: slices.Clone(claimset.PartialColumns)},
+		{Name: "short", Columns: claimset.PartialColumns[1:]}}}
+	cases := []struct {
+		pipeType, mode, output, outputSpec, inputType, inputName string
+		refused                                                  string
+	}{
+		{"fan_out", ClaimSetSummaryPartial, "p.out", "partials", "", "claims.in", ""},
+		{"splitter", ClaimSetSummaryPartial, "p.out", "partials", "", "claims.in", ""},
+		{"fan_out", ClaimSetSummaryPartial, "", "", "", "claims.in", "lacks"},
+		{"fan_out", ClaimSetSummaryPartial, "p.out", "short", "", "claims.in", "claim_set_skip"},
+		{"fan_out", ClaimSetSummaryMerge, "", "", "stage", "partials", ""},
+		{"fan_out", ClaimSetSummaryMerge, "", "", "stage", "short", "claim_set_skip"},
+		{"fan_out", ClaimSetSummaryMerge, "p.out", "partials", "stage", "partials", "no output_channel"},
+		{"splitter", ClaimSetSummaryMerge, "", "", "stage", "partials", "splitter"},
+		{"fan_out", "", "p.out", "partials", "", "claims.in", "not partial or merge"},
+		{"fan_out", "whole", "p.out", "partials", "", "claims.in", "not partial or merge"},
+	}
+	for _, c := range cases {
+		pipe := PipeSpec{Type: c.pipeType, InputChannel: InputChannelConfig{Name: c.inputName, Type: c.inputType},
+			Apply: []TransformationSpec{{Type: ClaimSetSummaryOperatorType,
+				ClaimSetSummaryConfig: &ClaimSetSummarySpec{Mode: c.mode},
+				OutputChannel:         OutputChannelConfig{Name: c.output, SpecName: c.outputSpec}}}}
+		err := validateClaimSetSummarySpec(cpConfig, &pipe, &pipe.Apply[0])
+		if (c.refused == "") != (err == nil) || (err != nil && !strings.Contains(err.Error(), c.refused)) {
+			t.Errorf("%+v: %v", c, err)
+		}
+	}
+	missing := PipeSpec{Type: "fan_out", Apply: []TransformationSpec{{Type: ClaimSetSummaryOperatorType}}}
+	if err := validateClaimSetSummarySpec(cpConfig, &missing, &missing.Apply[0]); err == nil ||
+		!strings.Contains(err.Error(), "missing claim_set_summary_config") {
+		t.Errorf("no configuration: %v", err)
+	}
+	// ValidatePipeSpecConfig calls it.
+	args := &CpipesStartup{}
+	pipeConfig := []PipeSpec{{Type: "splitter", InputChannel: InputChannelConfig{Name: "partials.in"},
+		Apply: []TransformationSpec{{Type: ClaimSetSummaryOperatorType,
+			ClaimSetSummaryConfig: &ClaimSetSummarySpec{Mode: ClaimSetSummaryMerge}}}}}
+	if err := args.ValidatePipeSpecConfig(cpConfig, pipeConfig); err == nil || !strings.Contains(err.Error(), "splitter") {
+		t.Errorf("a merge under a splitter: %v", err)
+	}
+
+	// A save warns of what the start refuses, and of nothing else.
+	doc := `{"cluster_config": {}, "channels": [{"name": "partials", "columns": ` + claimSetSummaryJSON(claimset.PartialColumns) + `}],
+	  "conditional_pipes_config": [{"pipes_config": [
+		{"type": "splitter", "input_channel": {"name": "a"}, "apply": [{"type": "claim_set_summary",
+		  "claim_set_summary_config": {"mode": "partial"}, "output_channel": {"name": "b", "channel_spec_name": "partials"}}]},
 		{"type": "splitter", "input_channel": {"name": "b"}, "apply": [{"type": "claim_set_summary",
-		  "output_channel": {"name": "c"}}]}]}]}`
+		  "claim_set_summary_config": {"mode": "merge"}}]}]}]}`
 	findings := ValidateConfigDocument(doc)
-	if len(findings) != 1 || findings[0].Code != "cpipes_config_claim_set_summary_splitter" ||
-		findings[0].Path != "/conditional_pipes_config/0/pipes_config/1" || findings[0].Severity != "warning" {
+	if len(findings) != 1 || findings[0].Code != "cpipes_config_claim_set_summary" ||
+		findings[0].Path != "/conditional_pipes_config/0/pipes_config/1/apply/0" || findings[0].Severity != "warning" {
 		t.Errorf("the save's findings: %+v", findings)
 	}
 
-	// Both starters call the node check, with the count they start.
+	// Both starters call the node check with the count they start, and resolve
+	// the target for the nodes.
 	for file, count := range map[string]string{"actions_start_sharding_cp.go": "shardResult.nbrShardingNodes",
 		"actions_start_reducing_cp.go": "len(partitions)"} {
 		f, err := parser.ParseFile(token.NewFileSet(), file, nil, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
-		found := false
+		found, resolves := false, false
 		ast.Inspect(f, func(n ast.Node) bool {
 			if call, ok := n.(*ast.CallExpr); ok {
 				if id, ok := call.Fun.(*ast.Ident); ok && id.Name == "validateClaimSetSummaryNodes" && len(call.Args) == 3 {
@@ -255,12 +411,65 @@ func TestClaimSetSummaryRunsOnOneNode(t *testing.T) {
 					_ = astExprString(&b, call.Args[1])
 					found = found || b.String() == count
 				}
+				if id, ok := call.Fun.(*ast.Ident); ok && id.Name == "resolveClaimSetSummaries" && len(call.Args) == 4 {
+					var b strings.Builder
+					_ = astExprString(&b, call.Args[2])
+					resolves = resolves || b.String() == "args.PipelineExecKey"
+				}
 			}
 			return true
 		})
 		if !found {
 			t.Errorf("%s does not call validateClaimSetSummaryNodes with %s", file, count)
 		}
+		if !resolves {
+			t.Errorf("%s does not call resolveClaimSetSummaries for the run", file)
+		}
+	}
+}
+
+func claimSetSummaryJSON(v any) string {
+	b, _ := json.Marshal(v)
+	return string(b)
+}
+
+// The layout the documentation shows, a partial beside the sort of a step
+// sharded by member and a merge in the last step reading the partials one
+// partition_writer wrote to one partition, is a configuration every step's
+// start accepts, and its save raises no finding.
+func TestClaimSetSummaryLayoutValidates(t *testing.T) {
+	doc, err := os.ReadFile("testdata/claim_set_summary_sharded.pc.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if findings := ValidateConfigDocument(string(doc)); len(findings) != 0 {
+		t.Errorf("the save's findings: %+v", findings)
+	}
+	var cfg ComputePipesConfig
+	if err := json.Unmarshal(doc, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	modes := 0
+	for i, step := range cfg.ReducingPipesConfig {
+		args := &CpipesStartup{CpConfig: cfg}
+		if err := args.ValidatePipeSpecConfig(&args.CpConfig, step); err != nil {
+			t.Errorf("step %d: %v", i, err)
+		}
+		for _, p := range step {
+			for _, a := range p.Apply {
+				if a.Type == ClaimSetSummaryOperatorType {
+					modes++
+				}
+			}
+		}
+	}
+	if modes != 2 {
+		t.Errorf("%d claim_set_summary operators, want a partial and a merge", modes)
+	}
+	// The partition_writer that carries the partials writes one partition.
+	pw := cfg.ReducingPipesConfig[1][2].Apply[0]
+	if pw.PartitionWriterConfig == nil || pw.PartitionWriterConfig.JetsPartitionKey == nil {
+		t.Error("the partials' partition_writer has no fixed jets_partition_key")
 	}
 }
 
@@ -426,8 +635,26 @@ func claimSetSummaryTestRecords(t *testing.T, pool *pgxpool.Pool, table pgx.Iden
 // the rows; and the table-data purge, which held every run's claim rows until
 // a summary named it, holds none.
 func TestClaimSetSummaryOperatorWritesTheFeedDetectionsRow(t *testing.T) {
+	claimSetSummaryAgainstFeedDetection(t, true)
+}
+
+// The same on a summary table the migration adding computed_by has not
+// reached, as when a deployment's code runs before its migration: the feed
+// detection and the operator's merge both write without the column, and the
+// feed detection reads every row as its own and judges as it does from rows,
+// comparisons included.
+func TestClaimSetSummaryWritesWithoutThePathColumn(t *testing.T) {
+	claimSetSummaryAgainstFeedDetection(t, false)
+}
+
+func claimSetSummaryAgainstFeedDetection(t *testing.T, migrated bool) {
 	pool := claimSetSummaryTestFixture(t)
 	ctx := context.Background()
+	if !migrated {
+		if _, err := pool.Exec(ctx, `ALTER TABLE jetsapi.claim_set_summary DROP COLUMN computed_by`); err != nil {
+			t.Fatal(err)
+		}
+	}
 	feeds := claimSetSummaryTestFeeds(t, pool)
 	o := observe.DefaultClaimSetOptions()
 	o.Now = feedfixture.Clock
@@ -484,8 +711,12 @@ func TestClaimSetSummaryOperatorWritesTheFeedDetectionsRow(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// The operator, once per run, over the run's rows read as records.
+	// The operator, once per run, over the run's rows read as records: in
+	// partial mode on three nodes, the records sharded by member, then in
+	// merge mode on one, every other run reading its partials as the text of
+	// a staged file.
 	claimTables := map[string]pgx.Identifier{}
+	memberColumns := map[string]string{}
 	for _, f := range feeds {
 		if f.Profiled() && f.Profile.ClaimSet != nil {
 			id, err := observe.ClaimSetTable(f.Profile.ClaimSet.Table)
@@ -493,9 +724,12 @@ func TestClaimSetSummaryOperatorWritesTheFeedDetectionsRow(t *testing.T) {
 				t.Fatal(err)
 			}
 			claimTables[f.TableName] = id
+			memberColumns[f.TableName] = f.Profile.ClaimSet.MemberColumn
 		}
 	}
-	for _, r := range runs {
+	const shards = 3
+	sharded := 0
+	for i, r := range runs {
 		table, ok := claimTables[r.table]
 		if !ok {
 			continue
@@ -504,13 +738,37 @@ func TestClaimSetSummaryOperatorWritesTheFeedDetectionsRow(t *testing.T) {
 		if columns == nil {
 			continue
 		}
-		bc := &BuilderContext{dbpool: pool, peKey: r.key, sessionId: r.session, done: make(chan struct{}),
-			errCh: make(chan error, 1), env: map[string]any{}}
-		if out := runClaimSetSummary(t, bc, columns, records); len(out) != len(records) {
-			t.Errorf("run %d forwarded %d of %d records", r.key, len(out), len(records))
+		member := slices.Index(columns, memberColumns[r.table])
+		used := map[int]bool{}
+		shardOf := func(record []any) int {
+			k := 0
+			if member >= 0 {
+				k = claimSetSummaryShardOfMember(record[member], shards)
+			}
+			used[k] = true
+			return k
+		}
+		runClaimSetSummarySharded(t, pool, r.key, columns, records, shards, shardOf, i%2 == 1)
+		if len(used) > 1 {
+			sharded++
 		}
 	}
+	if sharded == 0 {
+		t.Fatal("no run's records were spread over more than one shard; the test asserts nothing of the merge")
+	}
 	got := claimSetSummaryTestRows(t, pool, false)
+	// Every column but the path that computed the row is the same; without
+	// the column, neither writer wrote one.
+	for label, rows := range map[string]map[string]map[string]any{"database": want, "pipeline": got} {
+		for k := range rows {
+			by, has := rows[k]["computed_by"]
+			if has != migrated || (migrated && by != label) {
+				t.Errorf("%s: the %s path's row has computed_by %v (present %v)", k, label, by, has)
+			}
+			delete(rows[k], "computed_by")
+		}
+	}
+	t.Logf("%d of the runs spread over more than one shard", sharded)
 
 	keys := func(m map[string]map[string]any) []string {
 		k := make([]string, 0, len(m))
@@ -774,16 +1032,93 @@ func TestClaimSetSummaryReadsDeliveriesAsTheFeedDetectionDoes(t *testing.T) {
 	if len(records) == 0 {
 		t.Fatalf("the purged file's run %s has no claim rows to summarise", runSession)
 	}
-	bc := &BuilderContext{dbpool: pool, peKey: runKey, sessionId: runSession, done: make(chan struct{}),
-		errCh: make(chan error, 1), env: map[string]any{}}
-	if out := runClaimSetSummary(t, bc, columns, records); len(out) != len(records) {
-		t.Errorf("forwarded %d of %d records", len(out), len(records))
-	}
+	runClaimSetSummarySharded(t, pool, runKey, columns, records, 2, func(r []any) int { return len(fmt.Sprint(r...)) % 2 },
+		false)
 	var n int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM jetsapi.claim_set_summary`).Scan(&n); err != nil {
 		t.Fatal(err)
 	}
 	if n != 0 {
 		t.Errorf("a run re-processing a purged file wrote %d summaries", n)
+	}
+}
+
+// The merge writes nothing where the shards were not disjoint, and logs which
+// of the keys and the members were split: a key that also arrives under a
+// member of another shard, and records sharded by claim rather than by member.
+// Sharded by member, the same records are written.
+func TestClaimSetSummaryMergeRefusesSplitShards(t *testing.T) {
+	pool := claimSetSummaryTestFixture(t)
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, `TRUNCATE jetsapi.claim_set_summary`); err != nil {
+		t.Fatal(err)
+	}
+	f := feedprofile.Feed{TableName: "split_test", Client: "c", Profile: feedprofile.Profile{DeclaredBy: "x",
+		ClaimSet: &feedprofile.ClaimSet{Table: "claims", KeyColumns: []string{"claim_id", "line"},
+			ServiceDateColumn: "dos", MemberColumn: "member"}}}
+	resolved, err := json.Marshal(claimset.Resolution{Target: &claimset.Target{Feed: f, DeliverySession: "1700000000000",
+		Session: "run-split", Arrival: time.UnixMilli(1700000000000).UTC()}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	columns := []string{"claim_id", "line", "member", "dos"}
+	var records [][]any
+	for m := range 200 {
+		for c := range 3 {
+			records = append(records, []any{fmt.Sprintf("c%d-%d", m, c), int64(1), fmt.Sprintf("m%d", m),
+				time.Date(2026, 3, 1+c, 0, 0, 0, 0, time.UTC)})
+		}
+	}
+	byMember := func(r []any) int { return claimSetSummaryShardOfMember(r[2], 3) }
+	byClaim := func(r []any) int { return int(claimset.MemberHash(r[0].(string)) % 3) }
+	// 40 keys that also arrive under a member of another shard.
+	split := slices.Clone(records)
+	for i := 0; len(split) < len(records)+40; i++ {
+		r, other := records[3*i], records[len(records)-1-3*i]
+		if byMember(r) != byMember(other) {
+			split = append(split, []any{r[0], r[1], other[2], r[3]})
+		}
+	}
+	run := func(records [][]any, shardOf func([]any) int) (rows int, logged string) {
+		parts := make([][][]any, 3)
+		for _, r := range records {
+			parts[shardOf(r)] = append(parts[shardOf(r)], r)
+		}
+		var partials [][]any
+		for _, p := range parts {
+			partials = append(partials, runClaimSetSummaryPartial(t, &ClaimSetSummarySpec{
+				Mode: ClaimSetSummaryPartial, Resolved: resolved}, columns, p)...)
+		}
+		var buf strings.Builder
+		log.SetOutput(&buf)
+		runClaimSetSummaryMerge(t, pool, &ClaimSetSummarySpec{Mode: ClaimSetSummaryMerge, Resolved: resolved},
+			partials, true)
+		log.SetOutput(os.Stderr)
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM jetsapi.claim_set_summary`).Scan(&rows); err != nil {
+			t.Fatal(err)
+		}
+		return rows, buf.String()
+	}
+	if rows, logged := run(split, byMember); rows != 0 || !strings.Contains(logged, "distinct keys sum to") ||
+		strings.Contains(logged, "members sum to") {
+		t.Errorf("a key on two shards: %d rows written, logged %s", rows, logged)
+	}
+	if rows, logged := run(records, byClaim); rows != 0 || strings.Contains(logged, "distinct keys sum to") ||
+		!strings.Contains(logged, "members sum to") {
+		t.Errorf("a member on two shards: %d rows written, logged %s", rows, logged)
+	}
+	if rows, logged := run(records, byMember); rows != 1 {
+		t.Errorf("sharded by member: %d rows written, logged %s", rows, logged)
+	}
+	var got struct {
+		rows, keys, members int64
+		by                  string
+	}
+	if err := pool.QueryRow(ctx, `SELECT row_count, distinct_key_count, member_count, computed_by
+		FROM jetsapi.claim_set_summary`).Scan(&got.rows, &got.keys, &got.members, &got.by); err != nil {
+		t.Fatal(err)
+	}
+	if got.rows != 600 || got.keys != 600 || got.members != 200 || got.by != claimset.ComputedByPipeline {
+		t.Errorf("the row written: %+v", got)
 	}
 }

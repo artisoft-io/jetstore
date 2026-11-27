@@ -93,7 +93,7 @@ built, so a feed's override that is not a non-negative integer stops the run at 
 
 | Type | What it does |
 |---|---|
-| [`claim_set_summary`](/docs/developer/reference/generated/pipeline-configuration/#transformationspecclaimsetsummary) | Forwards every record unchanged and, once it has read the last, writes the delivery's claim-set summary row, the row the feed detection's claim-set checks judge from, computed from the records rather than from the claim-set table; the columns are the feed profile's. Runs on one node (`pipe_transformation_claim_set_summary.go`). See [the claim_set_summary operator](/docs/developer/compute-pipes/operators/claim-set-summary/). |
+| [`claim_set_summary`](/docs/developer/reference/generated/pipeline-configuration/#transformationspecclaimsetsummary) | Computes the delivery's claim-set summary row, the row the feed detection's claim-set checks judge from, from the records rather than from the claim-set table, in two steps: `partial` on every node of a step sharded by member emits one partial record per node, and `merge` on one node of a later step adds them and writes the row; the columns are the feed profile's (`pipe_transformation_claim_set_summary.go`). See [the claim_set_summary operator](/docs/developer/compute-pipes/operators/claim-set-summary/). |
 
 ### Write partitions
 
@@ -126,7 +126,7 @@ The contract matrix needs a row for every shape an `apply` entry can take, and t
 | Page | Kind | Covers |
 |---|---|---|
 | [The render operator](/docs/developer/compute-pipes/operators/render/) | reference | A configured text template over a serialised entity: configuration, notation, failure model |
-| [The claim_set_summary operator](/docs/developer/compute-pipes/operators/claim-set-summary/) | reference | A delivery's claim-set summary computed in the pipeline: what it reads, where it runs, what it writes and when it writes nothing |
+| [The claim_set_summary operator](/docs/developer/compute-pipes/operators/claim-set-summary/) | reference | A delivery's claim-set summary computed in the pipeline on many nodes: its preconditions, the two-step layout, the partial record, the merge's check, and when it writes nothing |
 | [How the render operator is designed](/docs/developer/compute-pipes/operators/render-design/) | explanation | Why its input is a column, the worked example that ships, and the measurement it exists because of |
 | [The inference operators](/docs/developer/compute-pipes/operators/infer/) | reference | The `infer` type and backend selection, and the plumbing `ollama`, `vllm` and `embed` share |
 | [What the inference measurements showed](/docs/developer/compute-pipes/operators/infer-measurements/) | explanation | Backend choice, throughput, cold start, encoding, and a template against a model |

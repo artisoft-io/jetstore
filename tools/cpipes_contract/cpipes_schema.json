@@ -1527,8 +1527,12 @@
     },
     "ClaimSetSummaryPipe": {
       "additionalProperties": false,
-      "description": "Summarises a delivery's records into its claim-set summary row and forwards every record unchanged.",
+      "description": "Summarises a delivery's claim records into its claim-set summary row: one partial per node of a step sharded by member, then a merge of the partials on one node, which writes the row.",
       "properties": {
+        "claim_set_summary_config": {
+          "$ref": "#/$defs/ClaimSetSummarySpec",
+          "description": "Configuration of the claim_set_summary operator: its mode."
+        },
         "comment": {
           "anyOf": [
             {
@@ -1559,30 +1563,38 @@
           "title": "Conditional Config"
         },
         "output_channel": {
-          "description": "The channel the operator writes to.",
-          "discriminator": {
-            "mapping": {
-              "memory": "#/$defs/OutputChannelConfigMemory",
-              "output": "#/$defs/OutputChannelConfigOutput",
-              "sql": "#/$defs/OutputChannelConfigSql",
-              "stage": "#/$defs/OutputChannelConfigStage"
-            },
-            "propertyName": "type"
-          },
-          "oneOf": [
+          "anyOf": [
             {
-              "$ref": "#/$defs/OutputChannelConfigMemory"
+              "discriminator": {
+                "mapping": {
+                  "memory": "#/$defs/OutputChannelConfigMemory",
+                  "output": "#/$defs/OutputChannelConfigOutput",
+                  "sql": "#/$defs/OutputChannelConfigSql",
+                  "stage": "#/$defs/OutputChannelConfigStage"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/OutputChannelConfigMemory"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigStage"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigOutput"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigSql"
+                }
+              ]
             },
             {
-              "$ref": "#/$defs/OutputChannelConfigStage"
-            },
-            {
-              "$ref": "#/$defs/OutputChannelConfigOutput"
-            },
-            {
-              "$ref": "#/$defs/OutputChannelConfigSql"
+              "type": "null"
             }
           ],
+          "default": null,
+          "description": "The channel a partial is emitted on, whose channel spec carries the partial columns. Set in partial mode; a merge writes the summary row and takes none.",
           "title": "Output Channel"
         },
         "type": {
@@ -1606,9 +1618,42 @@
       },
       "required": [
         "type",
-        "output_channel"
+        "claim_set_summary_config"
       ],
       "title": "TransformationSpecClaimSetSummary",
+      "type": "object"
+    },
+    "ClaimSetSummarySpec": {
+      "additionalProperties": false,
+      "description": "Configuration of the claim_set_summary operator: partial, on every node of a step whose input is sharded by member, or merge, on the one node of a later step that reads the partials.",
+      "properties": {
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "mode": {
+          "description": "partial summarises the node's records and emits one partial record; merge adds every partial of the run and writes the delivery's summary row.",
+          "enum": [
+            "partial",
+            "merge"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "ClaimSetSummarySpec",
       "type": "object"
     },
     "ClusterShardingInfo": {
@@ -18204,8 +18249,12 @@
     },
     "TransformationSpecClaimSetSummary": {
       "additionalProperties": false,
-      "description": "Summarises a delivery's records into its claim-set summary row, read by the feed detection, and forwards every record unchanged.",
+      "description": "Summarises a delivery's claim records into its claim-set summary row, read by the feed detection: one partial per node of a step sharded by member, then a merge of the partials on one node, which writes the row.",
       "properties": {
+        "claim_set_summary_config": {
+          "$ref": "#/$defs/ClaimSetSummarySpec",
+          "description": "Configuration of the claim_set_summary operator: its mode."
+        },
         "comment": {
           "anyOf": [
             {
@@ -18236,30 +18285,38 @@
           "title": "Conditional Config"
         },
         "output_channel": {
-          "description": "The channel the operator writes to.",
-          "discriminator": {
-            "mapping": {
-              "memory": "#/$defs/OutputChannelConfigMemory",
-              "output": "#/$defs/OutputChannelConfigOutput",
-              "sql": "#/$defs/OutputChannelConfigSql",
-              "stage": "#/$defs/OutputChannelConfigStage"
-            },
-            "propertyName": "type"
-          },
-          "oneOf": [
+          "anyOf": [
             {
-              "$ref": "#/$defs/OutputChannelConfigMemory"
+              "discriminator": {
+                "mapping": {
+                  "memory": "#/$defs/OutputChannelConfigMemory",
+                  "output": "#/$defs/OutputChannelConfigOutput",
+                  "sql": "#/$defs/OutputChannelConfigSql",
+                  "stage": "#/$defs/OutputChannelConfigStage"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/OutputChannelConfigMemory"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigStage"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigOutput"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigSql"
+                }
+              ]
             },
             {
-              "$ref": "#/$defs/OutputChannelConfigStage"
-            },
-            {
-              "$ref": "#/$defs/OutputChannelConfigOutput"
-            },
-            {
-              "$ref": "#/$defs/OutputChannelConfigSql"
+              "type": "null"
             }
           ],
+          "default": null,
+          "description": "The channel a partial is emitted on, whose channel spec carries the partial columns. Set in partial mode; a merge writes the summary row and takes none.",
           "title": "Output Channel"
         },
         "type": {
@@ -18283,7 +18340,7 @@
       },
       "required": [
         "type",
-        "output_channel"
+        "claim_set_summary_config"
       ],
       "title": "TransformationSpecClaimSetSummary",
       "type": "object"

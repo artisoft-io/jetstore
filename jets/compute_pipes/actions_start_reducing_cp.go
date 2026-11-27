@@ -222,9 +222,9 @@ startStepId:
 		}
 	}
 
-	// A claim_set_summary operator summarises a whole delivery, so its step runs
-	// on one node.
-	if err := validateClaimSetSummaryNodes(pipeConfig, len(partitions), stepName); err != nil {
+	// A claim_set_summary merge writes the whole delivery's summary, so its step runs on one
+	// node; the operator's feed and delivery are resolved once here, for every node.
+	if err := firstError(validateClaimSetSummaryNodes(pipeConfig, len(partitions), stepName), resolveClaimSetSummaries(ctx, dbpool, args.PipelineExecKey, pipeConfig)); err != nil {
 		return result, err
 	}
 
