@@ -58,7 +58,8 @@ def test_the_difference_is_where_the_baseline_says_it_is():
 
 
 def test_the_transformation_baseline_is_the_one_the_plan_declares():
-    """16 / 0 / 3, re-derived rather than copied.
+    """17 / 0 / 3, re-derived rather than copied: 16 until 2026-11-27, when
+    claim_set_summary joined the Go worker's side.
 
     This was measured on 2026-09-22 against a tree that has since moved, so
     this asserts the plan's declared number against the checkout rather than
@@ -66,7 +67,7 @@ def test_the_transformation_baseline_is_the_one_the_plan_declares():
     one is spelled out because it is the number three documents carry.
     """
     entry = token_diff.compute().by_kind("transformation")
-    assert (len(entry.go_only), len(entry.node_only), len(entry.both)) == (16, 0, 3)
+    assert (len(entry.go_only), len(entry.node_only), len(entry.both)) == (17, 0, 3)
     assert entry.both == ("filter", "map_record", "partition_writer")
 
 
@@ -414,7 +415,7 @@ def test_writing_the_baseline_round_trips(tmp_path, go_fixture):
                 "--baseline",
                 str(written),
                 "--write-baseline",
-                "2026-09-21",
+                "2026-11-27",
             ]
         )
         == main.EXIT_OK

@@ -1525,6 +1525,92 @@
       "title": "ChannelSpec",
       "type": "object"
     },
+    "ClaimSetSummaryPipe": {
+      "additionalProperties": false,
+      "description": "Summarises a delivery's records into its claim-set summary row and forwards every record unchanged.",
+      "properties": {
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "conditional_config": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ConditionalTransformationSpecClaimSetSummaryPipe"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Conditions that override fields of this operator or replace it altogether.",
+          "title": "Conditional Config"
+        },
+        "output_channel": {
+          "description": "The channel the operator writes to.",
+          "discriminator": {
+            "mapping": {
+              "memory": "#/$defs/OutputChannelConfigMemory",
+              "output": "#/$defs/OutputChannelConfigOutput",
+              "sql": "#/$defs/OutputChannelConfigSql",
+              "stage": "#/$defs/OutputChannelConfigStage"
+            },
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OutputChannelConfigMemory"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigStage"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigOutput"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigSql"
+            }
+          ],
+          "title": "Output Channel"
+        },
+        "type": {
+          "const": "claim_set_summary",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.",
+          "title": "Type",
+          "type": "string"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExpressionNode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Guard: the transformation is applied only when this evaluates true."
+        }
+      },
+      "required": [
+        "type",
+        "output_channel"
+      ],
+      "title": "TransformationSpecClaimSetSummary",
+      "type": "object"
+    },
     "ClusterShardingInfo": {
       "additionalProperties": false,
       "description": "Pipeline configuration for worker nodes - internal to JetStore",
@@ -3382,6 +3468,46 @@
           "anyOf": [
             {
               "$ref": "#/$defs/TransformationSpecOverrideAnonymizePipe"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The override (type empty) or replacement (type set) applied when the condition holds."
+        },
+        "when": {
+          "$ref": "#/$defs/ExpressionNode",
+          "description": "When is the condition to evaluate, if true then apply the Then spec."
+        }
+      },
+      "required": [
+        "when"
+      ],
+      "title": "ConditionalTransformationSpec",
+      "type": "object"
+    },
+    "ConditionalTransformationSpecClaimSetSummaryPipe": {
+      "additionalProperties": false,
+      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation altogether.",
+      "properties": {
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "then": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TransformationSpecOverrideClaimSetSummaryPipe"
             },
             {
               "type": "null"
@@ -12782,6 +12908,7 @@
                     "aggregate": "#/$defs/TransformationSpecAggregate",
                     "analyze": "#/$defs/TransformationSpecAnalyze",
                     "anonymize": "#/$defs/TransformationSpecAnonymize",
+                    "claim_set_summary": "#/$defs/TransformationSpecClaimSetSummary",
                     "clustering": "#/$defs/TransformationSpecClustering",
                     "distinct": "#/$defs/TransformationSpecDistinct",
                     "embed": "#/$defs/TransformationSpecEmbed",
@@ -12858,6 +12985,9 @@
                   },
                   {
                     "$ref": "#/$defs/TransformationSpecRender"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationSpecClaimSetSummary"
                   },
                   {
                     "$ref": "#/$defs/TransformationSpecSite"
@@ -13017,6 +13147,7 @@
                     "aggregate": "#/$defs/TransformationSpecAggregate",
                     "analyze": "#/$defs/TransformationSpecAnalyze",
                     "anonymize": "#/$defs/TransformationSpecAnonymize",
+                    "claim_set_summary": "#/$defs/TransformationSpecClaimSetSummary",
                     "clustering": "#/$defs/TransformationSpecClustering",
                     "distinct": "#/$defs/TransformationSpecDistinct",
                     "embed": "#/$defs/TransformationSpecEmbed",
@@ -13093,6 +13224,9 @@
                   },
                   {
                     "$ref": "#/$defs/TransformationSpecRender"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationSpecClaimSetSummary"
                   },
                   {
                     "$ref": "#/$defs/TransformationSpecSite"
@@ -17385,6 +17519,7 @@
           "aggregate": "#/$defs/TransformationSpecAggregate",
           "analyze": "#/$defs/TransformationSpecAnalyze",
           "anonymize": "#/$defs/TransformationSpecAnonymize",
+          "claim_set_summary": "#/$defs/TransformationSpecClaimSetSummary",
           "clustering": "#/$defs/TransformationSpecClustering",
           "distinct": "#/$defs/TransformationSpecDistinct",
           "embed": "#/$defs/TransformationSpecEmbed",
@@ -17461,6 +17596,9 @@
         },
         {
           "$ref": "#/$defs/TransformationSpecRender"
+        },
+        {
+          "$ref": "#/$defs/TransformationSpecClaimSetSummary"
         },
         {
           "$ref": "#/$defs/TransformationSpecSite"
@@ -18062,6 +18200,92 @@
         }
       },
       "title": "TransformationSpecBase",
+      "type": "object"
+    },
+    "TransformationSpecClaimSetSummary": {
+      "additionalProperties": false,
+      "description": "Summarises a delivery's records into its claim-set summary row, read by the feed detection, and forwards every record unchanged.",
+      "properties": {
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "conditional_config": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ConditionalTransformationSpec"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Conditions that override fields of this operator or replace it altogether.",
+          "title": "Conditional Config"
+        },
+        "output_channel": {
+          "description": "The channel the operator writes to.",
+          "discriminator": {
+            "mapping": {
+              "memory": "#/$defs/OutputChannelConfigMemory",
+              "output": "#/$defs/OutputChannelConfigOutput",
+              "sql": "#/$defs/OutputChannelConfigSql",
+              "stage": "#/$defs/OutputChannelConfigStage"
+            },
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OutputChannelConfigMemory"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigStage"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigOutput"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigSql"
+            }
+          ],
+          "title": "Output Channel"
+        },
+        "type": {
+          "const": "claim_set_summary",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.",
+          "title": "Type",
+          "type": "string"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExpressionNode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Guard: the transformation is applied only when this evaluates true."
+        }
+      },
+      "required": [
+        "type",
+        "output_channel"
+      ],
+      "title": "TransformationSpecClaimSetSummary",
       "type": "object"
     },
     "TransformationSpecClustering": {
@@ -20250,6 +20474,62 @@
       "title": "TransformationSpecOverride",
       "type": "object"
     },
+    "TransformationSpecOverrideClaimSetSummaryPipe": {
+      "additionalProperties": false,
+      "description": "Fragments of transformation operator to override fields of the host transformation operator.",
+      "properties": {
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "output_channel": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "memory": "#/$defs/OutputChannelConfigMemory",
+                  "output": "#/$defs/OutputChannelConfigOutput",
+                  "sql": "#/$defs/OutputChannelConfigSql",
+                  "stage": "#/$defs/OutputChannelConfigStage"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/OutputChannelConfigMemory"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigStage"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigOutput"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigSql"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The channel the operator writes to.",
+          "title": "Output Channel"
+        }
+      },
+      "title": "TransformationSpecOverride",
+      "type": "object"
+    },
     "TransformationSpecOverrideClusteringPipe": {
       "additionalProperties": false,
       "description": "Fragments of transformation operator to override fields of the host transformation operator.",
@@ -21972,7 +22252,8 @@
               "jetrules",
               "clustering",
               "infer",
-              "render"
+              "render",
+              "claim_set_summary"
             ]
           },
           "title": "Type",

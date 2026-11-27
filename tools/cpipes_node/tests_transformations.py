@@ -598,10 +598,11 @@ def test_a_builtin_is_handed_the_builder_env_and_a_site_operator_is_not(
 def test_a_builtin_block_reaches_args_by_a_name_derived_from_the_token():
     """The convention is the contract's, and this derives it rather than listing.
 
-    17 of the 19 transformation tokens name their block `{type}_config`; the two
-    that do not — `aggregate` and `high_freq` — carry no block at all, which is
-    why `getattr(..., None)` is the whole of the rule. Measured over the union's
-    own members, so a twentieth token joins the count by existing.
+    17 of the 20 transformation tokens name their block `{type}_config`; the
+    three that do not — `aggregate`, `claim_set_summary` and `high_freq` — carry
+    no block at all, which is why `getattr(..., None)` is the whole of the rule.
+    Measured over the union's own members, so a twenty-first token joins the
+    count by existing.
     """
     import typing
 
@@ -616,9 +617,10 @@ def test_a_builtin_block_reaches_args_by_a_name_derived_from_the_token():
     for member in members:
         token = typing.get_args(member.model_fields["type"].annotation)[0]
         tokens[token] = f"{token}{graph.CONFIG_SUFFIX}" in member.model_fields
-    assert len(tokens) == 19
+    assert len(tokens) == 20
     assert sorted(t for t, has in tokens.items() if not has) == [
         "aggregate",
+        "claim_set_summary",
         "high_freq",
     ]
     assert sum(tokens.values()) == 17

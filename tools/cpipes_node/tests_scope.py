@@ -67,11 +67,11 @@ def test_every_contract_token_outside_the_scope_is_refused():
             assert finding.category is FindingKind.OUT_OF_SCOPE
             assert token in str(finding)
             refused += 1
-    # 26 addressable tokens in the contract, 7 declared. A count rather than a
-    # bare loop, because a loop over an empty set is the failure this file is
-    # about.
-    assert refused == 19
-    assert sum(len(t) for t in contract.contract_token_census().values()) == 26
+    # 27 addressable tokens in the contract, 7 declared; claim_set_summary,
+    # the 27th, is the Go worker's alone. A count rather than a bare loop,
+    # because a loop over an empty set is the failure this file is about.
+    assert refused == 20
+    assert sum(len(t) for t in contract.contract_token_census().values()) == 27
 
 
 def test_a_token_nobody_has_is_refused_with_a_different_reason():

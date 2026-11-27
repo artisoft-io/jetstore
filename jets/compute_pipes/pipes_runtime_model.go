@@ -332,9 +332,12 @@ func (ctx *BuilderContext) BuildPipeTransformationEvaluator(source *InputChannel
 	case RenderOperatorType:
 		return ctx.NewRenderTransformationPipe(source, outCh, spec)
 
+	case ClaimSetSummaryOperatorType:
+		return ctx.NewClaimSetSummaryTransformationPipe(source, outCh, spec)
+
 	default:
 		// A site-supplied operator is reached here and only here, which is what
-		// makes a site token unable to shadow a built-in: the eighteen cases
+		// makes a site token unable to shadow a built-in: the nineteen cases
 		// above are tried first. An unregistered token falls through to
 		// the message it has always produced.
 		if pipe, registered, err := ctx.buildSiteOperator(source, outCh, spec); registered {

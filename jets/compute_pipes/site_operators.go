@@ -48,7 +48,7 @@ type cpOptions struct {
 //
 // **A name that collides with a built-in is registered and never reached**: the
 // registry is consulted in the `default:` branch of the builder's dispatch, so
-// the eighteen built-ins win. That is a deliberate policy rather than an
+// the nineteen built-ins win. That is a deliberate policy rather than an
 // accident of ordering -- a site cannot change what an existing `.pc.json`
 // means -- and because losing silently is worse than losing loudly, the
 // collision is logged here, at registration, rather than left to be inferred
@@ -113,7 +113,7 @@ var builtinOperatorTypes = map[string]bool{
 	"clustering":       true,
 	"high_freq":        true,
 	"shuffling":        true,
-	RenderOperatorType: true,
+	RenderOperatorType: true, ClaimSetSummaryOperatorType: true,
 }
 
 // reservedOperatorTypes is the set of tokens a deployment may not register an
@@ -154,7 +154,7 @@ var reservedOperatorTypes = func() map[string]bool {
 // mistyped site token cannot be caught at startup and is reported by the
 // dispatch inside a running worker instead. What *is* catchable from
 // the document alone is a site_config on a token the dispatch will never take it
-// for -- the eighteen built-ins -- and leaving that to be inferred from an
+// for -- the nineteen built-ins -- and leaving that to be inferred from an
 // operator silently ignoring its configuration is the failure this whole design
 // exists to avoid one layer up.
 func validateSiteOperatorSpec(transformationConfig *TransformationSpec) error {
@@ -293,7 +293,7 @@ func (ctx *BuilderContext) buildSiteOperator(source *InputChannel, outCh *Output
 }
 
 // siteOperatorArgs assembles what the factory is handed. The channels are
-// resolved here rather than in the factory, which is the same rule the eighteen
+// resolved here rather than in the factory, which is the same rule the nineteen
 // built-ins follow: the builder owns the channel registry and a site operator
 // never sees it.
 func (ctx *BuilderContext) siteOperatorArgs(source *InputChannel, outCh *OutputChannel,

@@ -38,6 +38,9 @@ import (
 //
 // Warnings, which do not refuse the save:
 //
+//   - a claim_set_summary operator under a splitter, which its step's start
+//     refuses (validateClaimSetSummaryPipes); a warning because the step may
+//     be one whose when is never true;
 //   - an output table's column with no rdf_type. Creating the table needs one,
 //     but a table that exists and is not checked for schema changes never
 //     reads it. jets:key and session_id are skipped, here and at the start
@@ -129,6 +132,7 @@ func ValidateConfigDocument(content string) []wsvalidate.Finding {
 			}
 		}
 	}
+	findings = append(findings, claimSetSummaryDocumentFindings(&cfg)...)
 	unknown := unknownConfigFields([]byte(content))
 	for _, path := range unknown {
 		findings = append(findings, wsvalidate.Finding{

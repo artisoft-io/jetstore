@@ -700,7 +700,12 @@ def test_the_fixtures_fill_two_of_the_twenty_five_empty_types():
     # infer step when patient_profile stated its briefing step once for either backend.
     # The fixtures hold an `OllamaSpec`, so they now fill three: the claim the pin
     # protects - that the fixtures concentrate where the corpus is thin - gains one.
-    assert len(cov["empty"]) == 31
+    #
+    # **33 on 2026-11-27.** `RetainWindowSpec` (2026-11-24) arrived with no corpus
+    # instance and without a re-pin, so the assertion was already failing at 32;
+    # `TransformationSpecClaimSetSummary` is the claim_set_summary operator's, which
+    # ships before the first configuration that uses it.
+    assert len(cov["empty"]) == 33
     assert cov["filled_by_fixtures"] == ["DomainKeysSpec", "OllamaServerSpec", "OllamaSpec"]
 
 

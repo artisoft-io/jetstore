@@ -1,5 +1,5 @@
 {
-  "measured": "2026-09-21",
+  "measured": "2026-11-27",
   "note": "Declared, not computed. Moving a set here is an act somebody takes on purpose and explains in the commit message.",
   "kinds": {
     "input_channel": {
@@ -28,6 +28,7 @@
         "aggregate",
         "analyze",
         "anonymize",
+        "claim_set_summary",
         "clustering",
         "distinct",
         "embed",
