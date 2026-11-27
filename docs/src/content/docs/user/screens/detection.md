@@ -42,7 +42,7 @@ itself, so a task's three commands are always on one row.
 | **Window** | How far back it looked. |
 | **Anomaly detection** | Its status (*requested*, *running*, *ok*, *failed*), how long it took, and how many anomalies it found over how many worker rows, how many it wrote and how many were already recorded. |
 | **Feed checks** | Its status and duration, how many anomalies the feed checks found over how many profiled feeds, how many they wrote and how many were already recorded; how many feeds have no profile and were not judged; and any feed that could not be checked, with the database's error code. A task that ran before the feed checks were part of it shows *not recorded*. |
-| **Shadow triage** | Its status and duration, how many runs it classified, the incidents and hypotheses it wrote, and how many incidents were already raised; and whether the shadow-mode attestation holds. |
+| **Shadow triage** | Its status and duration, how many runs it classified, the incidents and hypotheses it wrote, and how many incidents were already raised; how many failures on the old shared session, `F000000000000`, it skipped, shown only when there are some (see [Incidents](/docs/user/screens/incidents/)); and whether the shadow-mode attestation holds. |
 
 **Show census and attestation** opens, under the row, the census of each locus over the runs
 classified (*present*, *absent*, *not evaluable*) and the text of the attestation:
