@@ -93,6 +93,11 @@
       "isHidden": true
     },
     {
+      "name": "exclude_file_names_json",
+      "label": "exclude_file_names_json",
+      "isHidden": true
+    },
+    {
       "name": "last_update",
       "label": "Last Updated",
       "tooltip": "Indicates when the record was last updated"
@@ -168,6 +173,10 @@
       {
         "stateKey": "feed_profile_json",
         "columnIdx": 15
+      },
+      {
+        "stateKey": "exclude_file_names_json",
+        "columnIdx": 16
       }
     ]
   },

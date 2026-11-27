@@ -183,6 +183,17 @@
               { "value": "1", "label": "Yes: each delivery holds the whole feed, so a lookback reads only the latest" }
             ]
           }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "exclude_file_names_json",
+            "label": "Files not to register (json)",
+            "hint": "File names to stage and not register, as a json list of text the name contains, for example [\"_trailer\"]; leave empty to register every file",
+            "maxLines": 3,
+            "maxLength": 4096,
+            "rules": [{ "rule": "json", "message": "Files not to register is not a valid json" }]
+          }
         ]
       ],
       "actions": [
@@ -383,6 +394,16 @@
               { "value": "0", "label": "No: each delivery holds only its own records" },
               { "value": "1", "label": "Yes: each delivery holds the whole feed, so a lookback reads only the latest" }
             ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "exclude_file_names_json",
+            "label": "Files not to register (json)",
+            "isReadOnly": true,
+            "maxLines": 3,
+            "maxLength": 4096
           }
         ]
       ],

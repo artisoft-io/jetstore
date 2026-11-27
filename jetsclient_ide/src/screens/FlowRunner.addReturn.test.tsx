@@ -74,14 +74,15 @@ const files: Record<string, string> = {
 };
 
 /**
- * `source_config`'s sixteen columns, in `scSourceConfigKey.tc.json`'s order.
- * Sixteen since Release 4.0.4 (2026-10-15), with `is_cumulative`.
+ * `source_config`'s columns, in `scSourceConfigKey.tc.json`'s order.
+ * Sixteen since Release 4.0.4 (2026-10-15), with `is_cumulative`; eighteen since
+ * 2026-11-27, with `feed_profile_json` and `exclude_file_names_json`.
  */
 const SOURCE_CONFIG_COLUMNS = [
   "key", "client", "org", "object_type", "automated", "table_name", "domain_keys_json",
   "code_values_mapping_json", "input_columns_json", "input_columns_positions_csv",
   "input_format", "is_part_files", "input_format_data_json", "schema_provider_json", "is_cumulative",
-  "feed_profile_json", "last_update",
+  "feed_profile_json", "exclude_file_names_json", "last_update",
 ] as const;
 
 interface Posted {
@@ -102,6 +103,7 @@ interface Posted {
  * page's `offset` and `limit`, as the apiserver does.
  */
 const RECORD_42_PROFILE = '{"declared_at": "2026-11-21", "declared_by": "analyst@example.com"}';
+const RECORD_42_EXCLUDED = '["_trailer"]';
 
 function stubServer(fillers = 0) {
   const posts: Posted[] = [];
@@ -109,12 +111,12 @@ function stubServer(fillers = 0) {
   const sources: JetsRow[] = [
     ...Array.from({ length: fillers }, (_, i): JetsRow => [
       String(100 + i), "GLOBEX", `ORG${i}`, "claim", "0", `GLOBEX_ORG${i}_claim`,
-      null, null, null, null, "csv", "0", "", null, "0", null, "2026-09-30",
+      null, null, null, null, "csv", "0", "", null, "0", null, null, "2026-09-30",
     ]),
-    // Record 42 is cumulative and has a feed profile, so an edit that drops
-    // either is visible.
+    // Record 42 is cumulative, has a feed profile and excludes a file name, so
+    // an edit that drops any of them is visible.
     ["42", "GLOBEX", "EAST", "claim", "0", "GLOBEX_EAST_claim", null, null, null, null, "csv", "0", "", null, "1",
-      RECORD_42_PROFILE, "2026-09-30"],
+      RECORD_42_PROFILE, RECORD_42_EXCLUDED, "2026-09-30"],
   ];
   let nextKey = 43;
 
@@ -494,6 +496,46 @@ describe("Source Configuration opens on its table, adds and edits, and returns t
     expect(saved()).toEqual([RECORD_42_PROFILE]);
     await editRecord42("");
     expect(saved()).toEqual([RECORD_42_PROFILE, ""]);
+  });
+
+  it("carries the excluded file names from the record into the save, and an emptied field clears them", async () => {
+    // 2026-11-27. The field is on the single-or-multi-part page, under the
+    // cumulative dropdown; like the feed profile, an untouched field saves the
+    // stored list and an emptied one is sent as "", which the server stores as
+    // no list, rather than left out, which would keep it.
+    const { posts } = await mount("sourceConfigUF");
+    const saved = () =>
+      posts
+        .filter((p) => p.body["action"] === "insert_rows")
+        .map((p) => (p.body["data"] as Record<string, unknown>[])[0]!["exclude_file_names_json"]);
+
+    async function editRecord42(list?: string) {
+      await screen.findByText("GLOBEX_EAST_claim");
+      tickRow("GLOBEX_EAST_claim");
+      fireEvent.click(button("Edit"));
+      await screen.findByText("CSV file with headers (most common)");
+      tickRow("CSV file with headers (most common)");
+      fireEvent.click(button("Next"));
+      await screen.findByText("Data source is a single file (most common)");
+      tickRow("Data source is a single file (most common)");
+      const field = (await screen.findByLabelText("Files not to register (json)")) as HTMLInputElement;
+      expect(field.value).toBe(RECORD_42_EXCLUDED);
+      if (list !== undefined) fireEvent.change(field, { target: { value: list } });
+      fireEvent.click(button("Next"));
+      for (const label of ["Domain Key(s) (json)", "Code Values Mapping (csv or json)", "Schema Provider JSON", "Feed Profile (json)"]) {
+        await screen.findByLabelText(label);
+        fireEvent.click(button("Next"));
+      }
+      await screen.findByText("File Configuration Summary");
+      fireEvent.click(button("Save"));
+      await screen.findByText("GLOBEX_EAST_claim");
+    }
+
+    await editRecord42();
+    expect(saved()).toEqual([RECORD_42_EXCLUDED]);
+    // The stub now holds what was saved, so the second edit opens on the list too.
+    await editRecord42("");
+    expect(saved()).toEqual([RECORD_42_EXCLUDED, ""]);
   });
 
   it("saves is_cumulative as 0 when nobody touches it", async () => {

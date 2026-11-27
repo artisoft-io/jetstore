@@ -60,19 +60,26 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 	// keeps the stored profile on update, as is_cumulative does; the JSON null,
 	// which the hook makes of an empty profile, inserts NULL and clears a stored
 	// one, hence the NULLIF.
+	//
+	// exclude_file_names_json: the file names register keys does not register, a
+	// nullable text holding a JSON array of substrings
+	// (source_config_exclude_file_names.go). InsertRows checks it and writes it
+	// back as compact JSON, or as "" when the list is empty. A caller that does
+	// not send it inserts NULL and keeps the stored list on update; "" inserts
+	// NULL and clears a stored one, hence the NULLIF.
 	"source_config": {
 		Stmt: `INSERT INTO jetsapi.source_config 
-			(object_type, client, org, automated, table_name, domain_keys_json, code_values_mapping_json, input_columns_json, input_columns_positions_csv, input_format, is_part_files, input_format_data_json, domain_keys, schema_provider_json, user_email, is_cumulative, feed_profile_json) 
-			VALUES ($1, $2, $3, 0, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, COALESCE($15, 0), NULLIF($16::jsonb, 'null'::jsonb))
+			(object_type, client, org, automated, table_name, domain_keys_json, code_values_mapping_json, input_columns_json, input_columns_positions_csv, input_format, is_part_files, input_format_data_json, domain_keys, schema_provider_json, user_email, is_cumulative, feed_profile_json, exclude_file_names_json) 
+			VALUES ($1, $2, $3, 0, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, COALESCE($15, 0), NULLIF($16::jsonb, 'null'::jsonb), NULLIF($17::text, ''))
 			RETURNING key`,
-		ColumnKeys: []string{"object_type", "client", "org", "table_name", "domain_keys_json", "code_values_mapping_json", "input_columns_json", "input_columns_positions_csv", "input_format", "is_part_files", "input_format_data_json", "domain_keys", "schema_provider_json", "user_email", "is_cumulative", "feed_profile_json"},
+		ColumnKeys: []string{"object_type", "client", "org", "table_name", "domain_keys_json", "code_values_mapping_json", "input_columns_json", "input_columns_positions_csv", "input_format", "is_part_files", "input_format_data_json", "domain_keys", "schema_provider_json", "user_email", "is_cumulative", "feed_profile_json", "exclude_file_names_json"},
 		Capability: "client_config",
 	},
 	"update/source_config": {
 		Stmt: `UPDATE jetsapi.source_config SET
-			(object_type, client, org, automated, table_name, domain_keys_json, code_values_mapping_json, input_columns_json, input_columns_positions_csv, input_format, is_part_files, input_format_data_json, domain_keys, schema_provider_json, user_email, is_cumulative, feed_profile_json, last_update) 
-			= ($1, $2, $3, 0, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, COALESCE($15, is_cumulative), NULLIF(COALESCE($16::jsonb, feed_profile_json), 'null'::jsonb), DEFAULT) WHERE key = $17`,
-		ColumnKeys: []string{"object_type", "client", "org", "table_name", "domain_keys_json", "code_values_mapping_json", "input_columns_json", "input_columns_positions_csv", "input_format", "is_part_files", "input_format_data_json", "domain_keys", "schema_provider_json", "user_email", "is_cumulative", "feed_profile_json", "key"},
+			(object_type, client, org, automated, table_name, domain_keys_json, code_values_mapping_json, input_columns_json, input_columns_positions_csv, input_format, is_part_files, input_format_data_json, domain_keys, schema_provider_json, user_email, is_cumulative, feed_profile_json, exclude_file_names_json, last_update) 
+			= ($1, $2, $3, 0, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, COALESCE($15, is_cumulative), NULLIF(COALESCE($16::jsonb, feed_profile_json), 'null'::jsonb), NULLIF(COALESCE($17::text, exclude_file_names_json), ''), DEFAULT) WHERE key = $18`,
+		ColumnKeys: []string{"object_type", "client", "org", "table_name", "domain_keys_json", "code_values_mapping_json", "input_columns_json", "input_columns_positions_csv", "input_format", "is_part_files", "input_format_data_json", "domain_keys", "schema_provider_json", "user_email", "is_cumulative", "feed_profile_json", "exclude_file_names_json", "key"},
 		Capability: "client_config",
 	},
 	"delete/source_config": {

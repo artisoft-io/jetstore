@@ -41,7 +41,8 @@ can set**, and these lists were enumerated from the documents before the arms we
 none is missed. The documents cannot carry the reasoning — every object is closed — so it is here.
 
 **`scGoToAddSourceConfig`** clears the selection of three tables and removes ~~seventeen~~ ~~eighteen~~
-nineteen keys (`is_cumulative`, Release 4.0.4, 2026-10-15; `feed_profile_json`, 2026-11-21):
+~~nineteen~~ twenty keys (`is_cumulative`, Release 4.0.4, 2026-10-15; `feed_profile_json`, 2026-11-21;
+`exclude_file_names_json`, 2026-11-27):
 
 | Key | Set on the edit path by |
 |---|---|
@@ -57,6 +58,7 @@ nineteen keys (`is_cumulative`, Release 4.0.4, 2026-10-15; `feed_profile_json`, 
 | `currentSheet` | the `readXlsxSheetOption` escape; the xlsx options page |
 | `is_cumulative` | the binding, then `scSelectSourceConfigUF`; the single-or-multi-part page's dropdown |
 | `feed_profile_json` | the binding, then `scSelectSourceConfigUF`; the feed profile page |
+| `exclude_file_names_json` | the binding, then `scSelectSourceConfigUF`; the single-or-multi-part page's *Files not to register (json)* field |
 
 **`pcGoToAddPipelineConfig`** clears the selection of nine tables and removes thirty-two keys. The
 first seventeen are what the selection and `pcSelectPipelineConfigUF` write; the other fifteen are

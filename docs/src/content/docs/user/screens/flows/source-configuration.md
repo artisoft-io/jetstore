@@ -85,6 +85,23 @@ The pages a format needs:
 |---|---|
 | **Data source is a single file (most common)** or **Data source is a multi-part files** | Whether one delivery is one file, or several parts read together. |
 | **Is each delivery cumulative?** | *No*: each delivery holds only its own records. *Yes*: each holds the whole feed, so a lookback reads only the latest. |
+| **Files not to register (json)** | The files of this source that are not data, such as a trailer or a control file sent beside the data files. See [Files not to register](#files-not-to-register). Leave it empty to register every file. |
+
+### Files not to register
+
+A JSON list of text a file's name contains, for example `["_trailer"]` or `["_trailer", "CONTROL"]`.
+A file of this source whose name contains one of them is **not registered**: it is listed among the
+files that arrived, and nothing runs for it. The rest of the source's files register as before.
+
+- The match is on the file's **name**, the last part of its key, not on its folders: with
+  `["_trailer"]`, `claims_trailer.csv` is not registered, and `batch_trailer/claims.csv` is.
+- It is **case-sensitive**: `["_trailer"]` does not exclude `claims_TRAILER.csv`.
+- **Save** refuses a list that is not a JSON list of text, an empty entry, which would exclude every
+  file, and an entry holding a `/`, which no name can contain.
+- Empty the field and save to register every file again.
+
+For a multi-part source, the list does not change how the parts are read: an excluded part is a part
+like any other, and the pipeline still reads every file of the folder.
 
 ## Domain keys, code values and schema provider
 
@@ -116,7 +133,8 @@ are in [Declare a feed profile](/docs/user/how-to/declare-a-feed-profile/).
 ![The summary of hc:PharmacyClaim: client CI, vendor D1, the object type, the staging table, CSV, a single file and not cumulative, with Previous, Cancel and Save.](../../../../../assets/screenshots/user/screens/flows/source-configuration/summary.png)
 
 The summary shows the **Client**, **Vendor/Org**, **Object Type**, **Staging Table Name**, **File
-Format**, single or multi-part, and whether deliveries are cumulative. **Save** saves the source
+Format**, single or multi-part, whether deliveries are cumulative, and the files not to register.
+**Save** saves the source
 configuration, clearing the settings its format does not use, and returns to the list.
 
 ## See also

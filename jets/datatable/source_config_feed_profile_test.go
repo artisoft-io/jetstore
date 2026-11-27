@@ -68,6 +68,9 @@ func saveSourceConfig(t *testing.T, pool *pgxpool.Pool, table string, row map[st
 	if err := normaliseFeedProfile(row); err != nil {
 		return 0, err
 	}
+	if err := normaliseExcludeFileNames(row); err != nil {
+		return 0, err
+	}
 	args := make([]any, len(stmt.ColumnKeys))
 	for i, k := range stmt.ColumnKeys {
 		args[i] = row[k]
