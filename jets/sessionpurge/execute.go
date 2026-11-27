@@ -52,6 +52,9 @@ type Report struct {
 	// pipeline_execution_status rows archived. Domain tables are keyed by their
 	// input_registry.table_name, the fixed tables by their qualified name.
 	Rows map[string]int64
+	// PurgedDeliveries is the first registrations of files the deleted
+	// sessions held, recorded in jetsapi.purged_delivery (purged_delivery.go).
+	PurgedDeliveries int64
 }
 
 func newReport() Report {
@@ -325,6 +328,7 @@ func run(ctx context.Context, db *pgxpool.Pool, reqs []Request, opts Options, cl
 			for name, n := range res.rows {
 				report.Rows[name] += n
 			}
+			report.PurgedDeliveries += res.purgedDeliveries
 		}
 	}
 	if opts.DryRun && opts.AfterDryRun != nil {
@@ -336,8 +340,9 @@ func run(ctx context.Context, db *pgxpool.Pool, reqs []Request, opts Options, cl
 }
 
 type result struct {
-	held, refused bool
-	rows          map[string]int64
+	held, refused    bool
+	rows             map[string]int64
+	purgedDeliveries int64
 }
 
 // errDryRunBroken: the dry run's transaction cannot go on, so the run stops.
@@ -440,6 +445,11 @@ func deleteRows(ctx context.Context, tx pgx.Tx, r *Request, tables []table, clai
 		return nil
 	}
 
+	// Before input_registry loses the session's registrations: the files it
+	// first registered, so a later registration of one stays re-processing.
+	if res.purgedDeliveries, err = recordPurgedDeliveries(ctx, tx, r); err != nil {
+		return res, err
+	}
 	for _, t := range tables {
 		if err = exec(t.name, "DELETE FROM "+t.ident+" WHERE "+pgx.Identifier{t.column}.Sanitize()+" = $1",
 			r.SessionID); err != nil {

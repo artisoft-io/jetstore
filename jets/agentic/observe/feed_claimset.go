@@ -19,7 +19,9 @@ package observe
 // check would have said on the day.
 //
 // A later registration of a delivered file is re-processing: it is not
-// judged, it is no delivery's predecessor, and its rows are not read. A check
+// judged, it is no delivery's predecessor, and its rows are not read. So is
+// every surviving registration of a file whose first registration a session
+// deletion removed: it is not summarised either. A check
 // reads the claims of the delivery's first registration's session, for three
 // reasons. The backfill rule: a re-processing comes later, and a delivery
 // judged on its day cannot have read it. The comparison: a predecessor is read
@@ -247,6 +249,13 @@ type ClaimSetOptions struct {
 	MinMembers int
 	// Generation is the trailing number of each detector_ref.
 	Generation int
+	// LateSince, when set and before Since, also judges every delivery that
+	// arrived in [LateSince, Since) whose summary no run has judged
+	// (claim_set_judged_at): a delivery whose claims were mapped after the
+	// run whose window held it, which could not judge it then. Such a verdict
+	// is Late. Ignored where the summaries carry no judged mark, as on a
+	// database the migration has not reached.
+	LateSince time.Time
 }
 
 // DefaultClaimSetOptions is the starting point, not a recommendation: an open
@@ -372,6 +381,34 @@ type ClaimSetVerdict struct {
 	// Anomalies are what a firing verdict writes: one, or for
 	// field_completeness one per required field below its share.
 	Anomalies []Anomaly
+	// Late is a delivery registered before the window, judged because its
+	// summary had not been judged (ClaimSetOptions.LateSince).
+	Late bool
+}
+
+// ClaimSetJudgedDelivery is a delivery the checks judged from a summary, which
+// a run that writes marks judged (claim_set_summary.claim_set_judged_at).
+type ClaimSetJudgedDelivery struct {
+	TableName         string
+	DeliverySessionID string
+}
+
+// ClaimSetJudgedDeliveries are the deliveries the verdicts judged from a
+// settled summary, once each, in verdict order.
+func ClaimSetJudgedDeliveries(vs []ClaimSetVerdict) []ClaimSetJudgedDelivery {
+	var out []ClaimSetJudgedDelivery
+	seen := map[ClaimSetJudgedDelivery]bool{}
+	for _, v := range vs {
+		if v.Aggregates == nil || v.Aggregates.Summary == nil || !v.Aggregates.Summary.settled {
+			continue
+		}
+		k := ClaimSetJudgedDelivery{TableName: v.TableName, DeliverySessionID: v.SessionID}
+		if !seen[k] {
+			seen[k] = true
+			out = append(out, k)
+		}
+	}
+	return out
 }
 
 // claimSetDelivery is one delivery of a feed: a file at its first
@@ -433,12 +470,15 @@ func SummariseClaimSets(ctx context.Context, db DB, feeds []feedprofile.Feed,
 	if err != nil {
 		return nil, nil, err
 	}
-	return detectClaimSetsFrom(ctx, db, feeds, regs, o)
+	vs, sums, _, err := detectClaimSetsFrom(ctx, db, feeds, regs, o)
+	return vs, sums, err
 }
 
 // detectClaimSetsFrom is SummariseClaimSets over registrations already read.
+// marks reports whether the stored summaries carry the judged mark, so a run
+// can write it.
 func detectClaimSetsFrom(ctx context.Context, db DB, feeds []feedprofile.Feed, regs *FeedRegistrations,
-	o ClaimSetOptions) ([]ClaimSetVerdict, []ClaimSetSummary, error) {
+	o ClaimSetOptions) (verdicts []ClaimSetVerdict, sums []ClaimSetSummary, marks bool, err error) {
 	if o.MinMembers <= 0 {
 		o.MinMembers = claimSetDefaultMinMembers
 	}
@@ -457,12 +497,13 @@ func detectClaimSetsFrom(ctx context.Context, db DB, feeds []feedprofile.Feed, r
 			}
 		}
 	}
-	stored, err := readClaimSetSummaries(ctx, db, judged)
+	stored, marks, err := readClaimSetSummaries(ctx, db, judged)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
-	var out []ClaimSetVerdict
-	var sums []ClaimSetSummary
+	if !marks {
+		o.LateSince = time.Time{} // nothing says what was judged
+	}
 	var errs []error
 	for _, f := range feeds {
 		vs, ss, err := claimSetFeed(ctx, db, f, claimSetDeliveriesOf(regs, f.TableName, o), stored[f.TableName], o)
@@ -470,10 +511,10 @@ func detectClaimSetsFrom(ctx context.Context, db DB, feeds []feedprofile.Feed, r
 			errs = append(errs, fmt.Errorf("feed %s: %w", f.TableName, err))
 			continue
 		}
-		out = append(out, vs...)
+		verdicts = append(verdicts, vs...)
 		sums = append(sums, ss...)
 	}
-	return out, sums, errors.Join(errs...)
+	return verdicts, sums, marks, errors.Join(errs...)
 }
 
 // ClaimSetAnomalies returns the anomalies the firing verdicts carry.
@@ -532,6 +573,19 @@ func claimSetFieldGate(det string, f feedprofile.Feed) string {
 		return ClaimSetFieldAbsent + missing[0]
 	}
 	return ""
+}
+
+// claimSetLate reports whether a delivery registered before the window is
+// judged with it: it arrived in [LateSince, Since) and its summary, stored or
+// computed by this run and to be written, has not been judged.
+func claimSetLate(d claimSetDelivery, s *ClaimSetSummary, o ClaimSetOptions) bool {
+	if o.LateSince.IsZero() || o.Since.IsZero() || !o.LateSince.Before(o.Since) || d.arrival == nil {
+		return false
+	}
+	if d.arrival.Before(o.LateSince) || !d.arrival.Before(o.Since) {
+		return false
+	}
+	return s != nil && s.settled && s.JudgedAt == nil
 }
 
 // claimSetInWindow reports whether a delivery's arrival is in the window. A
@@ -765,6 +819,7 @@ func claimSetFeed(ctx context.Context, db DB, f feedprofile.Feed, deliveries []c
 
 	var readable claimSetReadable
 	sums := map[string]*ClaimSetSummary{}
+	late := map[string]bool{}
 	var toWrite []ClaimSetSummary
 	if anyJudged {
 		cs := f.Profile.ClaimSet
@@ -799,6 +854,9 @@ func claimSetFeed(ctx context.Context, db DB, f feedprofile.Feed, deliveries []c
 					return nil, nil, err
 				}
 				if c != nil {
+					if s != nil {
+						c.JudgedAt = s.JudgedAt // a summary computed again was judged as before
+					}
 					sums[d.session] = c
 					if c.settled {
 						toWrite = append(toWrite, *c)
@@ -810,11 +868,17 @@ func claimSetFeed(ctx context.Context, db DB, f feedprofile.Feed, deliveries []c
 				sums[d.session] = s
 			}
 		}
+		// The deliveries before the window judged with it.
+		for _, d := range deliveries {
+			if !claimSetInWindow(d, o) && claimSetLate(d, sums[d.session], o) {
+				late[d.session] = true
+			}
+		}
 		// The stored sketches the window's comparisons read.
 		if gates[ClaimSetDeliveryOverlap] == "" {
 			var need []*ClaimSetSummary
 			for i, d := range deliveries {
-				if i == 0 || !claimSetInWindow(d, o) {
+				if i == 0 || !(claimSetInWindow(d, o) || late[d.session]) {
 					continue
 				}
 				cur, prev := sums[d.session], sums[deliveries[i-1].session]
@@ -830,7 +894,7 @@ func claimSetFeed(ctx context.Context, db DB, f feedprofile.Feed, deliveries []c
 
 	var out []ClaimSetVerdict
 	for i, d := range deliveries {
-		if !claimSetInWindow(d, o) {
+		if !claimSetInWindow(d, o) && !late[d.session] {
 			continue
 		}
 		var prev *claimSetDelivery
@@ -860,7 +924,7 @@ func claimSetFeed(ctx context.Context, db DB, f feedprofile.Feed, deliveries []c
 		}
 		for _, det := range ClaimSetDetectors {
 			v := ClaimSetVerdict{Detector: det, Client: f.Client, TableName: f.TableName,
-				SessionID: d.session, Ordinal: d.ordinal, Aggregates: agg}
+				SessionID: d.session, Ordinal: d.ordinal, Aggregates: agg, Late: late[d.session]}
 			if prev != nil {
 				v.PredecessorSessionID = prev.session
 			}

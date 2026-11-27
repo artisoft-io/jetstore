@@ -88,7 +88,7 @@ report says which of the two.
 
 **What a delivery is.** A delivery is one file of the feed at its first registration, matched to the
 feed by the source configuration's table name; a later registration of the same file is
-re-processing, counted and not judged (see
+re-processing, counted and not judged, and stays so when the first registration is deleted (see
 [Feed content checks](/docs/user/concepts/feed-content-checks/#what-counts-as-a-delivery-and-how-re-processing-is-reported)).
 Its arrival is the time it was first registered, its period is the
 source period it was registered under, and its size is the file's size as JetStore last listed it. A

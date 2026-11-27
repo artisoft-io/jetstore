@@ -24,6 +24,12 @@
 // such run. Both write their findings unless -dry-run is given, and a re-run
 // over the same deliveries writes nothing twice.
 //
+// A window also judges, with its own deliveries, every delivery registered in
+// the -late before it whose claims' summary no run has judged: a delivery
+// whose claims were mapped after the run whose window held it, so that run
+// could not judge it. A run that writes marks each delivery it judged from a
+// summary, so each is judged late once; -late 0 judges the window alone.
+//
 // The export is for a database this command cannot reach, through a query
 // tool that runs one statement at a time. It prints the statements the
 // detectors would run, with the profile and the window written in as
@@ -70,6 +76,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// defaultLate is how far before its window a window judges a delivery no run
+// has judged: thirty days, far longer than a feed's claims take to be mapped,
+// and short enough that a feed whose profile is declared later does not have
+// its whole history judged by its first window runs.
+const defaultLate = 30 * 24 * time.Hour
+
 // The modes.
 const (
 	modeWindow   = "window"
@@ -86,6 +98,7 @@ type config struct {
 	from       string
 	asOf       string
 	step       time.Duration
+	late       time.Duration
 	clients    string
 	profiles   string
 	dryRun     bool
@@ -106,6 +119,7 @@ func parseFlags(args []string) (config, error) {
 	fs.StringVar(&c.from, "from", "", "backfill, export, judge: judge the deliveries registered from this date (2006-01-02) or instant (RFC 3339)")
 	fs.StringVar(&c.asOf, "as-of", "", "the detection time, RFC 3339; defaults to now. An export prints the one it used, and its later rounds and the judge need the same")
 	fs.DurationVar(&c.step, "step", 24*time.Hour, "backfill, export, judge with -from: the interval between the daily runs replayed, counted back from -as-of")
+	fs.DurationVar(&c.late, "late", defaultLate, "window: also judge the deliveries registered within this long before the window whose claim-set summary no run has judged; 0 judges the window alone")
 	fs.StringVar(&c.clients, "client", "", "comma-separated clients; defaults to every client with a source configuration")
 	fs.StringVar(&c.profiles, "profiles", "", "a JSON file of feed profiles keyed by table_name, replacing the stored ones")
 	fs.BoolVar(&c.dryRun, "dry-run", false, "window, backfill: report what would be written and write nothing")
@@ -146,6 +160,7 @@ func (c config) options(now time.Time) (observe.FeedProcessOptions, error) {
 	if c.from == "" {
 		if c.mode == modeWindow || c.mode == modeExport || c.mode == modeJudge {
 			o.Since = asOf.Add(-c.since)
+			o.LateWithin = c.late
 		}
 		return o, nil
 	}
@@ -195,6 +210,9 @@ func (c config) hint(o observe.FeedProcessOptions) string {
 		parts = append(parts, "-from", c.from, "-step", c.step.String())
 	} else {
 		parts = append(parts, "-since", c.since.String())
+		if c.late != defaultLate {
+			parts = append(parts, "-late", c.late.String())
+		}
 	}
 	parts = append(parts, "-as-of", o.AsOf.Format(time.RFC3339))
 	if c.clients != "" {

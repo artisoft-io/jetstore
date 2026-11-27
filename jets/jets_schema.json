@@ -2710,6 +2710,53 @@
   },
   {
     "schemaName": "jetsapi",
+    "tableName": "purged_delivery",
+    "description": "One row per file whose first registration a session deletion removed: the table and file key of the input_registry row, and when it first arrived. Written by jets/sessionpurge in the deleted session's own transaction, by the retention purge and by a user's Delete alike, so that a later registration of the same file stays re-processing rather than becoming the file's delivery. Read by the feed detectors (jets/agentic/observe): a registration is a delivery when it is the first surviving registration of its file key and no row here records an earlier first registration of the same table and file key. Kept while the stack is: a file can be registered again after every registration of it is gone. A reset of the domain tables truncates it.",
+    "columns": [
+      {
+        "columnName": "table_name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "file_key",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "first_session_id",
+        "dataType": "text",
+        "isNotNull": true,
+        "description": "The session of the first registration removed. Read as Unix milliseconds it is the file's arrival, as the feed detectors read a registration's."
+      },
+      {
+        "columnName": "first_arrival",
+        "dataType": "timestamptz",
+        "isNotNull": true,
+        "description": "first_session_id as a time, for a reader."
+      },
+      {
+        "columnName": "deletion_reason",
+        "dataType": "text",
+        "isNotNull": true,
+        "description": "The reason of the deletion that removed it: retention, orphan or user."
+      },
+      {
+        "columnName": "purged_at",
+        "dataType": "timestamptz",
+        "default": "now()",
+        "isNotNull": true
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "purged_delivery_file_uk",
+        "definition": "CONSTRAINT purged_delivery_file_uk UNIQUE (table_name, file_key)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
     "tableName": "pipeline_execution_status_archive",
     "description": "The rows of pipeline_execution_status whose session was deleted, with every column of that table, the same names and types, and the same key. Moved here by jets/sessionpurge in the session's own transaction, and purged by each run's own last_update. jetsapi.pipeline_execution_history (jets_init_db.sql) is the view over both, and names every column: a column added to pipeline_execution_status must be added here too.",
     "columns": [
