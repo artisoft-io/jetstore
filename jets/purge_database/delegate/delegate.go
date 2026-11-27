@@ -2,6 +2,7 @@ package delegate
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -99,26 +100,50 @@ func DomainTablesRetentionDays(value string, retentionDays int) (days int, cappe
 	return n, false, nil
 }
 
+// RetentionDays reads RETENTION_DAYS: the days a session is kept. Unset or
+// empty turns the purge off, which is not an error (set is false). Anything
+// that is not a whole number of days, 1 or more, is an error.
+func RetentionDays(value string) (days int, set bool, err error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 0, false, nil
+	}
+	n, err := strconv.Atoi(value)
+	if err != nil || n < 1 {
+		return 0, true, fmt.Errorf("RETENTION_DAYS must be a whole number of days, 1 or more, or unset; it is %q", value)
+	}
+	return n, true, nil
+}
+
+// readSettings reads the purge's settings with getenv. It reports set false
+// when RETENTION_DAYS is unset, and the purge does nothing. A setting that does
+// not read is not returned as an error here: it is the configuration's
+// SettingsErr, which purgeSessions returns before it does anything, once the
+// database is open, so the refusal is recorded as the job's failure rather than
+// stopping the Lambda with nothing recorded.
+func readSettings(getenv func(string) string, start time.Time) (cfg purgeConfig, set bool) {
+	retentionDays, set, retentionErr := RetentionDays(getenv("RETENTION_DAYS"))
+	if !set {
+		return purgeConfig{}, false
+	}
+	auditDays, auditErr := AuditRetentionDays(getenv("AGENT_AUDIT_RETENTION_DAYS"))
+	return purgeConfig{
+		RetentionDays:         retentionDays,
+		DomainTablesRetention: getenv("DOMAIN_TABLES_RETENTION_DAYS"),
+		AuditRetentionDays:    auditDays,
+		SettingsErr:           errors.Join(retentionErr, auditErr),
+		DryRun:                IsDryRun(getenv("PURGE_DRY_RUN")),
+		Now:                   start,
+		Deadline:              start.Add(runBudget),
+	}, true
+}
+
 // * TODO set retention_days at client level (client_registry)
 func DoPurgeSessions() error {
-	start := time.Now()
-	rd := os.Getenv("RETENTION_DAYS")
-	if len(rd) == 0 {
+	cfg, set := readSettings(os.Getenv, time.Now())
+	if !set {
 		log.Println("Env var RETENTION_DAYS not specified, bailing out!")
 		return nil
-	}
-	retentionDays, err := strconv.Atoi(rd)
-	if err != nil {
-		return fmt.Errorf("while converting RETENTION_DAYS to int : %v", err)
-	}
-	if retentionDays < 1 {
-		log.Println("Retention days must be at least 1, we have", retentionDays)
-		return fmt.Errorf("retention days must be at least 1, we have %d", retentionDays)
-	}
-	dryRun := IsDryRun(os.Getenv("PURGE_DRY_RUN"))
-	auditDays, err := AuditRetentionDays(os.Getenv("AGENT_AUDIT_RETENTION_DAYS"))
-	if err != nil {
-		return err
 	}
 
 	// open db connection
@@ -128,25 +153,18 @@ func DoPurgeSessions() error {
 		len(os.Getenv("USING_SSH_TUNNEL")) > 0,
 		5)
 	if err != nil {
-		return fmt.Errorf("while getting dsn from aws secret: %v", err)
+		return errors.Join(fmt.Errorf("while getting dsn from aws secret: %v", err), cfg.SettingsErr)
 	}
 	dbpool, err := pgxpool.New(context.Background(), dsn)
 	if err != nil {
-		return fmt.Errorf("while opening db connection: %v", err)
+		return errors.Join(fmt.Errorf("while opening db connection: %v", err), cfg.SettingsErr)
 	}
 	defer dbpool.Close()
 
-	// DOMAIN_TABLES_RETENTION_DAYS is read by purgeSessions, which refuses a bad
-	// value once the database is open, so the refusal is recorded as the job's
-	// failure.
-	return purgeSessions(context.Background(), dbpool, purgeConfig{
-		RetentionDays:         retentionDays,
-		DomainTablesRetention: os.Getenv("DOMAIN_TABLES_RETENTION_DAYS"),
-		AuditRetentionDays:    auditDays,
-		DryRun:                dryRun,
-		Now:                   start,
-		Deadline:              start.Add(runBudget),
-	})
+	// The settings are refused by purgeSessions once the database is open, a bad
+	// DOMAIN_TABLES_RETENTION_DAYS included, so a refusal is recorded as the
+	// job's failure.
+	return purgeSessions(context.Background(), dbpool, cfg)
 }
 
 type purgeConfig struct {
@@ -156,9 +174,12 @@ type purgeConfig struct {
 	DomainTablesRetention string
 	// AuditRetentionDays is the agent audit trail's retention; 0 never purges it.
 	AuditRetentionDays int
-	DryRun             bool
-	Now                time.Time // the run's start, from which every age is counted
-	Deadline           time.Time // no session is started after it
+	// SettingsErr is a setting readSettings could not read (RETENTION_DAYS or
+	// AGENT_AUDIT_RETENTION_DAYS); purgeSessions refuses the run with it.
+	SettingsErr error
+	DryRun      bool
+	Now         time.Time // the run's start, from which every age is counted
+	Deadline    time.Time // no session is started after it
 }
 
 // purgeSessions is the purge, given a database:
@@ -180,8 +201,9 @@ type purgeConfig struct {
 // incidents a real run would delete, and counts the audit rows a real run would
 // delete; it writes nothing.
 //
-// A DOMAIN_TABLES_RETENTION_DAYS that is not a whole number of days, 1 or more,
-// refuses the run before it does anything, and is recorded as its failure.
+// A RETENTION_DAYS, AGENT_AUDIT_RETENTION_DAYS or DOMAIN_TABLES_RETENTION_DAYS
+// that is not a whole number of days, 1 or more, refuses the run before it does
+// anything, and is recorded as its failure.
 //
 // A session or an incident that fails is logged and retried by the next run; it
 // is not an error of the run, which would have the lambda retried, and neither
@@ -196,6 +218,9 @@ func purgeSessions(ctx context.Context, dbpool *pgxpool.Pool, cfg purgeConfig) (
 	var problems []string
 	defer func() { recordRun(ctx, dbpool, cfg, err, problems) }()
 
+	if cfg.SettingsErr != nil {
+		return cfg.SettingsErr
+	}
 	tableDays, capped, err := DomainTablesRetentionDays(cfg.DomainTablesRetention, cfg.RetentionDays)
 	if err != nil {
 		return err
