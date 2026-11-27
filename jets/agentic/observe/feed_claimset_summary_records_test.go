@@ -114,7 +114,8 @@ func fromClaimSetPackage(c *claimset.Summary) *ClaimSetSummary {
 
 // Package claimset writes the row this package writes: the same format
 // version, histogram bounds and minimum, the same exported fields of the same
-// types, and the same statement, character for character. A change to the row
+// types but the judged mark, which no summary's writer sets, and the same
+// statement, character for character. A change to the row
 // here fails this test until claimset makes it too.
 func TestClaimSetPackageWritesTheSameRow(t *testing.T) {
 	if claimset.Version != ClaimSetSummaryVersion {
@@ -129,10 +130,15 @@ func TestClaimSetPackageWritesTheSameRow(t *testing.T) {
 	if claimset.UpsertSQL != claimSetUpsertSQL {
 		t.Error("claimset.UpsertSQL is not this package's claimSetUpsertSQL")
 	}
+	// Fields this package reads that the summary's writer does not write, and
+	// why a pipeline's summary has none.
+	notWritten := map[string]string{
+		"JudgedAt": "claim_set_judged_at is set by WriteClaimSetJudged when a run judges the delivery, not by the upsert",
+	}
 	ours, theirs := reflect.TypeOf(ClaimSetSummary{}), reflect.TypeOf(claimset.Summary{})
 	for i := range ours.NumField() {
 		f := ours.Field(i)
-		if !f.IsExported() {
+		if !f.IsExported() || notWritten[f.Name] != "" {
 			continue
 		}
 		g, ok := theirs.FieldByName(f.Name)

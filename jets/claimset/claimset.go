@@ -357,13 +357,27 @@ const firstRegistrationSQL = `SELECT ir.session_id FROM jetsapi.input_registry i
  ORDER BY ir.session_id::bigint, ir.key
  LIMIT 1`
 
+// purgedTableSQL says whether the record of deleted first registrations
+// exists, as on a database the migration has reached.
+const purgedTableSQL = `SELECT to_regclass('jetsapi.purged_delivery') IS NOT NULL`
+
+// purgedFirstSQL is the recorded first registration of a file a session
+// deletion removed, as observe.ReadFeedPurgedDeliveries reads it.
+const purgedFirstSQL = `SELECT first_session_id FROM jetsapi.purged_delivery WHERE table_name = $1 AND file_key = $2`
+
 // Resolve finds what pipeline execution peKey's summary is for. It returns a
 // reason instead where no summary that the feed detection reads can be
 // written: the summary table does not exist, the run's main input is not a
 // file registration, its feed has no usable profile declaring a claim set,
 // the registration is not a delivery (its session id is not a registration
-// time) or it re-processes a delivery, which is read as it first arrived. It
-// returns an error only when the database fails.
+// time) or it re-processes a delivery, which is read as it first arrived.
+//
+// A registration is a delivery by the feed detection's rule
+// (observe.FeedRegistrations): the first surviving registration of its file
+// in its feed, unless jetsapi.purged_delivery records an earlier first
+// registration of the same table and file key that a session deletion
+// removed, in which case it re-processes that file. The record is read only
+// where the table exists. It returns an error only when the database fails.
 func Resolve(ctx context.Context, db DB, peKey int) (*Target, string, error) {
 	var deployed bool
 	if err := db.QueryRow(ctx, tableSQL).Scan(&deployed); err != nil {
@@ -407,6 +421,21 @@ func Resolve(ctx context.Context, db DB, peKey int) (*Target, string, error) {
 		if first != registration {
 			return nil, fmt.Sprintf("the main input, registration %s, re-processes delivery %s of feed %s, "+
 				"which is read as it first arrived", registration, first, table), nil
+		}
+		var hasPurged bool
+		if err := db.QueryRow(ctx, purgedTableSQL).Scan(&hasPurged); err != nil {
+			return nil, "", fmt.Errorf("while looking for jetsapi.purged_delivery: %w", err)
+		}
+		if hasPurged {
+			var purged string
+			err := db.QueryRow(ctx, purgedFirstSQL, table, fileKey).Scan(&purged)
+			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return nil, "", fmt.Errorf("while reading the deleted first registration of file %s: %w", fileKey, err)
+			}
+			if at, perr := strconv.ParseInt(purged, 10, 64); err == nil && perr == nil && at > 0 && at < ms {
+				return nil, fmt.Sprintf("the main input, registration %s, re-processes a file of feed %s whose "+
+					"first registration, session %s, was deleted", registration, table, purged), nil
+			}
 		}
 	}
 	return &Target{Feed: *feed, DeliverySession: registration, Session: session,

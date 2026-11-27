@@ -382,6 +382,42 @@ func claimSetSummaryHeld(t *testing.T, pool *pgxpool.Pool) []string {
 	return report.HeldSessions
 }
 
+// claimSetSummaryTestRecords are a session's rows of a claim table as the
+// records a pipeline would carry, every column but session_id; nil columns
+// when the table does not exist.
+func claimSetSummaryTestRecords(t *testing.T, pool *pgxpool.Pool, table pgx.Identifier,
+	session string) ([]string, [][]any) {
+	t.Helper()
+	ctx := context.Background()
+	var exists bool
+	if err := pool.QueryRow(ctx, `SELECT to_regclass($1) IS NOT NULL`, table.Sanitize()).Scan(&exists); err != nil {
+		t.Fatal(err)
+	}
+	if !exists {
+		return nil, nil
+	}
+	var columns []string
+	if err := pool.QueryRow(ctx, `SELECT array_agg(column_name::text ORDER BY ordinal_position)
+		FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 AND column_name <> 'session_id'`,
+		table[0], table[1]).Scan(&columns); err != nil {
+		t.Fatal(err)
+	}
+	quoted := make([]string, len(columns))
+	for i, c := range columns {
+		quoted[i] = pgx.Identifier{c}.Sanitize()
+	}
+	recs, err := pool.Query(ctx, fmt.Sprintf(`SELECT %s FROM %s WHERE session_id = $1 ORDER BY 1`,
+		strings.Join(quoted, ", "), table.Sanitize()), session)
+	if err != nil {
+		t.Fatal(err)
+	}
+	records, err := pgx.CollectRows(recs, func(row pgx.CollectableRow) ([]any, error) { return row.Values() })
+	if err != nil {
+		t.Fatal(err)
+	}
+	return columns, records
+}
+
 // The operator over each delivery's records, as a pipeline run that does not
 // load them would see them, writes the row the feed detection computes from
 // the table, field by field, for every delivery of every profiled feed of the
@@ -464,31 +500,9 @@ func TestClaimSetSummaryOperatorWritesTheFeedDetectionsRow(t *testing.T) {
 		if !ok {
 			continue
 		}
-		var exists bool
-		if err := pool.QueryRow(ctx, `SELECT to_regclass($1) IS NOT NULL`, table.Sanitize()).Scan(&exists); err != nil {
-			t.Fatal(err)
-		}
-		if !exists {
+		columns, records := claimSetSummaryTestRecords(t, pool, table, r.session)
+		if columns == nil {
 			continue
-		}
-		var columns []string
-		if err := pool.QueryRow(ctx, `SELECT array_agg(column_name::text ORDER BY ordinal_position)
-			FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 AND column_name <> 'session_id'`,
-			table[0], table[1]).Scan(&columns); err != nil {
-			t.Fatal(err)
-		}
-		quoted := make([]string, len(columns))
-		for i, c := range columns {
-			quoted[i] = pgx.Identifier{c}.Sanitize()
-		}
-		recs, err := pool.Query(ctx, fmt.Sprintf(`SELECT %s FROM %s WHERE session_id = $1 ORDER BY 1`,
-			strings.Join(quoted, ", "), table.Sanitize()), r.session)
-		if err != nil {
-			t.Fatal(err)
-		}
-		records, err := pgx.CollectRows(recs, func(row pgx.CollectableRow) ([]any, error) { return row.Values() })
-		if err != nil {
-			t.Fatal(err)
 		}
 		bc := &BuilderContext{dbpool: pool, peKey: r.key, sessionId: r.session, done: make(chan struct{}),
 			errCh: make(chan error, 1), env: map[string]any{}}
@@ -624,5 +638,152 @@ func TestClaimSetSummaryResolvesOnlyADelivery(t *testing.T) {
 		if err != nil || target != nil || !strings.Contains(why, says) {
 			t.Errorf("registration %d: %+v %q %v; want it to say %q", registryKey, target, why, err, says)
 		}
+	}
+}
+
+// A registration is a delivery for the operator exactly when it is one for the
+// feed detection, purged first registrations included: over every file
+// registration of every profiled feed, with one file whose first registration
+// a session deletion removed before its surviving registrations arrived, and
+// one whose record is later than its first surviving registration and so
+// changes nothing. A run re-processing the purged file writes no row.
+func TestClaimSetSummaryReadsDeliveriesAsTheFeedDetectionDoes(t *testing.T) {
+	pool := claimSetSummaryTestFixture(t)
+	ctx := context.Background()
+	type reg struct {
+		key                     int
+		table, fileKey, session string
+	}
+	var regs []reg
+	rows, err := pool.Query(ctx, `SELECT ir.key, ir.table_name, coalesce(ir.file_key, ''), ir.session_id
+		FROM jetsapi.input_registry ir JOIN jetsapi.source_config sc ON sc.table_name = ir.table_name
+		WHERE ir.source_type = 'file' AND sc.feed_profile_json IS NOT NULL ORDER BY ir.key`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rows.Next() {
+		var r reg
+		if err := rows.Scan(&r.key, &r.table, &r.fileKey, &r.session); err != nil {
+			t.Fatal(err)
+		}
+		regs = append(regs, r)
+	}
+	if rows.Err() != nil || len(regs) < 2 {
+		t.Fatalf("%d registrations (%v)", len(regs), rows.Err())
+	}
+	tables := map[string]bool{}
+	for _, r := range regs {
+		tables[r.table] = true
+	}
+	var names []string
+	for n := range tables {
+		names = append(names, n)
+	}
+	deliveries := func() map[string]bool {
+		feedRegs, err := observe.ReadFeedRegistrations(ctx, pool, names)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := map[string]bool{}
+		for _, n := range names {
+			for _, d := range feedRegs.Deliveries(n, time.Time{}) {
+				out[n+" "+d.SessionId] = true
+			}
+		}
+		return out
+	}
+	// Two deliveries of files with a key: the first and the last.
+	var candidates []reg
+	before := deliveries()
+	for _, r := range regs {
+		if r.fileKey != "" && before[r.table+" "+r.session] {
+			candidates = append(candidates, r)
+		}
+	}
+	if len(candidates) < 2 {
+		t.Fatalf("%d deliveries of a file with a key", len(candidates))
+	}
+	gone, later := candidates[0], candidates[len(candidates)-1]
+	ms := func(s string) int64 {
+		var v int64
+		fmt.Sscan(s, &v)
+		return v
+	}
+	for _, p := range []struct {
+		r  reg
+		at int64
+	}{{gone, ms(gone.session) - 86400000}, {later, ms(later.session) + 1}} {
+		if _, err := pool.Exec(ctx, `INSERT INTO jetsapi.purged_delivery (table_name, file_key, first_session_id,
+			first_arrival, deletion_reason) VALUES ($1, $2, $3::text, 'epoch'::timestamptz + $3::bigint * interval '1 millisecond',
+			'retention')`, p.r.table, p.r.fileKey, fmt.Sprint(p.at)); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	delivery := deliveries()
+	if delivery[gone.table+" "+gone.session] || !delivery[later.table+" "+later.session] {
+		t.Fatalf("the feed detection reads the purged file's registration as a delivery %v, the later record's %v",
+			delivery[gone.table+" "+gone.session], delivery[later.table+" "+later.session])
+	}
+	resolved := 0
+	for _, r := range regs {
+		var pe int
+		if err := pool.QueryRow(ctx, `INSERT INTO jetsapi.pipeline_execution_status (pipeline_config_key,
+			  main_input_registry_key, client, process_name, main_object_type, session_id, source_period_key, status,
+			  user_email)
+			VALUES (0, $1, 'c', 'p', 'o', $2, 0, 'completed', 'u') RETURNING key`, r.key,
+			fmt.Sprintf("run-%d", r.key)).Scan(&pe); err != nil {
+			t.Fatal(err)
+		}
+		target, why, err := claimset.Resolve(ctx, pool, pe)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if (target != nil) != delivery[r.table+" "+r.session] {
+			t.Errorf("registration %s of %s: the operator reads it as a delivery %v (%s), the feed detection %v",
+				r.session, r.table, target != nil, why, delivery[r.table+" "+r.session])
+		}
+		if target != nil {
+			resolved++
+		}
+		if r == gone && !strings.Contains(why, "was deleted") {
+			t.Errorf("the purged file's registration: %q", why)
+		}
+	}
+	if resolved == 0 {
+		t.Fatal("no registration resolved; the comparison asserts nothing")
+	}
+
+	// The fixture's own run of the purged file's registration writes no row.
+	var runKey int
+	var runSession string
+	if err := pool.QueryRow(ctx, `SELECT key, session_id FROM jetsapi.pipeline_execution_status
+		WHERE input_session_id = $1`, gone.session).Scan(&runKey, &runSession); err != nil {
+		t.Fatal(err)
+	}
+	var claimTable string
+	if err := pool.QueryRow(ctx, `SELECT feed_profile_json -> 'claim_set' ->> 'table' FROM jetsapi.source_config
+		WHERE table_name = $1`, gone.table).Scan(&claimTable); err != nil {
+		t.Fatal(err)
+	}
+	id, err := observe.ClaimSetTable(claimTable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	columns, records := claimSetSummaryTestRecords(t, pool, id, runSession)
+	if len(records) == 0 {
+		t.Fatalf("the purged file's run %s has no claim rows to summarise", runSession)
+	}
+	bc := &BuilderContext{dbpool: pool, peKey: runKey, sessionId: runSession, done: make(chan struct{}),
+		errCh: make(chan error, 1), env: map[string]any{}}
+	if out := runClaimSetSummary(t, bc, columns, records); len(out) != len(records) {
+		t.Errorf("forwarded %d of %d records", len(out), len(records))
+	}
+	var n int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM jetsapi.claim_set_summary`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Errorf("a run re-processing a purged file wrote %d summaries", n)
 	}
 }

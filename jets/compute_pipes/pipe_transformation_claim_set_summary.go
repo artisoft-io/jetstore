@@ -21,8 +21,8 @@ package compute_pipes
 //
 // The feed and the delivery are the run's own (claimset.Resolve): the main
 // input's registration names the feed (input_registry.table_name) and is the
-// delivery when it is the first registration of its file, as the feed
-// detection reads deliveries. The row is written for that delivery, under this
+// delivery by the feed detection's rule, a deleted first registration counted
+// (purged_delivery). The row is written for that delivery, under this
 // run's session, and is deleted with it. The summary is computed by package
 // claimset, which holds it to the row the feed detection computes from the
 // table.

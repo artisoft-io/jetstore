@@ -61,6 +61,15 @@ package observe
 // completed run's is judged from and not written, so a load still in
 // progress is not frozen into the record.
 //
+// A pipeline writes a summary too: the compute pipes operator
+// claim_set_summary computes the same row from the delivery's mapped records
+// (package jets/claimset), under the run's session, once its step has read
+// every record, so a pipeline that does not load its claims keeps the checks.
+// It writes no judged mark; a run here finds the row stored, computes none for
+// the delivery, and judges and marks it as it does any stored summary.
+// TestClaimSetPackageWritesTheSameRow and
+// TestClaimSetSummariserMatchesTheStatement hold the two writers to one row.
+//
 // A stored summary is kept when the rows are gone and the declaration has
 // changed: what it can still answer is judged, and a check that needs what it
 // cannot answer is not judged, with reason summary_declaration_changed.

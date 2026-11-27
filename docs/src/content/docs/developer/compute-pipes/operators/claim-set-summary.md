@@ -54,8 +54,11 @@ So a change to the profile reaches the next run with no change to the pipeline.
 
 **The feed and the delivery are the run's own** (`claimset.Resolve`). The run's main input
 registration, through `pipeline_execution_status.main_input_registry_key`, names the feed by its
-`table_name`, and it is the delivery when it is the first registration of its file in that feed, in the
-order the feed detection reads registrations. The row is written for that delivery, under the run's own
+`table_name`, and it is the delivery by the feed detection's own rule: the first surviving registration
+of its file in that feed, in the order the feed detection reads registrations, unless
+`jetsapi.purged_delivery` records an earlier first registration of the same file that a session deletion
+removed. `TestClaimSetSummaryReadsDeliveriesAsTheFeedDetectionDoes` holds the two readings equal over
+every registration of the feed detection's fixture. The row is written for that delivery, under the run's own
 session, and it is deleted with that session by the session purge and by a person's Delete.
 
 **Every column of the input channel has a present count**: the records carrying a value there, not null
@@ -122,6 +125,7 @@ reads as its own, it writes none, logs why, and forwards every record as usual:
 | the run's main input is not a file registration | no main input registered as a file |
 | the feed has no profile, a refused one, or one declaring no `claim_set` | no usable profile declaring a claim_set |
 | the main input re-processes a delivered file | it re-processes delivery *s*, which is read as it first arrived |
+| the main input re-registers a file whose first registration a session deletion removed | its first registration was deleted |
 | the main input's session id is not a registration time | it is not a delivery |
 | a column the profile names is not a column of the input channel | the column(s) the channel does not have |
 | a key or member value has no text the database would give it, or a date of service is not a date | the column and the value's type |
@@ -151,6 +155,8 @@ A date of service is a date, or text holding an ISO date (`YYYY-MM-DD`, optional
 
 ## 7. With the feed detection and the purge
 
+- **The operator writes no judged mark** (`claim_set_judged_at`). A run of the feed detection that
+  writes judges the delivery from the stored row and marks it, as it does any stored summary.
 - **The feed detection reads the operator's row and computes none.** It summarises only a delivery
   with no stored summary under the declaration now, so a run after the operator's reads the stored row,
   with the claim rows present or gone, and reaches the verdicts it reaches from the rows.
