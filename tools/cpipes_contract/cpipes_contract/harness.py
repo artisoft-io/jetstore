@@ -62,6 +62,7 @@ from .matrix_schema import (
     Required,
     TypeRow,
     YesNo,
+    parse_required_when,
     parse_variant_when,
     split_list,
 )
@@ -161,6 +162,21 @@ REFERENCE_WIRING: dict[tuple[str, str], Wiring] = {
 # none. (parent struct, field) -> the child field to wire, via REFERENCE_WIRING.
 CONTEXT_WIRING: dict[tuple[str, str], str] = {
     ("JetrulesSpec", "output_channels"): "channel_spec_name",
+}
+
+# Columns an operator requires of the channel spec its output channel names,
+# beyond the spec's own minimal instance: a claim_set_summary in partial mode
+# refuses an output channel whose spec lacks the partial record's columns
+# (validateClaimSetSummarySpec). The list is claimset.PartialColumns; when the
+# two drift, the type's minimal config is rejected and the finding names the
+# missing columns.
+OUTPUT_CHANNEL_COLUMNS: dict[TypeKey, tuple[str, ...]] = {
+    ("TransformationSpec", "claim_set_summary"): (
+        "claim_set_skip", "claim_set_rows", "claim_set_dated_rows",
+        "claim_set_distinct_keys", "claim_set_key_fingerprint", "claim_set_key_sketch",
+        "claim_set_members", "claim_set_member_sketch", "claim_set_rows_by_date",
+        "claim_set_present_counts",
+    ),
 }
 
 # Neutral values for free scalars the validator inspects by shape rather than by
@@ -356,7 +372,20 @@ class _Builder:
         for row in rows:
             if row.json_key in node:
                 self.wire_context(row, node[row.json_key])
+        self.impose_output_columns(key, node)
         return node
+
+    def impose_output_columns(self, key: TypeKey, node: dict) -> None:
+        """Give the channel spec this node's output channel names the columns
+        its operator requires of it (OUTPUT_CHANNEL_COLUMNS)."""
+        columns = OUTPUT_CHANNEL_COLUMNS.get(key)
+        output = node.get("output_channel")
+        if columns is None or not isinstance(output, dict):
+            return
+        spec_name = output.get("channel_spec_name")
+        for channel in self.root_additions.get("channels", []):
+            if channel.get("name") == spec_name:
+                channel["columns"] = list(columns)
 
     def wire_context(self, row: FieldRow, value: Any) -> None:
         """Impose the enclosing struct's requirements on a child just built."""
@@ -438,20 +467,23 @@ class _Builder:
     # -- required_when ------------------------------------------------------
 
     def condition_holds(self, condition: str | None, stack: tuple) -> bool:
-        """Evaluate an `absent(a) and present(b)` condition against the instance
-        being built and its ancestors. A dotted key is resolved from the
-        innermost instance whose struct declares its head — which is how
-        `absent(output_channel.schema_provider)` on a PartitionWriterSpec row
-        reaches the enclosing TransformationSpec. A condition outside the
-        grammar is reported as un-evaluable by raising, and the row ends up
-        untestable rather than silently included."""
+        """Evaluate an `absent(a) and present(b)` or `equals(a, v)` condition
+        against the instance being built and its ancestors. A dotted key is
+        resolved from the innermost instance whose struct declares its head -
+        which is how `absent(output_channel.schema_provider)` on a
+        PartitionWriterSpec row reaches the enclosing TransformationSpec. A
+        condition outside the grammar raises, and the row ends up untestable
+        rather than silently included."""
         if condition in (NONE, None):
             return False
-        for clause in condition.split(" and "):
-            kind, dotted = _parse_predicate(clause.strip())
-            value = self.lookup(dotted, stack)
+        for clause in parse_required_when(condition):
+            value = self.lookup(clause.path, stack)
+            if clause.kind == "equals":
+                if not _equals(value, clause.value):
+                    return False
+                continue
             present = value not in (None, "")
-            if (kind == "present") != present:
+            if (clause.kind == "present") != present:
                 return False
         return True
 
@@ -470,11 +502,14 @@ class _Builder:
         return None
 
 
-def _parse_predicate(clause: str) -> tuple[str, str]:
-    for kind in ("present", "absent"):
-        if clause.startswith(f"{kind}(") and clause.endswith(")"):
-            return kind, clause[len(kind) + 1 : -1]
-    raise ValueError(f"required_when outside the present/absent grammar: {clause!r}")
+def _equals(value: Any, literal: str | None) -> bool:
+    """Whether a decoded JSON value is `literal` as JSON writes it: `partial`
+    for the string, `true` for the bool, `3` for the number."""
+    if value is None or literal is None:
+        return False
+    if isinstance(value, str):
+        return value == literal
+    return json.dumps(value) == literal
 
 
 # ---------------------------------------------------------------------------

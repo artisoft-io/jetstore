@@ -1594,7 +1594,7 @@
             }
           ],
           "default": null,
-          "description": "The channel a partial is emitted on, whose channel spec carries the partial columns. Set in partial mode; a merge writes the summary row and takes none.",
+          "description": "The channel a partial is emitted on, whose channel spec carries the partial columns. Set in partial mode; a merge writes the summary row and takes none. Required when: equals(claim_set_summary_config.mode, partial).",
           "title": "Output Channel"
         },
         "type": {
@@ -18316,7 +18316,7 @@
             }
           ],
           "default": null,
-          "description": "The channel a partial is emitted on, whose channel spec carries the partial columns. Set in partial mode; a merge writes the summary row and takes none.",
+          "description": "The channel a partial is emitted on, whose channel spec carries the partial columns. Set in partial mode; a merge writes the summary row and takes none. Required when: equals(claim_set_summary_config.mode, partial).",
           "title": "Output Channel"
         },
         "type": {

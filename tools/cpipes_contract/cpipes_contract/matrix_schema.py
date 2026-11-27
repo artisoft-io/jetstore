@@ -125,6 +125,59 @@ def variant_matches(
     return value is None or value == ""
 
 
+# The condition of a conditional requirement (`required_when`): one or more clauses
+# joined by ` and `. A clause reads one json key, dotted to reach into a child
+# object (`output_channel.schema_provider`), and the key's head is resolved from
+# the innermost enclosing struct that declares it, so a row may test a field of
+# the struct that holds it as well as one of its own:
+#
+# - `present(k)`: k is set, not null and not the empty string;
+# - `absent(k)`: k is missing, null or the empty string, the reading Go gives an
+#   omitted `string` field;
+# - `equals(k, v)`: k is set to the value v, compared as JSON writes it (`partial`
+#   for a string, `true` for a bool, `3` for a number).
+#
+# **`equals` was added 2026-11-27**, for the claim_set_summary operator, whose
+# output channel is required in partial mode and refused in merge mode
+# (validateClaimSetSummarySpec): a requirement that hangs on a value of a sibling
+# field, which `present` and `absent` cannot say. A value is one token, with no
+# space, comma or parenthesis in it; every closed value set in the matrix fits.
+_KEY_PATH = r"[a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*)*"
+_REQUIRED_WHEN_CLAUSE = re.compile(
+    rf"^(?:(present|absent)\(({_KEY_PATH})\)|(equals)\(({_KEY_PATH}),\s*([^\s(),]+)\))$"
+)
+
+
+class Predicate(BaseModel):
+    """One clause of a `required_when` condition."""
+
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["present", "absent", "equals"]
+    path: str  # the json key, dotted into child objects
+    value: str | None = None  # for `equals`: the value as JSON writes it
+
+
+def parse_required_when(cell: str) -> list[Predicate]:
+    """Split a `required_when` condition into its clauses, all of which must hold.
+    Raises ValueError on a condition outside the grammar."""
+    clauses: list[Predicate] = []
+    for clause in cell.split(" and "):
+        match = _REQUIRED_WHEN_CLAUSE.match(clause.strip())
+        if match is None:
+            raise ValueError(
+                f"required_when clause outside the grammar present(k), absent(k), "
+                f"equals(k, v): {clause.strip()!r}"
+            )
+        if match.group(1):
+            clauses.append(Predicate(kind=match.group(1), path=match.group(2)))
+        else:
+            clauses.append(
+                Predicate(kind="equals", path=match.group(4), value=match.group(5))
+            )
+    return clauses
+
+
 # ---------------------------------------------------------------------------
 # Controlled vocabularies
 # ---------------------------------------------------------------------------
@@ -364,6 +417,8 @@ class FieldRow(Row):
             raise ValueError(
                 "required_when must be set exactly when required is 'conditional'"
             )
+        if self.required_when not in (None, NONE):
+            parse_required_when(self.required_when)  # raises outside the grammar
         if have(self.default_by, self.default):
             if (self.default_by is DefaultBy.NONE) != (self.default == NONE):
                 raise ValueError("default_by must be 'none' exactly when default is '-'")
