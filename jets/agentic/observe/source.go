@@ -42,6 +42,11 @@ func (s Source) Describe() string {
 // input registration.
 const SourceColumns = `coalesce(src.client, ''), coalesce(src.org, ''), coalesce(src.object_type, '')`
 
+// noSourceColumns stands in for SourceColumns where jetsapi.input_registry does
+// not exist, so a statement reads the same columns either way and every run has
+// the empty source.
+const noSourceColumns = `''::text, ''::text, ''::text`
+
 // SourceJoin returns the join that reads the source of the run header aliased
 // h: its main input registration. A LEFT JOIN, so a run with none is kept, with
 // the empty source.
