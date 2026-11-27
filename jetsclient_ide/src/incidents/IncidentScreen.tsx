@@ -64,6 +64,7 @@ import {
   type IncidentDetailResponse,
   type IncidentSummaryText,
   type IncidentTransitionRow,
+  type MainInputSource,
   type RunCodeCount,
   type RunCondition,
 } from "./api";
@@ -260,6 +261,18 @@ export function IncidentScreen({ api }: { api: ApiClient }) {
                   <code className="incident-code">{incident.job}</code>
                   <p className="empty-sub">
                     The job that failed. Its failures are one incident until you give a verdict on it.
+                  </p>
+                </dd>
+              </>
+            )}
+            {incident.mainInputSource && (
+              <>
+                <dt>Main input source</dt>
+                <dd>
+                  {sourceLabel(incident.mainInputSource)}
+                  <p className="empty-sub">
+                    The client, org and object type the run's main input was registered under. Each source
+                    of a process is a run condition of its own.
                   </p>
                 </dd>
               </>
@@ -758,6 +771,15 @@ function RunCodes({ codes }: { codes: RunCodeCount[] }) {
  * on. Each run links to its session's incidents, and, for per-record failures,
  * to its Process Errors rows.
  */
+/** A main input source as the page shows it: its org and object type, and its client. */
+function sourceLabel(src: MainInputSource) {
+  return (
+    <>
+      org <code>{src.org}</code>, object type <code>{src.objectType}</code> of client <code>{src.client}</code>
+    </>
+  );
+}
+
 function RunConditionSection({
   condition: c,
   incidentSessionId,
@@ -773,6 +795,7 @@ function RunConditionSection({
       <h3>Run condition</h3>
       <p>
         Process <code>{c.process}</code> for client <code>{c.client}</code>
+        {c.source && <>, main input source {sourceLabel(c.source)}</>}
         {coded && (
           <>
             , error code <code className="incident-code">{c.errorCode}</code>

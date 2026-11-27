@@ -84,6 +84,13 @@ type Profile struct {
 	// MaxRedeliveredShare is the largest share, 0 to 1, of an incremental
 	// delivery's distinct keys that may already have been delivered.
 	MaxRedeliveredShare *float64 `json:"max_redelivered_share,omitempty"`
+	// EmptyDeliveriesExpected declares that the feed may send a file with no
+	// records, as some feeds do on days with nothing to send. Triage reads it
+	// for a run whose main input is this feed: a run whose sharding step read
+	// 0 records is then absent at main_input_empty, its basis naming the
+	// declaration, rather than present. Absent is false. It is read by no feed
+	// detector, so no detector requires it.
+	EmptyDeliveriesExpected *bool `json:"empty_deliveries_expected,omitempty"`
 	// RequiredFields are columns that must be present in at least a share of
 	// a delivery's rows.
 	RequiredFields []RequiredField `json:"required_fields,omitempty"`
@@ -115,6 +122,12 @@ type ClaimSet struct {
 type RequiredField struct {
 	Column          string   `json:"column"`
 	MinPresentShare *float64 `json:"min_present_share"`
+}
+
+// EmptyExpected reports whether the profile declares empty deliveries
+// expected.
+func (p Profile) EmptyExpected() bool {
+	return p.EmptyDeliveriesExpected != nil && *p.EmptyDeliveriesExpected
 }
 
 // DeliveryPeriods is PeriodsPerDelivery, or 1 when it is absent.

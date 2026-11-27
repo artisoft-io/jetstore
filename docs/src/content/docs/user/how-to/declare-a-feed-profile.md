@@ -69,6 +69,7 @@ configuration's **Is each delivery cumulative?** setting, and the checks read it
 | `max_out_of_span_share` | The largest share, at least 0 and below 1, of a delivery's rows with a date of service that may be outside the span. Allowed only with `max_service_date_span_days`. **Absent is 0**: any row outside the span fires the check, which is how the check has always judged. Declare it when a feed's deliveries carry a few late rows, such as reversals of old claims, that should not count as a delivery reaching back. | a delivery that reaches back in time |
 | `max_redelivered_share` | The largest share, from 0 to 1, of a delivery's claims that may have been delivered before. Not used for a cumulative feed. | claims delivered again |
 | `required_fields` | Columns that must be present, each with its `min_present_share`, above 0 and at most 1. | a column that goes missing |
+| `empty_deliveries_expected` | `true` when the feed may send a file with no records, such as a vendor that sends an empty file on days with nothing to send. Absent is `false`. | shadow triage's *Main input empty* locus (see below) |
 | `declared_by`, `declared_at` | Who declared the profile, and the date, written `YYYY-MM-DD`. Required. | every finding, as its evidence |
 
 A field the profile does not have, such as a misspelt one, is refused rather than ignored.
@@ -123,6 +124,18 @@ current period whose claims reach back in time is a different case, which the sp
 delivery only with the deliveries registered before it. The first delivery JetStore still holds has
 nothing before it, so a check that compares with earlier deliveries does not judge it, and says that
 earlier history may have been removed.
+
+## An empty delivery
+
+A run whose main input held no records, its sharding step having completed and read 0 records, is
+found by shadow triage at the **Main input empty** locus (see
+[Incidents](/docs/user/screens/incidents/#a-run-whose-main-input-is-empty)), and its runs are one
+incident until a file with records arrives. That is not a feed check and needs nothing in the
+profile. **Declare `"empty_deliveries_expected": true`** when an empty file from this feed is
+normal: the locus is then absent on the feed's empty runs, its evidence names your declaration, and
+nothing is raised. The feed is matched to a run by the run's main input registration, its client,
+org and object type. The declaration is read when a run is triaged, so it applies from the next
+triage on, and an incident already raised stays until you give it a verdict.
 
 ## When the checks run
 

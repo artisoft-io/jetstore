@@ -150,6 +150,9 @@ class jetsa:Incident {
     jetsa:incident_client as text,
     jetsa:incident_process_name as text,
     jetsa:incident_anchor_start_time as datetime,
+    jetsa:incident_source_client as text,
+    jetsa:incident_source_org as text,
+    jetsa:incident_source_object_type as text,
     jetsa:incident_feed as text
   ],
   $object_properties = [
@@ -307,6 +310,7 @@ text jetsa:INCIDENT_LOCUS_WRITTEN_NOT_ARRIVED = "written_not_arrived";
 text jetsa:INCIDENT_LOCUS_DELIVERY_OVERDUE = "delivery_overdue";
 text jetsa:INCIDENT_LOCUS_DELIVERY_DEPARTS_PROFILE = "delivery_departs_profile";
 text jetsa:INCIDENT_LOCUS_JOB_FAILED = "job_failed";
+text jetsa:INCIDENT_LOCUS_MAIN_INPUT_EMPTY = "main_input_empty";
 
 # jetsa:severity enum (Severity)
 text jetsa:SEVERITY_INFO = "info";

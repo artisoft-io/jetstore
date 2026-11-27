@@ -53,6 +53,25 @@ const loadTablesSQL = feedsSQL + `
  WHERE sc.table_name = ANY($1)
  ORDER BY sc.table_name, sc.client, sc.org`
 
+// loadSourceSQL reads the feed of one source: its client, org and object
+// type, which source_config is unique on.
+const loadSourceSQL = feedsSQL + `
+ WHERE sc.client = $1 AND sc.org = $2 AND sc.object_type = $3
+ ORDER BY sc.table_name`
+
+// LoadSource reads the source_config row of one source, its client, org and
+// object type, as Load reads a row; ok is false when no row has them. It is
+// for a reader that starts from a run's main input registration, which names
+// its source rather than a table.
+func LoadSource[R Rows](ctx context.Context, db Querier[R], client, org, objectType string) (f Feed, ok bool, err error) {
+	feeds, err := readFeeds(ctx, db, loadSourceSQL, fmt.Sprintf("of source %s/%s/%s", client, org, objectType),
+		client, org, objectType)
+	if err != nil || len(feeds) == 0 {
+		return Feed{}, false, err
+	}
+	return feeds[0], true, nil
+}
+
 // Load reads every source_config row of client. A row whose profile parses and
 // validates is in profiled; every other row is in unprofiled, for the coverage
 // line: a row with no profile has no Findings, and a row whose stored profile
@@ -62,7 +81,7 @@ const loadTablesSQL = feedsSQL + `
 // initialisation script inserts source_config rows directly. Such a feed is not
 // judged, and the findings say why, rather than the whole client failing.
 func Load[R Rows](ctx context.Context, db Querier[R], client string) (profiled, unprofiled []Feed, err error) {
-	feeds, err := readFeeds(ctx, db, loadSQL, client, "of client "+client)
+	feeds, err := readFeeds(ctx, db, loadSQL, "of client "+client, client)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -85,12 +104,12 @@ func LoadTables[R Rows](ctx context.Context, db Querier[R], tables []string) ([]
 	if len(tables) == 0 {
 		return nil, nil
 	}
-	return readFeeds(ctx, db, loadTablesSQL, tables, fmt.Sprintf("of tables %v", tables))
+	return readFeeds(ctx, db, loadTablesSQL, fmt.Sprintf("of tables %v", tables), tables)
 }
 
 // readFeeds runs one of the two reads and parses each row's profile.
-func readFeeds[R Rows](ctx context.Context, db Querier[R], sql string, arg any, what string) ([]Feed, error) {
-	rows, err := db.Query(ctx, sql, arg)
+func readFeeds[R Rows](ctx context.Context, db Querier[R], sql string, what string, args ...any) ([]Feed, error) {
+	rows, err := db.Query(ctx, sql, args...)
 	if err != nil {
 		return nil, fmt.Errorf("while reading the feeds %s from source_config: %w", what, err)
 	}
