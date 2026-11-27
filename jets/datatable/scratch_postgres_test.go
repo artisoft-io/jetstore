@@ -7,7 +7,10 @@ package datatable
 // from the shipped jets/jets_schema.json, never from hand-written DDL, so a
 // test sees the columns and constraints a deployment migrates; and they drop
 // and recreate what they use, so point JETS_TEST_DSN at a throwaway database
-// and not at a jetsapi you care about. Locally:
+// and not at a jetsapi you care about. The package's TestMain (testmain_test.go)
+// points JETS_TEST_DSN at a database of this package's own on that server, made
+// for the run and dropped after it, so no other package's tables are there; see
+// jets/dbtest. Locally:
 //
 //	docker run -d --rm --name jets-test-pg -e POSTGRES_PASSWORD=pw \
 //	  -p 5471:5432 postgres:16-alpine
