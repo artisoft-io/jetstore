@@ -628,14 +628,14 @@ type TransformationSpec struct {
 	OutputChannel         OutputChannelConfig              `json:"output_channel,omitzero"`
 	ConditionalConfig     []*ConditionalTransformationSpec `json:"conditional_config,omitzero"`
 	When                  *ExpressionNode                  `json:"when,omitzero"`
+	ClaimSetSummaryConfig *ClaimSetSummarySpec             `json:"claim_set_summary_config,omitzero"`
 }
 
 // SiteOperatorSpec is the configuration of an operator this deployment supplies.
 //
-// **One field on the union for all of them rather than one per operator**, which
-// is the whole difference between this and the eighteen `*_config` pointers
-// above: which operators a site has is not JetStore's business, and a union
-// branch per site token would make it so.
+// **One field on the union for all of them rather than one per operator**, which is the
+// whole difference between this and the operators' own `*_config` pointers: which operators
+// a site has is not JetStore's business, and a union branch per site token would make it so.
 //
 // It exists because a site operator is not merely inconvenient to configure
 // without it -- it is unconfigurable, and silently so. The cpipes document
@@ -1722,4 +1722,25 @@ type VllmSpec struct {
 	// The backend-agnostic configuration, embedded anonymously so encoding/json
 	// field promotion gives the wire shape the ollama operator has (15a).
 	InferCommonSpec
+}
+
+// ClaimSetSummarySpec configures the claim_set_summary operator
+// (pipe_transformation_claim_set_summary.go).
+//
+// Mode is partial or merge. In a partial mode the operator runs on every node
+// of a step whose input is sharded by member, summarises the records it reads
+// and emits, once it has read the last, one partial record (the columns of
+// claimset.PartialColumns) on its output channel; it forwards no record. In a
+// merge mode it runs in a later step on one node, reads every partial of the
+// run from its input channel, and writes the delivery's row of
+// jetsapi.claim_set_summary; it has no output channel.
+//
+// Resolved is set by the start of the step, never authored: the feed and the
+// delivery the run's summary is for, or why there is none, as a
+// claimset.Resolution in JSON. The start resolves them once, from the
+// database, so the nodes read neither the profile nor the registrations.
+type ClaimSetSummarySpec struct {
+	Comment  string          `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
+	Mode     string          `json:"mode,omitempty"`
+	Resolved json.RawMessage `json:"resolved,omitempty"`
 }

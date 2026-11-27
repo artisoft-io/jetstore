@@ -1,0 +1,124 @@
+{
+  "comment": "A pipeline that maps claims, shards them by member, sorts them for the rules and summarises them beside the sort: the claim_set_summary operator's partial mode on every node of the sorting step, and its merge mode on one node of the last step. TestClaimSetSummaryLayoutValidates holds it valid; the operator's documentation shows it.",
+  "cluster_config": {},
+  "channels": [
+    {
+      "name": "claim",
+      "columns": ["claim_id", "claim_line", "member_id", "service_date", "billed_amount"]
+    },
+    {
+      "name": "claim_summary_partial",
+      "columns": ["claim_set_skip", "claim_set_rows", "claim_set_dated_rows", "claim_set_distinct_keys",
+        "claim_set_key_fingerprint", "claim_set_key_sketch", "claim_set_members", "claim_set_member_sketch",
+        "claim_set_rows_by_date", "claim_set_present_counts"]
+    }
+  ],
+  "reducing_pipes_config": [
+    [
+      {
+        "type": "fan_out",
+        "input_channel": { "type": "input", "name": "input_row" },
+        "apply": [
+          {
+            "type": "map_record",
+            "new_record": true,
+            "columns": [
+              { "name": "claim_id", "type": "select", "expr": "claim_id" },
+              { "name": "claim_line", "type": "select", "expr": "claim_line" },
+              { "name": "member_id", "type": "select", "expr": "member_id" },
+              { "name": "service_date", "type": "select", "expr": "service_date" },
+              { "name": "billed_amount", "type": "select", "expr": "billed_amount" }
+            ],
+            "output_channel": { "name": "claim.mapped", "channel_spec_name": "claim" }
+          }
+        ]
+      },
+      {
+        "comment": "Shards the mapped claims by member, so every node of the next step holds disjoint members, and disjoint keys since each claim belongs to one member.",
+        "type": "splitter",
+        "input_channel": { "name": "claim.mapped" },
+        "splitter_config": { "shard_on": { "expr": "member_id", "nbr_jets_partitions": 8 } },
+        "apply": [
+          {
+            "type": "partition_writer",
+            "partition_writer_config": { "device_writer_type": "csv_writer" },
+            "output_channel": { "type": "stage", "name": "claim.out", "channel_spec_name": "claim",
+              "write_step_id": "reducing01" }
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "comment": "The sort and the partial summary read the same records, before the rules engine.",
+        "type": "fan_out",
+        "input_channel": { "type": "stage", "name": "claim", "read_step_id": "reducing01" },
+        "apply": [
+          {
+            "type": "sort",
+            "sort_config": { "sort_by": ["member_id"] },
+            "output_channel": { "name": "claim.sorted", "channel_spec_name": "claim" }
+          },
+          {
+            "type": "claim_set_summary",
+            "claim_set_summary_config": { "mode": "partial" },
+            "output_channel": { "name": "claim_summary.partial", "channel_spec_name": "claim_summary_partial" }
+          }
+        ]
+      },
+      {
+        "type": "fan_out",
+        "input_channel": { "name": "claim.sorted" },
+        "apply": [
+          {
+            "type": "partition_writer",
+            "partition_writer_config": { "device_writer_type": "csv_writer" },
+            "output_channel": { "type": "stage", "name": "claim_sorted.out", "channel_spec_name": "claim",
+              "write_step_id": "reducing02" }
+          }
+        ]
+      },
+      {
+        "comment": "One partial per node, all to one partition, so the merge step has one node.",
+        "type": "fan_out",
+        "input_channel": { "name": "claim_summary.partial" },
+        "apply": [
+          {
+            "type": "partition_writer",
+            "partition_writer_config": { "jets_partition_key": "0p", "device_writer_type": "csv_writer" },
+            "output_channel": { "type": "stage", "name": "claim_summary.out",
+              "channel_spec_name": "claim_summary_partial", "write_step_id": "reducing03" }
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "comment": "Stands for the rules engine, which reads the sorted claims.",
+        "type": "fan_out",
+        "input_channel": { "type": "stage", "name": "claim", "read_step_id": "reducing02" },
+        "apply": [
+          {
+            "type": "partition_writer",
+            "partition_writer_config": { "device_writer_type": "csv_writer" },
+            "output_channel": { "type": "stage", "name": "claim_rules.out", "channel_spec_name": "claim",
+              "write_step_id": "reducing04" }
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "comment": "Reads every node's partial and writes the delivery's summary row.",
+        "type": "fan_out",
+        "input_channel": { "type": "stage", "name": "claim_summary_partial", "read_step_id": "reducing03" },
+        "apply": [
+          {
+            "type": "claim_set_summary",
+            "claim_set_summary_config": { "mode": "merge" }
+          }
+        ]
+      }
+    ]
+  ]
+}

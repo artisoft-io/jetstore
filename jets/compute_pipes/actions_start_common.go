@@ -1019,7 +1019,7 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 			// 	transformationConfig.OutputChannel.SchemaProvider)
 			sp := cpConfig.GetSchemaProviderSpec(outputChConfig.SchemaProvider)
 
-			if err := validateSiteOperatorSpec(transformationConfig); err != nil {
+			if err := firstError(validateSiteOperatorSpec(transformationConfig), validateClaimSetSummaryOperator(cpConfig, pipeSpec, transformationConfig, &outputChConfig)); err != nil {
 				return err
 			}
 
@@ -1204,7 +1204,7 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 			}
 		}
 	}
-	return firstError(validateClaimSetSummaryPipes(pipeConfig), validateErrorChannelSpecs(cpConfig, pipeConfig))
+	return validateErrorChannelSpecs(cpConfig, pipeConfig)
 }
 
 // errorChannelConfig returns the error channel of a transformation, nil when it has none.

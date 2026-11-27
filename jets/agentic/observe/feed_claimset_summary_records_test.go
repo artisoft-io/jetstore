@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -24,6 +25,9 @@ import (
 // dates, a fingerprint and a sketch; a small one, dated by month and with
 // neither; and one with no date of service. The present counts are the same
 // for every column given, the table's session_id being the statement's alone.
+// So do the same records split over three shards by member, each summarised
+// as a partial and the partials added. The row says which path computed it,
+// and is otherwise the same.
 func TestClaimSetSummariserMatchesTheStatement(t *testing.T) {
 	pool := claimSetSummaryScratch(t, "observe_claimset_records_test")
 	ctx := context.Background()
@@ -62,6 +66,10 @@ func TestClaimSetSummariserMatchesTheStatement(t *testing.T) {
 		}
 		given := columns[1:]
 		s := claimset.NewSummariser(f, given, o.MinMembers)
+		var shards [3]*claimset.Summariser
+		for i := range shards {
+			shards[i] = claimset.NewSummariser(f, given, o.MinMembers)
+		}
 		rows, err := pool.Query(ctx, `SELECT "claim id", line::text, d, m, note FROM public.claims
 			WHERE session_id = $1`, session)
 		if err != nil {
@@ -74,18 +82,41 @@ func TestClaimSetSummariserMatchesTheStatement(t *testing.T) {
 				t.Fatal(err)
 			}
 			present := func(v *string) bool { return v != nil && trimSpaces(*v) != "" }
-			s.Add(claimset.Record{Key: []*string{id, line}, Member: m, ServiceDate: d,
-				Present: []bool{present(id), present(line), d != nil, present(m), present(note)}})
+			r := claimset.Record{Key: []*string{id, line}, Member: m, ServiceDate: d,
+				Present: []bool{present(id), present(line), d != nil, present(m), present(note)}}
+			s.Add(r)
+			shard := 0
+			if m != nil {
+				shard = int(claimset.MemberHash(*m) % 3)
+			}
+			shards[shard].Add(r)
 		}
 		if err := rows.Err(); err != nil {
 			t.Fatal(err)
 		}
-		got := fromClaimSetPackage(s.Summary(session, session, &arrival, o.Now))
 		delete(want.Present, "session_id")
-		if !reflect.DeepEqual(got, want) {
-			for _, d := range claimSetSummaryDiff(got, want) {
-				t.Errorf("session %s: %s", session, d)
+		whole := &claimset.Partial{}
+		for _, sh := range shards {
+			whole.Add(sh.Partial())
+		}
+		for label, c := range map[string]*claimset.Summary{
+			"one summariser": s.Summary(session, session, &arrival, o.Now),
+			"three shards":   whole.Summary(f, o.MinMembers, session, session, &arrival, o.Now),
+		} {
+			got := fromClaimSetPackage(c)
+			if got.ComputedBy != ClaimSetComputedByPipeline || want.ComputedBy != ClaimSetComputedByDatabase {
+				t.Errorf("session %s, %s: computed by %q, the statement's by %q", session, label, got.ComputedBy,
+					want.ComputedBy)
 			}
+			got.ComputedBy = want.ComputedBy
+			if !reflect.DeepEqual(got, want) {
+				for _, d := range claimSetSummaryDiff(got, want) {
+					t.Errorf("session %s, %s: %s", session, label, d)
+				}
+			}
+		}
+		if session == "L" && whole.Overlap() != "" {
+			t.Errorf("shards by member read as not disjoint: %s", whole.Overlap())
 		}
 	}
 }
@@ -129,6 +160,19 @@ func TestClaimSetPackageWritesTheSameRow(t *testing.T) {
 	}
 	if claimset.UpsertSQL != claimSetUpsertSQL {
 		t.Error("claimset.UpsertSQL is not this package's claimSetUpsertSQL")
+	}
+	// A table the migration has not reached is written without computed_by,
+	// by both, and both ask the same question to tell.
+	if claimset.UpsertWithoutPathSQL != claimSetUpsertWithoutPathSQL {
+		t.Error("claimset.UpsertWithoutPathSQL is not this package's claimSetUpsertWithoutPathSQL")
+	}
+	if claimset.PathColumnSQL != claimSetPathColumnSQL {
+		t.Error("claimset.PathColumnSQL is not this package's claimSetPathColumnSQL")
+	}
+	if strings.Contains(claimSetUpsertWithoutPathSQL, "computed_by") || !strings.Contains(claimSetUpsertSQL, "computed_by") ||
+		strings.Replace(strings.Replace(strings.Replace(claimSetUpsertSQL, ", computed_by)", ")", 1), ", $26)", ")", 1),
+			", computed_by = EXCLUDED.computed_by", "", 1) != claimSetUpsertWithoutPathSQL {
+		t.Error("the two upserts differ in more than computed_by")
 	}
 	// Fields this package reads that the summary's writer does not write, and
 	// why a pipeline's summary has none.

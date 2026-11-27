@@ -159,7 +159,11 @@ A check reports a delivery as **not judged**, with the reason, rather than as pa
   two are not compared (`small_delivery`);
 - the delivery's claims are gone and its summary was written under a declaration the check cannot
   read it against now, such as another `claim_set`, or a span off the histogram's bounds
-  (`summary_declaration_changed`).
+  (`summary_declaration_changed`);
+- the check compares with a predecessor, and one of the two summaries was computed by the feed
+  detection from the claim-set table and the other by a pipeline from its records
+  (`summary_path_differs`). The two compute the same summary from two readings of the same claims,
+  and a difference between the readings would read as a change of the delivery.
 
 ## What leaves the database
 

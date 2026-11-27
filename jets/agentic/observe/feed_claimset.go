@@ -223,6 +223,14 @@ const (
 	// summary was written under another declaration than the profile's now,
 	// one the summary cannot answer.
 	ClaimSetSummaryDeclarationChanged = "summary_declaration_changed"
+	// ClaimSetSummaryPathDiffers: the delivery's summary and its
+	// predecessor's were computed by different paths, one by the feed
+	// detection from the claim-set table and the other by a pipeline from its
+	// records (computed_by), so the two comparison checks do not compare them.
+	// The two paths compute the same row from the same claims, but from two
+	// readings of them, and a difference between the two readings would read
+	// as a change of the delivery.
+	ClaimSetSummaryPathDiffers = "summary_path_differs"
 	// ClaimSetNoServiceDates: no row of the delivery, or of its predecessor
 	// where the check reads it, carries a date of service.
 	ClaimSetNoServiceDates = "no_service_dates"
@@ -325,6 +333,9 @@ type ClaimSetAggregates struct {
 	// undecidable names, per detector, what the summaries cannot answer under
 	// the declaration now.
 	undecidable map[string]string
+	// incomparable says why the delivery's summary and its predecessor's are
+	// not compared, "" when they are: they were computed by different paths.
+	incomparable string
 	// presentColumns are the declared required fields the summary counts, in
 	// the profile's order, as Present is; absentRequired the ones it does not.
 	presentColumns, absentRequired []string
@@ -988,6 +999,11 @@ func claimSetAggregatesOf(cur, ps *ClaimSetSummary, run claimSetRun, d claimSetD
 			"declared now"
 		a.undecidable[ClaimSetDeliveryOverlap], a.undecidable[ClaimSetDeliveryUnchanged] = why, why
 	}
+	if ps != nil && cur.computedBy() != ps.computedBy() {
+		a.incomparable = fmt.Sprintf("the delivery's summary was computed by the %s and its predecessor's, session "+
+			"%s, by the %s, and summaries computed by different paths are not compared",
+			claimSetPathName(cur.computedBy()), ps.DeliverySessionID, claimSetPathName(ps.computedBy()))
+	}
 
 	// The lag, in days or months, and whether it exceeds the declaration.
 	if cur.Newest != nil && d.arrival != nil {
@@ -1069,6 +1085,14 @@ func claimSetAggregatesOf(cur, ps *ClaimSetSummary, run claimSetRun, d claimSetD
 		a.SharedKeys, a.SharedKeysEstimated, a.SharedKeysError = int64(math.Round(shared)), true, keyset.Bound(se)
 	}
 	return a, nil
+}
+
+// claimSetPathName names the path that computed a summary.
+func claimSetPathName(computedBy string) string {
+	if computedBy == ClaimSetComputedByPipeline {
+		return "pipeline from its records"
+	}
+	return "feed detection from the claim-set table"
 }
 
 // claimSetDeclaredDays names the declaration a summary decided against.
@@ -1191,6 +1215,10 @@ func claimSetJudge(v *ClaimSetVerdict, det string, f feedprofile.Feed, d claimSe
 	}
 	if why := a.undecidable[det]; why != "" {
 		claimSetNotJudged(v, ClaimSetSummaryDeclarationChanged, why+"; not evaluable, which is not clean")
+		return
+	}
+	if comparing && a.incomparable != "" {
+		claimSetNotJudged(v, ClaimSetSummaryPathDiffers, a.incomparable+"; not evaluable, which is not clean")
 		return
 	}
 	switch det {

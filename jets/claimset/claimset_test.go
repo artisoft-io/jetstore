@@ -6,6 +6,9 @@ package claimset
 
 import (
 	"fmt"
+	"reflect"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -93,5 +96,106 @@ func TestSummaryOfASmallDelivery(t *testing.T) {
 	if got := undated.Summary("d", "s", nil, time.Now()); got.OutOfSpan == nil || *got.OutOfSpan != 0 ||
 		got.Histogram != nil || got.Newest != nil || got.SpanDays != nil {
 		t.Errorf("%+v", got)
+	}
+}
+
+// claimRecord is the record of claim i of member m, line l, dated d days
+// before the end of March 2026.
+func claimRecord(i, m, l, d int) Record {
+	dos := day(2026, 3, 31).AddDate(0, 0, -d)
+	return Record{Key: []*string{str(fmt.Sprintf("c%d", i)), str(fmt.Sprint(l))}, Member: str(fmt.Sprintf("m%d", m)),
+		ServiceDate: &dos, Present: []bool{true, m%3 != 0}}
+}
+
+// shardedSummary summarises records on shards nodes, records going to the
+// shard shardOf names, and adds the partials, each through its record's text
+// as a staged file would carry it.
+func shardedSummary(t *testing.T, f []Record, shards int, shardOf func(i int, r Record) int) *Partial {
+	t.Helper()
+	nodes := make([]*Summariser, shards)
+	for k := range nodes {
+		nodes[k] = NewSummariser(testFeed(nil, nil), []string{"id", "m"}, 11)
+	}
+	for i, r := range f {
+		nodes[shardOf(i, r)].Add(r)
+	}
+	whole := &Partial{}
+	for _, n := range nodes {
+		values, err := n.Partial().Values()
+		if err != nil {
+			t.Fatal(err)
+		}
+		p, err := PartialOf(func(c string) any {
+			if v, ok := values[c].(int64); ok {
+				return fmt.Sprint(v)
+			}
+			return values[c]
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		whole.Add(p)
+	}
+	return whole
+}
+
+// The partials of shards that hold disjoint members and keys add up to the
+// summary one summariser makes of every record, field by field, through the
+// partial record's text; Overlap finds nothing in them. Keys split across
+// shards are found, and so are members, each named, and neither is reported
+// for the other.
+func TestPartialsAddUpToTheWholeSummary(t *testing.T) {
+	var records []Record
+	for m := range 300 {
+		for c := range 2 {
+			for l := range 2 {
+				records = append(records, claimRecord(m*2+c, m, l, (m*7+c)%200))
+			}
+		}
+	}
+	one := NewSummariser(testFeed(nil, nil), []string{"id", "m"}, 11)
+	for _, r := range records {
+		one.Add(r)
+	}
+	arrival := time.Date(2026, 4, 2, 0, 0, 0, 0, time.UTC)
+	now := time.Now()
+	want := one.Summary("d", "s", &arrival, now)
+	byMember := func(_ int, r Record) int { return int(MemberHash(*r.Member) % 3) }
+	whole := shardedSummary(t, records, 3, byMember)
+	if why := whole.Overlap(); why != "" {
+		t.Errorf("shards by member read as not disjoint: %s", why)
+	}
+	got := whole.Summary(testFeed(nil, nil), 11, "d", "s", &arrival, now)
+	g, w := reflect.ValueOf(*got), reflect.ValueOf(*want)
+	for i := range g.NumField() {
+		if !reflect.DeepEqual(g.Field(i).Interface(), w.Field(i).Interface()) {
+			t.Errorf("%s: the shards' %v, the whole's %v", g.Type().Field(i).Name, g.Field(i), w.Field(i))
+		}
+	}
+
+	// 40 keys also arrive under a member of another shard: the keys are split,
+	// the members are not.
+	split := slices.Clone(records)
+	for i := 0; len(split) < len(records)+40; i++ {
+		r := records[4*i]
+		other := records[len(records)-1-4*i]
+		if byMember(0, r) == byMember(0, other) {
+			continue
+		}
+		split = append(split, Record{Key: r.Key, Member: other.Member, ServiceDate: r.ServiceDate,
+			Present: r.Present})
+	}
+	why := shardedSummary(t, split, 3, byMember).Overlap()
+	if !strings.Contains(why, "distinct keys sum to") || strings.Contains(why, "members sum to") {
+		t.Errorf("keys split: %q", why)
+	}
+	// Sharded by claim, the members are split and the keys are not.
+	byClaim := func(_ int, r Record) int { return int(keyset.Hash(*r.Key[0]) % 3) }
+	why = shardedSummary(t, records, 3, byClaim).Overlap()
+	if strings.Contains(why, "distinct keys sum to") || !strings.Contains(why, "members sum to") {
+		t.Errorf("members split: %q", why)
+	}
+	if SplitBound(0) != 3 || SplitBound(10) != 43 {
+		t.Error("the bound")
 	}
 }

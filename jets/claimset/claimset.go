@@ -40,9 +40,20 @@
 //
 // # What it holds in memory
 //
-// A hash per distinct key (keyset.Builder), each distinct member's text, and a
-// count per distinct date of service. The key texts and the member texts are
-// never written anywhere; the summary is what leaves.
+// A hash per distinct key (keyset.Builder), each distinct member's text and a
+// sketch of the members, and a count per distinct date of service. The key
+// texts and the member texts are never written anywhere; the summary, or a
+// shard's partial of it (Partial), is what leaves.
+//
+// # A delivery on many nodes
+//
+// A delivery too large for one node is summarised in shards that hold
+// disjoint members and so, each claim key belonging to one member, disjoint
+// keys: each shard's Summariser gives its Partial, the partials add
+// (Partial.Add), and the sum's summary (Partial.Summary) is the one a single
+// Summariser of every record gives. Whether the shards were disjoint is
+// checked from the sketches (Partial.Overlap, SplitBound). A partial travels
+// between steps as one record (PartialColumns, Partial.Values, PartialOf).
 package claimset
 
 import (
@@ -50,6 +61,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -108,7 +120,17 @@ type Summary struct {
 	Present           map[string]int64
 	Fingerprint       *int64
 	Sketch            []byte
+	// ComputedBy is the path that computed the row: ComputedByPipeline here,
+	// observe.ClaimSetComputedByDatabase for the feed detection's.
+	ComputedBy string
 }
+
+// The paths that compute a summary row, as computed_by holds them: the feed
+// detection's statement over the claim-set table, and a pipeline's records.
+const (
+	ComputedByDatabase = "database"
+	ComputedByPipeline = "pipeline"
+)
 
 // Record is one record as a summary reads it.
 type Record struct {
@@ -125,17 +147,19 @@ type Record struct {
 	Present []bool
 }
 
-// Summariser builds one delivery's summary from its records.
+// Summariser builds one delivery's summary from its records, or one shard's
+// part of it (Partial).
 type Summariser struct {
-	feed       feedprofile.Feed
-	columns    []string
-	minMembers int
-	keys       *keyset.Builder
-	members    map[string]struct{}
-	days       map[int64]int64 // rows per date of service, by days since the epoch
-	rows       int64
-	dated      int64
-	present    []int64
+	feed         feedprofile.Feed
+	columns      []string
+	minMembers   int
+	keys         *keyset.Builder
+	members      map[string]struct{}
+	memberSketch keyset.Sketch
+	days         map[int64]int64 // rows per date of service, by days since the epoch
+	rows         int64
+	dated        int64
+	present      []int64
 }
 
 // NewSummariser summarises records of the feed, whose profile must declare a
@@ -158,6 +182,7 @@ func (s *Summariser) Add(r Record) {
 	if r.Member != nil {
 		if _, ok := s.members[*r.Member]; !ok {
 			s.members[strings.Clone(*r.Member)] = struct{}{}
+			s.memberSketch.Add(MemberHash(*r.Member))
 		}
 	}
 	if r.ServiceDate != nil {
@@ -170,6 +195,10 @@ func (s *Summariser) Add(r Record) {
 		}
 	}
 }
+
+// MemberHash is a member's hash in the members sketch: its text's hash as a
+// key of one column (keyset.KeyText).
+func MemberHash(member string) uint64 { return keyset.Hash(keyset.KeyText([]*string{&member})) }
 
 // Rows is the count of records added.
 func (s *Summariser) Rows() int64 { return s.rows }
@@ -186,23 +215,135 @@ func dayOf(epochDay int64) time.Time { return time.Unix(epochDay*86400, 0).UTC()
 // read, with which the row is deleted; arrival is the delivery's arrival, nil
 // when unknown; now is written as summarised_at.
 func (s *Summariser) Summary(deliverySession, session string, arrival *time.Time, now time.Time) *Summary {
-	if s.rows == 0 {
+	p := s.Partial()
+	return p.Summary(s.feed, s.minMembers, deliverySession, session, arrival, now)
+}
+
+// Partial is what the records added so far contribute to the delivery's
+// summary, before the summary's rules are applied.
+func (s *Summariser) Partial() *Partial {
+	p := &Partial{Rows: s.rows, DatedRows: s.dated, Keys: s.keys.Summary(), Members: int64(len(s.members)),
+		MemberSketch: s.memberSketch, Days: maps.Clone(s.days), Present: make(map[string]int64, len(s.columns))}
+	for i, c := range s.columns {
+		p.Present[c] += s.present[i]
+	}
+	return p
+}
+
+// Partial is one shard's part of a delivery's summary: the counts the summary
+// is computed from, before its rules are applied. Partials of shards that
+// hold disjoint keys and disjoint members add (Add) into the partial of the
+// whole delivery, whose summary (Partial.Summary) is then the one a single
+// Summariser of every record makes: every count is exact per shard and
+// additive, the fingerprint is a sum, and the sketches merge by register.
+//
+// Whether the shards were disjoint is checked, not assumed (Overlap): the
+// distinct keys summed over the shards exceed the merged sketch's estimate of
+// the union by the keys that were counted on more than one shard, and the same
+// holds of the members.
+type Partial struct {
+	Rows, DatedRows int64
+	// Keys is the shard's distinct keys: their count, fingerprint and sketch.
+	Keys keyset.Summary
+	// Members is the count of the shard's distinct members, exact;
+	// MemberSketch their sketch, by MemberHash.
+	Members      int64
+	MemberSketch keyset.Sketch
+	// Days is the rows per date of service, by days since the epoch.
+	Days map[int64]int64
+	// Present is the count of rows carrying a value, by column.
+	Present map[string]int64
+	// Skip is why the shard gave up its summary, "" when it did not. A
+	// partial carrying one makes the delivery's summary unwritable.
+	Skip string
+}
+
+// Add adds the shard o into p.
+func (p *Partial) Add(o *Partial) {
+	if p.Skip == "" {
+		p.Skip = o.Skip
+	}
+	p.Rows += o.Rows
+	p.DatedRows += o.DatedRows
+	p.Keys.Count += o.Keys.Count
+	p.Keys.Fingerprint += o.Keys.Fingerprint
+	p.Keys.Sketch.Merge(&o.Keys.Sketch)
+	p.Members += o.Members
+	p.MemberSketch.Merge(&o.MemberSketch)
+	if p.Days == nil {
+		p.Days = map[int64]int64{}
+	}
+	for d, n := range o.Days {
+		p.Days[d] += n
+	}
+	if p.Present == nil {
+		p.Present = map[string]int64{}
+	}
+	for c, n := range o.Present {
+		p.Present[c] += n
+	}
+}
+
+// SplitBound is the most by which the distinct count summed over shards may
+// exceed the merged sketch's estimate of the union before the shards are read
+// as not disjoint: four standard errors of that estimate, plus three. The
+// estimate is unbiased or above the count across the sketch's range (above it
+// where linear counting gives way to the HyperLogLog estimate, around 41,000),
+// so a count summed over disjoint shards exceeds it by more than four
+// standard errors about three times in 100,000 merges; a false refusal costs a
+// delivery its comparison checks for the day. The three keys are for a small
+// set, whose standard error is a fraction of a key while register collisions
+// still move the estimate by one or two (keyset.Bound). A split is found when
+// it is larger than this: a sharding that is not by member splits most of a
+// delivery's keys, far more than four standard errors; a few keys split in a
+// large delivery are not found.
+func SplitBound(stderr float64) float64 { return 4*stderr + 3 }
+
+// Overlap says why the shards added into p were not disjoint, naming the keys,
+// the members or both, or is "" when the counts are within SplitBound of the
+// merged sketches' estimates.
+func (p *Partial) Overlap() string {
+	var out []string
+	check := func(what string, count int64, sk *keyset.Sketch) {
+		est, se := sk.EstimateWithError()
+		if float64(count)-est > SplitBound(se) {
+			out = append(out, fmt.Sprintf("the shards' distinct %s sum to %d and their merged sketch estimates %.0f, "+
+				"more than %.0f fewer, so %s were counted on more than one shard", what, count, est, SplitBound(se), what))
+		}
+	}
+	check("keys", p.Keys.Count, &p.Keys.Sketch)
+	check("members", p.Members, &p.MemberSketch)
+	return strings.Join(out, "; ")
+}
+
+// Summary is the delivery's summary from the whole delivery's partial, by the
+// statement's rules, or nil when it holds no record. Its arguments are
+// NewSummariser's and Summariser.Summary's.
+func (p *Partial) Summary(f feedprofile.Feed, minMembers int, deliverySession, session string, arrival *time.Time,
+	now time.Time) *Summary {
+	if p.Rows == 0 {
 		return nil
 	}
-	p := s.feed.Profile
-	cs := p.ClaimSet
-	out := &Summary{TableName: s.feed.TableName, DeliverySessionID: deliverySession, SessionID: session,
-		Client: s.feed.Client, Version: Version, SummarisedAt: now, KeyColumns: slices.Clone(cs.KeyColumns),
+	if minMembers <= 0 {
+		minMembers = DefaultMinMembers
+	}
+	pr := f.Profile
+	cs := pr.ClaimSet
+	out := &Summary{TableName: f.TableName, DeliverySessionID: deliverySession, SessionID: session,
+		Client: f.Client, Version: Version, SummarisedAt: now, KeyColumns: slices.Clone(cs.KeyColumns),
 		ServiceDateColumn: cs.ServiceDateColumn, MemberColumn: cs.MemberColumn,
-		LagDeclaredDays: p.MaxServiceDateLagDays, SpanDeclaredDays: p.MaxServiceDateSpanDays}
-	keys := s.keys.Summary()
-	out.Rows, out.DistinctKeys, out.Members, out.DatedRows = s.rows, keys.Count, int64(len(s.members)), s.dated
-	out.DatesInMonths = out.Members < int64(s.minMembers)
+		LagDeclaredDays: pr.MaxServiceDateLagDays, SpanDeclaredDays: pr.MaxServiceDateSpanDays,
+		ComputedBy: ComputedByPipeline}
+	out.Rows, out.DistinctKeys, out.Members, out.DatedRows = p.Rows, p.Keys.Count, p.Members, p.DatedRows
+	out.DatesInMonths = out.Members < int64(minMembers)
 
-	if s.dated > 0 {
+	if p.DatedRows > 0 {
 		var newest, oldest int64
 		first := true
-		for d := range s.days {
+		for d, n := range p.Days {
+			if n == 0 {
+				continue
+			}
 			if first || d > newest {
 				newest = d
 			}
@@ -219,40 +360,40 @@ func (s *Summariser) Summary(deliverySession, session string, arrival *time.Time
 			o = time.Date(o.Year(), o.Month(), 1, 0, 0, 0, 0, time.UTC)
 		}
 		out.Newest, out.Oldest = &n, &o
-		if arrival != nil && p.MaxServiceDateLagDays != nil {
-			ex := epochDay(arrival.UTC())-newest > int64(*p.MaxServiceDateLagDays)
+		if arrival != nil && pr.MaxServiceDateLagDays != nil {
+			ex := epochDay(arrival.UTC())-newest > int64(*pr.MaxServiceDateLagDays)
 			out.LagExceeds = &ex
 		}
 		b := HistogramBounds
 		h := &Histogram{BoundsDays: slices.Clone(b), Rows: make([]int64, len(b)+1)}
 		var outside int64
-		for d, rows := range s.days {
+		for d, rows := range p.Days {
 			behind := newest - d
 			// Bucket 0 is the newest day; bucket i the rows more than bound i-1
 			// and at most bound i days behind; the last, more than the last bound.
 			k, _ := slices.BinarySearch(b, int(behind))
 			h.Rows[k] += rows
-			if p.MaxServiceDateSpanDays != nil && behind > int64(*p.MaxServiceDateSpanDays) {
+			if pr.MaxServiceDateSpanDays != nil && behind > int64(*pr.MaxServiceDateSpanDays) {
 				outside += rows
 			}
 		}
 		out.Histogram = h
-		if p.MaxServiceDateSpanDays != nil {
+		if pr.MaxServiceDateSpanDays != nil {
 			out.OutOfSpan = &outside
 		}
-	} else if p.MaxServiceDateSpanDays != nil {
+	} else if pr.MaxServiceDateSpanDays != nil {
 		// The statement counts no row outside a span when no row is dated.
 		out.OutOfSpan = new(int64)
 	}
 
-	out.Present = make(map[string]int64, len(s.columns))
-	for i, c := range s.columns {
-		out.Present[c] = s.present[i]
+	out.Present = maps.Clone(p.Present)
+	if out.Present == nil {
+		out.Present = map[string]int64{}
 	}
-	if keys.Count >= int64(s.minMembers) {
-		fp := int64(keys.Fingerprint)
+	if p.Keys.Count >= int64(minMembers) {
+		fp := int64(p.Keys.Fingerprint)
 		out.Fingerprint = &fp
-		out.Sketch = keys.Sketch.Pack()
+		out.Sketch = p.Keys.Sketch.Pack()
 	}
 	return out
 }
@@ -268,6 +409,29 @@ type DB interface {
 // delivery. It is observe's statement, character for character, and observe's
 // tests hold it so.
 const UpsertSQL = `INSERT INTO jetsapi.claim_set_summary (table_name, delivery_session_id, session_id, client,
+  summary_version, summarised_at, key_columns, service_date_column, member_column, row_count, distinct_key_count,
+  member_count, dated_row_count, newest_service_date, oldest_service_date, dates_in_months, span_days, lag_exceeds,
+  lag_declared_days, out_of_span_count, span_declared_days, service_date_histogram, present_counts,
+  key_fingerprint, key_sketch, computed_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::date, $15::date, $16, $17, $18, $19, $20, $21,
+  $22::jsonb, $23::jsonb, $24, $25, $26)
+ON CONFLICT (table_name, delivery_session_id) DO UPDATE SET session_id = EXCLUDED.session_id,
+  client = EXCLUDED.client, summary_version = EXCLUDED.summary_version, summarised_at = EXCLUDED.summarised_at,
+  key_columns = EXCLUDED.key_columns, service_date_column = EXCLUDED.service_date_column,
+  member_column = EXCLUDED.member_column, row_count = EXCLUDED.row_count,
+  distinct_key_count = EXCLUDED.distinct_key_count, member_count = EXCLUDED.member_count,
+  dated_row_count = EXCLUDED.dated_row_count, newest_service_date = EXCLUDED.newest_service_date,
+  oldest_service_date = EXCLUDED.oldest_service_date, dates_in_months = EXCLUDED.dates_in_months,
+  span_days = EXCLUDED.span_days, lag_exceeds = EXCLUDED.lag_exceeds,
+  lag_declared_days = EXCLUDED.lag_declared_days, out_of_span_count = EXCLUDED.out_of_span_count,
+  span_declared_days = EXCLUDED.span_declared_days, service_date_histogram = EXCLUDED.service_date_histogram,
+  present_counts = EXCLUDED.present_counts, key_fingerprint = EXCLUDED.key_fingerprint,
+  key_sketch = EXCLUDED.key_sketch, computed_by = EXCLUDED.computed_by`
+
+// UpsertWithoutPathSQL is UpsertSQL for a table without computed_by, as on a
+// database the migration has not reached: observe's claimSetUpsertWithoutPathSQL,
+// character for character.
+const UpsertWithoutPathSQL = `INSERT INTO jetsapi.claim_set_summary (table_name, delivery_session_id, session_id, client,
   summary_version, summarised_at, key_columns, service_date_column, member_column, row_count, distinct_key_count,
   member_count, dated_row_count, newest_service_date, oldest_service_date, dates_in_months, span_days, lag_exceeds,
   lag_declared_days, out_of_span_count, span_declared_days, service_date_histogram, present_counts,
@@ -287,7 +451,16 @@ ON CONFLICT (table_name, delivery_session_id) DO UPDATE SET session_id = EXCLUDE
   present_counts = EXCLUDED.present_counts, key_fingerprint = EXCLUDED.key_fingerprint,
   key_sketch = EXCLUDED.key_sketch`
 
-// Write writes a summary, as observe.WriteClaimSetSummaries writes one.
+// PathColumnSQL says whether the summary table carries computed_by, observe's
+// claimSetPathColumnSQL.
+const PathColumnSQL = `SELECT EXISTS (SELECT 1 FROM pg_attribute
+  WHERE attrelid = to_regclass('jetsapi.claim_set_summary') AND attname = 'computed_by' AND NOT attisdropped)`
+
+// Write writes a summary, as observe.WriteClaimSetSummaries writes one: with
+// computed_by where the table carries it, and without it where the migration
+// that adds it has not run, so the order of a deployment's code and its
+// migration does not matter. A row written without it reads as the feed
+// detection's (database).
 func Write(ctx context.Context, db DB, s *Summary) error {
 	day := func(t *time.Time) *string {
 		if t == nil {
@@ -312,10 +485,23 @@ func Write(ctx context.Context, db DB, s *Summary) error {
 			return err
 		}
 	}
-	if _, err := db.Exec(ctx, UpsertSQL, s.TableName, s.DeliverySessionID, s.SessionID, s.Client, s.Version,
+	computedBy := s.ComputedBy
+	if computedBy == "" {
+		computedBy = ComputedByPipeline
+	}
+	var hasPath bool
+	if err := db.QueryRow(ctx, PathColumnSQL).Scan(&hasPath); err != nil {
+		return fmt.Errorf("while looking for jetsapi.claim_set_summary.computed_by: %w", err)
+	}
+	stmt := UpsertWithoutPathSQL
+	args := []any{s.TableName, s.DeliverySessionID, s.SessionID, s.Client, s.Version,
 		s.SummarisedAt, s.KeyColumns, s.ServiceDateColumn, s.MemberColumn, s.Rows, s.DistinctKeys, s.Members,
 		s.DatedRows, day(s.Newest), day(s.Oldest), s.DatesInMonths, s.SpanDays, s.LagExceeds, s.LagDeclaredDays,
-		s.OutOfSpan, s.SpanDeclaredDays, hist, string(present), s.Fingerprint, s.Sketch); err != nil {
+		s.OutOfSpan, s.SpanDeclaredDays, hist, string(present), s.Fingerprint, s.Sketch}
+	if hasPath {
+		stmt, args = UpsertSQL, append(args, computedBy)
+	}
+	if _, err := db.Exec(ctx, stmt, args...); err != nil {
 		return fmt.Errorf("while writing the claim-set summary of %s session %s: %w", s.TableName,
 			s.DeliverySessionID, err)
 	}
@@ -325,15 +511,26 @@ func Write(ctx context.Context, db DB, s *Summary) error {
 // Target is what a pipeline run's summary is for: the feed its main input
 // belongs to, and the delivery that input is.
 type Target struct {
-	Feed feedprofile.Feed
+	Feed feedprofile.Feed `json:"feed"`
 	// DeliverySession is the delivery's registration session.
-	DeliverySession string
+	DeliverySession string `json:"delivery_session_id"`
 	// Session is the run's own session, under which the row is written and
 	// with which it is deleted.
-	Session string
+	Session string `json:"session_id"`
 	// Arrival is the delivery's arrival: its session id, a time in
 	// milliseconds.
-	Arrival time.Time
+	Arrival time.Time `json:"arrival"`
+}
+
+// Resolution is what the start of a pipeline step resolves, once, for the
+// nodes that summarise its run: the target, or why there is none. It travels
+// to the nodes in their configuration as JSON, so no node reads the profile or
+// the registrations.
+type Resolution struct {
+	Target *Target `json:"target,omitempty"`
+	// Skip is why no summary that the feed detection reads can be written,
+	// Resolve's reason; "" when Target is set.
+	Skip string `json:"skip,omitempty"`
 }
 
 const tableSQL = `SELECT to_regclass('jetsapi.claim_set_summary') IS NOT NULL`
