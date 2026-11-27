@@ -222,6 +222,12 @@ startStepId:
 		}
 	}
 
+	// A claim_set_summary operator summarises a whole delivery, so its step runs
+	// on one node.
+	if err := validateClaimSetSummaryNodes(pipeConfig, len(partitions), stepName); err != nil {
+		return result, err
+	}
+
 	// Check if at last step
 	isLastReducing := false
 	if stepId == cpipesStartup.CpConfig.NbrComputePipes()-1 {

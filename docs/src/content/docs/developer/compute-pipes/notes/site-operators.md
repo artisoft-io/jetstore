@@ -45,7 +45,7 @@ the operator token — it is the only arm in that switch that is.
   line. `json.RawMessage` is the field type that survives both hops verbatim without JetStore knowing
   the site's schema.
 
-**And the registry is consulted in `default:` on purpose.** The eighteen built-in cases are tried
+**And the registry is consulted in `default:` on purpose.** The nineteen built-in cases are tried
 first, so a site cannot change what an existing `.pc.json` means. A colliding registration is kept
 rather than refused — a deployment should not fail to start because a later JetStore release took its
 name — and `WithOperators` logs the collision, because an operator that loses silently is

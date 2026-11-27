@@ -1204,7 +1204,7 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 			}
 		}
 	}
-	return validateErrorChannelSpecs(cpConfig, pipeConfig)
+	return firstError(validateClaimSetSummaryPipes(pipeConfig), validateErrorChannelSpecs(cpConfig, pipeConfig))
 }
 
 // errorChannelConfig returns the error channel of a transformation, nil when it has none.

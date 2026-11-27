@@ -17,8 +17,8 @@ File names without a directory are in `jets/compute_pipes/`.
 
 ## The operator types
 
-A configuration can name 21 types: the variants of `TransformationSpec` (`pipes_model.go`) in the
-contract matrix, `tools/cpipes_contract/matrix/types.csv`. Eighteen are built-in operators that
+A configuration can name 22 types: the variants of `TransformationSpec` (`pipes_model.go`) in the
+contract matrix, `tools/cpipes_contract/matrix/types.csv`. Nineteen are built-in operators that
 `BuildPipeTransformationEvaluator` (`pipes_runtime_model.go`) dispatches on; `infer` is rewritten into
 one of them before the pipeline is built; and two rows, `~override` and `~site`, are not types at all
 but describe what an entry means when its `type` is absent or unknown (see
@@ -89,6 +89,12 @@ built, so a feed's override that is not a non-negative integer stops the run at 
 | [`embed`](/docs/developer/reference/generated/pipeline-configuration/#transformationspecembed) | Calls the infer server's embeddings endpoint once per record and puts the vector on the record, through the same plumbing as `ollama` (`pipe_transformation_embed.go`). |
 | [`render`](/docs/developer/reference/generated/pipeline-configuration/#transformationspecrender) | Renders one text template per record over a serialised entity and adds the text to the record (`pipe_transformation_render.go`). See [the render operator](/docs/developer/compute-pipes/operators/render/). |
 
+### Summarise a delivery
+
+| Type | What it does |
+|---|---|
+| [`claim_set_summary`](/docs/developer/reference/generated/pipeline-configuration/#transformationspecclaimsetsummary) | Forwards every record unchanged and, once it has read the last, writes the delivery's claim-set summary row, the row the feed detection's claim-set checks judge from, computed from the records rather than from the claim-set table; the columns are the feed profile's. Runs on one node (`pipe_transformation_claim_set_summary.go`). See [the claim_set_summary operator](/docs/developer/compute-pipes/operators/claim-set-summary/). |
+
 ### Write partitions
 
 | Type | What it does |
@@ -120,6 +126,7 @@ The contract matrix needs a row for every shape an `apply` entry can take, and t
 | Page | Kind | Covers |
 |---|---|---|
 | [The render operator](/docs/developer/compute-pipes/operators/render/) | reference | A configured text template over a serialised entity: configuration, notation, failure model |
+| [The claim_set_summary operator](/docs/developer/compute-pipes/operators/claim-set-summary/) | reference | A delivery's claim-set summary computed in the pipeline: what it reads, where it runs, what it writes and when it writes nothing |
 | [How the render operator is designed](/docs/developer/compute-pipes/operators/render-design/) | explanation | Why its input is a column, the worked example that ships, and the measurement it exists because of |
 | [The inference operators](/docs/developer/compute-pipes/operators/infer/) | reference | The `infer` type and backend selection, and the plumbing `ollama`, `vllm` and `embed` share |
 | [What the inference measurements showed](/docs/developer/compute-pipes/operators/infer-measurements/) | explanation | Backend choice, throughput, cold start, encoding, and a template against a model |

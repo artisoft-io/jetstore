@@ -1252,6 +1252,13 @@ var CpipesContract = map[string]map[string]ContractField{
 		"type":               {Required: true},
 		"when":               {},
 	},
+	"TransformationSpec/claim_set_summary": {
+		"comment":            {},
+		"conditional_config": {},
+		"output_channel":     {Required: true},
+		"type":               {Required: true},
+		"when":               {},
+	},
 	"TransformationSpec/clustering": {
 		"clustering_config":  {Required: true},
 		"comment":            {},

@@ -1612,6 +1612,12 @@ class TransformationSpecRender(TransformationSpecBase):
     render_config: RenderSpec = Field(description="Configuration of the render operator.")
 
 
+class TransformationSpecClaimSetSummary(TransformationSpecBase):
+    """Summarises a delivery's records into its claim-set summary row, read by the feed detection, and forwards every record unchanged."""
+    type: Literal["claim_set_summary"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.")
+    output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
+
+
 class TransformationSpecOverride(_Base):
     """Fragments of transformation operator to override fields of the host transformation operator."""
     analyze_config: AnalyzeSpec | None = Field(default=None, description="Configuration of the analyze operator.")
@@ -1631,7 +1637,7 @@ class TransformationSpecOverride(_Base):
     sort_config: SortSpec | None = Field(default=None, description="Configuration of the sort operator.")
 
 
-_TRANSFORMATION_SPEC_TOKENS = ("ollama", "embed", "vllm", "partition_writer", "map_record", "aggregate", "analyze", "high_freq", "anonymize", "distinct", "shuffling", "group_by", "filter", "sort", "merge", "jetrules", "clustering", "infer", "render")
+_TRANSFORMATION_SPEC_TOKENS = ("ollama", "embed", "vllm", "partition_writer", "map_record", "aggregate", "analyze", "high_freq", "anonymize", "distinct", "shuffling", "group_by", "filter", "sort", "merge", "jetrules", "clustering", "infer", "render", "claim_set_summary")
 
 
 class TransformationSpecSite(_Base):
@@ -1695,7 +1701,7 @@ SplitterSpec = Annotated[Union[SplitterSpecStandard, SplitterSpecExtCount], Fiel
 TransformationColumnSpec = Annotated[Union[TransformationColumnSpecAvrg, TransformationColumnSpecCase, TransformationColumnSpecCount, TransformationColumnSpecDistinctCount, TransformationColumnSpecEval, TransformationColumnSpecHash, TransformationColumnSpecLookup, TransformationColumnSpecMap, TransformationColumnSpecMapReduce, TransformationColumnSpecMax, TransformationColumnSpecMin, TransformationColumnSpecMultiSelect, TransformationColumnSpecSelect, TransformationColumnSpecSum, TransformationColumnSpecValue], Field(discriminator="type")]
 TransformationSpec = Annotated[
     Union[
-        Annotated[Union[TransformationSpecOllama, TransformationSpecEmbed, TransformationSpecVllm, TransformationSpecPartitionWriter, TransformationSpecMapRecord, TransformationSpecAggregate, TransformationSpecAnalyze, TransformationSpecHighFreq, TransformationSpecAnonymize, TransformationSpecDistinct, TransformationSpecShuffling, TransformationSpecGroupBy, TransformationSpecFilter, TransformationSpecSort, TransformationSpecMerge, TransformationSpecJetrules, TransformationSpecClustering, TransformationSpecInfer, TransformationSpecRender], Field(discriminator="type")],
+        Annotated[Union[TransformationSpecOllama, TransformationSpecEmbed, TransformationSpecVllm, TransformationSpecPartitionWriter, TransformationSpecMapRecord, TransformationSpecAggregate, TransformationSpecAnalyze, TransformationSpecHighFreq, TransformationSpecAnonymize, TransformationSpecDistinct, TransformationSpecShuffling, TransformationSpecGroupBy, TransformationSpecFilter, TransformationSpecSort, TransformationSpecMerge, TransformationSpecJetrules, TransformationSpecClustering, TransformationSpecInfer, TransformationSpecRender, TransformationSpecClaimSetSummary], Field(discriminator="type")],
         TransformationSpecSite,
     ],
     Field(union_mode="left_to_right"),
@@ -1817,6 +1823,7 @@ _MATRIX_KEYS = {
     "TransformationSpecAnalyze": ("TransformationSpec", "analyze"),
     "TransformationSpecAnonymize": ("TransformationSpec", "anonymize"),
     "TransformationSpecClustering": ("TransformationSpec", "clustering"),
+    "TransformationSpecClaimSetSummary": ("TransformationSpec", "claim_set_summary"),
     "TransformationSpecDistinct": ("TransformationSpec", "distinct"),
     "TransformationSpecEmbed": ("TransformationSpec", "embed"),
     "TransformationSpecFilter": ("TransformationSpec", "filter"),
