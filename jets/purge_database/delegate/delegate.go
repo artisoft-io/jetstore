@@ -24,7 +24,9 @@ import (
 // JETS_DSN_SECRET
 // JETS_REGION
 // USING_SSH_TUNNEL for testing or running locally
-// RETENTION_DAYS site global retention days, sessions are purged if > 0
+// RETENTION_DAYS site global retention days, sessions are purged if > 0; the
+// records of deleted first registrations (jetsapi.purged_delivery) are kept
+// twice as long, from the file's arrival
 // PURGE_DRY_RUN a dry run unless exactly "false" (see IsDryRun)
 // AGENT_AUDIT_RETENTION_DAYS the agent's audit trail is purged after this many
 // days if set; unset, it is never purged (see AuditRetentionDays)
@@ -184,8 +186,10 @@ type purgeConfig struct {
 
 // purgeSessions is the purge, given a database:
 //
-//  1. Rules unit test runs and detection runs, by age; a dry run counts them
-//     in a transaction it rolls back.
+//  1. Rules unit test runs and detection runs, by age, and the records of
+//     deleted first registrations whose file arrived more than twice
+//     RETENTION_DAYS ago (purgePurgedDeliveries); a dry run counts them in a
+//     transaction it rolls back.
 //  2. A dry run reads the retention and orphan candidates, runs them through
 //     sessionpurge.ExecuteRequests with every transaction rolled back, logs the
 //     report and stops. It writes nothing.
@@ -251,6 +255,7 @@ func purgeSessions(ctx context.Context, dbpool *pgxpool.Pool, cfg purgeConfig) (
 	// were before the session purge was rebuilt.
 	purgeRulesUnitTestRuns(dbpool, purgeFrom, cfg.DryRun)
 	purgeDetectionRuns(dbpool, purgeFrom, cfg.DryRun)
+	problems = append(problems, purgePurgedDeliveries(dbpool, cfg)...)
 
 	sessionCands, err := sessionpurge.RetentionCandidates(ctx, dbpool, purgeFrom)
 	if err != nil {
@@ -569,6 +574,49 @@ func purgeDetectionRuns(dbpool *pgxpool.Pool, purgeFrom time.Time, dryRun bool) 
 	}
 	log.Printf("%sPurged %d agentic detection run records\n", dryRunPrefix(dryRun), n)
 	return n
+}
+
+// purgedDeliveryRetentions is how many RETENTION_DAYS a row of
+// jetsapi.purged_delivery is kept, counted from the file's first arrival.
+const purgedDeliveryRetentions = 2
+
+// purgePurgedDeliveries deletes the jetsapi.purged_delivery rows whose file
+// first arrived more than twice RETENTION_DAYS before the run's start
+// (sessionpurge.PurgeDeliveriesBefore). The age is the row's first_arrival, the
+// file's arrival as the feed detectors read it, not purged_at, which a later
+// deletion of an earlier registration rewrites. So a file re-sent stays
+// re-processing until twice RETENTION_DAYS after its first delivery, about one
+// retention period after that delivery's session was purged; registered again
+// after that, it is judged a new delivery. A run with no RETENTION_DAYS deletes
+// nothing, and so does a dry run, which counts what a real run would delete, as
+// purgeDetectionRuns's does. It runs with the other age purges, before the
+// session deletions, so a row this run records waits for the next run. A
+// database without the table is left alone. A failure is logged and returned
+// as a line for the run's failure record.
+func purgePurgedDeliveries(dbpool *pgxpool.Pool, cfg purgeConfig) []string {
+	if cfg.RetentionDays < 1 {
+		log.Println("Purged delivery retention: RETENTION_DAYS is not set, jetsapi.purged_delivery is kept")
+		return nil
+	}
+	before := cfg.Now.AddDate(0, 0, -purgedDeliveryRetentions*cfg.RetentionDays)
+	var n int64
+	var exists bool
+	err := ageTx(dbpool, cfg.DryRun, func(ctx context.Context, tx pgx.Tx) (err error) {
+		n, exists, err = sessionpurge.PurgeDeliveriesBefore(ctx, tx, before)
+		return err
+	})
+	if err != nil {
+		log.Println("Warning: while purging jetsapi.purged_delivery:", err)
+		return []string{fmt.Sprintf("the purged_delivery retention failed: %v", err)}
+	}
+	if !exists {
+		log.Println("Purged delivery retention: jetsapi.purged_delivery does not exist, nothing to purge")
+		return nil
+	}
+	log.Printf("%sPurged %d records of deleted first registrations from jetsapi.purged_delivery, "+
+		"files first arrived before %s (twice RETENTION_DAYS)\n", dryRunPrefix(cfg.DryRun), n,
+		before.UTC().Format(time.RFC3339))
+	return nil
 }
 
 // ageTx runs one of the age purges in a transaction, committed by a real run

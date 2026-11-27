@@ -1,6 +1,7 @@
 package sessionpurge
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -119,5 +120,55 @@ func TestDeletionRecordsTheFirstRegistrationsItRemoves(t *testing.T) {
 	}
 	if r := got["FeedA/a/two.csv"]; r.session != other || r.reason != string(ReasonRetention) {
 		t.Errorf("the other file's record is %+v, want session %s by retention", r, other)
+	}
+}
+
+// seedPurged writes one purged_delivery row whose file first arrived at arrival.
+func seedPurged(t *testing.T, pool *pgxpool.Pool, fileKey string, arrival time.Time) {
+	t.Helper()
+	purgetest.Exec(t, pool, `INSERT INTO jetsapi.purged_delivery
+		(table_name, file_key, first_session_id, first_arrival, deletion_reason)
+		VALUES ('t1', $1, $2, $3::timestamptz, 'retention')`, fileKey,
+		strconv.FormatInt(arrival.UnixMilli(), 10), arrival)
+}
+
+// PurgeDeliveriesBefore deletes the rows whose file first arrived before its
+// bound, by first_arrival and not purged_at, keeps the rest, and leaves a
+// database without the table alone.
+func TestPurgeDeliveriesBefore(t *testing.T) {
+	pool := purgetest.DB(t, testDB)
+	now := time.Now()
+	before := now.AddDate(0, 0, -60)
+	seedPurged(t, pool, "old", now.AddDate(0, 0, -61))
+	seedPurged(t, pool, "inside", now.AddDate(0, 0, -59))
+	// Recorded long ago, but its file arrived inside the bound: kept.
+	seedPurged(t, pool, "rewritten", now.AddDate(0, 0, -10))
+	purgetest.Exec(t, pool, `UPDATE jetsapi.purged_delivery SET purged_at = now() - interval '400 days'
+		WHERE file_key = 'rewritten'`)
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, exists, err := PurgeDeliveriesBefore(ctx, tx, before)
+	if err != nil || !exists || n != 1 {
+		t.Fatalf("PurgeDeliveriesBefore = %d, %v, %v; want 1, true, nil", n, exists, err)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	got := purgedDeliveries(t, pool)
+	if _, ok := got["t1/old"]; ok || len(got) != 2 {
+		t.Errorf("left %v, want t1/inside and t1/rewritten", got)
+	}
+
+	purgetest.Exec(t, pool, `DROP TABLE jetsapi.purged_delivery`)
+	tx, err = pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	if n, exists, err = PurgeDeliveriesBefore(ctx, tx, before); err != nil || exists || n != 0 {
+		t.Errorf("without the table PurgeDeliveriesBefore = %d, %v, %v; want 0, false, nil", n, exists, err)
 	}
 }
