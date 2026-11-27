@@ -681,6 +681,11 @@
         "dataType": "jsonb"
       },
       {
+        "columnName": "exclude_file_names_json",
+        "description": "File names register keys does not register, as a JSON array of substrings, for example [\"_trailer\"]: a file whose name (the last segment of its file key) contains one, case-sensitive, is staged in file_key_staging and skipped as excluded_file_key. NULL or [] excludes nothing",
+        "dataType": "text"
+      },
+      {
         "columnName": "schema_provider_json",
         "dataType": "text",
         "description": "Additional file config, with lesser priority than the other settings on this table."

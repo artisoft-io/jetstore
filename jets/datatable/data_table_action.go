@@ -1135,6 +1135,12 @@ func (ctx *DataTableContext) InsertRows(dataTableAction *DataTableAction, token 
 				httpStatus = http.StatusBadRequest
 				return
 			}
+			// So is a list of excluded file names register keys could not use
+			// (source_config_exclude_file_names.go).
+			if err = normaliseExcludeFileNames(dataTableAction.Data[irow]); err != nil {
+				httpStatus = http.StatusBadRequest
+				return
+			}
 
 		case strings.HasSuffix(dataTableAction.FromClauses[0].Table, "user_git_profile"):
 			gitToken := dataTableAction.Data[irow]["git_token"]

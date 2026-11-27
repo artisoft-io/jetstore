@@ -24,6 +24,9 @@ it, which column identifies whom, and how its columns become the data model's pr
 - **One file or many parts.** A source can send each delivery as a single file, or as a folder of
   part files. A folder is complete when its sentinel arrives: an empty file that says the parts are
   all there. JetStore then treats the folder as one delivery.
+- **The files that are not data.** A source may send a trailer or a control file beside its data
+  files. The source configuration can name text such a file's name contains, such as `_trailer`, so
+  the file is listed as arrived and is not registered as a delivery.
 - **The staging table.** Each source has a table of its own, named for the client, the organisation
   and the object type: `CI_D1_hc:Eligibility`. Loading a file copies its rows there unchanged, so you
   can look at what arrived before anything is mapped.

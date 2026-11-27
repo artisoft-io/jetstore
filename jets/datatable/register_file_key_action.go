@@ -347,16 +347,18 @@ type fileKeySkip struct {
 }
 
 // The reasons a row registers no input. A row skipped for any of the first four
-// writes nothing. A row with no source_config, or whose source_config has no
-// domain key to register, is staged in file_key_staging, so it is listed among
-// the files that arrived, and nothing else is written for it.
+// writes nothing. A row with no source_config, whose source_config has no
+// domain key to register, or whose name its source_config excludes, is staged
+// in file_key_staging, so it is listed among the files that arrived, and nothing
+// else is written for it.
 const (
-	skipNoFileKey      = "no_file_key"            // the row names no file
-	skipPartFile       = "part_file"              // a part file of a part-file source; its sentinel registers the folder
-	skipSentinelName   = "sentinel_name_mismatch" // not the sentinel JETS_SENTINEL_FILE_NAME names
-	skipMissingColumn  = "missing_column"         // a file_key_staging column has no value
-	skipNoSourceConfig = "no_source_config"       // no source_config for its client, org and object_type
-	skipNoDomainKeys   = "no_domain_keys"         // its source_config has no domain key to register
+	skipNoFileKey       = "no_file_key"            // the row names no file
+	skipPartFile        = "part_file"              // a part file of a part-file source; its sentinel registers the folder
+	skipSentinelName    = "sentinel_name_mismatch" // not the sentinel JETS_SENTINEL_FILE_NAME names
+	skipMissingColumn   = "missing_column"         // a file_key_staging column has no value
+	skipNoSourceConfig  = "no_source_config"       // no source_config for its client, org and object_type
+	skipNoDomainKeys    = "no_domain_keys"         // its source_config has no domain key to register
+	skipExcludedFileKey = "excluded_file_key"      // its name contains a substring of its source_config's exclude_file_names_json
 )
 
 // maxReportedSkips bounds the "skipped" list, since a sync of a bucket skips
@@ -436,6 +438,8 @@ NextKey:
 		var isPartFile int
 		var inputRegistryKey int
 		var domainKeys []string
+		var excludeFileNames *string
+		excluded := false
 
 		// Defence in depth: an absent or empty file_key skips the row rather than
 		// panicking on the type assertion. A schema event carries file_key from
@@ -446,9 +450,13 @@ NextKey:
 			skip(irow, nil, skipNoFileKey)
 			continue NextKey
 		}
-		stmt = "SELECT table_name, is_part_files, domain_keys FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3"
+		// exclude_file_names_json is read through to_jsonb of the row, as
+		// jets/agentic/feedprofile reads its columns, so registration keeps working
+		// against a database the migration has not yet given the column.
+		stmt = `SELECT table_name, is_part_files, domain_keys, to_jsonb(sc) ->> 'exclude_file_names_json'
+			FROM jetsapi.source_config sc WHERE client=$1 AND org=$2 AND object_type=$3`
 		allOk = true
-		err = ctx.Dbpool.QueryRow(context.Background(), stmt, client, org, objectType).Scan(&tableName, &isPartFile, &domainKeys)
+		err = ctx.Dbpool.QueryRow(context.Background(), stmt, client, org, objectType).Scan(&tableName, &isPartFile, &domainKeys, &excludeFileNames)
 		// No row is a file JetStore has no source_config for, which is staged and
 		// registers nothing; any other error is the database's (the
 		// error was not checked once, so it was treated as no row).
@@ -459,8 +467,23 @@ NextKey:
 		if hasSourceConfig {
 			// process - entry found
 			domainKeys = uniqueDomainKeys(domainKeys, client, org, objectType)
+			// A file whose name the source excludes is staged under the key it
+			// arrived with and registers nothing. Checked on the key as the row
+			// names it, before a sentinel's key becomes its folder's.
+			if excludeFileNames != nil {
+				excluded, err = excludedFileName(fileKey, *excludeFileNames)
+				if err != nil {
+					log.Printf("WARNING source_config for client %v, org %v, object_type %v: %v; excluding nothing",
+						client, org, objectType, err)
+					err = nil
+				}
+			}
 			// log.Printf("*** source_config found: %v, is part file: %v\n", isPartFile)
-			if isPartFile == 1 {
+			// A part file of a part-file source is still skipped as one, excluded
+			// or not, and is not staged. An excluded file the size of a sentinel
+			// is not taken for one: it is staged under its own key, not its
+			// folder's, and skipped as excluded.
+			if isPartFile == 1 && (r.objectSize > 1 || !excluded) {
 				// Multi Part File
 				// The gate reads the S3 object's size and never the spec's file_size:
 				// a schema event has no size, so it is 0 and takes the
@@ -534,6 +557,9 @@ NextKey:
 		switch {
 		case !hasSourceConfig:
 			skip(irow, fileKey, skipNoSourceConfig)
+			continue NextKey
+		case excluded:
+			skip(irow, fileKey, skipExcludedFileKey)
 			continue NextKey
 		case len(inputKeys) == 0:
 			skip(irow, fileKey, skipNoDomainKeys)
