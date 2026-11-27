@@ -1291,3 +1291,53 @@ describe("a job's failure", () => {
     expect(screen.getByText(/could not reach the database/)).toBeTruthy();
   });
 });
+
+describe("a run incident's main input source", () => {
+  it("names the source on its page and in its run condition", async () => {
+    const source = { client: "client2", org: "vendor_a", objectType: "claims" };
+    const { api } = await clientWith({
+      get_incident: {
+        body: {
+          ...disclosed,
+          incident: {
+            ...detail,
+            locus: "main_input_empty",
+            mainInputSource: source,
+            hypotheses: [],
+            runCondition: {
+              client: "client2",
+              process: "loader",
+              locus: "main_input_empty",
+              source,
+              firstSeen: "2026-11-22T03:00:00Z",
+              lastSeen: "2026-11-24T03:00:00Z",
+              runsHeld: 3,
+              conditionRuns: 3,
+              ownRunHeld: true,
+              open: true,
+              endedBy: "",
+              runs: [],
+            },
+          },
+        },
+      },
+    });
+    renderAt(api, `/incidents/${detail.incidentId}`);
+    const dd = (await screen.findByText("Main input source")).nextElementSibling!;
+    expect(dd.textContent).toContain("vendor_a");
+    expect(dd.textContent).toContain("claims");
+    const section = screen.getByRole("region", { name: "Run condition" });
+    expect(section.textContent).toContain("main input source");
+    expect(section.textContent).toContain("vendor_a");
+    expect(screen.getByText(/read 0 records/)).toBeTruthy();
+  });
+
+  it("names no source where the server sends none", async () => {
+    const { api } = await clientWith({
+      get_incident: { body: { ...disclosed, incident: { ...detail, hypotheses: [] } } },
+    });
+    renderAt(api, `/incidents/${detail.incidentId}`);
+    await screen.findByText("What the record evidences", { exact: false });
+    expect(screen.queryByText("Main input source")).toBeNull();
+  });
+});

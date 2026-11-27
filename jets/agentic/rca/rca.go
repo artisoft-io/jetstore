@@ -288,7 +288,10 @@ type Ranking struct {
 	// loci are permanently in this state** — step_never_started and
 	// per_record_failures_unreportable appear in no row of the table — and so
 	// is job_failed, a job's failure, whose incident's evidence of why is the
-	// job's own error text. A
+	// job's own error text, and main_input_empty, a run whose main input held
+	// no records: source_delivery_failure is the nearest class, and it is a
+	// claim about what did not arrive, while an empty file arrived, and whether
+	// it is a fault is the feed's declaration's to say rather than a class's. A
 	// caller counting hypotheses per locus needs to know the difference between
 	// a locus that produced none and a locus that was never asked.
 	UnmappedLoci []string

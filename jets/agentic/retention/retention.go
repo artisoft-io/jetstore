@@ -152,21 +152,27 @@ const tablesSQL = `SELECT to_regclass('jetsapi.incident') IS NOT NULL,
        EXISTS (SELECT 1 FROM information_schema.columns
                 WHERE table_schema = 'jetsapi' AND table_name = 'incident' AND column_name = 'incident_client'),
        EXISTS (SELECT 1 FROM information_schema.columns
-                WHERE table_schema = 'jetsapi' AND table_name = 'incident' AND column_name = 'incident_feed')`
+                WHERE table_schema = 'jetsapi' AND table_name = 'incident' AND column_name = 'incident_feed'),
+       EXISTS (SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'jetsapi' AND table_name = 'incident'
+                  AND column_name = 'incident_source_object_type')`
 
 // candidate is an incident whose own session is held no more.
 type candidate struct {
 	id, session, locus    string
 	feed                  string
 	client, process, code string
-	anchor                *time.Time
+	// source is the run incident's main input source, the empty source on
+	// one written before the key carried it.
+	source observe.Source
+	anchor *time.Time
 }
 
 func (c *candidate) runKey() (runcondition.Key, bool) {
 	if c.client == "" || c.anchor == nil || !runcondition.IsRunLocus(c.locus) {
 		return runcondition.Key{}, false
 	}
-	return runcondition.Key{Client: c.client, Process: c.process, Locus: c.locus, Code: c.code}, true
+	return runcondition.Key{Client: c.client, Process: c.process, Source: c.source, Locus: c.locus, Code: c.code}, true
 }
 
 func (c *candidate) feedKeyed() bool {
@@ -191,9 +197,9 @@ var childTables = []childTable{
 // read its work, or, in a dry run, cannot go on.
 func Sweep(ctx context.Context, db DB, opts Options) (Report, error) {
 	r := Report{Rows: map[string]int64{}}
-	var incident, anomaly, core, hyp, rem, ev, runKeyed, feedKeyed bool
+	var incident, anomaly, core, hyp, rem, ev, runKeyed, feedKeyed, sourced bool
 	if err := db.QueryRow(ctx, tablesSQL).Scan(&incident, &anomaly, &core, &hyp, &rem, &ev, &runKeyed,
-		&feedKeyed); err != nil {
+		&feedKeyed, &sourced); err != nil {
 		return r, fmt.Errorf("while asking which agentic tables are installed: %w", err)
 	}
 	if !incident || !anomaly || !core {
@@ -217,7 +223,7 @@ func Sweep(ctx context.Context, db DB, opts Options) (Report, error) {
 		db = tx
 	}
 
-	cands, err := readCandidates(ctx, db, runKeyed, feedKeyed)
+	cands, err := readCandidates(ctx, db, runKeyed, feedKeyed, sourced)
 	if err != nil {
 		return r, err
 	}
@@ -267,11 +273,16 @@ func Sweep(ctx context.Context, db DB, opts Options) (Report, error) {
 }
 
 // readCandidates reads the incidents whose own session is held no more, by id.
-func readCandidates(ctx context.Context, db observe.DB, runKeyed, feedKeyed bool) ([]candidate, error) {
+func readCandidates(ctx context.Context, db observe.DB, runKeyed, feedKeyed, sourced bool) ([]candidate, error) {
 	runCols := `'', '', ''`
 	if runKeyed {
 		runCols = `coalesce(i.incident_client, ''), coalesce(i.incident_process_name, ''),
 		 coalesce(i.incident_error_code, '')`
+	}
+	sourceCols := `'', '', ''`
+	if sourced {
+		sourceCols = `coalesce(i.incident_source_client, ''), coalesce(i.incident_source_org, ''),
+		 coalesce(i.incident_source_object_type, '')`
 	}
 	feedCol := `''`
 	if feedKeyed {
@@ -282,7 +293,7 @@ func readCandidates(ctx context.Context, db observe.DB, runKeyed, feedKeyed bool
 		anchor = `i.incident_anchor_start_time`
 	}
 	rows, err := db.Query(ctx, `SELECT i.incident_id, i.incident_session_id, i.incident_locus, `+feedCol+`, `+
-		runCols+`, `+anchor+`
+		runCols+`, `+sourceCols+`, `+anchor+`
 		  FROM jetsapi.incident i
 		 WHERE NOT `+SessionHeldSQL("i.incident_session_id")+`
 		 ORDER BY i.incident_id`)
@@ -294,7 +305,7 @@ func readCandidates(ctx context.Context, db observe.DB, runKeyed, feedKeyed bool
 	for rows.Next() {
 		var c candidate
 		if err := rows.Scan(&c.id, &c.session, &c.locus, &c.feed, &c.client, &c.process, &c.code,
-			&c.anchor); err != nil {
+			&c.source.Client, &c.source.Org, &c.source.ObjectType, &c.anchor); err != nil {
 			return nil, fmt.Errorf("while scanning an incident: %w", err)
 		}
 		out = append(out, c)

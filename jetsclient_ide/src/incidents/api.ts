@@ -174,6 +174,14 @@ export interface HypothesisBasisRow {
 export interface IncidentDetail extends IncidentRow {
   hypotheses: HypothesisRow[];
   /**
+   * A run incident's main input source: the client, org and object type its
+   * run's main input was registered under, part of its run condition's key.
+   * Sent **only where it is set**: absent on a feed incident, a job's failure,
+   * a run with no main input registration, and a run incident written before
+   * the source was part of the key.
+   */
+  mainInputSource?: MainInputSource;
+  /**
    * A feed incident's summary, rendered on the server at read time by a fixed
    * template from the incident's findings, the feed's declaration and the
    * ranked readings. Absent on a run incident, and on a feed incident whose
@@ -258,6 +266,17 @@ export interface RunCodeCount {
 }
 
 /**
+ * The source of a run's main input: the client, org and object type of its
+ * main input registration. It is not the file's object type a list row shows,
+ * which is read from the file's staging record.
+ */
+export interface MainInputSource {
+  client: string;
+  org: string;
+  objectType: string;
+}
+
+/**
  * A run incident's condition, from `runConditionPayload` in
  * `jets/apiserver/api_agentic_run_condition.go`.
  */
@@ -265,6 +284,8 @@ export interface RunCondition {
   client: string;
   process: string;
   locus: string;
+  /** Only where the condition is keyed on one; absent from an older server. */
+  source?: MainInputSource;
   /** Only where the condition is keyed on one. */
   errorCode?: string;
   /**
@@ -805,6 +826,13 @@ export const LOCUS_GLOSS: Record<string, { meaning: string; cannotSee: string; l
     meaning:
       "A JetStore job, or a workspace's custom Lambda, recorded a failure: the purge, file registration, or another job that is not a pipeline run.",
     cannotSee: "Anything beyond the job's own error text, and a failure the job could not record, such as one where it could not reach the database.",
+  },
+  // A run position appended after the job's: the run read nothing, so the
+  // steps after sharding never ran, and step_never_started is set aside on it.
+  main_input_empty: {
+    meaning:
+      "The run's main input held no records: its sharding step completed on every worker and read 0 records, so no later step ran.",
+    cannotSee: "Whether an empty file is wrong: some feeds send one on days with nothing to send, which the feed's profile may declare.",
   },
 };
 

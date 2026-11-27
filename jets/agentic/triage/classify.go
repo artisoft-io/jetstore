@@ -12,8 +12,9 @@ import (
 )
 
 // The nine predicates over the execution record, the two over a feed's
-// deliveries, and the one over a job's row. Each is a method on Classifier returning exactly one Finding, and
-// Classify calls all twelve in Loci's order.
+// deliveries, the one over a job's row, and the one over a run's main input.
+// Each is a method on Classifier returning exactly one Finding, and
+// Classify calls all thirteen in Loci's order.
 //
 // # What each can and cannot distinguish is in the code rather than beside it
 //
@@ -63,7 +64,7 @@ func Default() Classifier {
 // Ref is the classifier_ref written on every finding.
 func (c Classifier) Ref() string { return fmt.Sprintf("triage@%d", c.Generation) }
 
-// Classify returns one Finding per locus, in Loci's order, always twelve of
+// Classify returns one Finding per locus, in Loci's order, always thirteen of
 // them. See the package comment for why it does not return only the hits.
 func (c Classifier) Classify(ev *Evidence) *Report {
 	r := &Report{SessionId: ev.SessionId}
@@ -80,7 +81,9 @@ func (c Classifier) Classify(ev *Evidence) *Report {
 		c.deliveryOverdue(ev),
 		c.deliveryDepartsProfile(ev),
 		c.jobFailed(ev),
+		c.mainInputEmpty(ev),
 	}
+	ev.judgeEmptyInput(r.Findings)
 	ev.judgeDeletedRun(r.Findings)
 	r.Job = ev.judgeJobRow(r.Findings)
 	for i := range r.Findings {
@@ -189,8 +192,20 @@ func (c Classifier) runNotStarted(ev *Evidence) Finding {
 //
 // Row 2's *cannot see* is that this is indistinguishable from three other
 // things — a conditional step skipped by its `when`, a step not in this version
-// of the config, and a step whose label collides with another's — and that the
-// record makes the second uncheckable because no run names a workspace version.
+// of the config, and a step whose label collides with another's. The run's
+// header carries workspace_version, stamped when the run is inserted, but it
+// is a marker of the whole workspace rather than of the configuration this
+// step is in, and the baseline does not compare it, so the second is not told
+// apart here.
+//
+// **The baseline is the run's own source's.** A process whose runs read two
+// vendors' files runs on two sources, and a step only one vendor's files reach
+// is not one the other's runs were expected to have; Gather reads the baseline
+// for the header's Source, and the match below asks for it. **And a step the
+// source stopped running leaves it**: a step is expected only if it also ran on
+// at least one of the source's last MinPriorRuns runs in the window, so a step
+// that stops for good is reported on at most MinPriorRuns runs after it
+// stopped, and a person's verdict on the first says whether that was intended.
 //
 // **The confounder vocabulary has no member for that**. Its fourteen
 // members were derived for detection, step_label_ambiguous covers the third of
@@ -222,13 +237,25 @@ func (c Classifier) stepNeverStarted(ev *Evidence) Finding {
 	}
 	var missing []observe.StepBaseline
 	var considered int
+	var retired []string
 	for i := range ev.Prior.Baselines {
 		b := &ev.Prior.Baselines[i]
 		if b.Client != ev.Header.Client || b.ProcessName != ev.Header.ProcessName ||
-			b.MainObjectType != ev.Header.MainObjectType {
+			b.MainObjectType != ev.Header.MainObjectType || b.Source != ev.Header.Source {
 			continue
 		}
 		if b.Runs < c.MinPriorRuns {
+			continue
+		}
+		if ev.Prior.RecentRead && b.Recent == 0 {
+			// It ran on enough runs of the window, and on none of the source's
+			// latest: the source no longer runs it.
+			label := b.StepId
+			if label == "" {
+				label = "(unlabelled)"
+			}
+			retired = append(retired, fmt.Sprintf("%s (%d prior runs, last seen %s)", label, b.Runs,
+				b.LastSeen.Format(timeFmt)))
 			continue
 		}
 		considered++
@@ -236,19 +263,26 @@ func (c Classifier) stepNeverStarted(ev *Evidence) Finding {
 			missing = append(missing, *b)
 		}
 	}
+	of := fmt.Sprintf("%s/%s/%s, %s,", ev.Header.Client, ev.Header.ProcessName, ev.Header.MainObjectType,
+		ev.Header.Source.Describe())
+	retiredNote := ""
+	if len(retired) > 0 {
+		retiredNote = fmt.Sprintf(". %d %s with at least %d prior runs did not run on any of the source's last %d "+
+			"runs, so the source no longer runs %s and %s not expected: %s", len(retired),
+			plural(len(retired), "step", "steps"), c.MinPriorRuns, c.MinPriorRuns,
+			plural(len(retired), "it", "them"), plural(len(retired), "it is", "they are"), strings.Join(retired, "; "))
+	}
 	if considered == 0 {
 		return notEvaluable(locus, fmt.Sprintf(
-			"the baseline holds no step of %s/%s/%s with at least %d prior runs, so there is no step this "+
-				"run was expected to have. %d baselines were read over the window ending %s",
-			ev.Header.Client, ev.Header.ProcessName, ev.Header.MainObjectType, c.MinPriorRuns,
-			len(ev.Prior.Baselines), ev.Prior.Window.Until.Format(timeFmt)),
+			"the baseline holds no step of %s with at least %d prior runs that the source still runs, so there "+
+				"is no step this run was expected to have. %d baselines were read over the window ending %s%s",
+			of, c.MinPriorRuns, len(ev.Prior.Baselines), ev.Prior.Window.Until.Format(timeFmt), retiredNote),
 			ev.baselineConfounders()...)
 	}
 	if len(missing) == 0 {
 		return Finding{Locus: locus, Verdict: Absent, Basis: fmt.Sprintf(
-			"all %d steps of %s/%s/%s with at least %d prior runs have a worker row in session %q",
-			considered, ev.Header.Client, ev.Header.ProcessName, ev.Header.MainObjectType,
-			c.MinPriorRuns, ev.SessionId),
+			"all %d steps of %s with at least %d prior runs have a worker row in session %q%s",
+			considered, of, c.MinPriorRuns, ev.SessionId, retiredNote),
 			Confounders: ev.baselineConfounders()}
 	}
 
@@ -272,13 +306,16 @@ func (c Classifier) stepNeverStarted(ev *Evidence) Finding {
 		conf = append(conf, observe.ConfounderStepLabelAmbiguous)
 	}
 	basis := fmt.Sprintf(
-		"%d of the %d steps of %s/%s/%s with at least %d prior runs have no worker row in session %q: %s. "+
+		"%d of the %d steps of %s with at least %d prior runs, and on at least one of the source's last %d, "+
+			"have no worker row in session %q: %s. "+
 			"The record cannot tell that from three other things: a conditional step whose `when` "+
 			"did not fire, a step that is not in the configuration this run used, and a step whose label "+
-			"collides with another's. The second is not checkable at all, because no run is bound to a "+
-			"workspace version, and the confounder vocabulary has no member for it",
-		len(missing), considered, ev.Header.Client, ev.Header.ProcessName, ev.Header.MainObjectType,
-		c.MinPriorRuns, ev.SessionId, strings.Join(names, "; "))
+			"collides with another's. The second is not checked here: the run's header records the workspace "+
+			"version it ran under, stamped when the run was inserted, but a version marks the whole "+
+			"workspace rather than this step's configuration, the baseline does not compare it, and the "+
+			"confounder vocabulary has no member for it",
+		len(missing), considered, of, c.MinPriorRuns, c.MinPriorRuns, ev.SessionId, strings.Join(names, "; "))
+	basis += retiredNote
 	if anyEmpty {
 		basis += ". One of the missing steps carries an empty cpipes_step_id, which ten reducing steps in " +
 			"the corpus do, so that row of the baseline may be two steps"
