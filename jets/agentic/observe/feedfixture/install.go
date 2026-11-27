@@ -20,9 +20,10 @@ import (
 // claim-set statement, which finds the run that wrote a delivery's claims there;
 // Install leaves it empty and InstallUnderPipelineRuns writes it. The statement
 // reads that run's retain window drops from pipeline_execution_details, which
-// both leave empty.
+// both leave empty. purged_delivery, the record of the first registrations a
+// session deletion removed, is left empty too.
 var JetsapiTables = []string{"source_config", "input_registry", "source_period", "file_key_staging",
-	"pipeline_execution_status", "pipeline_execution_details"}
+	"pipeline_execution_status", "pipeline_execution_details", "purged_delivery"}
 
 // RunProcessName is the process_name of the pipeline runs
 // InstallUnderPipelineRuns writes.

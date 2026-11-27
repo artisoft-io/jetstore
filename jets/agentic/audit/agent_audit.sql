@@ -584,7 +584,10 @@ END $$;
 -- key_columns, service_date_column and member_column are the declaration the row was
 -- computed under, so a profile that changes them makes the row stale rather than wrong.
 -- lag_exceeds and out_of_span_count are decided on the exact days against the declaration
--- named beside them, at summary time.
+-- named beside them, at summary time. claim_set_judged_at is when a feed_detect run that
+-- writes first judged the delivery from this row, null until one has: a window run also
+-- judges the deliveries before its window that no run has judged, as a delivery whose
+-- claims were mapped after the run whose window held it.
 CREATE TABLE IF NOT EXISTS jetsapi.claim_set_summary (
   table_name                       text NOT NULL,
   delivery_session_id              text NOT NULL,
@@ -611,10 +614,27 @@ CREATE TABLE IF NOT EXISTS jetsapi.claim_set_summary (
   present_counts                   jsonb NOT NULL,
   key_fingerprint                  bigint,
   key_sketch                       bytea,
+  claim_set_judged_at              timestamp with time zone,
   PRIMARY KEY (table_name, delivery_session_id),
   CONSTRAINT claim_set_summary_sketch_ck
              CHECK (key_sketch IS NULL OR octet_length(key_sketch) = 12288)
 );
+-- stmt
+-- claim_set_judged_at on a table created before it: added once, and every row there then
+-- marked judged at its summarised_at. Those rows were written by runs that judged only their
+-- window, so which of them were judged is not recorded; marking them all keeps the first
+-- runs after the upgrade from judging history as late, including any file whose first
+-- registration a purge deleted before the deletion recorded it (jetsapi.purged_delivery).
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_attribute
+                  WHERE attrelid = 'jetsapi.claim_set_summary'::regclass
+                    AND attname = 'claim_set_judged_at' AND NOT attisdropped) THEN
+    ALTER TABLE jetsapi.claim_set_summary ADD COLUMN claim_set_judged_at timestamp with time zone;
+    UPDATE jetsapi.claim_set_summary SET claim_set_judged_at = summarised_at;
+  END IF;
+END
+$$;
 -- stmt
 CREATE INDEX IF NOT EXISTS claim_set_summary_session_idx
   ON jetsapi.claim_set_summary (session_id);

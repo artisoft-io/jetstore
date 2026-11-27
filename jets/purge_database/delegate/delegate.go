@@ -325,7 +325,8 @@ func purgeSessions(ctx context.Context, dbpool *pgxpool.Pool, cfg purgeConfig) (
 }
 
 // logReport logs a run's report: the sessions by reason, the rows per table, the
-// status rows archived and the sessions refused or failed.
+// status rows archived, the first registrations of files recorded and the
+// sessions refused or failed.
 func logReport(prefix string, r *sessionpurge.Report) {
 	log.Printf("Session purge: %s%s", prefix, r.Summary())
 	tables := make([]string, 0, len(r.Rows))
@@ -335,6 +336,10 @@ func logReport(prefix string, r *sessionpurge.Report) {
 	sort.Strings(tables)
 	for _, t := range tables {
 		log.Printf("   %s%d rows from %s", prefix, r.Rows[t], t)
+	}
+	if r.PurgedDeliveries > 0 {
+		log.Printf("   %s%d first registrations of files recorded in jetsapi.purged_delivery", prefix,
+			r.PurgedDeliveries)
 	}
 	if len(r.RefusedSessions) > 0 {
 		log.Printf("   refused, a run pending or submitted: %s", strings.Join(r.RefusedSessions, ", "))

@@ -52,8 +52,12 @@ package observe
 // summarises the delivery's rows if they are present. The first run therefore
 // summarises every delivery still in the database. The run judges from the
 // summaries it read and the ones it computed, and WriteFeedProcess writes the
-// computed ones before the anomalies; a dry run, an export and a judge write
-// none. A summary of a session that is not the registration's own nor a
+// computed ones before the anomalies, then marks judged (claim_set_judged_at)
+// every delivery the run judged from a settled summary; a dry run, an export
+// and a judge write and mark none. A window also judges the deliveries before
+// it whose summary carries no mark (ClaimSetOptions.LateSince), so a delivery
+// whose claims were mapped after its window is judged once, by the first run
+// that summarises it. A summary of a session that is not the registration's own nor a
 // completed run's is judged from and not written, so a load still in
 // progress is not frozen into the record.
 //
@@ -146,6 +150,10 @@ type ClaimSetSummary struct {
 	// settled is false for a computed summary of a session that is not the
 	// registration's own nor a completed run's: judged from, not written.
 	settled bool
+	// JudgedAt is when a run that writes first judged the delivery from its
+	// summary (claim_set_judged_at); nil when none has. A summary is written
+	// with none, and WriteFeedProcess marks the deliveries the run judged.
+	JudgedAt *time.Time
 }
 
 // matches reports whether the summary was computed under the claim set
@@ -335,15 +343,30 @@ func claimSetDate(s *string) (*time.Time, error) {
 	return &t, nil
 }
 
-const claimSetSummaryTableSQL = `SELECT to_regclass('jetsapi.claim_set_summary') IS NOT NULL`
+// claimSetSummaryTableSQL says whether the summary table exists, and whether
+// it carries the judged mark, claim_set_judged_at.
+const claimSetSummaryTableSQL = `SELECT to_regclass('jetsapi.claim_set_summary') IS NOT NULL,
+       EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = to_regclass('jetsapi.claim_set_summary')
+                  AND attname = 'claim_set_judged_at' AND NOT attisdropped)`
 
-// claimSetStoredSummariesSQL reads the stored summaries of the feeds named,
-// without their sketches, which are read only where a comparison needs them.
-const claimSetStoredSummariesSQL = `SELECT table_name, delivery_session_id, session_id, client, summary_version,
+// claimSetStoredSummariesCols are the columns the stored summaries are read
+// by, without their sketches, which are read only where a comparison needs
+// them.
+const claimSetStoredSummariesCols = `table_name, delivery_session_id, session_id, client, summary_version,
        key_columns, service_date_column, member_column, row_count, distinct_key_count, member_count,
        dated_row_count, newest_service_date::text, oldest_service_date::text, dates_in_months, span_days,
        lag_exceeds, lag_declared_days, out_of_span_count, span_declared_days, service_date_histogram::text,
-       present_counts::text, key_fingerprint
+       present_counts::text, key_fingerprint`
+
+// claimSetStoredSummariesSQL reads the stored summaries of the feeds named,
+// with when each was judged; claimSetStoredSummariesUnmarkedSQL reads them
+// where the table has no judged mark.
+const claimSetStoredSummariesSQL = `SELECT ` + claimSetStoredSummariesCols + `,
+       (extract(epoch FROM claim_set_judged_at) * 1000)::bigint
+  FROM jetsapi.claim_set_summary WHERE table_name = ANY($1::text[])
+ ORDER BY table_name, delivery_session_id`
+
+const claimSetStoredSummariesUnmarkedSQL = `SELECT ` + claimSetStoredSummariesCols + `, NULL::bigint
   FROM jetsapi.claim_set_summary WHERE table_name = ANY($1::text[])
  ORDER BY table_name, delivery_session_id`
 
@@ -357,44 +380,59 @@ type claimSetStoredSummaries map[string]map[string]*ClaimSetSummary
 
 // readClaimSetSummaries reads the stored summaries of the feeds, or none where
 // the table does not exist, as on a database the migration has not reached.
-func readClaimSetSummaries(ctx context.Context, db DB, tables []string) (claimSetStoredSummaries, error) {
-	out := claimSetStoredSummaries{}
+// marks reports whether the table carries the judged mark.
+func readClaimSetSummaries(ctx context.Context, db DB, tables []string) (out claimSetStoredSummaries, marks bool,
+	err error) {
+	out = claimSetStoredSummaries{}
 	var exists bool
-	if err := db.QueryRow(ctx, claimSetSummaryTableSQL).Scan(&exists); err != nil {
-		return nil, fmt.Errorf("while looking for jetsapi.claim_set_summary: %w", err)
+	if err := db.QueryRow(ctx, claimSetSummaryTableSQL).Scan(&exists, &marks); err != nil {
+		return nil, false, fmt.Errorf("while looking for jetsapi.claim_set_summary: %w", err)
 	}
-	if !exists || len(tables) == 0 {
-		return out, nil
+	if !exists {
+		return out, false, nil
 	}
-	rows, err := db.Query(ctx, claimSetStoredSummariesSQL, tables)
+	if len(tables) == 0 {
+		return out, marks, nil
+	}
+	stmt := claimSetStoredSummariesUnmarkedSQL
+	if marks {
+		stmt = claimSetStoredSummariesSQL
+	}
+	rows, err := db.Query(ctx, stmt, tables)
 	if err != nil {
-		return nil, fmt.Errorf("while reading the claim-set summaries: %w", err)
+		return nil, false, fmt.Errorf("while reading the claim-set summaries: %w", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
 		s := &ClaimSetSummary{settled: true}
 		var newest, oldest, hist, present *string
+		var judged *int64
 		if err := rows.Scan(&s.TableName, &s.DeliverySessionID, &s.SessionID, &s.Client, &s.Version,
 			&s.KeyColumns, &s.ServiceDateColumn, &s.MemberColumn, &s.Rows, &s.DistinctKeys, &s.Members,
 			&s.DatedRows, &newest, &oldest, &s.DatesInMonths, &s.SpanDays, &s.LagExceeds, &s.LagDeclaredDays,
-			&s.OutOfSpan, &s.SpanDeclaredDays, &hist, &present, &s.Fingerprint); err != nil {
-			return nil, fmt.Errorf("while reading the claim-set summaries: %w", err)
+			&s.OutOfSpan, &s.SpanDeclaredDays, &hist, &present, &s.Fingerprint, &judged); err != nil {
+			return nil, false, fmt.Errorf("while reading the claim-set summaries: %w", err)
+		}
+		if judged != nil {
+			t := time.UnixMilli(*judged).UTC()
+			s.JudgedAt = &t
 		}
 		if s.Newest, err = claimSetDate(newest); err == nil {
 			s.Oldest, err = claimSetDate(oldest)
 		}
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		if hist != nil {
 			s.Histogram = &ClaimSetHistogram{}
 			if err := json.Unmarshal([]byte(*hist), s.Histogram); err != nil {
-				return nil, fmt.Errorf("the histogram of the summary of session %s: %w", s.DeliverySessionID, err)
+				return nil, false, fmt.Errorf("the histogram of the summary of session %s: %w", s.DeliverySessionID, err)
 			}
 		}
 		if present != nil {
 			if err := json.Unmarshal([]byte(*present), &s.Present); err != nil {
-				return nil, fmt.Errorf("the present counts of the summary of session %s: %w", s.DeliverySessionID, err)
+				return nil, false, fmt.Errorf("the present counts of the summary of session %s: %w",
+					s.DeliverySessionID, err)
 			}
 		}
 		s.sketchRead = s.Fingerprint == nil
@@ -403,7 +441,7 @@ func readClaimSetSummaries(ctx context.Context, db DB, tables []string) (claimSe
 		}
 		out[s.TableName][s.DeliverySessionID] = s
 	}
-	return out, rows.Err()
+	return out, marks, rows.Err()
 }
 
 // readClaimSetSketches reads the sketches of the stored summaries given, of
@@ -504,6 +542,36 @@ func WriteClaimSetSummaries(ctx context.Context, db Exec, sums []ClaimSetSummary
 				s.DeliverySessionID, err)
 		}
 		n++
+	}
+	return n, nil
+}
+
+// claimSetMarkJudgedSQL marks the deliveries of one feed judged, where no run
+// had.
+const claimSetMarkJudgedSQL = `UPDATE jetsapi.claim_set_summary SET claim_set_judged_at = $3
+ WHERE table_name = $1 AND delivery_session_id = ANY($2::text[]) AND claim_set_judged_at IS NULL`
+
+// WriteClaimSetJudged marks the deliveries judged at the time given, which
+// a later run then does not judge again as late (ClaimSetOptions.LateSince),
+// and returns how many it marked. A delivery whose summary is not stored is
+// left: the run that writes its summary judges it. A dry run marks nothing,
+// since it does not call this.
+func WriteClaimSetJudged(ctx context.Context, db Exec, judged []ClaimSetJudgedDelivery, at time.Time) (int, error) {
+	byTable := map[string][]string{}
+	var tables []string
+	for _, j := range judged {
+		if byTable[j.TableName] == nil {
+			tables = append(tables, j.TableName)
+		}
+		byTable[j.TableName] = append(byTable[j.TableName], j.DeliverySessionID)
+	}
+	n := 0
+	for _, t := range tables {
+		tag, err := db.Exec(ctx, claimSetMarkJudgedSQL, t, byTable[t], at)
+		if err != nil {
+			return n, fmt.Errorf("while marking the deliveries of %s judged: %w", t, err)
+		}
+		n += int(tag.RowsAffected())
 	}
 	return n, nil
 }

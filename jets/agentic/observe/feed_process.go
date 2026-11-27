@@ -17,6 +17,18 @@ package observe
 // feed_claimset.go), so judging them once, at AsOf, says what they would have
 // said on the day; only the date they would have said it needs the steps.
 //
+// # A delivery mapped after its window
+//
+// The content checks judge a delivery from its claims' summary, and a
+// delivery whose claims are not yet mapped when the window's run reads it has
+// none: it is not judged, for no_claim_rows. A later run summarises it once
+// its claims are there, but it is no longer in that run's window. So a window
+// also judges every delivery registered in the LateWithin before its window
+// whose summary no run has judged, and a run that writes marks every delivery
+// it judged from a summary (claim_set_summary.claim_set_judged_at), so each is
+// judged late once. A dry run, an export and a judge mark nothing. A backfill
+// judges its range and nothing before it.
+//
 // The export, and judging what the export returns, are feed_process_export.go.
 // Both run this same code against a database that answers from the results a
 // person pasted back, so they measure these detectors and not a copy of them.
@@ -29,6 +41,8 @@ package observe
 // statement once. A later registration of a delivered file is re-processing:
 // no detector judges it, and every detector's coverage counts it, per feed, as
 // re-processed files and re-registrations whose own arrival is in the window.
+// So is a registration of a file whose first registration a session deletion
+// removed, which the coverage also counts as such.
 //
 // # What the run records
 //
@@ -83,6 +97,11 @@ type FeedProcessOptions struct {
 	MinMembers int
 	// Generation is every detector's generation.
 	Generation int
+	// LateWithin, in a window (Step zero, Since set), also judges the
+	// deliveries registered within this long before Since whose claim-set
+	// summary no run has judged: their claims were mapped after the run whose
+	// window held them. Zero judges the window alone.
+	LateWithin time.Duration
 }
 
 // DefaultFeedProcessOptions is a window ending now: generation 1 and the
@@ -213,6 +232,10 @@ type FeedProcessCoverage struct {
 	// in the window of files already delivered, and the files: re-processing,
 	// which no detector judges.
 	Reprocessed map[string]FeedReprocessed `json:"reprocessed,omitempty"`
+	// Late counts the verdicts on deliveries registered before the window,
+	// judged because no run had judged their summary (LateWithin). They are
+	// among Verdicts.
+	Late int `json:"late,omitempty"`
 }
 
 // Line renders the coverage as one line of a run's log.
@@ -220,6 +243,9 @@ func (c FeedProcessCoverage) Line() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "coverage %s: %d feed(s) judged; %d verdict(s): %d fire, %d silent",
 		c.Detector, c.FeedsJudged, c.Verdicts, c.Fires, c.Silent)
+	if c.Late > 0 {
+		fmt.Fprintf(&b, ", %d of them on deliveries before the window judged late", c.Late)
+	}
 	if len(c.NotJudged) > 0 {
 		parts := make([]string, 0, len(c.NotJudged))
 		for _, r := range feedDeliverySortedKeys(c.NotJudged) {
@@ -252,7 +278,7 @@ func (c FeedProcessCoverage) Line() string {
 
 // reprocessed counts a judged feed's re-processing in the run's window.
 func (c *FeedProcessCoverage) reprocessed(regs *FeedRegistrations, table string, o FeedProcessOptions) {
-	n := FeedReprocessedIn(regs.Deliveries(table, o.AsOf), o.Since, o.AsOf)
+	n := regs.ReprocessedIn(table, o.AsOf, o.Since, o.AsOf)
 	if n.Registrations == 0 {
 		return
 	}
@@ -304,6 +330,11 @@ type FeedProcessResult struct {
 	// Summaries are the claim-set summaries the run computed for deliveries
 	// that had none, which WriteFeedProcess writes before the anomalies.
 	Summaries []ClaimSetSummary
+	// Judged are the deliveries the content checks judged from a settled
+	// summary, which WriteFeedProcess marks judged where the summaries carry
+	// the mark (judgedMarks).
+	Judged      []ClaimSetJudgedDelivery
+	judgedMarks bool
 	// Anomalies are every finding, once each, dated at the step that would
 	// first have reported it.
 	Anomalies  []Anomaly
@@ -430,12 +461,16 @@ func RunFeedProcess(ctx context.Context, db DB, feeds FeedProcessFeeds, o FeedPr
 	// The five content checks, once, each delivery against its predecessor.
 	co := ClaimSetOptions{Since: o.Since, Until: o.AsOf.Add(time.Millisecond), Now: o.AsOf,
 		MinMembers: o.MinMembers, Generation: o.Generation}
-	verdicts, sums, err := detectClaimSetsFrom(ctx, db, all, regs, co)
+	if o.Step <= 0 && !o.Since.IsZero() && o.LateWithin > 0 {
+		co.LateSince = o.Since.Add(-o.LateWithin)
+	}
+	verdicts, sums, marks, err := detectClaimSetsFrom(ctx, db, all, regs, co)
 	if err != nil {
 		res.FeedErrors = feedProcessFeedErrors(err)
 	}
 	res.ClaimSets = verdicts
 	res.Summaries = sums
+	res.Judged, res.judgedMarks = ClaimSetJudgedDeliveries(verdicts), marks
 	byDetector := map[string]*FeedProcessCoverage{}
 	for _, det := range ClaimSetDetectors {
 		c := &FeedProcessCoverage{Detector: det}
@@ -455,6 +490,9 @@ func RunFeedProcess(ctx context.Context, db DB, feeds FeedProcessFeeds, o FeedPr
 	}
 	for _, v := range verdicts {
 		byDetector[v.Detector].count(v.TableName, v.Verdict, v.Reason, v.Confounders)
+		if v.Late {
+			byDetector[v.Detector].Late++
+		}
 		for _, a := range v.Anomalies {
 			at := o.AsOf
 			if ms, err := strconv.ParseInt(v.SessionID, 10, 64); err == nil && ms > 0 {
@@ -546,18 +584,26 @@ func feedProcessFeedErrors(err error) []FeedProcessFeedError {
 type FeedProcessWritten struct {
 	Inserted, Existing int
 	Summaries          int
+	// Judged is the deliveries marked judged that no run had.
+	Judged int
 }
 
-// WriteFeedProcess writes the run's claim-set summaries, then its anomalies
-// through InsertAnomalyIfNew, so a run over a window an earlier run covered
-// writes no anomaly twice. The summaries come first: they are what a later run
-// judges from once the rows are gone.
+// WriteFeedProcess writes the run's claim-set summaries, marks the deliveries
+// the content checks judged from them, then writes its anomalies through
+// InsertAnomalyIfNew, so a run over a window an earlier run covered writes no
+// anomaly twice. The summaries come first: they are what a later run judges
+// from once the rows are gone.
 func WriteFeedProcess(ctx context.Context, db Exec, res FeedProcessResult) (FeedProcessWritten, error) {
 	var w FeedProcessWritten
 	n, err := WriteClaimSetSummaries(ctx, db, res.Summaries)
 	w.Summaries = n
 	if err != nil {
 		return w, err
+	}
+	if res.judgedMarks {
+		if w.Judged, err = WriteClaimSetJudged(ctx, db, res.Judged, res.Options.AsOf); err != nil {
+			return w, err
+		}
 	}
 	for i := range res.Anomalies {
 		isNew, err := InsertAnomalyIfNew(ctx, db, &res.Anomalies[i])
@@ -594,6 +640,10 @@ func (r FeedProcessResult) Lines() []string {
 		fmt.Sprintf("run: %s; %s; generation %d", mode, window, o.Generation),
 	}
 	out = append(out, fmt.Sprintf("claim-set summaries: %d computed for deliveries with none", len(r.Summaries)))
+	if !o.Since.IsZero() && len(r.Steps) == 1 && o.LateWithin > 0 {
+		out = append(out, fmt.Sprintf("late: the deliveries registered from %s whose claim-set summary no run had "+
+			"judged are judged with the window", o.Since.Add(-o.LateWithin).Format(time.RFC3339)))
+	}
 	if len(r.Feeds.Unmatched) > 0 {
 		out = append(out, fmt.Sprintf("profiles: %d declared table name(s) match no feed: %s",
 			len(r.Feeds.Unmatched), strings.Join(r.Feeds.Unmatched, ", ")))
@@ -632,6 +682,8 @@ type FeedProcessSummary struct {
 	Written    int                    `json:"anomaliesWritten"`
 	Already    int                    `json:"anomaliesAlreadyRecorded"`
 	Summaries  int                    `json:"claimSetSummariesWritten"`
+	Judged     int                    `json:"claimSetDeliveriesMarkedJudged"`
+	LateSince  *time.Time             `json:"lateSince,omitempty"`
 	ByDetector map[string]int         `json:"byDetector"`
 	Coverage   []FeedProcessCoverage  `json:"coverage"`
 	FeedErrors []FeedProcessFeedError `json:"feedErrors,omitempty"`
@@ -642,6 +694,7 @@ func (r FeedProcessResult) Summary(dryRun bool, w FeedProcessWritten) FeedProces
 	s := FeedProcessSummary{DryRun: dryRun, Mode: "window", AsOf: r.Options.AsOf, Steps: len(r.Steps),
 		Clients: len(r.Feeds.Clients), Profiled: len(r.Feeds.Profiled), Unprofiled: len(r.Feeds.Unprofiled),
 		Unmatched: r.Feeds.Unmatched, Found: len(r.Anomalies), Written: w.Inserted, Already: w.Existing, Summaries: w.Summaries,
+		Judged:     w.Judged,
 		ByDetector: map[string]int{}, Coverage: r.Coverage, FeedErrors: r.FeedErrors}
 	if r.Options.Step > 0 && !r.Options.Since.IsZero() {
 		s.Mode = "backfill"
@@ -649,6 +702,10 @@ func (r FeedProcessResult) Summary(dryRun bool, w FeedProcessWritten) FeedProces
 	if !r.Options.Since.IsZero() {
 		since := r.Options.Since
 		s.Since = &since
+		if s.Mode == "window" && r.Options.LateWithin > 0 {
+			late := since.Add(-r.Options.LateWithin)
+			s.LateSince = &late
+		}
 	}
 	for _, a := range r.Anomalies {
 		s.ByDetector[a.DetectorRef]++

@@ -75,7 +75,9 @@
 //
 // Read and ReadAll compute conditions from four tables, jetsapi.anomaly,
 // input_registry (session_id, file_key, table_name, source_type and key only),
-// incident and incident_event, and issue no write. A database where incidents
+// incident and incident_event, and purged_delivery where it exists, so a file
+// whose first registration was deleted is no position, and issue no write. A
+// database where incidents
 // were written per delivery before conditions keeps them; ReadAll shows what
 // they are as conditions without moving any.
 package feedcondition
@@ -796,7 +798,8 @@ func ResolveSessions(ctx context.Context, db observe.DB, places []SessionLocus) 
 // carrying a feed anomaly when feeds is empty, with the incidents on their
 // positions and those incidents' first human verdicts. It writes nothing, and
 // needs only reads of jetsapi.anomaly, input_registry, incident and
-// incident_event, so it can be run against a copy of those four tables.
+// incident_event (and purged_delivery where it exists), so it can be run
+// against a copy of those four tables.
 func ReadAll(ctx context.Context, db observe.DB, feeds []string) ([]*Feed, error) {
 	if len(feeds) == 0 {
 		rows, err := db.Query(ctx, `SELECT DISTINCT anomaly_subject_ref FROM jetsapi.anomaly

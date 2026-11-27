@@ -193,6 +193,16 @@ Deletes sessions past the retention window, and the agentic rows nothing still h
   Its incidents are not deleted with it: a feed or process that keeps failing the same way has one
   incident, on its first delivery or run, and later ones join it, so deleting the incident with its
   first session would raise a second one for the same fault.
+- **What a session leaves**: for each file the session registered first, a row of
+  `jetsapi.purged_delivery` with the feed's table, the file key and that first registration's
+  arrival, written in the deletion's transaction by the purge and by a user's *Delete* alike. The
+  feed checks read it so that a later registration of the same file stays re-processing rather than
+  becoming the file's delivery (see
+  [Feed content checks](/docs/user/concepts/feed-content-checks/#what-counts-as-a-delivery-and-how-re-processing-is-reported)).
+  One short row per file, kept as long as the installation, since a file can be registered again
+  after all its registrations are gone; a reset of the domain tables empties it. The log counts them
+  under `Session purge:`, as first registrations of files recorded, and a dry run counts the ones it
+  would record.
 - **When an incident goes**: after the sessions, in the same run, the purge deletes each incident no
   session it stands for is still held: its own session is gone (no registration, run, input or
   reading left) and no delivery or run still held is placed in it. Its hypotheses, remediations and
