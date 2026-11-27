@@ -14,8 +14,12 @@ is the JetStore repository root (`--code`), and `../../..` is the folder holding
 ## Install
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -e .
+python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
 ```
+
+The `dev` extra brings `pytest`, which the test suite needs; `pip install -e .` alone installs the
+commands without it. With `uv`, `uv venv .venv && uv pip install --python .venv/bin/python -e '.[dev]'`
+does the same.
 
 ## Name the corpus's workspaces
 
@@ -145,7 +149,13 @@ The test suite is the `tests_*.py` files; `pyproject.toml` declares that pattern
 `pytest` collects nothing and exits 0.
 
 ```bash
-uv run --extra dev pytest -q
+.venv/bin/pytest -q            # in the virtual environment installed above
+uv run --extra dev pytest -q   # or let uv build one
 ```
+
+`tests_citations.py` runs `check --code`'s rule over every citation into the JetStore repository,
+so a change that moves a cited line fails it; `relocate` above carries the citations it can.
+Tests that read a named workspace's configuration skip unless the workspace is checked out beside
+`jetstore` and `CPIPES_CONTRACT_ALIASES` names the alias file.
 
 Each check is one command with one exit code: there is no CI service to host them.
