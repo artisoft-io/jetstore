@@ -234,6 +234,10 @@ registration of its file and no deleted first registration of the same file arri
 file sent again stays re-processing: it is not summarised, takes no place among the feed's
 deliveries, and is not judged, by a daily run or a backfill, and the coverage line counts it with the
 other re-processing, saying how many of the files had their first registration deleted. The record
-is kept as long as the installation, since a file can be registered again after every registration of
-it is gone; it begins when an installation is upgraded to it, so a first registration deleted before
+is kept for twice the installation's retention period (`RETENTION_DAYS`), counted from the file's
+first arrival, about one retention period after its first registration is deleted. After that, the
+file's earliest surviving registration, if any, is read as its delivery, so a file sent again more
+than twice the retention period after its first delivery is judged a new delivery (see
+[Purge Data Lambda](/docs/install/reference/stack-components/#purge-data-lambda-optional)). The
+record begins when an installation is upgraded to it, so a first registration deleted before
 then is not recorded, and a later registration of that file is still read as its delivery.

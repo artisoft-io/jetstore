@@ -199,10 +199,18 @@ Deletes sessions past the retention window, and the agentic rows nothing still h
   feed checks read it so that a later registration of the same file stays re-processing rather than
   becoming the file's delivery (see
   [Feed content checks](/docs/user/concepts/feed-content-checks/#what-counts-as-a-delivery-and-how-re-processing-is-reported)).
-  One short row per file, kept as long as the installation, since a file can be registered again
-  after all its registrations are gone; a reset of the domain tables empties it. The log counts them
-  under `Session purge:`, as first registrations of files recorded, and a dry run counts the ones it
-  would record.
+  The log counts them under `Session purge:`, as first registrations of files recorded, and a dry
+  run counts the ones it would record. A reset of the domain tables empties the table.
+- **How long that record is kept**: **twice `RETENTION_DAYS`, counted from the file's first
+  arrival** (`first_arrival`, the arrival the feed checks read, not the time the row was written).
+  The first registration itself goes about one `RETENTION_DAYS` after the arrival, so the record
+  outlives it by about one more. Each run deletes the older rows, before the session deletions, and
+  logs `Purged N records of deleted first registrations from jetsapi.purged_delivery`; a dry run
+  logs the count and deletes nothing, and a database without the table is left alone. **Once a
+  file's record is gone, its earliest surviving registration, if any, is read as its delivery**: a
+  file re-sent, or re-processed, more than twice `RETENTION_DAYS` after its first delivery is judged
+  a new delivery. A row costs about 0.5 KB with its index (measured on PostgreSQL 16: 507 MB for a
+  million rows with file keys of about 120 characters); before 4.1.24 the rows were never deleted.
 - **When an incident goes**: after the sessions, in the same run, the purge deletes each incident no
   session it stands for is still held: its own session is gone (no registration, run, input or
   reading left) and no delivery or run still held is placed in it. Its hypotheses, remediations and
@@ -243,7 +251,7 @@ Deletes sessions past the retention window, and the agentic rows nothing still h
   again on a session whose table data is gone, or a look at its rows from the Query Tool or the
   *Process Errors* screen, finds none. Run a session's reports before its table data ages out.
 - **Dry run**: unless `PURGE_DRY_RUN` is exactly `false`, the purge logs what it would delete, the
-  table data, the incidents and the audit rows included, and deletes nothing. The log opens with both
+  table data, the incidents, the audit rows and the `purged_delivery` records included, and deletes nothing. The log opens with both
   clocks, and has one line per table under `Session purge:`, `Table data purge:` (lines
   `table data: N rows from T`, and the sessions held for a summary), `Incident retention:` and `Agent audit retention:`.
 - **Deployment**: `RETENTION_DAYS` non-empty. `PURGE_DATA_SCHEDULED_HOUR_UTC` sets the daily

@@ -18,14 +18,26 @@ package sessionpurge
 // and keep any later registration of the file as re-processing.
 //
 // Both deletion paths come here, the retention purge and a user's Delete, so
-// both leave the record. A row is kept as long as the stack: a file can be
-// registered again after every registration of it is gone, and a row is one
-// short line per file. It is truncated with input_registry by a reset of the
+// both leave the record. It is truncated with input_registry by a reset of the
 // domain tables.
+//
+// A row is kept for twice RETENTION_DAYS from first_arrival, the file's arrival
+// as the feed detectors read it: the retention purge deletes the older ones
+// (PurgeDeliveriesBefore, called by jets/purge_database). The age is counted
+// from first_arrival and not from purged_at, which the ON CONFLICT update below
+// rewrites. The first registration itself is deleted about RETENTION_DAYS after
+// the arrival, so the record outlives it by about one retention period. Once the
+// record goes, the file's earliest surviving registration, if any, is read as
+// its delivery, so a file registered again more than twice RETENTION_DAYS after
+// its first delivery is judged a new delivery. Without a bound the table grew by
+// one row per purged file for the life of the installation, about 0.5 KB a row
+// with its unique index (measured on PostgreSQL 16: 507 MB for a million rows
+// with file keys of about 120 characters).
 
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -71,4 +83,28 @@ func recordPurgedDeliveries(ctx context.Context, tx pgx.Tx, r *Request) (int64, 
 		return 0, fmt.Errorf("on jetsapi.purged_delivery: %w", err)
 	}
 	return tag.RowsAffected(), nil
+}
+
+// purgeOldDeliveriesStmt deletes the records of files that first arrived before
+// $1. first_arrival is a timestamptz, so $1 is compared as an instant.
+const purgeOldDeliveriesStmt = `DELETE FROM jetsapi.purged_delivery WHERE first_arrival < $1::timestamptz`
+
+// PurgeDeliveriesBefore deletes, in tx, the jetsapi.purged_delivery rows whose
+// file first arrived before before, and returns how many it deleted. exists is
+// false, and nothing is deleted, where the table does not exist, as on a
+// database not yet migrated. The caller sets before (twice RETENTION_DAYS
+// before the run's start) and decides whether tx commits: a dry run rolls it
+// back and reports the count.
+func PurgeDeliveriesBefore(ctx context.Context, tx pgx.Tx, before time.Time) (n int64, exists bool, err error) {
+	if err = tx.QueryRow(ctx, purgedDeliveryExistsStmt).Scan(&exists); err != nil {
+		return 0, false, fmt.Errorf("while looking for jetsapi.purged_delivery: %w", err)
+	}
+	if !exists {
+		return 0, false, nil
+	}
+	tag, err := tx.Exec(ctx, purgeOldDeliveriesStmt, before)
+	if err != nil {
+		return 0, true, fmt.Errorf("while purging jetsapi.purged_delivery: %w", err)
+	}
+	return tag.RowsAffected(), true, nil
 }
