@@ -90,10 +90,10 @@ Other conditional components behave the same way by design, and their absence is
 `JETS_SKIP_REPORTS_SM` and `JETS_VPC_ENDPOINTS_EXCLUDE`, remove components on purpose; see
 [Leaving out what an installation does not use](/docs/install/planning/multiple-stacks/#leaving-out-what-an-installation-does-not-use).
 
-**The purge's retention variables are read by the Lambda, not by the deploy.** `RETENTION_DAYS`
-below 1 stops the Lambda at its start. `DOMAIN_TABLES_RETENTION_DAYS`, the table data's shorter
-clock, is passed through as set: a value that is not a whole number of days, 1 or more, deploys
-cleanly and then refuses every purge run, each refusal recorded as a failure of the purge job on
-*Pipelines Status*, until it is corrected. A value above `RETENTION_DAYS` is not an error; it is
+**The purge's retention variables are read by the Lambda, not by the deploy.** Unset,
+`RETENTION_DAYS` turns the purge off. `RETENTION_DAYS`, `AGENT_AUDIT_RETENTION_DAYS` and
+`DOMAIN_TABLES_RETENTION_DAYS`, the table data's shorter clock, are passed through as set: a value
+that is not a whole number of days, 1 or more, deploys cleanly and then refuses every purge run,
+each refusal recorded as a failure of the purge job on *Pipelines Status*, until it is corrected. A value above `RETENTION_DAYS` is not an error; it is
 capped to `RETENTION_DAYS` and the purge log says so. See
 [Purge Data Lambda](/docs/install/reference/stack-components/#purge-data-lambda-optional).

@@ -204,6 +204,8 @@ Deletes sessions past the retention window, and the agentic rows nothing still h
   deletion and restored in the same transaction (the database user must own the table, or the
   table is kept and the log says so); `agent_run` rows older, once their audit rows have gone; and
   `approval_event` rows decided before it. `change_proposal` has no timestamp and is always kept.
+  A value that is not a whole number of days, 1 or more, refuses the run, recorded as the purge
+  job's failure, as a bad `RETENTION_DAYS` is.
 - **Table data on a clock of its own**: `DOMAIN_TABLES_RETENTION_DAYS` deletes a session's table
   data earlier than the session, for an installation that keeps no member data longer than it must.
   Unset or empty, it is `RETENTION_DAYS`, and the purge does what it did before the variable
