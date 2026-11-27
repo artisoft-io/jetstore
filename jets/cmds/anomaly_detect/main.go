@@ -79,7 +79,7 @@ var (
 	volumeGeneration  = flag.Int("volume-generation", 2, "volume collapse generation; 2 is the first to judge a step against its own history, so it re-judges the rows generation 1 judged")
 
 	minPriorRuns = flag.Int64("min-prior-runs", 3, "step regression needs at least this many prior runs in the baseline")
-	generation   = flag.Int("generation", 1, "step regression generation; bumping it re-emits over rows already judged")
+	generation   = flag.Int("generation", 2, "step regression generation; bumping it re-emits over rows already judged (2: each step judged against its own main input source's runs)")
 
 	usingSshTunnel = flag.Bool("usingSshTunnel", false, "connect to the database through an open ssh tunnel")
 )
@@ -176,7 +176,7 @@ func doJob(ctx context.Context, db *pgxpool.Pool, sum *summary) error {
 		found = append(found, reg...)
 		sum.BaselineRead = true
 		sum.Baselines = len(ev.Prior.Baselines)
-		log.Printf("baseline: %d (client, process, object type, step) baselines over %s, %d worker rows "+
+		log.Printf("baseline: %d (client, process, object type, main input source, step) baselines over %s, %d worker rows "+
 			"excluded for having no run header", len(ev.Prior.Baselines), baseline.String(), ev.Prior.Headerless)
 	} else {
 		log.Printf("baseline: none read, so the step-regression detector did not run")

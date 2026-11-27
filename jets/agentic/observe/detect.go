@@ -68,7 +68,9 @@ type Evidence struct {
 	// Workers are the rows to judge.
 	Workers *WorkerSet
 	// Prior is the baseline StepRegression compares against. Its window ends
-	// where Workers' window begins. Nil when no baseline was asked for.
+	// where Workers' window begins, and Gather groups it by main input source,
+	// so each worker is compared with the runs of its own run's source. Nil
+	// when no baseline was asked for.
 	Prior *BaselineSet
 	// Configs is one entry per distinct session in Workers, present whether or
 	// not the configuration could be read — the absence of an entry and an
@@ -91,6 +93,12 @@ type Evidence struct {
 // the caller's arithmetic, which is what makes StepRegression's non-overlap
 // check something a caller cannot fail by accident. It also drops the session
 // filter: a baseline restricted to the run being judged is not a baseline.
+//
+// And it groups the baseline by main input source (Window.BySource), as triage
+// reads its one run's (Window.Source): a process that reads two sources' files
+// has two baselines, and a step only one source's files reach is not compared
+// with the runs of the other. Where jetsapi.input_registry does not exist every
+// run has the empty source, and a process has one baseline, as before.
 func Gather(ctx context.Context, db DB, detect Window, baselineFor time.Duration) (*Evidence, error) {
 	ev := &Evidence{Configs: map[string]*ConfigConfounders{}}
 	var err error
@@ -106,6 +114,7 @@ func Gather(ctx context.Context, db DB, detect Window, baselineFor time.Duration
 			Until:       detect.Since,
 			Client:      detect.Client,
 			ProcessName: detect.ProcessName,
+			BySource:    true,
 		}
 		if ev.Prior, err = StepBaselines(ctx, db, prior); err != nil {
 			return nil, err
@@ -582,10 +591,28 @@ func (d VolumeCollapse) basis(r *WorkerRow, in, got int64, b volumeBaseline, fro
 // StepRegression is section 12.2 row 3: a step that failed having previously
 // succeeded on the same source.
 //
-// The source is (client, process_name, main_object_type, cpipes_step_id) and
-// not the input file key, which for a periodic feed differs every run. That is
-// the whole reason this detector needs the run header at all: three of the four
-// keys are on the worker row and main_object_type is not.
+// The baseline is keyed (client, process_name, main_object_type, main input
+// source, cpipes_step_id) and not by the input file key, which for a periodic
+// feed differs every run. That is the whole reason this detector needs the run
+// header at all: three of the keys are on the worker row, and main_object_type
+// and the source (Source, read through the header's main input registration)
+// are not.
+//
+// **The source is part of the key** (2026-11-27). Until then the baseline was
+// keyed without it, so a process reading two sources' files had one baseline
+// for both: a step only one source's files reach had the other source's runs
+// counted towards its history, and the two sources' statuses were pooled.
+// Triage stopped doing that for its step baseline first; the detector now
+// does the same, and step_regression@2 is the first generation judged so.
+//
+// # The recency rule triage applies is not applied here, deliberately
+//
+// Triage expects a step of a run only if it also ran on one of the source's
+// last few runs (Window.RecentRuns), so a step the source stopped running is
+// not reported missing for ever. This detector judges a worker row that
+// exists: the step ran in the run being judged, so "the source stopped running
+// it" cannot hold of it, and the rule has nothing to decide. Gather does not
+// ask for it, and StepBaselines does not read it for a set grouped by source.
 type StepRegression struct {
 	// MinPriorRuns is how many prior runs of the step the baseline must hold
 	// before a failure is called a regression. One prior success is not a
@@ -597,7 +624,7 @@ type StepRegression struct {
 
 // DefaultStepRegression is the starting point, not a recommendation.
 func DefaultStepRegression() StepRegression {
-	return StepRegression{MinPriorRuns: 3, Generation: 1}
+	return StepRegression{MinPriorRuns: 3, Generation: 2}
 }
 
 // Ref is the detector_ref written on every anomaly this detector emits.
@@ -613,6 +640,13 @@ func (d StepRegression) Ref() string { return fmt.Sprintf("step_regression@%d", 
 // failure would then be its own precedent. Gather closes the baseline window
 // at the detection window's start, so a caller using it cannot fail this by
 // accident; a caller composing its own windows can.
+//
+// So must the baseline be one source's per row, and that is enforced too: where
+// the database records sources, a baseline that read every source of a process
+// together (neither Window.Source nor Window.BySource) is refused rather than
+// matched, because matching it is the pooling the source key exists to stop.
+// Gather groups by source. A baseline kept to one source (Window.Source) is
+// accepted, and judges only the workers of that source's runs.
 func (d StepRegression) Detect(ev *Evidence) ([]Anomaly, error) {
 	if ev == nil || ev.Workers == nil || ev.Prior == nil {
 		return nil, nil
@@ -624,11 +658,17 @@ func (d StepRegression) Detect(ev *Evidence) ([]Anomaly, error) {
 				"contains the run being judged makes this run its own precedent",
 			prior.Window.until().Format(time.RFC3339), current.Window.Since.Format(time.RFC3339))
 	}
+	if prior.Extent != nil && prior.Extent.Sources && !prior.BySource {
+		return nil, fmt.Errorf(
+			"the baseline reads every main input source of a process as one, on a database that records " +
+				"sources: a run would be compared with the runs of sources it did not read. Read it with " +
+				"Window.BySource, as Gather does")
+	}
 
 	index := map[string]*StepBaseline{}
 	for i := range prior.Baselines {
 		b := &prior.Baselines[i]
-		index[baselineKey(b.Client, b.ProcessName, b.MainObjectType, b.StepId)] = b
+		index[baselineKey(b.Client, b.ProcessName, b.MainObjectType, b.Source, b.StepId)] = b
 	}
 
 	var out []Anomaly
@@ -644,7 +684,9 @@ func (d StepRegression) Detect(ev *Evidence) ([]Anomaly, error) {
 		if !r.HasHeader {
 			continue
 		}
-		b := index[baselineKey(r.Client, r.ProcessName, r.MainObjectType, r.StepId)]
+		// The run's own source's baseline: a step that has a history only on
+		// another source of the process has none here.
+		b := index[baselineKey(r.Client, r.ProcessName, r.MainObjectType, r.Source, r.StepId)]
 		if b == nil {
 			continue
 		}
@@ -689,6 +731,12 @@ func (d StepRegression) basis(r *WorkerRow, b *StepBaseline, prior *BaselineSet)
 	s := fmt.Sprintf("worker row %d of session %s failed; %s. The baseline window ends at %s, before "+
 		"this run started, so it holds no part of the run being judged",
 		r.Key, r.SessionId, prior.Describe(b), prior.Window.until().Format(time.RFC3339))
+	if prior.Extent != nil && prior.Extent.Sources {
+		s += fmt.Sprintf("; the baseline is the runs of this run's own %s", b.Source.Describe())
+	} else {
+		s += "; jetsapi.input_registry does not exist here, so runs have no recorded source and the " +
+			"baseline is every run of the process"
+	}
 	if b.LastSuccess != nil {
 		s += fmt.Sprintf("; the step last completed at %s", b.LastSuccess.Format(time.RFC3339))
 	}
@@ -699,8 +747,9 @@ func (d StepRegression) basis(r *WorkerRow, b *StepBaseline, prior *BaselineSet)
 	return s
 }
 
-func baselineKey(client, process, objectType, stepId string) string {
-	return client + "\x00" + process + "\x00" + objectType + "\x00" + stepId
+func baselineKey(client, process, objectType string, src Source, stepId string) string {
+	return client + "\x00" + process + "\x00" + objectType + "\x00" +
+		src.Client + "\x00" + src.Org + "\x00" + src.ObjectType + "\x00" + stepId
 }
 
 const insertAnomalyIfNewSQL = insertAnomalySQL + ` ON CONFLICT (anomaly_id) DO NOTHING`
