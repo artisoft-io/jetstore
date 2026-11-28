@@ -1654,5 +1654,160 @@ TEST(TextUnits, ANameSuffixAfterANonAsciiLetter) {
   EXPECT_FALSE(suffix_space("A"));                        // index -1: null, not " "
 }
 
+// Signed integer overflow in + - * is null, in a session's rule as with no row: it was
+// undefined behaviour, and INT32_MAX + 1 gave INT32_MIN on x86-64. Through a mixed type
+// too, the right operand converted to the left's. Unsigned integers wrap, which is
+// defined, as they did. The neighbours of each limit compute.
+TEST(ArithmeticTypes, SignedOverflowIsNull) {
+  SessionRow sr;
+  AddVisitor add(nullptr, sr.row.get());
+  SubsVisitor sub(nullptr, sr.row.get());
+  MultVisitor mul(nullptr, sr.row.get());
+  auto ap = [](auto & op, RDFTTYPE a, RDFTTYPE b) { return or_threw(op, a, b); };
+  auto null = [](RDFTTYPE r) { return r.which() == rdf::rdf_null_t; };
+  auto const i32max = std::numeric_limits<int32_t>::max();
+  auto const i32min = std::numeric_limits<int32_t>::min();
+  auto const i64max = std::numeric_limits<int64_t>::max();
+  auto const i64min = std::numeric_limits<int64_t>::min();
+  EXPECT_TRUE(null(ap(add, rdf::LInt32(i32max), rdf::LInt32(1))));
+  EXPECT_TRUE(null(ap(add, rdf::LInt32(i32min), rdf::LInt32(-1))));
+  EXPECT_TRUE(null(ap(add, rdf::LInt32(i32max), rdf::LInt64(1))));
+  EXPECT_TRUE(null(ap(add, rdf::LInt32(i32max), rdf::LUInt32(1))));
+  EXPECT_TRUE(null(ap(add, rdf::LInt64(i64max), rdf::LInt64(1))));
+  EXPECT_TRUE(null(ap(add, rdf::LInt64(i64max), rdf::LInt32(1))));
+  EXPECT_TRUE(null(ap(add, rdf::LInt64(i64max), rdf::LUInt64(1))));
+  EXPECT_TRUE(null(ap(sub, rdf::LInt32(i32min), rdf::LInt32(1))));
+  EXPECT_TRUE(null(ap(sub, rdf::LInt32(0), rdf::LInt32(i32min))));
+  EXPECT_TRUE(null(ap(sub, rdf::LInt64(i64min), rdf::LInt32(1))));
+  EXPECT_TRUE(null(ap(sub, rdf::LInt64(0), rdf::LInt64(i64min))));
+  EXPECT_TRUE(null(ap(mul, rdf::LInt32(65536), rdf::LInt32(65536))));
+  EXPECT_TRUE(null(ap(mul, rdf::LInt32(i32min), rdf::LInt32(-1))));
+  EXPECT_TRUE(null(ap(mul, rdf::LInt64(i64min), rdf::LInt64(-1))));
+  EXPECT_TRUE(null(ap(mul, rdf::LInt64(int64_t(1) << 32), rdf::LUInt32(uint32_t(1) << 31))));
+  // the neighbours compute
+  EXPECT_EQ(ap(add, rdf::LInt32(i32max - 1), rdf::LInt32(1)), RDFTTYPE(rdf::LInt32(i32max)));
+  EXPECT_EQ(ap(add, rdf::LInt32(i32max), rdf::LInt32(-1)), RDFTTYPE(rdf::LInt32(i32max - 1)));
+  EXPECT_EQ(ap(sub, rdf::LInt32(i32min + 1), rdf::LInt32(1)), RDFTTYPE(rdf::LInt32(i32min)));
+  EXPECT_EQ(ap(sub, rdf::LInt64(-1), rdf::LInt64(i64min)), RDFTTYPE(rdf::LInt64(i64max)));
+  EXPECT_EQ(ap(mul, rdf::LInt32(46340), rdf::LInt32(46340)), RDFTTYPE(rdf::LInt32(2147395600)));
+  EXPECT_EQ(ap(mul, rdf::LInt32(i32min), rdf::LInt32(1)), RDFTTYPE(rdf::LInt32(i32min)));
+  EXPECT_EQ(ap(mul, rdf::LInt64(-3), rdf::LInt32(7)), RDFTTYPE(rdf::LInt64(-21)));
+  // a right operand out of the left operand's range is null, as it was
+  EXPECT_TRUE(null(ap(add, rdf::LInt32(1), rdf::LInt64(int64_t(1) << 40))));
+  // unsigned integers wrap, as they did
+  EXPECT_EQ(ap(sub, rdf::LUInt32(5), rdf::LUInt32(7)), RDFTTYPE(rdf::LUInt32(std::numeric_limits<uint32_t>::max() - 1)));
+  EXPECT_EQ(ap(add, rdf::LUInt64(std::numeric_limits<uint64_t>::max()), rdf::LUInt64(1)), RDFTTYPE(rdf::LUInt64(0)));
+}
+
+// abs of the minimum int32 or int64 is null: its absolute value does not fit, and abs()
+// of it was undefined behaviour, which gave the minimum back. The neighbours compute.
+TEST(ArithmeticTypes, AbsOfTheMinimumIntegerIsNull) {
+  SessionRow sr;
+  AbsVisitor abs(nullptr, sr.row.get());
+  auto a = [&](RDFTTYPE v) { return or_threw(abs, v); };
+  auto const i32min = std::numeric_limits<int32_t>::min();
+  auto const i64min = std::numeric_limits<int64_t>::min();
+  EXPECT_EQ(a(rdf::LInt32(i32min)).which(), rdf::rdf_null_t);
+  EXPECT_EQ(a(rdf::LInt64(i64min)).which(), rdf::rdf_null_t);
+  EXPECT_EQ(a(rdf::LInt32(i32min + 1)), RDFTTYPE(rdf::LInt32(std::numeric_limits<int32_t>::max())));
+  EXPECT_EQ(a(rdf::LInt64(i64min + 1)), RDFTTYPE(rdf::LInt64(std::numeric_limits<int64_t>::max())));
+  EXPECT_EQ(a(rdf::LInt64(-5)), RDFTTYPE(rdf::LInt64(5)));
+  EXPECT_EQ(a(rdf::LInt32(0)), RDFTTYPE(rdf::LInt32(0)));
+  EXPECT_EQ(a(rdf::LUInt64(std::numeric_limits<uint64_t>::max())), RDFTTYPE(rdf::LUInt64(std::numeric_limits<uint64_t>::max())));
+  EXPECT_EQ(a(rdf::LDouble(-2.5)), RDFTTYPE(rdf::LDouble(2.5)));
+}
+
+// A date or a datetime plus or minus a number of days is null when the count is not a
+// finite number, and when the date it gives is outside 1400-01-01 to 9999-12-31, the
+// dates the engine holds. A double count is truncated toward zero, as it was; a datetime
+// keeps its time of day. Before: int() of a NaN, an infinity or 1e300 was undefined
+// behaviour; an int64 or uint64 count was cut to an int, and a uint32 above INT32_MAX
+// became negative; minus the minimum int32 or int64 negated it, undefined too; and a date
+// past the range was a date that could not be printed.
+TEST(ArithmeticTypes, DateArithmeticOutOfRangeIsNull) {
+  SessionRow sr;
+  AddVisitor add(nullptr, sr.row.get());
+  SubsVisitor sub(nullptr, sr.row.get());
+  auto ap = [](auto & op, RDFTTYPE a, RDFTTYPE b) { return or_threw(op, a, b); };
+  auto null = [](RDFTTYPE r) { return r.which() == rdf::rdf_null_t; };
+  double const nan = std::numeric_limits<double>::quiet_NaN();
+  double const inf = std::numeric_limits<double>::infinity();
+  RDFTTYPE const d = rdf::LDate(rdf::date(2025, 1, 31));
+  RDFTTYPE const dt = rdf::LDatetime(rdf::parse_datetime("2025-01-31T10:30:00"));
+  std::vector<RDFTTYPE> const bad_counts = {
+    rdf::LDouble(nan), rdf::LDouble(inf), rdf::LDouble(-inf), rdf::LDouble(1e300), rdf::LDouble(-1e300),
+    rdf::LDouble(5e9),
+    rdf::LInt32(std::numeric_limits<int32_t>::min()), rdf::LInt32(std::numeric_limits<int32_t>::max()),
+    rdf::LInt64(std::numeric_limits<int64_t>::min()), rdf::LInt64(std::numeric_limits<int64_t>::max()),
+    rdf::LInt64(int64_t(1) << 32),   // was cut to 0 days
+    rdf::LUInt32(std::numeric_limits<uint32_t>::max()),   // was -1 day
+    rdf::LUInt64(std::numeric_limits<uint64_t>::max()),
+    rdf::LInt32(3000000), rdf::LInt32(-3000000),   // fit an int, leave the range
+  };
+  for(auto const& n: bad_counts) {
+    EXPECT_TRUE(null(ap(add, d, n))) << "date + " << n;
+    EXPECT_TRUE(null(ap(add, n, d))) << n << " + date";
+    EXPECT_TRUE(null(ap(sub, d, n))) << "date - " << n;
+    EXPECT_TRUE(null(ap(add, dt, n))) << "datetime + " << n;
+    EXPECT_TRUE(null(ap(add, n, dt))) << n << " + datetime";
+    EXPECT_TRUE(null(ap(sub, dt, n))) << "datetime - " << n;
+  }
+  // the edges of the range
+  EXPECT_EQ(ap(add, RDFTTYPE(rdf::LDate(rdf::date(9999, 12, 30))), RDFTTYPE(rdf::LInt32(1))), RDFTTYPE(rdf::LDate(rdf::date(9999, 12, 31))));
+  EXPECT_TRUE(null(ap(add, RDFTTYPE(rdf::LDate(rdf::date(9999, 12, 31))), RDFTTYPE(rdf::LInt32(1)))));
+  EXPECT_EQ(ap(sub, RDFTTYPE(rdf::LDate(rdf::date(1400, 1, 2))), RDFTTYPE(rdf::LInt64(1))), RDFTTYPE(rdf::LDate(rdf::date(1400, 1, 1))));
+  EXPECT_TRUE(null(ap(sub, RDFTTYPE(rdf::LDate(rdf::date(1400, 1, 1))), RDFTTYPE(rdf::LInt64(1)))));
+  // counts in range compute as they did; a double truncates toward zero
+  EXPECT_EQ(ap(add, d, RDFTTYPE(rdf::LInt32(1))), RDFTTYPE(rdf::LDate(rdf::date(2025, 2, 1))));
+  EXPECT_EQ(ap(add, RDFTTYPE(rdf::LUInt64(365)), d), RDFTTYPE(rdf::LDate(rdf::date(2026, 1, 31))));
+  EXPECT_EQ(ap(add, d, RDFTTYPE(rdf::LDouble(2.9))), RDFTTYPE(rdf::LDate(rdf::date(2025, 2, 2))));
+  EXPECT_EQ(ap(add, d, RDFTTYPE(rdf::LDouble(-2.9))), RDFTTYPE(rdf::LDate(rdf::date(2025, 1, 29))));
+  EXPECT_EQ(ap(sub, d, RDFTTYPE(rdf::LUInt32(31))), RDFTTYPE(rdf::LDate(rdf::date(2024, 12, 31))));
+  EXPECT_EQ(ap(sub, d, RDFTTYPE(rdf::LInt32(-1))), RDFTTYPE(rdf::LDate(rdf::date(2025, 2, 1))));
+  EXPECT_EQ(ap(add, dt, RDFTTYPE(rdf::LInt64(1))), RDFTTYPE(rdf::LDatetime(rdf::parse_datetime("2025-02-01T10:30:00"))));
+  EXPECT_EQ(ap(add, dt, RDFTTYPE(rdf::LDouble(-1.5))), RDFTTYPE(rdf::LDatetime(rdf::parse_datetime("2025-01-30T10:30:00"))));
+  // a date or a datetime minus a double is not an operation, and is null, as it was
+  EXPECT_TRUE(null(ap(sub, dt, RDFTTYPE(rdf::LDouble(1.5)))));
+  // a number minus a datetime moves the datetime back, as it did
+  EXPECT_EQ(ap(sub, RDFTTYPE(rdf::LInt32(1)), dt), RDFTTYPE(rdf::LDatetime(rdf::parse_datetime("2025-01-30T10:30:00"))));
+  // and date minus date is a day count, as it was
+  EXPECT_EQ(ap(sub, d, RDFTTYPE(rdf::LDate(rdf::date(2025, 1, 1)))), RDFTTYPE(rdf::LInt32(30)));
+}
+
+// age_as_of, age_in_months_as_of and to_text of operands they do not take are null, in a
+// session's rule as with no row, as the arithmetic operators' type mismatches are: each
+// threw in a session's rule, which failed the session. For age_in_months_as_of that
+// includes text that does not read as a date, which threw with no row too.
+TEST(ArithmeticTypes, AgeAndToTextOfWhatTheyDoNotTakeIsNull) {
+  SessionRow sr;
+  AgeAsOfVisitor age(nullptr, sr.row.get());
+  AgeInMonthsAsOfVisitor age_months(nullptr, sr.row.get());
+  ToTextVisitor to_text(nullptr, sr.row.get());
+  auto null = [](RDFTTYPE r) { return r.which() == rdf::rdf_null_t; };
+  RDFTTYPE const d = rdf::LDate(rdf::date(2000, 7, 27));
+  RDFTTYPE const asof = rdf::LDate(rdf::date(2020, 8, 27));
+  std::vector<RDFTTYPE> const others = {
+    rdf::LString("x"), rdf::LString(""), rdf::NamedResource("r"), rdf::BlankNode(3), rdf::Null(),
+    rdf::LInt32(5), rdf::LDouble(2.5), rdf::LDatetime(rdf::parse_datetime("2020-08-27T10:00:00")),
+  };
+  for(auto const& x: others) {
+    EXPECT_TRUE(null(or_threw(age, x, asof))) << x << " age_as_of date";
+    EXPECT_TRUE(null(or_threw(age, d, x))) << "date age_as_of " << x;
+    EXPECT_TRUE(null(or_threw(age_months, d, x))) << "date age_in_months_as_of " << x;
+    EXPECT_TRUE(null(or_threw(age_months, x, asof))) << x << " age_in_months_as_of date";
+  }
+  // and the values they take compute as they did, text that reads as a date included
+  EXPECT_EQ(or_threw(age, d, asof), RDFTTYPE(rdf::LInt32(20)));
+  EXPECT_EQ(or_threw(age_months, d, asof), RDFTTYPE(rdf::LInt32(20*12 + 1)));
+  EXPECT_EQ(or_threw(age_months, RDFTTYPE(rdf::LString("2000-07-27")), asof), RDFTTYPE(rdf::LInt32(20*12 + 1)));
+
+  // to_text of a blank node is null; of everything else, as it was
+  EXPECT_TRUE(null(or_threw(to_text, RDFTTYPE(rdf::BlankNode(3)))));
+  EXPECT_EQ(or_threw(to_text, RDFTTYPE(rdf::Null())), RDFTTYPE(rdf::LString("null")));
+  EXPECT_EQ(or_threw(to_text, RDFTTYPE(rdf::NamedResource("r"))), RDFTTYPE(rdf::LString("r")));
+  EXPECT_EQ(or_threw(to_text, RDFTTYPE(rdf::LInt64(-7))), RDFTTYPE(rdf::LString("-7")));
+}
+
+
 }   // namespace
 }   // namespace jets::rdf
