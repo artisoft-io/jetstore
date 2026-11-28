@@ -142,6 +142,26 @@ TEST(RdfAstTest, ToBool)
   EXPECT_EQ(to_bool(zero_d.get()), false);
 }
 
+// An all-digit value is a date only as YYYYMMDD (is_all_digits in
+// rdf_date_time.cc, digitsDate in the Go engine): any other length is refused
+// rather than read in part.
+TEST(RdfAstTest, DateAllDigits)
+{
+  EXPECT_EQ(parse_date("20250307"), date(2025, 3, 7));
+  EXPECT_EQ(parse_date("20240229"), date(2024, 2, 29));
+  EXPECT_TRUE(parse_date("20251307").is_not_a_date());
+  EXPECT_TRUE(parse_date("20250300").is_not_a_date());
+  EXPECT_TRUE(parse_date("03072025").is_not_a_date());
+  EXPECT_TRUE(parse_date("20250307103000").is_not_a_date());
+  EXPECT_TRUE(parse_date("2025030007").is_not_a_date());
+  EXPECT_TRUE(parse_date("202503007").is_not_a_date());
+  EXPECT_TRUE(parse_date("1234567890").is_not_a_date());
+  // Not all digits: unchanged.
+  EXPECT_EQ(parse_date("2025-03-07"), date(2025, 3, 7));
+  EXPECT_EQ(parse_date("20250307T103000"), date(2025, 3, 7));
+  EXPECT_EQ(parse_date("D20020324-01"), date(2002, 3, 24));
+}
+
 TEST(RdfAstTest, DateTime)
 {
   EXPECT_EQ(time_duration::num_fractional_digits(), 6);
@@ -238,7 +258,9 @@ TEST(RdfAstTest, DateTime)
       parse_date("2012-07-27"));
   EXPECT_EQ(parse_date("07/27/2012 12:59:33.1"),
             boost_date_from_string("2012-07-27"));
-  EXPECT_EQ(parse_date("201279"), boost_date_from_string("2012-07-09"));
+  // Read as 2012-07-09 until an all-digit date had to be YYYYMMDD; the Go
+  // engine always refused it (fewer than 8 characters), so the engines agree.
+  EXPECT_TRUE(parse_date("201279").is_not_a_date());
   EXPECT_EQ(parse_date("2012-Jul-27"), boost_date_from_string("2012-07-27"));
   EXPECT_EQ(parse_date("2012-07-27 (default)"),
             boost_date_from_string("2012-07-27"));

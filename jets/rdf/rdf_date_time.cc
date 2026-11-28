@@ -32,12 +32,40 @@ int month_2_int(std::string const& month_str) {
 std::regex const internal::date_regex(
     R"X((\d{1,4})-?\/?(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC|\d{1,2})-?\/?(\d{1,4}))X");
 
+// An all-digit value is a date only as YYYYMMDD, eight digits; any other length
+// (an identifier, a compact datetime such as 20250307103000) is refused rather
+// than read in part, which date_regex would do from its greedy day token. The
+// scan stops at the first character that is not a digit, so a date written with
+// separators pays a few comparisons, and an eight-digit date skips the regex.
+// Same rule as digitsDate in jets/jetrules/rdf/datetime_parser.go.
+static bool is_all_digits(std::string const& text) {
+  if (text.empty()) return false;
+  for (char c : text) {
+    if (c < '0' or c > '9') return false;
+  }
+  return true;
+}
+
+static int digits_value(std::string const& text, int from, int to) {
+  int v = 0;
+  for (int i = from; i < to; i++) v = v * 10 + (text[i] - '0');
+  return v;
+}
+
 date parse_date_internal(std::string&& text) {
   try {
-    std::smatch what;
-    if (std::regex_search(text, what, internal::date_regex)) {
-      int ntok = what.size();
-      if (ntok < 4) {
+    int y, m, d;
+    if (is_all_digits(text)) {
+      if (text.size() != 8) {
+        LOG(ERROR) <<"parse_date: an all-digit date must have 8 digits (YYYYMMDD): " << text;
+        return date();
+      }
+      y = digits_value(text, 0, 4);
+      m = digits_value(text, 4, 6);
+      d = digits_value(text, 6, 8);
+    } else {
+      std::smatch what;
+      if (not std::regex_search(text, what, internal::date_regex) or what.size() < 4) {
         LOG(ERROR) <<"parse_date: Argument is not a date: " << text;
         return date();
       }
@@ -46,7 +74,6 @@ date parse_date_internal(std::string&& text) {
       std::string const& tok1 = what[1];
       std::string const& tok2 = what[2];
       std::string const& tok3 = what[3];
-      int y, m, d;
 
       if (tok1.size() == 4) {
         // year, month, day
@@ -59,23 +86,20 @@ date parse_date_internal(std::string&& text) {
         m = month_2_int(tok1);
         d = boost::lexical_cast<int>(tok2);
       }
-      if(y < 1400 or y > 9999) {
-        LOG(ERROR) <<"parse_date: Argument date has not a valid year: " << text << ", year parsed: "<<y;
-        return date();
-      }
-      if(m < 1 or m > 12) {
-        LOG(ERROR) <<"parse_date: Argument date has not a valid month: " << text << ", month parsed: "<<m;
-        return date();
-      }
-      if(d < 1 or d > 31) {
-        LOG(ERROR) <<"parse_date: Argument date has not a valid day: " << text << ", day parsed: "<<m;
-        return date();
-      }
-      return date(y, m, d);
-    } else {
-        LOG(ERROR) <<"parse_date: Argument is not a date: " << text;
-        return date();
     }
+    if(y < 1400 or y > 9999) {
+      LOG(ERROR) <<"parse_date: Argument date has not a valid year: " << text << ", year parsed: "<<y;
+      return date();
+    }
+    if(m < 1 or m > 12) {
+      LOG(ERROR) <<"parse_date: Argument date has not a valid month: " << text << ", month parsed: "<<m;
+      return date();
+    }
+    if(d < 1 or d > 31) {
+      LOG(ERROR) <<"parse_date: Argument date has not a valid day: " << text << ", day parsed: "<<d;
+      return date();
+    }
+    return date(y, m, d);
   } catch(...) {
     LOG(ERROR) <<"parse_date: catch... Argument is not a date: " << text;
     return date();
