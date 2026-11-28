@@ -71,7 +71,10 @@ func TestProofFlowActionsValidate(t *testing.T) {
 	//
 	// **14 since 2026-10-11**: rulesUnitTestUF, written for
 	// the rules unit tests rather than ported.
-	const flowDocuments = 14
+	//
+	// **13 since 2026-11-27**: the map_claim_load_stages projection was retired
+	// from the shipped assets and kept by the workspace that uses it.
+	const flowDocuments = 13
 	if len(names) != flowDocuments {
 		t.Fatalf("expected %d flow action documents, found %d: %v", flowDocuments, len(names), names)
 	}

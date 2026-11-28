@@ -1,7 +1,8 @@
 // install_workspace_assets copies the JetStore-owned workspace assets into a
-// client workspace, and fails rather than overwrite a local change (A21.2,
-// A21.3; plan section 3.9). Two directories are installed — data_model/ and
-// pipes_config/ — and a conflict in either refuses both.
+// client workspace, and fails rather than overwrite a local change. Every
+// directory in workspace_assets.AssetGroups is installed (data_model/,
+// pipes_config/, user_flows/ and table_configs/), and a conflict in any one
+// refuses them all.
 //
 // It runs in Dockerfile.compile_ws, immediately before /app/compile_workspace,
 // against the workspace the image was built from:

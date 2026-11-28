@@ -415,7 +415,7 @@ def test_the_installed_qc_documents_are_the_projection():
 
     Nothing else asserts it, and a hand edit to an installed document is overwritten by
     the next regeneration without anyone seeing it go. `map_claim_load_stages` is left
-    out: its installed set lags its template, which is a separate change.
+    out: it is not shipped since release 4.1.25 (`RetiredAssets`, jets/workspace_assets).
     """
     import tempfile
 

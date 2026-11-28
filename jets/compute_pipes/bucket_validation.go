@@ -69,9 +69,10 @@ type bucketSite struct {
 //     before its own workers run.
 //   - src_bucket and dest_bucket on a schema provider's report_cmds are not
 //     checked. They are not on this path at all: RunSchemaProviderReportsCmds
-//     hands them to awsi.MultiPartCopy verbatim, with no substitution
-//     anywhere, so the check they want is a different and stricter one living
-//     in jets/run_reports.
+//     reads them with no substitution anywhere, so the check they want is a
+//     different and stricter one, and it lives in jets/run_reports
+//     (copyBuckets, jets/run_reports/delegate/run_commands.go), which refuses
+//     any '$' and resolves the deployment's own bucket before the copy.
 func ValidateResolvedBuckets(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec, env map[string]any) error {
 	if cpConfig == nil {
 		return nil

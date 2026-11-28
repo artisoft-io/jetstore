@@ -16,6 +16,10 @@ cd tools/cpipes_contract
 python -m cpipes_contract templates --project ../../jets/workspace_assets/user_flows
 ```
 
+It also writes the four files of `map_claim_load_stages`, which JetStore has not shipped since
+release 4.1.25 (`RetiredAssets` in `jets/workspace_assets/install.go`). Delete them before you
+commit; `go test ./jets/workspace_assets/` fails naming them if you do not.
+
 A change to `project.py` or to a template that does not move these files is a change with no
 observable effect — which is why they are committed rather than generated at build time, and it is
 the same argument the fixtures beside the templates are committed under.

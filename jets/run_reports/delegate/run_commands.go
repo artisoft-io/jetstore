@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
@@ -60,6 +61,50 @@ func (ctx *CommandWorker) sendError(err error) {
 	default:
 		close(ctx.done)
 	}
+}
+
+// copyBuckets is the s3_copy_file command i with its src_bucket and dest_bucket
+// resolved to the names awsi.MultiPartCopy is to address, or an error naming
+// the command when one of them cannot be.
+//
+// A report command's buckets are not on the path compute_pipes checks
+// (ValidateResolvedBuckets): they come from the schema provider as written, and
+// no variable is substituted in them anywhere, so a bucket carrying a "$" is
+// certain to be a placeholder nothing filled in, and is refused here rather
+// than sent to S3 as a bucket name. A bucket left empty or written as the
+// jetstore_bucket sentinel, with or without surrounding spaces, is the
+// deployment's own bucket (JETS_BUCKET, jetStoreBucket); when that is not set
+// either, the command is refused too. Anything else is an external bucket,
+// addressed as written less surrounding spaces.
+func copyBuckets(i int, cmd *compute_pipes.ReportCmdSpec, jetStoreBucket string) (compute_pipes.S3CopyFileSpec, error) {
+	spec := *cmd.S3CopyFileConfig
+	name := fmt.Sprintf("report_cmds[%d] (s3_copy_file)", i)
+	if c := strings.TrimSpace(cmd.Comment); c != "" {
+		name = fmt.Sprintf("report_cmds[%d] (s3_copy_file, %q)", i, c)
+	}
+	resolve := func(field, bucket string) (string, error) {
+		trimmed := strings.TrimSpace(bucket)
+		switch {
+		case compute_pipes.IsUnresolvedBucket(trimmed):
+			return "", fmt.Errorf("error: %s: %s %q is unresolved: it carries a variable reference, "+
+				"and report commands substitute no variables", name, field, bucket)
+		case awsi.IsJetStoreBucket(trimmed):
+			if jetStoreBucket == "" {
+				return "", fmt.Errorf("error: %s: %s %q names the deployment's own bucket, "+
+					"and JETS_BUCKET is not set", name, field, bucket)
+			}
+			return jetStoreBucket, nil
+		}
+		return trimmed, nil
+	}
+	var err error
+	if spec.SourceBucket, err = resolve("src_bucket", spec.SourceBucket); err != nil {
+		return spec, err
+	}
+	if spec.DestinationBucket, err = resolve("dest_bucket", spec.DestinationBucket); err != nil {
+		return spec, err
+	}
+	return spec, nil
 }
 
 // Run report commands specified by the schema provider of the main input source
@@ -122,6 +167,21 @@ func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, db
 		log.Println("Schema provider has no Report Commands to execute, bailing out")
 		return
 	}
+	// Resolve every s3_copy_file command's buckets before any copy starts, so a
+	// command that cannot be run stops the run with nothing copied. The commands
+	// checked are the ones the loop below dispatches.
+	copySpecs := make([]compute_pipes.S3CopyFileSpec, len(schemaProvider.ReportCmds))
+	for i := range schemaProvider.ReportCmds {
+		cmd := &schemaProvider.ReportCmds[i]
+		if cmd.Type != "s3_copy_file" || cmd.S3CopyFileConfig == nil {
+			continue
+		}
+		copySpecs[i], err = copyBuckets(i, cmd, awsi.JetStoreBucket())
+		if err != nil {
+			errCh <- err
+			return
+		}
+	}
 	s3Client, err := awsi.NewS3Client()
 	if err != nil {
 		errCh <- err
@@ -167,16 +227,16 @@ func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, db
 	for i := range schemaProvider.ReportCmds {
 		switch schemaProvider.ReportCmds[i].Type {
 		case "s3_copy_file":
-			copyConfig := schemaProvider.ReportCmds[i].S3CopyFileConfig
-			if copyConfig == nil {
+			if schemaProvider.ReportCmds[i].S3CopyFileConfig == nil {
 				sendError(fmt.Errorf("error: report command 's3_copy_file' is missing s3_copy_file_config"))
 				return
 			}
+			copyConfig := copySpecs[i]
 			if copyConfig.WorkerPoolSize == 0 {
 				copyConfig.WorkerPoolSize = s3CopyFileTotalPoolSize / workerPoolSize
 			}
 			select {
-			case workersTaskCh <- *copyConfig:
+			case workersTaskCh <- copyConfig:
 			case <-done:
 				log.Println("reportCommand pool worker interrupted")
 				return

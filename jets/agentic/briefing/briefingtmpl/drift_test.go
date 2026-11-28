@@ -10,15 +10,13 @@ package briefingtmpl_test
 //
 // The workspaces are submodules. A test that fails when `workspaces/jets_ws` is
 // not checked out is a test that fails on a fresh clone, and a suite that is red
-// for a known reason is a suite people stop reading - which is the argument
-// `generate-doc.sh`'s missing-glyph baseline is built on. So it follows
+// for a known reason is a suite people stop reading. So it follows
 // `JETS_PC_CORPUS_DIR`'s established pattern: skip unless pointed at a corpus
 // (`error_channel_default_corpus_test.go:37`).
 //
 //	JETS_PC_CORPUS_DIR=<...>/workspaces go test -count=1 ./jets/agentic/briefing/briefingtmpl/
 //
-// **`-count=1` is not optional and the reason is in the repository's own
-// `CLAUDE.md`**: the corpus lives outside the Go module, so nothing in the test
+// **`-count=1` is not optional**: the corpus lives outside the Go module, so nothing in the test
 // cache key changes when a submodule moves and a stale `ok` is
 // indistinguishable from a real one.
 //
@@ -59,8 +57,8 @@ func TestTheShippedPipelineCarriesThisDocument(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reading %s: %v", path, err)
 	}
-	// Only `text_templates` is decoded. The rest of a `.pc.json` is `AZ`'s and
-	// `BA`'s business, and decoding it here would make this test fail for
+	// Only `text_templates` is decoded. The rest of a `.pc.json` is the pipeline
+	// validators' business, and decoding it here would make this test fail for
 	// reasons that are not about the template.
 	var config struct {
 		TextTemplates []*template.Spec `json:"text_templates"`

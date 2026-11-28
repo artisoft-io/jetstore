@@ -54,10 +54,17 @@ run. Two properties worth knowing before changing it:
   worker, after startup has persisted the env.
 
 **What it is not:** `src_bucket` and `dest_bucket` under a schema provider's `report_cmds` are
-outside it. They are not on this path at all — `RunSchemaProviderReportsCmds` hands them to
-`awsi.MultiPartCopy` verbatim (`jets/run_reports/delegate/run_commands.go`) with **no
-substitution anywhere** — so what they want is a stricter check in that package, which nothing has
-written.
+outside it. They are not on this path at all: `RunSchemaProviderReportsCmds`
+(`jets/run_reports/delegate/run_commands.go`) reads them from the schema provider with **no
+substitution anywhere**, so what they want is a stricter check in that package. *Written
+2026-11-27* (`copyBuckets`, the same file): before any copy starts, a bucket carrying a `$` is
+refused, since nothing will ever fill it in, and the run fails with an error naming the command
+(`report_cmds[<n>]`, with its `comment` when it has one) and the field. A bucket left empty or
+written as `jetstore_bucket`, with or without surrounding spaces, is resolved to the deployment's own
+bucket (`JETS_BUCKET`) before `awsi.MultiPartCopy` is called, and is refused when `JETS_BUCKET` is
+not set. Any other name is an external bucket, addressed as written less surrounding spaces. The
+check is not part of the `reports/config.json` save check, because report commands are not in that
+file: they belong to the schema provider of the run's main input.
 
 ## The corpus parameterises buckets in two spellings, and only one was being caught
 

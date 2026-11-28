@@ -267,3 +267,78 @@ func TestRegisterFileKeyUFIsRetiredAsAWholeSet(t *testing.T) {
 		}
 	}
 }
+
+// The projected wizard retired in release 4.1.25, all four documents by name:
+// a projection is read as a set, and a set missing its .apply.json loads and
+// then fails at its last step.
+func TestTheRetiredProjectionIsRetiredAsAWholeSet(t *testing.T) {
+	want := map[string]bool{}
+	for _, suffix := range []string{".uf.json", ".ua.json", ".form.json", ".apply.json"} {
+		want["user_flows/map_claim_load_stages"+suffix] = false
+	}
+	for _, r := range RetiredAssets {
+		if _, ok := want[r.Dir+"/"+r.Name]; ok {
+			want[r.Dir+"/"+r.Name] = true
+		}
+	}
+	for p, found := range want {
+		if !found {
+			t.Errorf("%s is not in RetiredAssets", p)
+		}
+	}
+}
+
+// A workspace that keeps a retired flow keeps it under a key of its own, and
+// this is the case that says why. The copy JetStore installed under the old key
+// is removed; the workspace's copy under its own key, byte for byte the same,
+// is not JetStore's path and is left alone, with no conflict and no manifest
+// entry. A copy kept under the retired key is the case
+// TestRetiredAssetWithNoManifestEntryIsRefused pins: refused, and the build
+// stops, because a workspace clone carries no manifest.
+func TestARetiredFlowKeptUnderAWorkspaceKeySurvivesTheInstall(t *testing.T) {
+	dir := newWorkspace(t)
+	if _, err := Install(dir, Options{}); err != nil {
+		t.Fatal(err)
+	}
+	const ownKey = "my_workspace_map_claim_load_stages"
+	var kept []string
+	for _, r := range RetiredAssets {
+		if r.Dir != "user_flows" || !strings.HasPrefix(r.Name, "map_claim_load_stages.") {
+			continue
+		}
+		content := []byte(`{"schemaVersion": 1, "document": "` + r.Name + `"}` + "\n")
+		if err := os.WriteFile(filepath.Join(dir, r.Dir, r.Name), content, 0644); err != nil {
+			t.Fatal(err)
+		}
+		rewriteManifest(t, dir, r.Dir, r.Name, sum(content))
+		own := ownKey + strings.TrimPrefix(r.Name, "map_claim_load_stages")
+		if err := os.WriteFile(filepath.Join(dir, r.Dir, own), content, 0644); err != nil {
+			t.Fatal(err)
+		}
+		kept = append(kept, own)
+	}
+	if len(kept) != 4 {
+		t.Fatalf("found %d retired documents of the projection, want 4", len(kept))
+	}
+
+	results, err := Install(dir, Options{})
+	if err != nil {
+		t.Fatalf("the workspace's own copy conflicted with the retirement: %v", err)
+	}
+	got := actions(t, results)
+	for _, own := range kept {
+		old := "map_claim_load_stages" + strings.TrimPrefix(own, ownKey)
+		if got[filepath.Join("user_flows", old)] != Removed || exists(t, filepath.Join(dir, "user_flows", old)) {
+			t.Errorf("%s: %q; want the installed copy removed", old, got[filepath.Join("user_flows", old)])
+		}
+		if a, ok := got[filepath.Join("user_flows", own)]; ok {
+			t.Errorf("%s is the workspace's and was reported as %q", own, a)
+		}
+		if !exists(t, filepath.Join(dir, "user_flows", own)) {
+			t.Errorf("%s, the workspace's copy, is gone", own)
+		}
+		if _, ok := manifestEntries(t, dir, "user_flows")[own]; ok {
+			t.Errorf("%s entered JetStore's manifest", own)
+		}
+	}
+}
