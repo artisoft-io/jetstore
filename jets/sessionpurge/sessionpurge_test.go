@@ -170,6 +170,17 @@ func TestExecuteDeletesEverywhere(t *testing.T) {
 	for table, n := range before {
 		// Domain tables are reported by their input_registry name, unqualified.
 		table = strings.TrimPrefix(table, "public.")
+		if table == registryTable {
+			// Marked, not deleted, and kept.
+			if report.Marked[table] != n || report.Rows[table] != 0 {
+				t.Errorf("report says %d rows marked and %d deleted in %s, the seed wrote %d",
+					report.Marked[table], report.Rows[table], table, n)
+			}
+			if m := purgetest.MarkedRows(t, pool, "s1"); m != n {
+				t.Errorf("%d input_registry rows of s1 marked deleted, want %d", m, n)
+			}
+			continue
+		}
 		if report.Rows[table] != n {
 			t.Errorf("report says %d rows from %s, the seed wrote %d", report.Rows[table], table, n)
 		}
@@ -253,8 +264,12 @@ func TestSessionRegistryDeletedLast(t *testing.T) {
 	if last != "jetsapi.session_registry" {
 		t.Errorf("the last delete was from %s, want jetsapi.session_registry", last)
 	}
-	if n := count(t, pool, `SELECT count(DISTINCT tbl) FROM public.delete_log`); n != int64(len(tables)) {
-		t.Errorf("deletes logged from %d tables, want %d", n, len(tables))
+	// Every table but input_registry, whose rows are marked deleted.
+	if n := count(t, pool, `SELECT count(DISTINCT tbl) FROM public.delete_log`); n != int64(len(tables)-1) {
+		t.Errorf("deletes logged from %d tables, want %d", n, len(tables)-1)
+	}
+	if n := count(t, pool, `SELECT count(*) FROM public.delete_log WHERE tbl = 'jetsapi.input_registry'`); n != 0 {
+		t.Errorf("%d input_registry rows deleted, want them marked", n)
 	}
 }
 

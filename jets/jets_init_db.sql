@@ -227,6 +227,28 @@ SELECT
 FROM jetsapi.pipeline_execution_status_archive
 ;
 
+-- input_registry_live: the live registrations, those of jetsapi.input_registry
+-- whose deleted_at is NULL. A session's deletion (jets/sessionpurge) marks its
+-- registrations deleted rather than deleting them, so the table keeps them for
+-- the readers of what a run read (its input's schema_provider_json, its source)
+-- and of whether a file arrived before. A reader of the registrations that exist
+-- now, a screen listing them or a pipeline start choosing one, reads this view;
+-- jets/inputregistry.LiveRelation names it, or the table on a database the
+-- migration has not reached. Writers write the table.
+-- The column list is explicit, so the view's columns never shift when the
+-- table gains one: a column added to input_registry in jets_schema.json is
+-- added here too, and TestInputRegistryLiveColumns (jets/update_db) fails until
+-- it is. deleted_at is not selected, since it is NULL on every row here. The
+-- view is dropped first, so a column added to the list may go anywhere in it.
+DROP VIEW IF EXISTS jetsapi.input_registry_live;
+CREATE OR REPLACE VIEW jetsapi.input_registry_live AS
+SELECT
+  key, client, org, object_type, file_key, source_period_key, table_name, source_type,
+  schema_provider_json, request_id, session_id, user_email, last_update
+FROM jetsapi.input_registry
+WHERE deleted_at IS NULL
+;
+
 -- session_registry_view: the Home screen's Session Registry tab. One row per
 -- session in session_registry, with what the session is and whether a deletion
 -- is queued for it; then the sessions a user deleted, which are gone from

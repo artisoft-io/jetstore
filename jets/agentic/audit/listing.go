@@ -22,7 +22,10 @@ package audit
 // domain table) reads "".
 //
 // **A registration the purge has removed leaves the row without a client**, so
-// it reads "" and a client filter does not show it. That is the same thing the
+// it reads "" and a client filter does not show it. The purge marks a deleted
+// session's input_registry rows deleted and keeps them while a run refers to
+// them, and this reads the table, marked rows included, so a deleted delivery
+// keeps its client until its marked row is purged. That is the same thing the
 // IDE's client filter does on every other table, where `client = <selection>`
 // excludes a row whose client is null.
 //

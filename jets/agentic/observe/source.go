@@ -14,8 +14,12 @@ import "fmt"
 // types, so it is the three together that name what the run read.
 //
 // The zero Source is a run with no main input registration: a job's row, a run
-// planted without one, or a run whose registration was deleted with its
-// session. Every such run of a process has the same, empty, source.
+// planted without one, or a run whose registration is gone. A session deletion
+// marks its registrations deleted and keeps them while a run, live or archived,
+// refers to them (jets/sessionpurge), and SourceJoin reads the table, marked
+// rows included, so a deleted run keeps its source; a registration deleted
+// before rows were marked is gone, and so is one whose runs have all been purged
+// from the archive. Every run with no registration has the same, empty, source.
 //
 // It is not the file's object type a session's file_key_staging row carries,
 // which the incident list shows as the file's: the source is the domain key

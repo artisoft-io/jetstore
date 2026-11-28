@@ -26,9 +26,18 @@ package observe
 //
 // # A delivery whose first registration was deleted
 //
-// Deleting a session deletes its registrations, by the retention purge or a
-// person's Delete (jets/sessionpurge), so a file's first registration can be
-// gone while a later one survives. The deletion records, per file key of each
+// Deleting a session, by the retention purge or a person's Delete
+// (jets/sessionpurge), marks its registrations deleted (input_registry.deleted_at)
+// where the table has the column, and deleted them before. Either way a file's
+// first registration can be gone while a later one survives. A marked
+// registration is read with the others and is never a delivery, a predecessor
+// or re-processing; when it is the first registration of its file key it is the
+// record of the file's arrival, as a row of jetsapi.purged_delivery is
+// (FeedRegistrations.Add). A marked row is kept until no run refers to it, so it
+// is evidence for longer than the record, which is kept twice RETENTION_DAYS.
+// The record still serves the first registrations deleted before rows were
+// marked.
+// The deletion records, per file key of each
 // first registration it removes, the table, the file key and the arrival, in
 // jetsapi.purged_delivery. A registration is a delivery only when it is the
 // first surviving registration of its file key and no recorded first
@@ -87,6 +96,15 @@ type FeedPurgedFile struct {
 	Reprocessed  []FeedReprocessing
 }
 
+// feedRegistrationDeletedSQL is true for a registration a session deletion
+// marked deleted: inputregistry.DeletedExpr on the alias ir, read through
+// to_jsonb so the statement carrying it needs no probe.
+const feedRegistrationDeletedSQL = `((to_jsonb(ir) ->> 'deleted_at') IS NOT NULL)`
+
+// FeedRegistrationDeletedSQL is feedRegistrationDeletedSQL, for a reader of a
+// feed's registrations in another package, which passes the mark to Add.
+const FeedRegistrationDeletedSQL = feedRegistrationDeletedSQL
+
 // FeedRegistrations are the file registrations of a set of feeds, as one
 // statement reads them, before any of them is called a delivery.
 type FeedRegistrations struct {
@@ -98,9 +116,51 @@ type FeedRegistrations struct {
 	// not a number.
 	Unordered map[string]int
 	// Purged holds, by table_name then file key, the arrival of the file's
-	// first registration where a session deletion removed it
-	// (jetsapi.purged_delivery). Nil where the record does not exist.
+	// first registration where a session deletion removed it: from
+	// jetsapi.purged_delivery, and from a first registration marked deleted
+	// (Add). Nil where the record does not exist and nothing is marked.
 	Purged map[string]map[string]time.Time
+
+	// seen holds, by table_name, the file keys Add has read, marked or not, so
+	// that a marked registration is known to be its file's first.
+	seen map[string]map[string]bool
+}
+
+// Add takes the next registration of table in registration order, its
+// Arrival set from its session id. A live one is appended to ByTable. One a
+// session deletion marked deleted is no registration of the feed: when it is the
+// first registration of its file key it records the file's arrival in Purged,
+// as a row of jetsapi.purged_delivery does, so the file's later registrations
+// stay re-processing, and otherwise it is dropped.
+func (r *FeedRegistrations) Add(table string, d FeedDelivery, deleted bool) {
+	if d.FileKey != "" {
+		if r.seen == nil {
+			r.seen = map[string]map[string]bool{}
+		}
+		if r.seen[table] == nil {
+			r.seen[table] = map[string]bool{}
+		}
+		first := !r.seen[table][d.FileKey]
+		r.seen[table][d.FileKey] = true
+		if deleted {
+			if !first {
+				return
+			}
+			if r.Purged == nil {
+				r.Purged = map[string]map[string]time.Time{}
+			}
+			if r.Purged[table] == nil {
+				r.Purged[table] = map[string]time.Time{}
+			}
+			if at, ok := r.Purged[table][d.FileKey]; !ok || d.Arrival.Before(at) {
+				r.Purged[table][d.FileKey] = d.Arrival
+			}
+			return
+		}
+	} else if deleted {
+		return
+	}
+	r.ByTable[table] = append(r.ByTable[table], d)
 }
 
 const feedPurgedDeliveryTableSQL = `SELECT to_regclass('jetsapi.purged_delivery') IS NOT NULL`
@@ -173,13 +233,16 @@ func ReadFeedRegistrations(ctx context.Context, db DB, tables []string) (*FeedRe
 		var table string
 		var d FeedDelivery
 		var year, month, day, mp, wp, dp *int
+		var deleted bool
 		if err := rows.Scan(&table, &d.SessionId, &d.Client, &d.Org, &d.FileKey,
-			&year, &month, &day, &mp, &wp, &dp, &d.SizeBytes); err != nil {
+			&year, &month, &day, &mp, &wp, &dp, &d.SizeBytes, &deleted); err != nil {
 			return nil, fmt.Errorf("while reading a registration: %w", err)
 		}
 		ms, err := strconv.ParseInt(d.SessionId, 10, 64)
 		if err != nil || ms <= 0 {
-			regs.Unordered[table]++
+			if !deleted {
+				regs.Unordered[table]++
+			}
 			continue
 		}
 		d.Arrival = time.UnixMilli(ms).UTC()
@@ -187,7 +250,7 @@ func ReadFeedRegistrations(ctx context.Context, db DB, tables []string) (*FeedRe
 			d.Period = &FeedDeliveryPeriod{Date: time.Date(*year, time.Month(*month), *day, 0, 0, 0, 0, time.UTC),
 				Month: *mp, Week: *wp, Day: *dp}
 		}
-		regs.ByTable[table] = append(regs.ByTable[table], d)
+		regs.Add(table, d, deleted)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("while reading the feeds' registrations: %w", err)

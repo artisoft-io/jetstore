@@ -8,7 +8,8 @@ package sessionpurge
 // later registration of the same file key is re-processing, and the feed
 // detectors never judge it (jets/agentic/observe, feed_delivery_registrations.go).
 //
-// Deleting a session deletes its registrations, so when it held a file's first
+// Deleting a session deleted its registrations until they were marked deleted
+// instead (input_registry.deleted_at), so when it held a file's first
 // registration a later registration of the same file would become the first
 // that survives, and be read as the file's delivery: a file sent again would
 // be judged as new, against an arrival long after its data. So before a
@@ -18,7 +19,14 @@ package sessionpurge
 // and keep any later registration of the file as re-processing.
 //
 // Both deletion paths come here, the retention purge and a user's Delete, so
-// both leave the record. It is truncated with input_registry by a reset of the
+// both leave the record.
+//
+// Since registrations are marked rather than deleted, a marked first
+// registration is itself the evidence the record holds, and the feed reading
+// (jets/agentic/observe, FeedRegistrations) reads it as such. The record is kept
+// for what the marks cannot cover: the first registrations deleted before the
+// column existed, those deleted by a release that does not mark while another
+// that does is deployed beside it, and a database without the column. It is truncated with input_registry by a reset of the
 // domain tables.
 //
 // A row is kept for twice RETENTION_DAYS from first_arrival, the file's arrival
@@ -46,7 +54,10 @@ const purgedDeliveryExistsStmt = `SELECT to_regclass('jetsapi.purged_delivery') 
 
 // recordPurgedDeliveryStmt records the session's registrations that are their
 // file's first: no registration of the same table and file key arrived before
-// it, among the registrations still held. A file whose earlier first
+// it, among the registrations still held, marked deleted or not (a deletion
+// marks a session's registrations where input_registry has deleted_at, so an
+// earlier one deleted since is still read here, and was recorded when it was
+// deleted). A file whose earlier first
 // registration is already recorded keeps the earlier one. A registration whose
 // session id is not a time has no arrival and is nobody's delivery, so it is
 // neither recorded nor counted as an earlier one.

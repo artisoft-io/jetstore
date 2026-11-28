@@ -51,7 +51,10 @@ var (
 	summaryRE = regexp.MustCompile(`^Session purge: (?:DRY RUN, nothing written: )?(\d+) sessions deleted(?: \(([^)]*)\))?, ` +
 		`(\d+) refused \(a run pending or submitted\), (\d+) failed, (\d+) not reached before the deadline, ` +
 		`(\d+) held by another executor; (\d+) pipeline_execution_status rows archived$`)
-	rowsRE    = regexp.MustCompile(`^   (?:DRY RUN, nothing written: )?(\d+) rows from (.+)$`)
+	rowsRE = regexp.MustCompile(`^   (?:DRY RUN, nothing written: )?(\d+) rows from (.+)$`)
+	// input_registry's rows of a deleted session are marked deleted, not
+	// deleted; they leave the session (purgetest.SessionRows) all the same.
+	markedRE  = regexp.MustCompile(`^   (?:DRY RUN, nothing written: )?(\d+) rows marked deleted in (.+)$`)
 	refusedRE = regexp.MustCompile(`^   refused, a run pending or submitted: (.*)$`)
 	failedRE  = regexp.MustCompile(`^   failed, retried by the next run: (.*)$`)
 )
@@ -99,6 +102,10 @@ func runPurge(t *testing.T, pool *pgxpool.Pool, env *string, now, deadline time.
 		} else if m := rowsRE.FindStringSubmatch(line); m != nil {
 			if n := int64(atoi(m[1])); n != 0 {
 				r.Rows[m[2]] = n
+			}
+		} else if m := markedRE.FindStringSubmatch(line); m != nil {
+			if n := int64(atoi(m[1])); n != 0 {
+				r.Rows[m[2]] += n
 			}
 		} else if m := refusedRE.FindStringSubmatch(line); m != nil {
 			r.RefusedSessions = strings.Split(m[1], ", ")
@@ -935,5 +942,57 @@ func TestE2EArchivedPast180DaysPurgedSameRun(t *testing.T) {
 	}
 	if n := one(t, pool, `SELECT count(*) FROM jetsapi.pipeline_execution_history WHERE session_id = $1`, id); n != 1 {
 		t.Errorf("the view holds %d runs of the session, want the recent one", n)
+	}
+}
+
+// A session's registrations are marked deleted and kept while a run refers to
+// them: the run of a session that read the deleted one keeps them, and the
+// purge deletes a marked registration no run refers to after the archive
+// purge. A dry run logs the count and deletes nothing.
+func TestE2EMarkedRegistrationsPurgedOnceUnreferenced(t *testing.T) {
+	pool := purgetest.DB(t, e2eDB)
+	s := seeder{t, pool}
+	now := time.Now()
+	old := ago(now, 40)
+	// An old session read by a live run, and an old session nothing reads.
+	read, alone := msID(old, 1), msID(old, 2)
+	s.inputRegistry(read, "client1", "ObjectA", tblColon, "file", old)
+	s.inputRegistry(alone, "client1", "ObjectA", tblColon, "file", old)
+	for _, id := range []string{read, alone} {
+		purgetest.Exec(t, pool, `INSERT INTO jetsapi.session_registry
+			(session_id, source_type, client, source_period_key, month_period, week_period, day_period, last_update)
+			VALUES ($1, 'file', 'client1', 1, 313, 1357, 9497, $2::timestamptz)`, id, old)
+	}
+	live := msID(now, 3)
+	purgetest.Seed(t, pool, purgetest.Session{ID: live, Client: "client1", Registered: true, LastUpdate: now})
+	s.run(live, "client1", "completed", now, read)
+
+	marked := func() map[string]int64 {
+		out := map[string]int64{}
+		for _, id := range []string{read, alone} {
+			out[id] = purgetest.MarkedRows(t, pool, id)
+		}
+		return out
+	}
+	dry := "true"
+	_, log := runPurge(t, pool, &dry, now, now.Add(time.Minute))
+	if !strings.Contains(log, "DRY RUN, nothing written: Purged 1 input_registry rows marked deleted that no run refers to") {
+		t.Errorf("the dry run does not count the one unreferenced registration:\n%s", log)
+	}
+	if got := marked(); got[read] != 0 || got[alone] != 0 {
+		t.Errorf("the dry run marked %v", got)
+	}
+
+	real := "false"
+	_, log = runPurge(t, pool, &real, now, now.Add(time.Minute))
+	if !strings.Contains(log, "Purged 1 input_registry rows marked deleted that no run refers to") {
+		t.Errorf("the run does not purge the one unreferenced registration:\n%s", log)
+	}
+	if got := marked(); got[read] != 1 || got[alone] != 0 {
+		t.Errorf("marked rows %v, want the read session's kept and the other's purged", got)
+	}
+	var n int64
+	if err := pool.QueryRow(bg, `SELECT count(*) FROM jetsapi.input_registry WHERE session_id = $1`, alone).Scan(&n); err != nil || n != 0 {
+		t.Errorf("%d rows of the unread session left (%v)", n, err)
 	}
 }

@@ -226,17 +226,21 @@ each was registered. A registration with no file key has nothing to identify its
 delivery of its own.
 
 **A file registered again stays re-processing after its first registration is deleted.** Deleting a
-session, by the retention period or by a person's *Delete*, deletes its registrations, so a file's
-first registration can be gone while a later registration of it survives. Before the deletion, JetStore
+session, by the retention period or by a person's *Delete*, marks its registrations deleted, and the
+scheduled purge deletes a marked registration once no pipeline run refers to it, so a file's first
+registration can be marked or gone while a later registration of it survives. A marked first
+registration is read as the file's arrival and is never a delivery. Before the deletion, JetStore also
 records the feed's table, the file key and the first registration's arrival
-(`jetsapi.purged_delivery`). A registration is a delivery only when it is the first surviving
-registration of its file and no deleted first registration of the same file arrived before it. So a
+(`jetsapi.purged_delivery`), which outlasts a marked registration no run read. A registration is a
+delivery only when it is the first registration of its file not marked deleted and no deleted first
+registration of the same file, marked or recorded, arrived before it. So a
 file sent again stays re-processing: it is not summarised, takes no place among the feed's
 deliveries, and is not judged, by a daily run or a backfill, and the coverage line counts it with the
 other re-processing, saying how many of the files had their first registration deleted. The record
 is kept for twice the installation's retention period (`RETENTION_DAYS`), counted from the file's
-first arrival, about one retention period after its first registration is deleted. After that, the
-file's earliest surviving registration, if any, is read as its delivery, so a file sent again more
+first arrival, about one retention period after its first registration is deleted. After that, and
+once the marked first registration is gone too, the file's earliest surviving registration, if any,
+is read as its delivery, so a file sent again more
 than twice the retention period after its first delivery is judged a new delivery (see
 [Purge Data Lambda](/docs/install/reference/stack-components/#purge-data-lambda-optional)). The
 record begins when an installation is upgraded to it, so a first registration deleted before

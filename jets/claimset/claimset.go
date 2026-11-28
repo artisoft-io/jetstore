@@ -547,7 +547,9 @@ const runSQL = `SELECT pe.session_id, ir.session_id, ir.table_name, coalesce(ir.
 
 // firstRegistrationSQL is a file's first registration in its feed, in the
 // order the feed detection reads registrations (observe.FeedRegistrationOrderSQL),
-// among those whose session id is a registration time.
+// among those whose session id is a registration time, marked deleted or not:
+// a first registration a session deletion marked is still the file's arrival,
+// as the feed detection reads it (observe.FeedRegistrations.Add).
 const firstRegistrationSQL = `SELECT ir.session_id FROM jetsapi.input_registry ir
  WHERE ir.table_name = $1 AND ir.source_type = 'file' AND ir.file_key = $2
    AND ir.session_id ~ '^[0-9]{1,18}$' AND ir.session_id::bigint > 0
@@ -570,8 +572,9 @@ const purgedFirstSQL = `SELECT first_session_id FROM jetsapi.purged_delivery WHE
 // time) or it re-processes a delivery, which is read as it first arrived.
 //
 // A registration is a delivery by the feed detection's rule
-// (observe.FeedRegistrations): the first surviving registration of its file
-// in its feed, unless jetsapi.purged_delivery records an earlier first
+// (observe.FeedRegistrations): the first registration of its file in its feed,
+// a registration marked deleted included, unless jetsapi.purged_delivery
+// records an earlier first
 // registration of the same table and file key that a session deletion
 // removed, in which case it re-processes that file. The record is read only
 // where the table exists. It returns an error only when the database fails.
