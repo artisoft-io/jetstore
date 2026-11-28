@@ -1,10 +1,40 @@
 ---
 title: "Limits, memory safety and the sanitizer build"
-description: "The default vertex visit limit, the leaks and crash fixed in the engine and its bridge, and the sanitizer build."
+description: "The default vertex visit limit, the leaks and crash fixed in the engine and its bridge, the sanitizer build, and a literal the engine did not create."
 kind: explanation
 sidebar:
   order: 4
 ---
+
+## A literal or resource the engine did not create says so — 2026-11-27
+
+`compute_pipes.JetResourceManager`'s `New*` methods (`NewTextLiteral`, `NewResource`,
+`NewIntLiteral`, `NewDateLiteral` and the rest) return a node and no error. The native adaptor's
+(`JetResourceManagerNative`, `jets/compute_pipes/jetrules_native_adaptor`) discarded the bridge's
+error and returned a node holding nothing: its `Type()` was `""`, its `Value()` nil, an `Insert`
+with it failed with the engine's bare return code, and nothing said which value or why. The bridge
+fails such a call for **a literal or resource made through the meta graph's manager
+(`GetMetaResourceManager`) after the first RDF session opened**, when the meta graph is locked and
+only what it already holds is returned, and for a date it cannot read.
+
+Changing the interface to return the error would change some 250 call sites, so the node carries it
+instead:
+
+- **The error is logged once, with the value**, when the node is made:
+  `jetrules native: the rule engine did not create the text literal "...": ...` (a value is cut at
+  200 characters).
+- **The node carries it**: `Err()` returns a `*NodeCreationError`, and `compute_pipes.NodeErr(node)`
+  reads it from any `RdfNode`. `ParseRdfNodeValue`, which reads a rule configuration, and
+  `NewRdfNode` return it.
+- **Whatever uses the node gets it**: `Insert`, `Erase` and `Retract` return it, naming the subject,
+  predicate or object; `Contains` and `ContainsSP` are false; `GetObject` is nil; and `FindSPO`,
+  `FindSP` and `FindS` return an empty iterator, not nil.
+- The node reads as null (`IsNil`, `Type()` `"null"`, `Value()` nil, `String()` `""`), and
+  `Equals` is false for it.
+
+A meta literal is therefore made before the first session opens, as rule configuration is, or made
+through the session's own manager (`GetResourceManager`). `TestANodeNotCreatedCarriesTheError` in
+the adaptor's package.
 
 ## Leaks, a crash, a default limit and the sanitizer gate — 2026-10-23
 

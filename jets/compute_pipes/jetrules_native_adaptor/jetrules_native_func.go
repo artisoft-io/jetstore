@@ -2,6 +2,7 @@ package jetrules_native_adaptor
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -110,88 +111,117 @@ func (engine *JetRuleEngineNative) Release() error {
 // function for compute_pipes.JetResourceManager
 // -------------------------------------------
 
+// A literal or resource the engine did not create. Each New* below is a
+// compute_pipes.JetResourceManager method, which returns a node and no error, so the
+// error cannot be returned from it without changing the interface and its callers,
+// some 250 in compute_pipes, the rules test harness, the benchmark and their tests.
+// Until 2026-11-27 each discarded it (node, _ = ...) and returned a node holding
+// nothing: its Type was "" and its Value nil, an Insert with it failed with the
+// engine's bare return code, and nothing said which value or why. The bridge fails
+// such a call for a meta literal or resource made
+// after the first RDF session opened (the meta graph is locked by then, and only an
+// existing one is returned) and for a date it cannot read.
+//
+// Now the error is logged with the value, once, when the node is made, and the node
+// carries it: Err() returns it (compute_pipes.NodeErr reads it, and ParseRdfNodeValue
+// and NewRdfNode return it); Insert, Erase and Retract return it; Contains and
+// ContainsSP are false; GetObject is nil; and FindSPO, FindSP and FindS match nothing.
+
+// NodeCreationError is the error a node the engine did not create carries.
+type NodeCreationError struct {
+	Kind  string // "text literal", "resource", ...
+	Value string // the value asked for, as text, cut at maxLoggedValue
+	Err   error  // the bridge's error
+}
+
+const maxLoggedValue = 200
+
+func (e *NodeCreationError) Error() string {
+	return fmt.Sprintf("the rule engine did not create the %s %s: %v", e.Kind, e.Value, e.Err)
+}
+
+func (e *NodeCreationError) Unwrap() error { return e.Err }
+
+// newNode wraps what the bridge returned: the node, or the error and the value.
+func newNode(node *bridge.Resource, err error, kind string, value any) *RdfNodeNative {
+	if err == nil {
+		return &RdfNodeNative{node: node}
+	}
+	text := fmt.Sprintf("%v", value)
+	if r := []rune(text); len(r) > maxLoggedValue {
+		text = string(r[:maxLoggedValue]) + "..."
+	}
+	if _, isText := value.(string); isText {
+		text = fmt.Sprintf("%q", text)
+	}
+	cerr := &NodeCreationError{Kind: kind, Value: text, Err: err}
+	log.Printf("jetrules native: %v", cerr)
+	return &RdfNodeNative{err: cerr}
+}
+
 func (rm *JetResourceManagerNative) RdfNull() compute_pipes.RdfNode {
-	var node *bridge.Resource
 	if rm.rdfs != nil {
-		node, _ = rm.rdfs.NewNull()
-	} else {
-		node, _ = rm.js.NewNull()
+		node, err := rm.rdfs.NewNull()
+		return newNode(node, err, "null", "null")
 	}
-	return &RdfNodeNative{
-		node: node,
-	}
+	node, err := rm.js.NewNull()
+	return newNode(node, err, "null", "null")
 }
 
 func (rm *JetResourceManagerNative) CreateBNode(key int) compute_pipes.RdfNode {
-	var node *bridge.Resource
 	if rm.rdfs != nil {
-		node, _ = rm.rdfs.NewBlankNode(key)
-	} else {
-		node, _ = rm.js.NewBlankNode(key)
+		node, err := rm.rdfs.NewBlankNode(key)
+		return newNode(node, err, "blank node", key)
 	}
-	return &RdfNodeNative{
-		node: node,
-	}
+	node, err := rm.js.NewBlankNode(key)
+	return newNode(node, err, "blank node", key)
 }
 
 func (rm *JetResourceManagerNative) NewDateLiteral(date string) compute_pipes.RdfNode {
-	var node *bridge.Resource
 	if rm.rdfs != nil {
-		node, _ = rm.rdfs.NewDateLiteral(date)
-	} else {
-		node, _ = rm.js.NewDateLiteral(date)
+		node, err := rm.rdfs.NewDateLiteral(date)
+		return newNode(node, err, "date literal", date)
 	}
-	return &RdfNodeNative{
-		node: node,
-	}
+	node, err := rm.js.NewDateLiteral(date)
+	return newNode(node, err, "date literal", date)
 }
 
 func (rm *JetResourceManagerNative) NewDateDetails(year, month, day int) compute_pipes.RdfNode {
-	var node *bridge.Resource
+	value := fmt.Sprintf("%04d-%02d-%02d", year, month, day)
 	if rm.rdfs != nil {
-		node, _ = rm.rdfs.NewDateDetails(year, month, day)
-	} else {
-		node, _ = rm.js.NewDateDetails(year, month, day)
+		node, err := rm.rdfs.NewDateDetails(year, month, day)
+		return newNode(node, err, "date literal", value)
 	}
-	return &RdfNodeNative{
-		node: node,
-	}
+	node, err := rm.js.NewDateDetails(year, month, day)
+	return newNode(node, err, "date literal", value)
 }
 
 func (rm *JetResourceManagerNative) NewDatetimeLiteral(date string) compute_pipes.RdfNode {
-	var node *bridge.Resource
 	if rm.rdfs != nil {
-		node, _ = rm.rdfs.NewDatetimeLiteral(date)
-	} else {
-		node, _ = rm.js.NewDatetimeLiteral(date)
+		node, err := rm.rdfs.NewDatetimeLiteral(date)
+		return newNode(node, err, "datetime literal", date)
 	}
-	return &RdfNodeNative{
-		node: node,
-	}
+	node, err := rm.js.NewDatetimeLiteral(date)
+	return newNode(node, err, "datetime literal", date)
 }
 
 func (rm *JetResourceManagerNative) NewDatetimeDetails(year, month, day, hour, min, sec int) compute_pipes.RdfNode {
-	var node *bridge.Resource
+	value := fmt.Sprintf("%04d-%02d-%02dT%02d:%02d:%02d", year, month, day, hour, min, sec)
 	if rm.rdfs != nil {
-		node, _ = rm.rdfs.NewDatetimeDetails(year, month, day, hour, min, sec)
-	} else {
-		node, _ = rm.js.NewDatetimeDetails(year, month, day, hour, min, sec)
+		node, err := rm.rdfs.NewDatetimeDetails(year, month, day, hour, min, sec)
+		return newNode(node, err, "datetime literal", value)
 	}
-	return &RdfNodeNative{
-		node: node,
-	}
+	node, err := rm.js.NewDatetimeDetails(year, month, day, hour, min, sec)
+	return newNode(node, err, "datetime literal", value)
 }
 
 func (rm *JetResourceManagerNative) NewDoubleLiteral(x float64) compute_pipes.RdfNode {
-	var node *bridge.Resource
 	if rm.rdfs != nil {
-		node, _ = rm.rdfs.NewDoubleLiteral(x)
-	} else {
-		node, _ = rm.js.NewDoubleLiteral(x)
+		node, err := rm.rdfs.NewDoubleLiteral(x)
+		return newNode(node, err, "double literal", x)
 	}
-	return &RdfNodeNative{
-		node: node,
-	}
+	node, err := rm.js.NewDoubleLiteral(x)
+	return newNode(node, err, "double literal", x)
 }
 
 // NewIntLiteral makes an int32 literal when data fits in 32 bits, as it always
@@ -202,64 +232,56 @@ func (rm *JetResourceManagerNative) NewDoubleLiteral(x float64) compute_pipes.Rd
 // keeps its type.
 func (rm *JetResourceManagerNative) NewIntLiteral(data int) compute_pipes.RdfNode {
 	var node *bridge.Resource
+	var err error
 	fits := data >= math.MinInt32 && data <= math.MaxInt32
 	switch {
 	case rm.rdfs != nil && fits:
-		node, _ = rm.rdfs.NewIntLiteral(data)
+		node, err = rm.rdfs.NewIntLiteral(data)
 	case rm.rdfs != nil:
-		node, _ = rm.rdfs.NewLongLiteral(int64(data))
+		node, err = rm.rdfs.NewLongLiteral(int64(data))
 	case fits:
-		node, _ = rm.js.NewIntLiteral(data)
+		node, err = rm.js.NewIntLiteral(data)
 	default:
-		node, _ = rm.js.NewLongLiteral(data)
+		node, err = rm.js.NewLongLiteral(data)
 	}
-	return &RdfNodeNative{
-		node: node,
-	}
+	return newNode(node, err, "int literal", data)
 }
 
 // NewUIntLiteral makes a uint32 literal when data fits in 32 bits and a uint64
 // one when it does not, for NewIntLiteral's reason.
 func (rm *JetResourceManagerNative) NewUIntLiteral(data uint) compute_pipes.RdfNode {
 	var node *bridge.Resource
+	var err error
 	fits := data <= math.MaxUint32
 	switch {
 	case rm.rdfs != nil && fits:
-		node, _ = rm.rdfs.NewUIntLiteral(data)
+		node, err = rm.rdfs.NewUIntLiteral(data)
 	case rm.rdfs != nil:
-		node, _ = rm.rdfs.NewULongLiteral(uint64(data))
+		node, err = rm.rdfs.NewULongLiteral(uint64(data))
 	case fits:
-		node, _ = rm.js.NewUIntLiteral(data)
+		node, err = rm.js.NewUIntLiteral(data)
 	default:
-		node, _ = rm.js.NewULongLiteral(data)
+		node, err = rm.js.NewULongLiteral(data)
 	}
-	return &RdfNodeNative{
-		node: node,
-	}
+	return newNode(node, err, "uint literal", data)
 }
 
 func (rm *JetResourceManagerNative) NewResource(name string) compute_pipes.RdfNode {
-	var node *bridge.Resource
 	if rm.rdfs != nil {
-		node, _ = rm.rdfs.NewResource(name)
-	} else {
-		node, _ = rm.js.NewResource(name)
+		node, err := rm.rdfs.NewResource(name)
+		return newNode(node, err, "resource", name)
 	}
-	return &RdfNodeNative{
-		node: node,
-	}
+	node, err := rm.js.NewResource(name)
+	return newNode(node, err, "resource", name)
 }
 
 func (rm *JetResourceManagerNative) NewTextLiteral(data string) compute_pipes.RdfNode {
-	var node *bridge.Resource
 	if rm.rdfs != nil {
-		node, _ = rm.rdfs.NewTextLiteral(data)
-	} else {
-		node, _ = rm.js.NewTextLiteral(data)
+		node, err := rm.rdfs.NewTextLiteral(data)
+		return newNode(node, err, "text literal", data)
 	}
-	return &RdfNodeNative{
-		node: node,
-	}
+	node, err := rm.js.NewTextLiteral(data)
+	return newNode(node, err, "text literal", data)
 }
 
 // function for compute_pipes.JetRdfSession
@@ -298,12 +320,18 @@ func toSPO(s, p, o compute_pipes.RdfNode) (*bridge.Resource, *bridge.Resource, *
 		if !ok {
 			return nil, nil, nil, fmt.Errorf("toSPO: invalid subject node")
 		}
+		if u2 != nil && u2.err != nil {
+			return nil, nil, nil, fmt.Errorf("subject: %w", u2.err)
+		}
 		u = u2.node
 	}
 	if p != nil {
 		v2, ok := p.Hdle().(*RdfNodeNative)
 		if !ok {
 			return nil, nil, nil, fmt.Errorf("toSPO: invalid predicate node")
+		}
+		if v2 != nil && v2.err != nil {
+			return nil, nil, nil, fmt.Errorf("predicate: %w", v2.err)
 		}
 		v = v2.node
 	}
@@ -312,9 +340,19 @@ func toSPO(s, p, o compute_pipes.RdfNode) (*bridge.Resource, *bridge.Resource, *
 		if !ok {
 			return nil, nil, nil, fmt.Errorf("toSPO: invalid object node")
 		}
+		if w2 != nil && w2.err != nil {
+			return nil, nil, nil, fmt.Errorf("object: %w", w2.err)
+		}
 		w = w2.node
 	}
 	return u, v, w, nil
+}
+
+// notCreated is whether err is a node the engine did not create, which a find
+// matches nothing for, without asking the engine about a handle it never made.
+func notCreated(err error) bool {
+	var cerr *NodeCreationError
+	return errors.As(err, &cerr)
 }
 
 func (ses *JetRdfSessionNative) Insert(s, p, o compute_pipes.RdfNode) error {
@@ -391,6 +429,9 @@ func (ses *JetRdfSessionNative) GetObject(s, p compute_pipes.RdfNode) compute_pi
 
 func (ses *JetRdfSessionNative) FindSPO(s, p, o compute_pipes.RdfNode) compute_pipes.TripleIterator {
 	sNative, pNative, oNative, err := toSPO(s, p, o)
+	if notCreated(err) {
+		return &TripleIteratorNative{}
+	}
 	if err != nil {
 		return nil
 	}
@@ -407,6 +448,9 @@ func (ses *JetRdfSessionNative) FindSPO(s, p, o compute_pipes.RdfNode) compute_p
 
 func (ses *JetRdfSessionNative) FindSP(s, p compute_pipes.RdfNode) compute_pipes.TripleIterator {
 	sNative, pNative, _, err := toSPO(s, p, nil)
+	if notCreated(err) {
+		return &TripleIteratorNative{}
+	}
 	if err != nil {
 		return nil
 	}
@@ -420,6 +464,9 @@ func (ses *JetRdfSessionNative) FindSP(s, p compute_pipes.RdfNode) compute_pipes
 
 func (ses *JetRdfSessionNative) FindS(s compute_pipes.RdfNode) compute_pipes.TripleIterator {
 	sNative, _, _, err := toSPO(s, nil, nil)
+	if notCreated(err) {
+		return &TripleIteratorNative{}
+	}
 	if err != nil {
 		return nil
 	}
@@ -616,12 +663,17 @@ func (ses *JetReteSessionNative) Release() error {
 // function for compute_pipes.TripleIterator
 // -------------------------------------------
 
+// A TripleIteratorNative with no iterator is empty: the find of a node the engine
+// did not create.
 func (i *TripleIteratorNative) Next() bool {
+	if i.iterator == nil {
+		return false
+	}
 	return i.iterator.Next()
 }
 
 func (i *TripleIteratorNative) Value() [3]compute_pipes.RdfNode {
-	if i.iterator.IsEnd() {
+	if i.iterator == nil || i.iterator.IsEnd() {
 		return [3]compute_pipes.RdfNode{
 			&RdfNodeNative{node: i.null},
 			&RdfNodeNative{node: i.null},
@@ -636,16 +688,22 @@ func (i *TripleIteratorNative) Value() [3]compute_pipes.RdfNode {
 }
 
 func (it *TripleIteratorNative) IsEnd() bool {
-	return it.iterator.IsEnd()
+	return it.iterator == nil || it.iterator.IsEnd()
 }
 
 func (it *TripleIteratorNative) GetSubject() compute_pipes.RdfNode {
+	if it.iterator == nil {
+		return &RdfNodeNative{}
+	}
 	return &RdfNodeNative{
 		node: it.iterator.GetSubject(),
 	}
 }
 
 func (it *TripleIteratorNative) GetPredicate() compute_pipes.RdfNode {
+	if it.iterator == nil {
+		return &RdfNodeNative{}
+	}
 	return &RdfNodeNative{
 		node: it.iterator.GetPredicate(),
 	}
@@ -654,10 +712,16 @@ func (it *TripleIteratorNative) GetPredicate() compute_pipes.RdfNode {
 // PredicateKey is NodeKey of GetPredicate without making the node
 // (compute_pipes.PredicateKeyer): one call into the engine, no allocation.
 func (it *TripleIteratorNative) PredicateKey() any {
+	if it.iterator == nil {
+		return nil
+	}
 	return it.iterator.PredicateKey()
 }
 
 func (it *TripleIteratorNative) GetObject() compute_pipes.RdfNode {
+	if it.iterator == nil {
+		return &RdfNodeNative{}
+	}
 	return &RdfNodeNative{
 		node: it.iterator.GetObject(),
 	}
@@ -777,8 +841,20 @@ func (n *RdfNodeNative) Value() any {
 }
 
 func (n *RdfNodeNative) String() string {
+	if n == nil || n.node == nil {
+		return ""
+	}
 	v, _ := n.node.AsText()
 	return v
+}
+
+// Err is the error of a node the engine did not create, nil otherwise
+// (compute_pipes.NodeErrer).
+func (n *RdfNodeNative) Err() error {
+	if n == nil {
+		return nil
+	}
+	return n.err
 }
 
 // Equals compares the engine's handles: every read allocates a new
@@ -788,7 +864,7 @@ func (n *RdfNodeNative) Equals(other compute_pipes.RdfNode) bool {
 		return false
 	}
 	otherNodeNative, ok := other.Hdle().(*RdfNodeNative)
-	if !ok || n == nil || otherNodeNative == nil {
+	if !ok || n == nil || otherNodeNative == nil || n.node == nil || otherNodeNative.node == nil {
 		return false
 	}
 	return n.node.SameAs(otherNodeNative.node)

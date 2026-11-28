@@ -66,6 +66,24 @@ type JetResourceManager interface {
 	NewTextLiteral(data string) RdfNode
 }
 
+// NodeErrer is implemented by an engine's RdfNode that can carry the error of its
+// creation: a JetResourceManager's New* return a node and no error, so a node the
+// engine did not create carries why. The native adaptor's does (2026-11-27).
+type NodeErrer interface {
+	Err() error
+}
+
+// NodeErr is the error n carries, nil when it carries none or cannot carry one.
+func NodeErr(n RdfNode) error {
+	if n == nil {
+		return nil
+	}
+	if e, ok := n.(NodeErrer); ok {
+		return e.Err()
+	}
+	return nil
+}
+
 type JetRdfSession interface {
 	GetResourceManager() JetResourceManager
 	JetResources() *JetResources
@@ -229,6 +247,11 @@ func ParseRdfNodeValue(re JetResourceManager, value, rdfType string) (node RdfNo
 		node = re.NewDatetimeLiteral(value)
 	default:
 		err = fmt.Errorf("ERROR ParseObject: unknown rdf type for object: %s", rdfType)
+	}
+	if err == nil {
+		if nerr := NodeErr(node); nerr != nil {
+			return nil, fmt.Errorf("while asserting rule config: %w", nerr)
+		}
 	}
 	return
 }
