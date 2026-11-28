@@ -45,7 +45,11 @@ func TestRunWhenMet(t *testing.T) {
 		{"hasNotValue different", []RunWhenCriteria{{FileKeyComponent: "client", HasNotValue: "Other"}}, 0, 0, true},
 		{"hasNotValue equal", []RunWhenCriteria{{FileKeyComponent: "client", HasNotValue: "Acme"}}, 0, 0, false},
 		{"component only, present", []RunWhenCriteria{{FileKeyComponent: "org"}}, 0, 0, true},
-		{"component missing", []RunWhenCriteria{{FileKeyComponent: "file_org", HasNotValue: "x"}}, 0, 0, false},
+		// A component the key does not carry has no value. Until 2026-11-27
+		// that held only for year, month and day, and this criterion failed.
+		{"component missing, hasNotValue", []RunWhenCriteria{{FileKeyComponent: "file_org", HasNotValue: "x"}}, 0, 0, true},
+		{"component missing, hasValue", []RunWhenCriteria{{FileKeyComponent: "file_org", HasValue: "x"}}, 0, 0, false},
+		{"component missing, component only", []RunWhenCriteria{{FileKeyComponent: "file_org"}}, 0, 0, false},
 		{"component a number, present", []RunWhenCriteria{{FileKeyComponent: "vendor"}}, 0, 0, true},
 		{"component neither text nor a number", []RunWhenCriteria{{FileKeyComponent: "flag"}}, 0, 0, false},
 		{"every criterion must hold", []RunWhenCriteria{
@@ -155,8 +159,10 @@ func TestRunWhenOnADateComponentTheKeyDoesNotCarry(t *testing.T) {
 		{"day absent, hasNotValue the default", RunWhenCriteria{FileKeyComponent: "day", HasNotValue: "1"}, true},
 		{"year present, hasValue", RunWhenCriteria{FileKeyComponent: "year", HasValue: "2026"}, true},
 		{"year present, hasNotValue", RunWhenCriteria{FileKeyComponent: "year", HasNotValue: "2026"}, false},
-		// A component other than the three, absent, still fails the criterion.
-		{"other component absent, hasNotValue", RunWhenCriteria{FileKeyComponent: "org", HasNotValue: "x"}, false},
+		// A component other than the three, absent, is read the same way.
+		// Until 2026-11-27 it failed the criterion, hasNotValue included.
+		{"other component absent, hasNotValue", RunWhenCriteria{FileKeyComponent: "org", HasNotValue: "x"}, true},
+		{"other component absent, hasValue", RunWhenCriteria{FileKeyComponent: "org", HasValue: "x"}, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got, why := runWhenMet([]RunWhenCriteria{tc.c}, key, unreadCounts(t))
@@ -220,6 +226,77 @@ func TestRunWhenOnADateComponentThatIsNotANumber(t *testing.T) {
 	ca = &CommandArguments{FileKey: zero, FileKeyComponents: utils.SplitFileKeyIntoComponents(map[string]any{}, &zero)}
 	if ok, why := runWhenMet([]RunWhenCriteria{{FileKeyComponent: "month", HasValue: "0"}}, ca.runWhenComponents(), unreadCounts(t)); !ok {
 		t.Errorf("month=00, hasValue 0: %s", why)
+	}
+}
+
+// A component the file key does not carry has no value, whatever its name:
+// hasValue does not hold and hasNotValue does, as for year, month and day.
+// Until 2026-11-27 any other absent component failed every criterion on it,
+// hasNotValue included, so a report guarded by hasNotValue did not run for a
+// key without the component.
+func TestRunWhenOnAComponentTheKeyDoesNotCarry(t *testing.T) {
+	absent := "client=Acme/object_type=Claim/year=2026/month=03/day=7/file.csv"
+	present := "client=Acme/object_type=Claim/org=Ex/year=2026/month=03/day=7/file.csv"
+	keyOf := func(fileKey string) map[string]interface{} {
+		ca := &CommandArguments{
+			FileKey:           fileKey,
+			FileKeyComponents: utils.SplitFileKeyIntoComponents(map[string]any{}, &fileKey),
+		}
+		return ca.runWhenComponents()
+	}
+	for _, tc := range []struct {
+		name     string
+		fileKey  string
+		criteria []RunWhenCriteria
+		want     bool
+	}{
+		{"absent, hasNotValue", absent, []RunWhenCriteria{{FileKeyComponent: "org", HasNotValue: "TEST"}}, true},
+		{"absent, hasValue", absent, []RunWhenCriteria{{FileKeyComponent: "org", HasValue: "TEST"}}, false},
+		{"absent, hasValue and hasNotValue", absent,
+			[]RunWhenCriteria{{FileKeyComponent: "org", HasValue: "Ex", HasNotValue: "TEST"}}, false},
+		{"absent, component only", absent, []RunWhenCriteria{{FileKeyComponent: "org"}}, false},
+		{"present, hasNotValue other", present, []RunWhenCriteria{{FileKeyComponent: "org", HasNotValue: "TEST"}}, true},
+		{"present, hasNotValue same", present, []RunWhenCriteria{{FileKeyComponent: "org", HasNotValue: "Ex"}}, false},
+		{"present, hasValue same", present, []RunWhenCriteria{{FileKeyComponent: "org", HasValue: "Ex"}}, true},
+		{"present, hasValue other", present, []RunWhenCriteria{{FileKeyComponent: "org", HasValue: "TEST"}}, false},
+		{"present, hasValue and hasNotValue, both hold", present,
+			[]RunWhenCriteria{{FileKeyComponent: "org", HasValue: "Ex", HasNotValue: "TEST"}}, true},
+		{"present, hasValue and hasNotValue, hasValue fails", present,
+			[]RunWhenCriteria{{FileKeyComponent: "org", HasValue: "Other", HasNotValue: "TEST"}}, false},
+		{"present, component only", present, []RunWhenCriteria{{FileKeyComponent: "org"}}, true},
+		// Every criterion must still hold: an absent component meets its
+		// hasNotValue, and the next criterion still decides.
+		{"absent hasNotValue, then a failing hasValue", absent, []RunWhenCriteria{
+			{FileKeyComponent: "org", HasNotValue: "TEST"},
+			{FileKeyComponent: "client", HasValue: "Other"},
+		}, false},
+		{"absent hasNotValue, then a holding hasValue", absent, []RunWhenCriteria{
+			{FileKeyComponent: "org", HasNotValue: "TEST"},
+			{FileKeyComponent: "client", HasValue: "Acme"},
+		}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, why := runWhenMet(tc.criteria, keyOf(tc.fileKey), unreadCounts(t))
+			if got != tc.want {
+				t.Errorf("runWhenMet = %v (%s), want %v", got, why, tc.want)
+			}
+			if !got && why == "" {
+				t.Error("runWhenMet gave no reason for a criterion not met")
+			}
+		})
+	}
+	// hasOutputRecordsOnly is unchanged: it still decides beside an absent
+	// component's hasNotValue.
+	for _, tc := range []struct {
+		db, out int64
+		want    bool
+	}{{10, 4, true}, {10, 0, false}, {0, 0, true}} {
+		reads := 0
+		c := []RunWhenCriteria{{FileKeyComponent: "org", HasNotValue: "TEST", HasNonZeroOutputRecords: true}}
+		if got, why := runWhenMet(c, keyOf(absent), fixedCounts(tc.db, tc.out, &reads)); got != tc.want {
+			t.Errorf("absent org, hasNotValue, hasOutputRecordsOnly, %d read %d written: %v (%s), want %v",
+				tc.db, tc.out, got, why, tc.want)
+		}
 	}
 }
 
@@ -379,11 +456,28 @@ SELECT 2;
 		}
 	}
 
-	// A key that meets neither runs nothing, and reaches no pool at all.
+	// A key without a client has none, so it meets the hasNotValue criterion
+	// and not the hasValue one: the first statement runs. Until 2026-11-27 it
+	// met neither and nothing ran.
 	ca := &CommandArguments{
 		ProcessName:             "p",
+		OutputPath:              "out",
 		FileKeyComponents:       map[string]interface{}{},
 		CurrentReportDirectives: directives,
+	}
+	err := ca.runReportsDelegate(unreachablePool(t), t.TempDir(), path, &[]string{}, unreadCounts(t))
+	if err == nil || !strings.Contains(err.Error(), "SELECT 1") {
+		t.Errorf("key with no client: error %v, want the statement %q run against the unreachable pool", err, "SELECT 1")
+	}
+
+	// A key that meets neither runs nothing, and reaches no pool at all.
+	ca = &CommandArguments{
+		ProcessName:       "p",
+		FileKeyComponents: map[string]interface{}{"client": "Acme"},
+		CurrentReportDirectives: &ReportDirectives{StatementProperties: map[string]StatementProperty{
+			"{PROCESSNAME}/everyone.csv":      {RunWhen: []RunWhenCriteria{{FileKeyComponent: "client", HasValue: "DEFAULT"}}},
+			"{PROCESSNAME}/defaults_only.csv": {RunWhen: []RunWhenCriteria{{FileKeyComponent: "client", HasValue: "DEFAULT"}}},
+		}},
 	}
 	updated := []string{}
 	if err := ca.runReportsDelegate(nil, t.TempDir(), path, &updated, unreadCounts(t)); err != nil {

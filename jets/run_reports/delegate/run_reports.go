@@ -337,25 +337,29 @@ func (c *outputRecordCounts) get() (int64, int64) {
 // report (reportProperties) and for a statement (statementProperties).
 // fileKeyComponents is the file key as runWhen reads it (runWhenComponents).
 //
-// A criterion that names a fileKeyComponent holds when the file key has that
-// component, the component equals hasValue if that is set, and differs from
-// hasNotValue if that is set. A criterion with hasOutputRecordsOnly also fails
-// when the session read records and wrote none. A criterion that names no
-// component checks only hasOutputRecordsOnly; one that names none and checks
-// nothing is a configuration error, refused before any report runs
-// (directives.ReportDirectives.CheckRunWhen), and fails here should it get
-// this far.
+// A criterion that names a fileKeyComponent holds when the component equals
+// hasValue if that is set, and differs from hasNotValue if that is set; one
+// that sets neither holds when the file key has the component. A criterion
+// with hasOutputRecordsOnly also fails when the session read records and wrote
+// none. A criterion that names no component checks only hasOutputRecordsOnly;
+// one that names none and checks nothing is a configuration error, refused
+// before any report runs (directives.ReportDirectives.CheckRunWhen), and fails
+// here should it get this far.
 //
 // A component that is not text is compared by its decimal text: year, month
 // and day are numbers once the file key is read (utils.SplitFileKeyIntoComponents),
 // and for a number hasValue and hasNotValue may carry leading zeros, so month 3
 // equals both "3" and "03". Text is compared exactly.
 //
-// year, month and day are judged by what the file key carries
-// (runWhenComponents): one the key does not carry, or carries as something
-// other than a number, has no value, so hasValue does not hold and
-// hasNotValue does. Any other component the key does not
-// carry fails the criterion, hasNotValue or not.
+// A component the file key does not carry has no value, so hasValue does not
+// hold and hasNotValue does: a criterion with only hasNotValue holds, and one
+// with hasValue, or with no value at all, fails. year, month and day are
+// judged by what the file key carries (runWhenComponents), so one the key does
+// not carry, or carries as something other than a number, is absent too.
+//
+// Until 2026-11-27 only year, month and day were read so: any other component
+// the key did not carry failed the criterion, hasNotValue included, so a
+// report guarded by hasNotValue on a component did not run for a key without it.
 func runWhenMet(criteria []RunWhenCriteria, fileKeyComponents map[string]interface{}, counts *outputRecordCounts) (bool, string) {
 	for i := range criteria {
 		c := &criteria[i]
@@ -381,9 +385,9 @@ func runWhenMet(criteria []RunWhenCriteria, fileKeyComponents map[string]interfa
 func componentMet(c *RunWhenCriteria, fileKeyComponents map[string]interface{}) (bool, string) {
 	value, ok := fileKeyComponents[c.FileKeyComponent]
 	if !ok {
-		// A date component the key does not carry has no value: it differs
-		// from any hasNotValue and equals no hasValue.
-		if isDefaultedComponent(c.FileKeyComponent) && len(c.HasValue) == 0 && len(c.HasNotValue) > 0 {
+		// A component the key does not carry has no value: it differs from
+		// any hasNotValue and equals no hasValue.
+		if len(c.HasValue) == 0 && len(c.HasNotValue) > 0 {
 			return true, ""
 		}
 		return false, fmt.Sprintf("the file key has no component %q", c.FileKeyComponent)
@@ -406,15 +410,6 @@ func componentMet(c *RunWhenCriteria, fileKeyComponents map[string]interface{}) 
 // those defaults, so runWhen does not change them; it removes the ones the key
 // does not carry instead (runWhenComponents).
 var defaultedComponents = []string{"year", "month", "day"}
-
-func isDefaultedComponent(name string) bool {
-	for _, d := range defaultedComponents {
-		if d == name {
-			return true
-		}
-	}
-	return false
-}
 
 // runWhenComponents is the file key as runWhen reads it: FileKeyComponents
 // without the defaulted year, month or day the file key does not carry
