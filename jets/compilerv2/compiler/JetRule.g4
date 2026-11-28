@@ -291,7 +291,7 @@ GroupingProperties: '$grouping_properties';
 MAIN: 'main';
 JETSCONFIG: 'jetstore_config';
 MaxLooping: '$max_looping';        // Rule looping, default is 0, no looping
-MaxRuleExec: '$max_rule_exec';     // Stored in jetstore_config; read by no engine (the limit is jets:max_vertex_visits)
+MaxRuleExec: '$max_rule_exec';     // Refused by the compiler (MaxRuleExecRefused): the limit is jets:max_vertex_visits
 InputType: '$input_types';         // RDF type of input record to rule set. rdf:Thing means any rdf type.
 
 // Rule Sequence

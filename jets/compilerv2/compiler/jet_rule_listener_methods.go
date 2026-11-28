@@ -47,8 +47,25 @@ func (s *JetRuleListener) noteIncludedFile(fileName string) {
 // =====================================================================================
 // JetStore Config
 // -------------------------------------------------------------------------------------
+
+// MaxRuleExecRefused is the compile error for $max_rule_exec in a main rule file's
+// config block. The compiler stored it in jetstore_config and the rule file's
+// .config.json, and no engine or pipeline read it, so a rule author who set it had no
+// limit and no message (2026-11-27). The limit it names is the C++ engine's visits of
+// a rule's vertex, which ReteSession::initialize reads from jets:max_vertex_visits on
+// jets:iState; without it a session stops at 10,000 visits. The token stays in the
+// grammar so that this message, and not a syntax error, is what the author reads.
+const MaxRuleExecRefused = "$max_rule_exec is refused: nothing reads it. " +
+	"The limit it names is jets:max_vertex_visits on jets:iState; set it with " +
+	"triple(jets:iState, jets:max_vertex_visits, 1000000); in the rule file, " +
+	"or as jets:max_vertex_visits in the process's rule configuration"
+
 // ExitJetstoreConfigItem is called when production jetstoreConfigItem is exited.
 func (s *JetRuleListener) ExitJetstoreConfigItem(ctx *parser.JetstoreConfigItemContext) {
+	if ctx.MaxRuleExec() != nil {
+		s.LogErrorAt(ctx.GetStart().GetLine(), MaxRuleExecRefused)
+		return
+	}
 	if ctx.GetConfigKey() != nil && (ctx.GetRdfTypeList() != nil || ctx.GetConfigValue() != nil) {
 		key := ctx.GetConfigKey().GetText()
 		if ctx.GetRdfTypeList() != nil {

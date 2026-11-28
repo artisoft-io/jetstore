@@ -500,7 +500,6 @@
     },
     "jetstore_config": {
         "$max_looping": "5",
-        "$max_rule_exec": "100",
         "source_file_name": "jet_rules/test_looping_main.jr",
         "type": "jsconfig"
     },
