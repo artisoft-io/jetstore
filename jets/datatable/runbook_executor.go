@@ -16,10 +16,14 @@ package datatable
 // connection of its own (taken out of the pool and closed afterwards) that
 // first takes the session-level advisory lock
 // pg_try_advisory_lock(runbookLockClass, run_key); a task that cannot take it
-// leaves the run alone. The lock goes when the connection closes, which is also
-// what happens when the process dies. Every change of state, the executor's and
-// a person's, is made in a transaction that locks the run's row first, so a
-// person's Abort and the executor's next step are ordered.
+// leaves the run alone. The step releases the lock before it closes the
+// connection (releaseConn): closing alone hands the lock back only when the
+// server's backend has exited, which happens after the close returns, so the
+// next step's try could find it still held and stop the run's driving early.
+// If the process dies, or the release fails, the lock goes with the backend.
+// Every change of state, the executor's and a person's, is made in a
+// transaction that locks the run's row first, so a person's Abort and the
+// executor's next step are ordered.
 //
 // The connection is closed after each step so that nothing a ddl does to its
 // session (a SET without LOCAL) outlives the step, and it carries the
@@ -280,6 +284,20 @@ func (e *RunbookExecutor) execConn(ctx context.Context, key int64) (conn *pgx.Co
 		return nil, false, err
 	}
 	return conn, true, nil
+}
+
+// releaseConn releases the run's advisory lock that execConn took on conn,
+// then closes conn. The release is explicit because a closed connection's
+// session locks are released only when its backend exits, after Close has
+// returned: a step that took the lock straight afterwards, the same driver's
+// next step included, could find it still held and leave the run as it is.
+// When the release fails (a connection broken by a cancelled step, say),
+// closing still releases it, later.
+func releaseConn(conn *pgx.Conn, key int64) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, _ = conn.Exec(ctx, `SELECT pg_advisory_unlock($1::int, $2::int)`, runbookLockClass, int32(key))
+	conn.Close(ctx)
 }
 
 // userSQLConn is the connection a step's own SQL runs on, named after the run
@@ -648,7 +666,7 @@ func (e *RunbookExecutor) stepOnce(ctx context.Context, key int64) (bool, error)
 	if err != nil || !ok {
 		return false, err
 	}
-	defer conn.Close(context.Background())
+	defer releaseConn(conn, key)
 
 	tx, err := conn.Begin(ctx)
 	if err != nil {
@@ -1492,7 +1510,7 @@ func (e *RunbookExecutor) SweepInterrupted(ctx context.Context) (int, error) {
 			}
 			return nil
 		})
-		conn.Close(context.Background())
+		releaseConn(conn, key)
 		if err != nil {
 			return n, err
 		}

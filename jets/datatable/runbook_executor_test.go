@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -1090,6 +1091,34 @@ func TestRunbookOneDriverPerRun(t *testing.T) {
 	}
 	f.drive(key)
 	f.expect(key, runbook.RunPaused, "stop", runbook.StepAwaitingInput)
+}
+
+// One driver takes the run's lock afresh for every step, so each step must
+// hand it back before the next asks for it: a driver that only closed its
+// connection left the lock to the server's backend, which releases it when it
+// exits, after the close has returned, and the next step's try could find it
+// still held and stop driving with the run half done. A run of many quick
+// steps is driven to its end by one DriveRun, and leaves its lock free.
+func TestRunbookDriverReleasesTheLockBetweenSteps(t *testing.T) {
+	f := newRbkFixture(t)
+	const n = 60
+	var steps []string
+	sql := map[string]string{}
+	for i := range n {
+		id := fmt.Sprintf("s%02d", i)
+		steps = append(steps, `{"id": "`+id+`", "type": "query", "returns": {"n": "integer"}}`)
+		sql[id] = fmt.Sprintf(`SELECT %d AS n`, i)
+	}
+	steps = append(steps, `{"id": "end", "type": "pause", "message": "end"}`)
+	f.write("many", `{"format": 1, "runbook": "many", "steps": [`+strings.Join(steps, ",\n")+`]}`, sql)
+	key := f.start(rbkKE, "many", nil)
+	f.drive(key)
+	f.expect(key, runbook.RunPaused, "end", runbook.StepAwaitingInput)
+	if held := f.count(`SELECT count(*) FROM pg_locks WHERE locktype = 'advisory'
+		AND database = (SELECT oid FROM pg_database WHERE datname = current_database())
+		AND classid = $1 AND objid = $2 AND objsubid = 2`, runbookLockClass, key); held != 0 {
+		t.Fatalf("the run's lock is still held by %d session(s) after the driver returned", held)
+	}
 }
 
 // The two tables migrate from jets_schema.json, and migrate again over
