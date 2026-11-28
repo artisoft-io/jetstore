@@ -1656,8 +1656,9 @@ TEST(TextUnits, ANameSuffixAfterANonAsciiLetter) {
 
 // Signed integer overflow in + - * is null, in a session's rule as with no row: it was
 // undefined behaviour, and INT32_MAX + 1 gave INT32_MIN on x86-64. Through a mixed type
-// too, the right operand converted to the left's. Unsigned integers wrap, which is
-// defined, as they did. The neighbours of each limit compute.
+// too, the right operand converted to the left's. Unsigned integers are null when they
+// leave their range too since 2026-11-27 (UnsignedOverflowIsNull). The neighbours of each
+// limit compute.
 TEST(ArithmeticTypes, SignedOverflowIsNull) {
   SessionRow sr;
   AddVisitor add(nullptr, sr.row.get());
@@ -1694,9 +1695,55 @@ TEST(ArithmeticTypes, SignedOverflowIsNull) {
   EXPECT_EQ(ap(mul, rdf::LInt64(-3), rdf::LInt32(7)), RDFTTYPE(rdf::LInt64(-21)));
   // a right operand out of the left operand's range is null, as it was
   EXPECT_TRUE(null(ap(add, rdf::LInt32(1), rdf::LInt64(int64_t(1) << 40))));
-  // unsigned integers wrap, as they did
-  EXPECT_EQ(ap(sub, rdf::LUInt32(5), rdf::LUInt32(7)), RDFTTYPE(rdf::LUInt32(std::numeric_limits<uint32_t>::max() - 1)));
-  EXPECT_EQ(ap(add, rdf::LUInt64(std::numeric_limits<uint64_t>::max()), rdf::LUInt64(1)), RDFTTYPE(rdf::LUInt64(0)));
+  // unsigned integers no longer wrap: see UnsignedOverflowIsNull
+  EXPECT_TRUE(null(ap(sub, rdf::LUInt32(5), rdf::LUInt32(7))));
+  EXPECT_TRUE(null(ap(add, rdf::LUInt64(std::numeric_limits<uint64_t>::max()), rdf::LUInt64(1))));
+}
+
+// Unsigned integer + - * is null when the result leaves the left operand's type, as
+// signed overflow is: uint32 5 - 7 wrapped to 4294967294, and uint64 max + 1 to 0, until
+// 2026-11-27. Through a mixed type too, the right operand converted to the left's. The
+// neighbours of each limit compute.
+TEST(ArithmeticTypes, UnsignedOverflowIsNull) {
+  SessionRow sr;
+  AddVisitor add(nullptr, sr.row.get());
+  SubsVisitor sub(nullptr, sr.row.get());
+  MultVisitor mul(nullptr, sr.row.get());
+  auto ap = [](auto & op, RDFTTYPE a, RDFTTYPE b) { return or_threw(op, a, b); };
+  auto null = [](RDFTTYPE r) { return r.which() == rdf::rdf_null_t; };
+  auto const u32max = std::numeric_limits<uint32_t>::max();
+  auto const u64max = std::numeric_limits<uint64_t>::max();
+  EXPECT_TRUE(null(ap(add, rdf::LUInt32(u32max), rdf::LUInt32(1))));
+  EXPECT_TRUE(null(ap(add, rdf::LUInt32(u32max), rdf::LInt32(1))));
+  EXPECT_TRUE(null(ap(add, rdf::LUInt32(u32max), rdf::LInt64(1))));
+  EXPECT_TRUE(null(ap(add, rdf::LUInt32(u32max), rdf::LUInt64(1))));
+  EXPECT_TRUE(null(ap(add, rdf::LUInt64(u64max), rdf::LUInt64(1))));
+  EXPECT_TRUE(null(ap(add, rdf::LUInt64(u64max), rdf::LInt32(1))));
+  EXPECT_TRUE(null(ap(add, rdf::LUInt64(u64max), rdf::LUInt32(1))));
+  EXPECT_TRUE(null(ap(add, rdf::LUInt64(u64max), rdf::LInt64(1))));
+  EXPECT_TRUE(null(ap(sub, rdf::LUInt32(5), rdf::LUInt32(7))));
+  EXPECT_TRUE(null(ap(sub, rdf::LUInt32(0), rdf::LInt32(1))));
+  EXPECT_TRUE(null(ap(sub, rdf::LUInt32(0), rdf::LInt64(1))));
+  EXPECT_TRUE(null(ap(sub, rdf::LUInt32(0), rdf::LUInt64(1))));
+  EXPECT_TRUE(null(ap(sub, rdf::LUInt64(0), rdf::LUInt64(1))));
+  EXPECT_TRUE(null(ap(sub, rdf::LUInt64(0), rdf::LInt32(1))));
+  EXPECT_TRUE(null(ap(sub, rdf::LUInt64(0), rdf::LUInt32(1))));
+  EXPECT_TRUE(null(ap(sub, rdf::LUInt64(0), rdf::LInt64(1))));
+  EXPECT_TRUE(null(ap(mul, rdf::LUInt32(65536), rdf::LUInt32(65536))));
+  EXPECT_TRUE(null(ap(mul, rdf::LUInt32(65536), rdf::LInt32(65536))));
+  EXPECT_TRUE(null(ap(mul, rdf::LUInt64(uint64_t(1) << 32), rdf::LUInt64(uint64_t(1) << 32))));
+  EXPECT_TRUE(null(ap(mul, rdf::LUInt64(uint64_t(1) << 33), rdf::LUInt32(uint32_t(1) << 31))));
+  // the neighbours compute
+  EXPECT_EQ(ap(add, rdf::LUInt32(u32max - 1), rdf::LUInt32(1)), RDFTTYPE(rdf::LUInt32(u32max)));
+  EXPECT_EQ(ap(add, rdf::LUInt64(u64max - 1), rdf::LInt32(1)), RDFTTYPE(rdf::LUInt64(u64max)));
+  EXPECT_EQ(ap(sub, rdf::LUInt32(7), rdf::LUInt32(7)), RDFTTYPE(rdf::LUInt32(0)));
+  EXPECT_EQ(ap(sub, rdf::LUInt64(1), rdf::LInt64(1)), RDFTTYPE(rdf::LUInt64(0)));
+  EXPECT_EQ(ap(mul, rdf::LUInt32(65535), rdf::LUInt32(65537)), RDFTTYPE(rdf::LUInt32(u32max)));
+  EXPECT_EQ(ap(mul, rdf::LUInt64(uint64_t(1) << 32), rdf::LUInt32(uint32_t(1) << 31)), RDFTTYPE(rdf::LUInt64(uint64_t(1) << 63)));
+  EXPECT_EQ(ap(mul, rdf::LUInt32(0), rdf::LUInt32(u32max)), RDFTTYPE(rdf::LUInt32(0)));
+  // a right operand out of the left operand's range is null, as it was
+  EXPECT_TRUE(null(ap(add, rdf::LUInt32(5), rdf::LInt32(-1))));
+  EXPECT_TRUE(null(ap(sub, rdf::LUInt32(5), rdf::LInt32(-1))));
 }
 
 // abs of the minimum int32 or int64 is null: its absolute value does not fit, and abs()
@@ -1766,8 +1813,8 @@ TEST(ArithmeticTypes, DateArithmeticOutOfRangeIsNull) {
   EXPECT_EQ(ap(sub, d, RDFTTYPE(rdf::LInt32(-1))), RDFTTYPE(rdf::LDate(rdf::date(2025, 2, 1))));
   EXPECT_EQ(ap(add, dt, RDFTTYPE(rdf::LInt64(1))), RDFTTYPE(rdf::LDatetime(rdf::parse_datetime("2025-02-01T10:30:00"))));
   EXPECT_EQ(ap(add, dt, RDFTTYPE(rdf::LDouble(-1.5))), RDFTTYPE(rdf::LDatetime(rdf::parse_datetime("2025-01-30T10:30:00"))));
-  // a date or a datetime minus a double is not an operation, and is null, as it was
-  EXPECT_TRUE(null(ap(sub, dt, RDFTTYPE(rdf::LDouble(1.5)))));
+  // a date or a datetime minus a double moves it back since 2026-11-27 (DateMinusADouble)
+  EXPECT_EQ(ap(sub, dt, RDFTTYPE(rdf::LDouble(1.5))), RDFTTYPE(rdf::LDatetime(rdf::parse_datetime("2025-01-30T10:30:00"))));
   // a number minus a datetime moves the datetime back, as it did
   EXPECT_EQ(ap(sub, RDFTTYPE(rdf::LInt32(1)), dt), RDFTTYPE(rdf::LDatetime(rdf::parse_datetime("2025-01-30T10:30:00"))));
   // and date minus date is a day count, as it was
@@ -1806,6 +1853,133 @@ TEST(ArithmeticTypes, AgeAndToTextOfWhatTheyDoNotTakeIsNull) {
   EXPECT_EQ(or_threw(to_text, RDFTTYPE(rdf::Null())), RDFTTYPE(rdf::LString("null")));
   EXPECT_EQ(or_threw(to_text, RDFTTYPE(rdf::NamedResource("r"))), RDFTTYPE(rdf::LString("r")));
   EXPECT_EQ(or_threw(to_text, RDFTTYPE(rdf::LInt64(-7))), RDFTTYPE(rdf::LString("-7")));
+}
+
+// A date or a datetime minus a double moves it back by the double truncated toward zero,
+// exactly as plus a negative double moves it, and with the same result type: a date stays
+// a date, a datetime keeps its time of day. Until 2026-11-27 it was null, while minus an
+// integer and plus a double computed. A count that is not finite or leaves the dates the
+// engine holds is null, as for plus (DateArithmeticOutOfRangeIsNull).
+TEST(ArithmeticTypes, DateMinusADouble) {
+  SessionRow sr;
+  AddVisitor add(nullptr, sr.row.get());
+  SubsVisitor sub(nullptr, sr.row.get());
+  auto ap = [](auto & op, RDFTTYPE a, RDFTTYPE b) { return or_threw(op, a, b); };
+  auto null = [](RDFTTYPE r) { return r.which() == rdf::rdf_null_t; };
+  RDFTTYPE const d = rdf::LDate(rdf::date(2025, 3, 1));
+  RDFTTYPE const dt = rdf::LDatetime(rdf::parse_datetime("2025-03-01T10:30:00"));
+  for(double x: {0.0, 0.5, 1.0, 2.9, -2.9, 365.0, 1e5}) {
+    EXPECT_EQ(ap(sub, d, RDFTTYPE(rdf::LDouble(x))), ap(add, d, RDFTTYPE(rdf::LDouble(-x)))) << "date - " << x;
+    EXPECT_EQ(ap(sub, dt, RDFTTYPE(rdf::LDouble(x))), ap(add, dt, RDFTTYPE(rdf::LDouble(-x)))) << "datetime - " << x;
+  }
+  EXPECT_EQ(ap(sub, d, RDFTTYPE(rdf::LDouble(1.0))), RDFTTYPE(rdf::LDate(rdf::date(2025, 2, 28))));
+  EXPECT_EQ(ap(sub, d, RDFTTYPE(rdf::LDouble(2.9))), RDFTTYPE(rdf::LDate(rdf::date(2025, 2, 27))));
+  EXPECT_EQ(ap(sub, d, RDFTTYPE(rdf::LDouble(0.5))), d);
+  EXPECT_EQ(ap(sub, d, RDFTTYPE(rdf::LDouble(-2.9))), RDFTTYPE(rdf::LDate(rdf::date(2025, 3, 3))));
+  EXPECT_EQ(ap(sub, d, RDFTTYPE(rdf::LDouble(1.0))), ap(sub, d, RDFTTYPE(rdf::LInt32(1))));
+  EXPECT_EQ(ap(sub, dt, RDFTTYPE(rdf::LDouble(2.9))), RDFTTYPE(rdf::LDatetime(rdf::parse_datetime("2025-02-27T10:30:00"))));
+  EXPECT_EQ(ap(sub, dt, RDFTTYPE(rdf::LDouble(2.0))), ap(sub, dt, RDFTTYPE(rdf::LInt64(2))));
+  // the limits of plus
+  double const nan = std::numeric_limits<double>::quiet_NaN();
+  EXPECT_TRUE(null(ap(sub, d, RDFTTYPE(rdf::LDouble(nan)))));
+  EXPECT_TRUE(null(ap(sub, dt, RDFTTYPE(rdf::LDouble(std::numeric_limits<double>::infinity())))));
+  EXPECT_TRUE(null(ap(sub, d, RDFTTYPE(rdf::LDouble(1e300)))));
+  EXPECT_TRUE(null(ap(sub, RDFTTYPE(rdf::LDate(rdf::date(1400, 1, 1))), RDFTTYPE(rdf::LDouble(1.0)))));
+  EXPECT_EQ(ap(sub, RDFTTYPE(rdf::LDate(rdf::date(1400, 1, 2))), RDFTTYPE(rdf::LDouble(1.0))), RDFTTYPE(rdf::LDate(rdf::date(1400, 1, 1))));
+  // a double minus a date is still not an operation
+  EXPECT_TRUE(null(ap(sub, RDFTTYPE(rdf::LDouble(1.0)), d)));
+}
+
+// to_timestamp, month_period_of, week_period_of and day_period_of give the periods the
+// platform computes for a session's source period, CalculatePeriod in
+// jets/datatable/source_period.go: the expected values below are its output for each
+// date (2026-11-27). day_period_of divided by 84400 until 2026-11-27, so it agreed only
+// near 1970: 2026-11-27 was 21277, 2024-02-29 was 20251.
+TEST(DatePeriods, TheyMatchThePlatformsPeriods) {
+  ToTimestampVisitor ts(nullptr, nullptr);
+  MonthPeriodVisitor month(nullptr, nullptr);
+  WeekPeriodVisitor week(nullptr, nullptr);
+  DayPeriodVisitor day(nullptr, nullptr);
+  struct Row { int y, m, d; int64_t timestamp; int32_t month, week, day; };
+  std::vector<Row> const rows = {
+    {1970,  1,  1,           0,    1,     1,      1},
+    {1970,  1,  2,       86400,    1,     1,      2},
+    {1970,  1,  8,      604800,    1,     2,      8},
+    {1969, 12, 31,      -86400,    0,     1,      0},
+    {1900,  3,  1, -2203891200, -837, -3643, -25507},
+    {2024,  2, 29,  1709164800,  650,  2827,  19783},
+    {2026, 11, 27,  1795737600,  683,  2970,  20785},
+  };
+  for(auto const& r: rows) {
+    RDFTTYPE const date = rdf::LDate(rdf::date(r.y, r.m, r.d));
+    EXPECT_EQ(boost::apply_visitor(ts, date), RDFTTYPE(rdf::LInt64(r.timestamp))) << date;
+    EXPECT_EQ(boost::apply_visitor(month, date), RDFTTYPE(rdf::LInt32(r.month))) << date;
+    EXPECT_EQ(boost::apply_visitor(week, date), RDFTTYPE(rdf::LInt32(r.week))) << date;
+    EXPECT_EQ(boost::apply_visitor(day, date), RDFTTYPE(rdf::LInt32(r.day))) << date;
+  }
+  // and consecutive days are consecutive day periods, which 84400 broke every 42 days
+  for(int n = 0; n < 400; ++n) {
+    RDFTTYPE const a = rdf::LDate(rdf::add_days(rdf::date(2026, 1, 1), n));
+    RDFTTYPE const b = rdf::LDate(rdf::add_days(rdf::date(2026, 1, 1), n + 1));
+    auto const pa = boost::get<rdf::LInt32>(boost::apply_visitor(day, a)).data;
+    auto const pb = boost::get<rdf::LInt32>(boost::apply_visitor(day, b)).data;
+    EXPECT_EQ(pb, pa + 1) << b;
+  }
+}
+
+// A date that is not a date (not-a-date, or an infinity) gives null in age_as_of,
+// age_in_months_as_of, to_timestamp and the three period operators, either operand, in a
+// session's rule as with no row (2026-11-27), as date arithmetic on one does. Until then
+// age_as_of, age_in_months_as_of and month_period_of threw std::out_of_range from boost,
+// failing the session, and the others gave a meaningless number (to_timestamp
+// 9223372036854). Anything but a date in the period operators still throws in a session's
+// rule, now naming the operator: three of the four named month_period_of.
+TEST(DatePeriods, NotADateIsNull) {
+  SessionRow sr;
+  AgeAsOfVisitor age(nullptr, sr.row.get());
+  AgeInMonthsAsOfVisitor age_months(nullptr, sr.row.get());
+  ToTimestampVisitor ts(nullptr, sr.row.get());
+  MonthPeriodVisitor month(nullptr, sr.row.get());
+  WeekPeriodVisitor week(nullptr, sr.row.get());
+  DayPeriodVisitor day(nullptr, sr.row.get());
+  auto null = [](RDFTTYPE r) { return r.which() == rdf::rdf_null_t; };
+  RDFTTYPE const d = rdf::LDate(rdf::date(2000, 7, 27));
+  std::vector<RDFTTYPE> const specials = {
+    rdf::LDate(rdf::date(boost::date_time::not_a_date_time)),
+    rdf::LDate(rdf::date(boost::date_time::pos_infin)),
+    rdf::LDate(rdf::date(boost::date_time::neg_infin)),
+    rdf::LDate(rdf::parse_date("not a date")),
+  };
+  for(auto const& x: specials) {
+    EXPECT_TRUE(null(or_threw(age, x, d))) << x << " age_as_of date";
+    EXPECT_TRUE(null(or_threw(age, d, x))) << "date age_as_of " << x;
+    EXPECT_TRUE(null(or_threw(age_months, x, d))) << x << " age_in_months_as_of date";
+    EXPECT_TRUE(null(or_threw(age_months, d, x))) << "date age_in_months_as_of " << x;
+    EXPECT_TRUE(null(or_threw(age_months, RDFTTYPE(rdf::LString("2000-07-27")), x))) << "text age_in_months_as_of " << x;
+    EXPECT_TRUE(null(or_threw(ts, x))) << "to_timestamp " << x;
+    EXPECT_TRUE(null(or_threw(month, x))) << "month_period_of " << x;
+    EXPECT_TRUE(null(or_threw(week, x))) << "week_period_of " << x;
+    EXPECT_TRUE(null(or_threw(day, x))) << "day_period_of " << x;
+  }
+  // a date computes as it did
+  EXPECT_EQ(or_threw(age, d, RDFTTYPE(rdf::LDate(rdf::date(2020, 8, 27)))), RDFTTYPE(rdf::LInt32(20)));
+  EXPECT_EQ(or_threw(month, d), RDFTTYPE(rdf::LInt32((2000-1970)*12 + 7)));
+
+  // anything but a date throws in a session's rule, naming its operator, and is null with
+  // no row, as it was; a datetime is not taken, as age_as_of does not take one
+  auto message = [](auto & op, RDFTTYPE v) { return boost::get<rdf::LString>(or_threw(op, v)).data; };
+  RDFTTYPE const text = rdf::LString("2000-07-27");
+  RDFTTYPE const dt = rdf::LDatetime(rdf::parse_datetime("2000-07-27T10:00:00"));
+  for(auto const& v: {text, dt}) {
+    EXPECT_NE(message(ts, v).find("threw: Invalid arguments for to_timestamp:"), std::string::npos) << message(ts, v);
+    EXPECT_NE(message(month, v).find("threw: Invalid arguments for month_period_of:"), std::string::npos) << message(month, v);
+    EXPECT_NE(message(week, v).find("threw: Invalid arguments for week_period_of:"), std::string::npos) << message(week, v);
+    EXPECT_NE(message(day, v).find("threw: Invalid arguments for day_period_of:"), std::string::npos) << message(day, v);
+  }
+  ToTimestampVisitor ts_no_row(nullptr, nullptr);
+  DayPeriodVisitor day_no_row(nullptr, nullptr);
+  EXPECT_TRUE(null(or_threw(ts_no_row, text)));
+  EXPECT_TRUE(null(or_threw(day_no_row, dt)));
 }
 
 

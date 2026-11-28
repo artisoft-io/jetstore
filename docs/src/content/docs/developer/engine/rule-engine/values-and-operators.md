@@ -334,14 +334,37 @@ computes anything different; every other value computes as it did. The rows are 
 | a date or a datetime plus or minus days that land outside 1400-01-01 to 9999-12-31, the dates the engine holds | a date boost could not print or compare reliably | `ArithmeticTypes.DateArithmeticOutOfRangeIsNull` |
 | `age_as_of` and `age_in_months_as_of` of anything but their dates (and, for `age_in_months_as_of`, text that does not read as a date), and `to_text` of a blank node | threw in a session's rule; text that is not a date threw with no row too | `ArithmeticTypes.AgeAndToTextOfWhatTheyDoNotTakeIsNull` |
 
-- **Unsigned integers still wrap**, modulo 2^32 or 2^64: `uint32 5 - 7` is 4294967294, as it was.
-  That is defined in C++ and is not changed here.
-- **A double day count is still truncated toward zero** (`date + 2.9` is two days on), a datetime
-  keeps its time of day, and a date or a datetime *minus* a double is still not an operation, and
-  null, as it was; *plus* a negative double moves back.
+- ~~**Unsigned integers still wrap**, modulo 2^32 or 2^64: `uint32 5 - 7` is 4294967294, as it was.
+  That is defined in C++ and is not changed here.~~ **Unsigned overflow is null too**, since the
+  second change below.
+- **A double day count is still truncated toward zero** (`date + 2.9` is two days on), and a
+  datetime keeps its time of day. ~~A date or a datetime *minus* a double is still not an
+  operation, and null, as it was; *plus* a negative double moves back.~~ **A date or a datetime
+  minus a double moves back**, since the second change below.
 - The helpers are `integer_sum`, `integer_difference`, `integer_product`, `integer_abs`,
   `date_plus_days` and `datetime_plus_days` in `expr_op_arithmetics.h`; the age operators are in
   `expr_op_others.h`.
+
+**Unsigned overflow, a date minus a double, and the date periods — a second change of
+2026-11-27.** Four gaps left by the change above. The rows are in `expr_op_test.cc`:
+
+| Operation | Was | Now | Rows |
+|---|---|---|---|
+| `+ - *` on two unsigned integers (`uint32` or `uint64`) whose result does not fit the left operand's type, also through a mixed integer type: `uint32 5 - 7`, `uint64` max `+ 1`, `uint32 65536 * 65536` | wrapped modulo 2^32 or 2^64: 4294967294, 0, 0 | null, as signed overflow is, so an integer result is the exact value or null whatever its signedness | `ArithmeticTypes.UnsignedOverflowIsNull` |
+| a date or a datetime minus a double | not an operation: null | moves back by the double truncated toward zero, exactly as plus the negated double moves it, a date staying a date and a datetime keeping its time of day; `date - 2.9` is two days back. The limits of plus apply (a NaN, an infinity, a count too large, a date outside 1400-01-01 to 9999-12-31: null). A double minus a date is still null | `ArithmeticTypes.DateMinusADouble` |
+| `day_period_of` | the unix time of the date divided by **84400**, a typing slip for 86400, plus one: it ran ahead of the platform by a day about every 42 days from 1970, skipping an integer each time; 2026-11-27 was 21277 | the unix time divided by 86400, plus one, which is what the platform computes (`CalculatePeriod`, `jets/datatable/source_period.go`) for `source_period.day_period`, `session_registry.day_period` and `$DAY_PERIOD`; 2026-11-27 is 20785 | `DatePeriods.TheyMatchThePlatformsPeriods` |
+| `age_as_of`, `age_in_months_as_of`, `to_timestamp`, `month_period_of`, `week_period_of` and `day_period_of` of a date that is not a date (not-a-date, or an infinity), either operand | `age_as_of`, `age_in_months_as_of` and `month_period_of` threw `std::out_of_range` from boost, which failed the session; the others gave a meaningless number (`to_timestamp` 9223372036854) | null | `DatePeriods.NotADateIsNull` |
+
+- **The three periods are the platform's**, the division truncating toward zero in both
+  languages: `month_period_of` is `(year - 1970) * 12 + month`, `week_period_of` is
+  `unix time / 604800 + 1` and `day_period_of` is `unix time / 86400 + 1`, so 1970-01-01 is month
+  1, week 1 and day 1, and 1969-12-31 is month 0, week 1 and day 0. A rule may compare a date with
+  the session period of the same kind. The month and week periods did not change; the day period
+  changed for every date outside 1969-11-20 to 1970-02-12.
+- **`to_timestamp` and the three periods still take only a date.** A datetime or text throws in
+  a session's rule and is null with no row, as before, because no date-only operator takes a
+  datetime as its date part (`age_as_of` gives null for one). The message now names the operator;
+  three of the four named `month_period_of`.
 
 **Ties in `min_of`, `max_of` and `sorted_head`, and Go's `min_head_of` and `max_head_of`.**
 Among equal values the first met used to win, and the graph's iteration order varies from run to
