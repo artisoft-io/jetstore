@@ -221,6 +221,50 @@ func TestEnsureWithoutAdminOptionOnTheGroups(t *testing.T) {
 	}
 }
 
+// Two test packages under go test -p, interleaved: each package's apiserver is
+// set up (dblogintest.Apiserver), then the second runs Ensure, which creates
+// the group roles if no one has yet, then the first does. The first's user did
+// not create them, and must still be able to grant them: Apiserver gives each
+// apiserver user ADMIN OPTION on the group roles, creating them first when they
+// do not exist, rather than only on those that existed when it ran.
+//
+// On a server where some earlier test made the group roles, granting on the
+// roles that existed was enough too; run alone on a fresh server, the earlier
+// dblogintest failed here with a MissingAdminError.
+func TestEnsureAfterAnotherApiserverCreatedTheGroups(t *testing.T) {
+	ctx := context.Background()
+	admin := superuser(t)
+	first := dblogintest.Apiserver(t, "dbl_first", "dbl_first")
+	second := dblogintest.Apiserver(t, "dbl_second", "dbl_second")
+	for _, user := range []string{dbtest.Name(t, "dbl_first"), dbtest.Name(t, "dbl_second")} {
+		var admins int
+		if err := admin.QueryRow(ctx, `SELECT count(*) FROM pg_auth_members m
+			JOIN pg_roles g ON g.oid = m.roleid JOIN pg_roles r ON r.oid = m.member
+			WHERE r.rolname = $1 AND g.rolname = ANY($2) AND m.admin_option`,
+			user, []string{dblogin.Reader, dblogin.IDE}).Scan(&admins); err != nil {
+			t.Fatal(err)
+		}
+		if admins != 2 {
+			t.Errorf("%s holds ADMIN OPTION on %d of the two group roles once Apiserver has returned", user, admins)
+		}
+	}
+	if err := dblogin.Ensure(ctx, second); err != nil {
+		t.Fatalf("Ensure on the second database: %v", err)
+	}
+	if err := dblogin.Ensure(ctx, first); err != nil {
+		t.Fatalf("Ensure on the first database, after the second's: %v", err)
+	}
+	for _, pool := range []*pgxpool.Pool{first, second} {
+		for _, group := range []string{dblogin.Reader, dblogin.IDE} {
+			login, err := dblogin.Open(ctx, pool, group, 1)
+			if err != nil {
+				t.Fatalf("Open %s: %v", group, err)
+			}
+			login.Close()
+		}
+	}
+}
+
 // superuser is a pool on JETS_TEST_DSN, whose user is a superuser.
 func superuser(t *testing.T) *pgxpool.Pool {
 	t.Helper()
