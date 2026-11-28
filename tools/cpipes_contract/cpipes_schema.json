@@ -4801,22 +4801,17 @@
           "title": "Comment"
         },
         "distinct_on": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
           "description": "Columns forming the composite key rows are distinct on.",
-          "title": "Distinct On"
+          "items": {
+            "type": "string"
+          },
+          "title": "Distinct On",
+          "type": "array"
         }
       },
+      "required": [
+        "distinct_on"
+      ],
       "title": "DistinctSpec",
       "type": "object"
     },
