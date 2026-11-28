@@ -8,8 +8,8 @@ sidebar:
 
 The bundle layer is an authored layer of the compute pipes contract, in three files beside the
 [applicability matrix](/docs/developer/tools/cpipes-contract/matrix/). `bundles.csv` carries
-twenty-three bundles: one per `TransformationSpec` operator, plus `ColumnMapping`,
-`ColumnAggregation`, and the two map-reduce phase bundles. Why the layer exists, and what it was
+twenty-five bundles: one per built-in `TransformationSpec` operator, one for every site operator
+(`SitePipe`), plus `ColumnMapping`, `ColumnAggregation`, and the two map-reduce phase bundles. Why the layer exists, and what it was
 measured to save, is in [Why bundles exist](/docs/developer/tools/cpipes-contract/bundles-design/).
 
 `-` marks not-applicable throughout, consistent with the other matrix sheets.
@@ -50,6 +50,13 @@ semantics the model cannot express, as `constraints.csv` does.
 | `notes` | Audit trail. |
 
 An operator appears once per bundle it joins, so `map_record` may have several rows.
+
+**A site operator's bundle names no site operator.** Its one member is the complement token
+`~site` (`unlisted(type)` in `types.csv`): every type the built-in operators do not name. Its schema
+is the complement branch's, a `type` that is none of the built-ins, so it covers whatever a
+deployment calls its operators, and says how such an operator is configured rather than what it is
+for. Until 2026-11-27 a site operator was in no bundle by decision, and `cpipes-contract bundles`
+failed on every live configuration that used one.
 
 ### Status
 
@@ -103,7 +110,8 @@ bounded.
 
 - **`cpipes-contract bundles`** checks the corpus against the authoring: for every live config, every
   (pipe operator, column operator) pair must be admitted by the authoring, and every operator must
-  belong to at least one bundle. A violation means the authoring is wrong or the config is, and
+  belong to at least one bundle; one that is not a built-in is checked against `SitePipe`. A
+  violation means the authoring is wrong or the config is, and
   `corpus_prod_files` says which of those to believe first.
 - **`test_every_admitted_operator_has_a_bundle`** in `tests_bundles.py` compares the discriminator
   mapping against `bundle_members.csv` and fails on any token in no bundle, which the corpus check

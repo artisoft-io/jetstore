@@ -553,7 +553,7 @@ class InferMappingSpec(_Base):
 
 class InferSpec(_Base):
     """Configuration of the backend-agnostic infer operator: the backend, the model, the prompt and response mapping, the request policy, and each backend's specialized keys."""
-    api: Literal["chat", "completions"] | None = Field(default=None, description="The route to call, passed to the backend: on vllm, chat (/v1/chat/completions) or completions (/v1/completions); on ollama, the ollama api, chat or generate. Engine default: chat (builder).")
+    api: Literal["chat", "completions", "generate"] | None = Field(default=None, description="The route to call, passed to the backend: on vllm, chat (/v1/chat/completions) or completions (/v1/completions); on ollama, the ollama api, chat or generate. Engine default: chat (builder).")
     backend: str | None = Field(default=None, description="Which inference server this step runs against. Engine default: ollama (builder).")
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
     connect_timeout_sec: int | None = Field(default=None, description="Connection and tls handshake timeout. Engine default: 10 (builder).")

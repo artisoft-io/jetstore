@@ -177,7 +177,9 @@ def _bundle_members(matrix: Path | None) -> dict[str, list[str]]:
             base = kind.get(bundle, "")
             if not base:
                 continue
-            camel = "".join(p[:1].upper() + p[1:] for p in token.split("_"))
+            # A virtual token drops its `~`, the matrix's naming rule: `~site` is
+            # `TransformationSpecSite`.
+            camel = "".join(p[:1].upper() + p[1:] for p in token.lstrip("~").split("_"))
             out.setdefault(bundle, []).append(f"{base}{camel}")
     return out
 

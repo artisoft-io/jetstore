@@ -43,7 +43,11 @@ from .template import Hole, _bundle_members
 
 
 def _bundle_tokens(matrix: Path | None) -> dict[str, list[str]]:
-    """Bundle -> the discriminator *values* it admits, which is what a model must emit."""
+    """Bundle -> the discriminator *values* it admits, which is what a model must emit.
+
+    A virtual token (`~site`) is not a value a document can carry, so it is left out:
+    the site bundle admits any value the built-ins do not, and its schema says so.
+    """
     import csv
 
     if matrix is None:
@@ -51,6 +55,8 @@ def _bundle_tokens(matrix: Path | None) -> dict[str, list[str]]:
     out: dict[str, list[str]] = {}
     with open(matrix / "bundle_members.csv", newline="") as fh:
         for row in csv.DictReader(fh):
+            if row["type_token"].startswith("~"):
+                continue
             out.setdefault(row["bundle"], []).append(row["type_token"])
     return out
 
