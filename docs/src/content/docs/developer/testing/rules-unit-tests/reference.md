@@ -112,10 +112,11 @@ start; the line is harmless, and setting the variable removes it.
   integer `0`. It turned off truth maintenance on `exist` and `exist_not` filters, and was deleted with
   the `LEGACY` retraction mode; the engine refuses it at session start too, so a pipeline gets the same
   answer.
-- **`$max_rule_exec` is read by nothing.** The compiler stores it in the workspace's
-  `jetstore_config` and the rule file's `.config.json`, and neither the engine nor the pipeline reads
-  it: `ReteSession::initialize` reads only `jets:max_vertex_visits`, and the pipeline only
-  `$max_looping` (read from the code, 2026-10-22). To set a vertex-visit limit, put
+- **`$max_rule_exec` is a compile error** (since 2026-11-27). It was read by nothing: the compiler
+  stored it in the workspace's `jetstore_config` and the rule file's `.config.json`, and neither the
+  engine nor the pipeline read it, as `ReteSession::initialize` reads only `jets:max_vertex_visits`,
+  and the pipeline only `$max_looping`; the compiler now refuses it, naming the triple (see
+  [How a workspace's rules are compiled](/docs/developer/engine/compiler/compilation/#the-config-block-and-max_rule_exec-refused)). To set a vertex-visit limit, put
   `jets:max_vertex_visits` on `jets:iState` through `rule_config`, as an `int`: the harness asserts
   `rule_config` into the meta graph before the first RDF session opens, and the C++ engine reads it
   from the RDF session when each rete session initialises. **Without it the engine stops at its

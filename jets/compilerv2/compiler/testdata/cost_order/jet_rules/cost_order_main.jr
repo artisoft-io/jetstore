@@ -2,7 +2,6 @@
 # best order is a property of the data, as optimizer_statistics.json describes
 # it, and two the cost order must leave to the score.
 main {
-  $max_rule_exec = 5000,
   $max_looping = 5,
   $input_types = [acme:Claim]
 };
