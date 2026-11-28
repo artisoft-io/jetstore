@@ -1594,7 +1594,7 @@
             }
           ],
           "default": null,
-          "description": "The channel a partial is emitted on, whose channel spec carries the partial columns. Set in partial mode; a merge writes the summary row and takes none.",
+          "description": "The channel a partial is emitted on, whose channel spec carries the partial columns. Set in partial mode; a merge writes the summary row and takes none. Required when: equals(claim_set_summary_config.mode, partial).",
           "title": "Output Channel"
         },
         "type": {
@@ -4801,22 +4801,17 @@
           "title": "Comment"
         },
         "distinct_on": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
           "description": "Columns forming the composite key rows are distinct on.",
-          "title": "Distinct On"
+          "items": {
+            "type": "string"
+          },
+          "title": "Distinct On",
+          "type": "array"
         }
       },
+      "required": [
+        "distinct_on"
+      ],
       "title": "DistinctSpec",
       "type": "object"
     },
@@ -18316,7 +18311,7 @@
             }
           ],
           "default": null,
-          "description": "The channel a partial is emitted on, whose channel spec carries the partial columns. Set in partial mode; a merge writes the summary row and takes none.",
+          "description": "The channel a partial is emitted on, whose channel spec carries the partial columns. Set in partial mode; a merge writes the summary row and takes none. Required when: equals(claim_set_summary_config.mode, partial).",
           "title": "Output Channel"
         },
         "type": {

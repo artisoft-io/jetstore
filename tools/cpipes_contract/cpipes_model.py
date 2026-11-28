@@ -364,7 +364,7 @@ class DateFormatLookupSpec(_Base):
 class DistinctSpec(_Base):
     """Configuration for the distinct transformation operator: specify the composite key."""
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
-    distinct_on: list[str] | None = Field(default=None, description="Columns forming the composite key rows are distinct on.")
+    distinct_on: list[str] = Field(description="Columns forming the composite key rows are distinct on.")
 
 
 class DomainKeyInfo(_Base):
@@ -1622,7 +1622,7 @@ class TransformationSpecClaimSetSummary(TransformationSpecBase):
     """Summarises a delivery's claim records into its claim-set summary row, read by the feed detection: one partial per node of a step sharded by member, then a merge of the partials on one node, which writes the row."""
     type: Literal["claim_set_summary"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.")
     claim_set_summary_config: ClaimSetSummarySpec = Field(description="Configuration of the claim_set_summary operator: its mode.")
-    output_channel: OutputChannelConfig | None = Field(default=None, description="The channel a partial is emitted on, whose channel spec carries the partial columns. Set in partial mode; a merge writes the summary row and takes none.")
+    output_channel: OutputChannelConfig | None = Field(default=None, description="The channel a partial is emitted on, whose channel spec carries the partial columns. Set in partial mode; a merge writes the summary row and takes none. Required when: equals(claim_set_summary_config.mode, partial).")
 
 
 class TransformationSpecOverride(_Base):

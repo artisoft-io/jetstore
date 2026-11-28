@@ -929,7 +929,7 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 	if err := validateLatestSessionOnly(cpConfig); err != nil {
 		return err
 	}
-	if err := firstError(validateNoGoEngine(cpConfig), validateOutputTableColumnTypes(cpConfig)); err != nil {
+	if err := firstError(validateNoGoEngine(cpConfig), validateOutputTableColumnTypes(cpConfig), validateDistinctOn(cpConfig)); err != nil {
 		return err
 	}
 	for i := range pipeConfig {

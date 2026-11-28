@@ -139,7 +139,8 @@ output table column whose `rdf_type` is not in the
 the start makes of the whole definition before any step runs (an empty conditional step, a
 `column_encodings` entry with no column, a text template that does not compile or whose key is used
 twice, a writer setting on an input channel, `latest_session_only` on a channel that does not read a
-staged `file_key`, or `use_jet_rules_go: true`). A page of `docs/`
+staged `file_key`, `use_jet_rules_go: true`, or a `distinct` step whose `distinct_on` names no
+column). A page of `docs/`
 is refused when the documentation build would refuse it for its front matter: none, YAML that does not
 parse, or no `title`, `description` or `kind` (one of `tutorial`, `how-to`, `reference`,
 `explanation` or `overview`). The editor shows a page's front matter, its opening `---` block, as

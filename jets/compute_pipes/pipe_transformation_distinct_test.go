@@ -1,8 +1,10 @@
 package compute_pipes
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -168,6 +170,61 @@ func TestDistinctUnknownColumnIsRefused(t *testing.T) {
 		&TransformationSpec{Type: "distinct", DistinctConfig: &DistinctSpec{DistinctOn: []string{"z"}}})
 	if err == nil {
 		t.Fatal("distinct_on naming a column the input channel does not have was accepted")
+	}
+}
+
+// With no distinct_on every record has the same key and only the first would
+// be kept, so the builder refuses it, naming the channel it reads.
+func TestDistinctEmptyKeyIsRefused(t *testing.T) {
+	colMap := map[string]int{"a": 0}
+	ctx := &BuilderContext{done: make(chan struct{})}
+	for _, config := range []*DistinctSpec{{}, {DistinctOn: []string{}}} {
+		_, err := ctx.NewDistinctTransformationPipe(
+			&InputChannel{Name: "in", Columns: &colMap, Config: &ChannelSpec{Columns: []string{"a"}}},
+			&OutputChannel{},
+			&TransformationSpec{Type: "distinct", DistinctConfig: config})
+		if err == nil || !strings.Contains(err.Error(), "'in'") || !strings.Contains(err.Error(), "distinct_on") {
+			t.Errorf("an empty distinct_on: %v", err)
+		}
+	}
+}
+
+// The start refuses a distinct step that is certain to have no distinct_on,
+// naming the step, and reads a conditional_config override with its host as
+// MergeTransformationSpec applies it.
+func TestValidateDistinctOn(t *testing.T) {
+	for what, c := range map[string]struct {
+		apply  string
+		refuse string // the site the message names, or "" when accepted
+	}{
+		"a distinct_on":        {`{"type": "distinct", "distinct_config": {"distinct_on": ["a"]}}`, ""},
+		"an empty distinct_on": {`{"type": "distinct", "distinct_config": {"distinct_on": []}}`, `(step_name "s"), pipe 0, apply 0 is`},
+		"no distinct_config":   {`{"type": "distinct"}`, `(step_name "s"), pipe 0, apply 0 is`},
+		"not a distinct step":  {`{"type": "map_record", "distinct_config": {}}`, ""},
+		"supplied by an override": {`{"type": "distinct", "conditional_config": [{"when": {"type": "value", "expr": "1"},
+		  "then": {"distinct_config": {"distinct_on": ["a"]}}}]}`, ""},
+		"an override with an empty distinct_on": {`{"type": "distinct", "distinct_config": {"distinct_on": ["a"]},
+		  "conditional_config": [{"then": {"distinct_config": {"distinct_on": []}}}]}`, "apply 0, conditional_config[0] is"},
+		"an override that becomes a distinct with none": {`{"type": "map_record",
+		  "conditional_config": [{"then": {"type": "distinct"}}]}`, "apply 0, conditional_config[0] is"},
+		"a host with none, overridden only by another operator": {`{"type": "distinct",
+		  "conditional_config": [{"then": {"type": "map_record"}}]}`, `(step_name "s"), pipe 0, apply 0 is`},
+		"an override of another operator's config": {`{"type": "map_record",
+		  "conditional_config": [{"then": {"distinct_config": {}}}]}`, ""},
+	} {
+		content := `{"cluster_config": {}, "conditional_pipes_config": [{"step_name": "s", "pipes_config": [{"type": "fan_out",
+		  "input_channel": {"type": "input", "name": "input_row"}, "apply": [` + c.apply + `]}]}]}`
+		var cfg ComputePipesConfig
+		if err := json.Unmarshal([]byte(content), &cfg); err != nil {
+			t.Fatalf("%s: %v", what, err)
+		}
+		err := validateDistinctOn(&cfg)
+		switch {
+		case c.refuse == "" && err != nil:
+			t.Errorf("%s: refused: %v", what, err)
+		case c.refuse != "" && (err == nil || !strings.Contains(err.Error(), c.refuse)):
+			t.Errorf("%s: %v, want a refusal naming %q", what, err, c.refuse)
+		}
 	}
 }
 
