@@ -1245,10 +1245,12 @@ func (ctx *DataTableContext) ProcessCoordinatorMapRegisterSchemaEvent(dbpool *pg
 			return fmt.Errorf("coordinator map %s: step %d: %v", requestId, i+1, err)
 		}
 	}
-	// The schema's default for status is 'in-progress'; this has always written
-	// 'in_progress', and only 'failed' is ever compared.
-	stmt := `INSERT INTO jetsapi.pipeline_coordinator_map (request_id, status, nbr_tasks, schema_provider_json) VALUES ($1, 'in_progress', $2, $3)`
-	_, err := dbpool.Exec(context.Background(), stmt, requestId, len(coordinatedPipesMap), postMapEventJson)
+	// The map is 'registering' until every step is registered, so that its post
+	// map pipeline does not start while a step is still to register, however
+	// fast the runs of the steps before it finish (startPostMapWhenDone). The
+	// schema's default for status is 'in-progress', which nothing writes.
+	stmt := `INSERT INTO jetsapi.pipeline_coordinator_map (request_id, status, nbr_tasks, schema_provider_json) VALUES ($1, 'registering', 0, $2)`
+	_, err := dbpool.Exec(context.Background(), stmt, requestId, postMapEventJson)
 	if err != nil {
 		return fmt.Errorf("while inserting into pipeline_coordinator_map: %v", err)
 	}
@@ -1270,7 +1272,7 @@ func (ctx *DataTableContext) ProcessCoordinatorMapRegisterSchemaEvent(dbpool *pg
 				CpipesEnv:                step.Env,
 				NotifyApiGatewayOverride: step.NotifyApiGatewayOverride,
 			}
-			if ferr := failPipelineCoordinatorMap(dbpool, requestId, notice.SessionId, "in_progress",
+			if ferr := failPipelineCoordinatorMap(dbpool, requestId, notice.SessionId, "registering",
 				postMapEventJson, notice); ferr != nil {
 				log.Printf("while failing coordinator map %s: %v", requestId, ferr)
 			}
@@ -1278,7 +1280,22 @@ func (ctx *DataTableContext) ProcessCoordinatorMapRegisterSchemaEvent(dbpool *pg
 		}
 	}
 
-	return nil
+	// Every step is registered: record how many runs they started, open the map
+	// to its runs, and start the post map pipeline if they have all finished
+	// already, or if the steps started none. A map a run failed meanwhile is
+	// failed and stays so.
+	runs, err := mapRuns(dbpool, requestId)
+	if err != nil {
+		return err
+	}
+	_, err = dbpool.Exec(context.Background(),
+		`UPDATE jetsapi.pipeline_coordinator_map SET status = 'in_progress', nbr_tasks = $2
+		 WHERE request_id = $1 AND status = 'registering'`, requestId, len(runs))
+	if err != nil {
+		return fmt.Errorf("coordinator map %s: while opening it to its runs: %v", requestId, err)
+	}
+	log.Printf("coordinator map %s: %d steps registered, starting %d runs", requestId, len(coordinatedPipesMap), len(runs))
+	return startPostMapWhenDone(dbpool, requestId, "")
 }
 
 // checkCoordinatedStep is what a coordinator map's step needs to register, checked

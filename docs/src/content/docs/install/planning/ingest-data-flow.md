@@ -136,6 +136,18 @@ not parse is logged with its value. Until release 4.1.25 such an event registere
 whatever its key carried. **A schema event that registers nothing is an error**, naming the reason,
 where a file-key row that registers nothing is not.
 
+**A `pipeline_coordinator_map` event** registers each of its `coordinated_pipes_map` steps as a schema
+event and starts its `post_map_event` once **every run the steps started has finished**: the runs
+whose main input's `schema_provider_json` carries the map's `request_id`
+(`startPostMapWhenDone`, `jets/datatable/pipeline_coordinator.go`). A step starts one run per
+automated pipeline configuration on each of its source's domain keys, so two runs, or none; the map
+waits for all of them, and a map whose steps start no run starts its post map event when its
+registration ends. The map row is `registering` until its last step is registered, then
+`in_progress`, with `nbr_tasks` the number of runs started; a run that fails, or ends interrupted,
+fails the map and the post map event does not start. Until release 4.1.25 the post map event started
+when the number of finished runs reached the number of steps, so a step with two runs started it
+early and a step with none left it waiting for ever.
+
 **4 — Every row is read before any is written.** `RegisterFileKeys`
 (`jets/datatable/register_file_key_action.go`) first passes every row of the request through
 `readRegisterFileKeyRow`, which copies only the keys `RegisterFileKeys` reads
