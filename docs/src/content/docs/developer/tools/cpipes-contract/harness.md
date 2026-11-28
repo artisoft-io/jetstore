@@ -30,7 +30,8 @@ the observation the harness exists to make.
 config from the matrix alone**:
 
 - the target's required fields, and the conditional ones whose `required_when` holds in the minimal
-  context;
+  context, evaluated after the unconditional ones so that an `equals(k, v)` clause reads the value
+  the synthesis gave `k` (the first of its `values`);
 - values taken from `values`, `default` or a neutral fill;
 - embedded at a position found by walking the matrix's own `ref_struct` graph from
   `ComputePipesConfig/*`, the same graph the corpus walker descends, in the other direction.
@@ -48,7 +49,9 @@ reason:
   a transformation, `value` for an expression);
 - which token is position-bound (`TOKEN_ONLY_VIA`: `~override` means override only at
   `conditional_config.N.then`; anywhere else a type-less spec is just invalid);
-- the reference wiring above.
+- the reference wiring above, and the columns an operator requires of the channel spec its output
+  channel names (`OUTPUT_CHANNEL_COLUMNS`: a claim_set_summary step in partial mode refuses a spec
+  without the partial record's columns).
 
 A hint never substitutes for a missing `required` claim: when the matrix under-declares a type, its
 minimal config is rejected and that is reported as a finding, not papered over. The findings *are* the
@@ -135,3 +138,15 @@ at startup as they were, and were deleted on 2026-08-16 with a fourth (see
 [How the matrix was built](/docs/developer/tools/cpipes-contract/matrix-findings/#the-corpus-as-measured-on-2026-08-16)).
 Every remaining file decodes; the remaining rejections are the environment-variable limit, which is
 the harness's, not the corpus's.
+
+## A requirement on a value, 2026-11-27
+
+The `claim_set_summary` operator runs in two modes, and its output channel is required in one and
+refused in the other: a partial emits its record on it, and a merge writes the summary row and takes
+none (`validateClaimSetSummarySpec`). `present` and `absent` could not say that, so the row read
+`required=no`, the synthesis left the channel out of the partial it built, and the validator rejected
+the minimal configuration of both `TransformationSpec/claim_set_summary` and `ClaimSetSummarySpec/*`.
+`required_when` gained a third clause, `equals(k, v)`, and the row now reads
+`equals(claim_set_summary_config.mode, partial)`. The minimal partial configuration is accepted, and
+so is the minimal merge one, built with the mode set to `merge`, which leaves the channel out;
+removing the channel from the partial, or adding one to the merge, is rejected.

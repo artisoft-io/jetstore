@@ -145,7 +145,7 @@ The columns marked **+** were added to the original column list during the desig
 | `applicable` | Does this field mean anything for this type token? `applicable=no` is the row that drives the `if`/`then` overlay's prohibitions. |
 | **+** `deprecated` | Superseded but still valid. **A third axis, not a state of `applicable`**: a deprecated field is applicable, is present in the corpus, and must still validate, three things `applicable=no` denies. What it must not do is appear in the fragment library or in anything a model is prompted to produce. `reducing_pipes_config` is the known case; the check rejects `deprecated=yes` with `applicable=no` as two different claims conflated. |
 | `required` | **Three states, not two:** `yes`, `no`, `conditional`, plus `na` when the field is inapplicable. |
-| **+** `required_when` | The condition, set exactly when `required` is `conditional`. `absent(output_channel.schema_provider)`. |
+| **+** `required_when` | The condition, set exactly when `required` is `conditional`: one or more clauses joined by ` and `. `present(k)` holds when the json key `k` is set and not empty, `absent(k)` when it is missing, null or empty, and `equals(k, v)` when it is set to the value `v` as JSON writes it (`partial`, `true`, `3`). A key may be dotted into a child object, and its head is read from the innermost enclosing struct that declares it, so a row can test a field of the struct that holds it: `absent(output_channel.schema_provider)` on a partition writer's row, `equals(claim_set_summary_config.mode, partial)` on a claim_set_summary step's `output_channel`. |
 | `default` | The literal applied when the field is absent, or `-`. A value the builder *forces*, writing it whatever the author put there, is not a default and belongs in `notes`; the row is `applicable=no`, and `TransformationSpec/ollama.new_record` is the case. |
 | **+** `default_by` | `validator`, `builder` or `none`. This decides who can observe the default: the config validator mutates its input, so a default it applies is already in the config by the time the harness looks; one the operator builder applies is invisible both at config level and to the schema. `pool_size` is applied by both. |
 | `evidence` | `validator`, `builder`, `corpus`, `generator`, `comment`, in that order of authority. **`reviewed` and `unreviewed` are not values here**; see `review`. |
@@ -172,7 +172,7 @@ the rest into claims one row at a time.
 ### Coherence rules the check enforces
 
 - `required = na` exactly when `applicable = no`.
-- `required_when` set exactly when `required = conditional`.
+- `required_when` set exactly when `required = conditional`, and inside the grammar above.
 - `default_by = none` exactly when `default = -`.
 - An inapplicable field has no default.
 - An object field names a `ref_struct`; a scalar or `raw_json` field does not.
