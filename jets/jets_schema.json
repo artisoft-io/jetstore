@@ -1561,7 +1561,8 @@
       {
         "columnName": "status",
         "dataType": "text",
-        "default": "'in-progress'",
+        "default": "'registering'",
+        "description": "registering while the map's steps register, then in_progress, or failed (jets/datatable, ProcessCoordinatorMapRegisterSchemaEvent). Every writer names it; until release 4.1.25 the default was 'in-progress', a value no code writes or reads, and a database created before then keeps that default, which nothing relies on",
         "isNotNull": true
       },
       {

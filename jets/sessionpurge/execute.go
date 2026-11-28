@@ -491,6 +491,12 @@ func deleteRows(ctx context.Context, tx pgx.Tx, r *Request, tables []table, clai
 	if res.purgedDeliveries, err = recordPurgedDeliveries(ctx, tx, r); err != nil {
 		return res, err
 	}
+	// Before they are marked or deleted: the coordinator requests the session's
+	// registrations name, whose map and lock may go with them (below).
+	registered, err := registeredRequests(ctx, tx, r.SessionID)
+	if err != nil {
+		return res, err
+	}
 	res.marked = map[string]int64{}
 	for _, t := range tables {
 		if t.mark {
@@ -509,42 +515,65 @@ func deleteRows(ctx context.Context, tx pgx.Tx, r *Request, tables []table, clai
 	// The coordinator tables. The session's lock and item rows go; a request's map
 	// row goes only when the last of its items has gone, so a request shared with
 	// a live session keeps its map row, and one whose sessions are all deleted loses
-	// it with the last of them.
+	// it with the last of them. A finished request's map and lock rows also go
+	// once nothing of it is left (finishedRequestsStmt).
+	requests, err := touchedRequests(ctx, tx, r.SessionID, registered)
+	if err != nil {
+		return res, err
+	}
+	// The map and lock rows of the requests the session touches are locked before
+	// its rows go, in request order, so that two executors deleting the last two
+	// sessions of one request take them one after the other: the second waits here,
+	// and its NOT EXISTS below, a new statement, sees the first one's rows gone.
+	// Without the lock each saw the other's item, or registration, still there and
+	// both kept the map row. Not in a dry run (claim false), which commits nothing
+	// for another to miss.
+	if claim && len(requests) > 0 {
+		for _, stmt := range []string{
+			`SELECT request_id FROM jetsapi.pipeline_coordinator_map WHERE request_id = ANY($1::text[])
+				ORDER BY request_id FOR UPDATE`,
+			`SELECT request_id FROM jetsapi.pipeline_coordinator_lock WHERE request_id = ANY($1::text[])
+				ORDER BY request_id FOR UPDATE`,
+		} {
+			if _, err = tx.Exec(ctx, stmt, requests); err != nil {
+				return res, fmt.Errorf("while locking the coordinator rows: %w", err)
+			}
+		}
+	}
 	if err = exec("jetsapi.pipeline_coordinator_lock",
 		`DELETE FROM jetsapi.pipeline_coordinator_lock WHERE session_id = $1`, r.SessionID); err != nil {
 		return res, err
-	}
-	// The map rows of the session's requests are locked before its items go, in
-	// request order, so that two executors deleting the last two sessions of one
-	// request take them one after the other: the second waits here, and its
-	// NOT EXISTS below, a new statement, sees the first one's items gone. Without
-	// the lock each saw the other's item still there and both kept the map row.
-	// Not in a dry run (claim false), which commits nothing for another to miss.
-	if claim {
-		if _, err = tx.Exec(ctx, `SELECT m.request_id FROM jetsapi.pipeline_coordinator_map m
-			WHERE m.request_id IN (SELECT i.request_id FROM jetsapi.pipeline_coordinator_map_items i WHERE i.session_id = $1)
-			ORDER BY m.request_id FOR UPDATE OF m`, r.SessionID); err != nil {
-			return res, fmt.Errorf("while locking the coordinator map rows: %w", err)
-		}
 	}
 	rows, err := tx.Query(ctx, `DELETE FROM jetsapi.pipeline_coordinator_map_items WHERE session_id = $1
 		RETURNING request_id`, r.SessionID)
 	if err != nil {
 		return res, fmt.Errorf("on jetsapi.pipeline_coordinator_map_items: %w", err)
 	}
-	requests, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	itemRequests, err := pgx.CollectRows(rows, pgx.RowTo[string])
 	if err != nil {
 		return res, fmt.Errorf("on jetsapi.pipeline_coordinator_map_items: %w", err)
 	}
-	res.rows["jetsapi.pipeline_coordinator_map_items"] += int64(len(requests))
+	res.rows["jetsapi.pipeline_coordinator_map_items"] += int64(len(itemRequests))
 	res.rows["jetsapi.pipeline_coordinator_map"] += 0 // reported, as every table is, when nothing goes
-	if len(requests) > 0 {
+	if len(itemRequests) > 0 {
 		if err = exec("jetsapi.pipeline_coordinator_map", `DELETE FROM jetsapi.pipeline_coordinator_map m
 			WHERE m.request_id = ANY($1::text[])
 				AND NOT EXISTS (SELECT 1 FROM jetsapi.pipeline_coordinator_map_items i WHERE i.request_id = m.request_id)`,
-			requests); err != nil {
+			itemRequests); err != nil {
 			return res, err
 		}
+	}
+	if len(requests) > 0 {
+		stmt, err := finishedRequestsStmt(ctx, tx)
+		if err != nil {
+			return res, err
+		}
+		var locks, maps int64
+		if err = tx.QueryRow(ctx, stmt, requests).Scan(&locks, &maps); err != nil {
+			return res, fmt.Errorf("while deleting the finished coordinator requests: %w", err)
+		}
+		res.rows["jetsapi.pipeline_coordinator_lock"] += locks
+		res.rows["jetsapi.pipeline_coordinator_map"] += maps
 	}
 	// The session's runs move to the archive with their key.
 	if err = exec(ArchiveTable, archiveStmt, r.SessionID, string(r.Reason)); err != nil {

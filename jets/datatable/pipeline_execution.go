@@ -1248,7 +1248,9 @@ func (ctx *DataTableContext) ProcessCoordinatorMapRegisterSchemaEvent(dbpool *pg
 	// The map is 'registering' until every step is registered, so that its post
 	// map pipeline does not start while a step is still to register, however
 	// fast the runs of the steps before it finish (startPostMapWhenDone). The
-	// schema's default for status is 'in-progress', which nothing writes.
+	// schema's default for status is 'registering' since release 4.1.25; it was
+	// 'in-progress', which nothing writes, and update_db leaves an existing
+	// column's default as it is, so every writer names the status.
 	stmt := `INSERT INTO jetsapi.pipeline_coordinator_map (request_id, status, nbr_tasks, schema_provider_json) VALUES ($1, 'registering', 0, $2)`
 	_, err := dbpool.Exec(context.Background(), stmt, requestId, postMapEventJson)
 	if err != nil {

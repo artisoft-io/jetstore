@@ -69,8 +69,10 @@ func (ca *StatusUpdate) updatePipelineCoordinator(sessionId string, schemaProvid
 	default:
 		// Record the task, then start the post map pipeline if this was the
 		// map's last run to finish. Whether it was is read from the runs'
-		// statuses, this run's included: CoordinateWork wrote it before calling
-		// here (startPostMapWhenDone).
+		// recorded completions, this run's included: the row inserted here
+		// (startPostMapWhenDone). CoordinateWork calls here after registering
+		// the run's outputs, so a chained run they start is already a run of
+		// the map.
 		stmt := `INSERT INTO jetsapi.pipeline_coordinator_map_items (request_id, session_id) VALUES ($1, $2)`
 		_, err = ca.Dbpool.Exec(context.Background(), stmt, schemaProvider.RequestID, sessionId)
 		if err != nil {
@@ -96,10 +98,23 @@ func (ca *StatusUpdate) updatePipelineCoordinator(sessionId string, schemaProvid
 // left it waiting for ever. nbr_tasks is now the number of runs the map's
 // registration started, written when the registration ends; it is a record, and
 // nothing waits on it.
+//
+// A run of the map has finished when its completion is recorded, as its
+// pipeline_coordinator_map_items row, or when it failed or ended interrupted,
+// which fails the map. Its status alone is not enough: CoordinateWork writes a
+// run's status first and registers its outputs after, and an output registered
+// with the run's schema provider (${REGISTER_DB_TABLE}) starts a chained run of
+// the same map. Until release 4.1.25 the run was finished once its status was,
+// so a sibling run completing in that interval, or the run itself when it was the
+// map's last, started the post map pipeline before the chained run existed.
+// CoordinateWork now records the completion after the outputs are registered, so
+// the chained run's row is there before its parent counts as finished.
 
-// mapRun is a run of a coordinator map: its session and status.
+// mapRun is a run of a coordinator map: its session, its status, and whether
+// its completion is recorded in pipeline_coordinator_map_items.
 type mapRun struct {
 	sessionId, status string
+	recorded          bool
 }
 
 // mapRuns is every run of the map requestId, in the order they were started.
@@ -108,7 +123,9 @@ func mapRuns(dbpool *pgxpool.Pool, requestId string) ([]mapRun, error) {
 	// request at all; the JSON decides, as SchemaProviderShort reads it for
 	// updatePipelineCoordinator.
 	rows, err := dbpool.Query(context.Background(), `
-		SELECT pe.session_id, pe.status, ir.schema_provider_json
+		SELECT pe.session_id, pe.status, ir.schema_provider_json,
+			EXISTS (SELECT 1 FROM jetsapi.pipeline_coordinator_map_items mi
+				WHERE mi.request_id = $1 AND mi.session_id = pe.session_id)
 		FROM jetsapi.pipeline_execution_status pe
 		JOIN jetsapi.input_registry ir ON ir.key = pe.main_input_registry_key
 		WHERE strpos(ir.schema_provider_json, $1) > 0
@@ -121,7 +138,7 @@ func mapRuns(dbpool *pgxpool.Pool, requestId string) ([]mapRun, error) {
 	for rows.Next() {
 		var r mapRun
 		var spJson string
-		if err := rows.Scan(&r.sessionId, &r.status, &spJson); err != nil {
+		if err := rows.Scan(&r.sessionId, &r.status, &spJson, &r.recorded); err != nil {
 			return nil, fmt.Errorf("while reading the runs of coordinator map %s: %v", requestId, err)
 		}
 		var sp SchemaProviderShort
@@ -133,9 +150,10 @@ func mapRuns(dbpool *pgxpool.Pool, requestId string) ([]mapRun, error) {
 	return runs, rows.Err()
 }
 
-// runFinished reports whether a run with status has ended, usable or not.
-func runFinished(status string) bool {
-	return outputsAreUsable(status) || status == "failed" || status == "interrupted"
+// finished reports whether the run has ended for its map: its completion is
+// recorded (updatePipelineCoordinator), or it failed or ended interrupted.
+func (r mapRun) finished() bool {
+	return r.recorded || r.status == "failed" || r.status == "interrupted"
 }
 
 // startPostMapWhenDone starts the post map pipeline of the map requestId when
@@ -165,7 +183,7 @@ func startPostMapWhenDone(dbpool *pgxpool.Pool, requestId, sessionId string) err
 	}
 	running := 0
 	for _, r := range runs {
-		if !runFinished(r.status) {
+		if !r.finished() {
 			running++
 		}
 	}

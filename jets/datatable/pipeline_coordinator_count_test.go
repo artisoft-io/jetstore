@@ -27,6 +27,7 @@ import (
 	"testing"
 
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // coordinatorCountFixture is coordinatorMapFixture with pipeline_execution_status,
@@ -193,5 +194,152 @@ func TestCoordinatorMapRunCompletingDuringRegistration(t *testing.T) {
 	}
 	if locked, items, nbrTasks := mapLocked(t, ctx, "req-during"); !locked || items != 1 || nbrTasks != 1 {
 		t.Errorf("after the registration: locked %v, items %d, nbr_tasks %d; want true, 1, 1", locked, items, nbrTasks)
+	}
+}
+
+// A chained run: a run of a map that registers its db_table output with its
+// own schema provider (${REGISTER_DB_TABLE}) starts, on that registration, a
+// run of the same map. CoordinateWork wrote the parent's status, updated the
+// map and only then registered the output, and the map counted a run as
+// finished by its status. So when the parent was the map's last run the post
+// map pipeline started before the chained run existed, and a sibling run
+// completing while the parent registered its output started it too. Both tests
+// below failed so; the map now counts a run as finished when its completion is
+// recorded, which CoordinateWork does after registering the outputs.
+//
+// They drive CoordinateWork itself, on the fixture of
+// status_update_manifest_test.go, with the pipeline start stubbed to insert the
+// chained run's status row.
+
+// chainedMapFixture is the tables CoordinateWork touches with the coordinator's,
+// and the map requestId, open to its runs and with no post map event, so its
+// lock is taken where the post map pipeline would start and nothing is uploaded.
+func chainedMapFixture(t *testing.T, requestId string) *pgxpool.Pool {
+	t.Helper()
+	pool := widenedTestPool(t, append(manifestRunTables,
+		"pipeline_coordinator_map", "pipeline_coordinator_map_items", "pipeline_coordinator_lock")...)
+	withNoManifestUpload(t)
+	if _, err := pool.Exec(context.Background(), `INSERT INTO jetsapi.pipeline_coordinator_map
+		(request_id, status, nbr_tasks, schema_provider_json) VALUES ($1, 'in_progress', 0, '')`, requestId); err != nil {
+		t.Fatalf("pipeline_coordinator_map: %v", err)
+	}
+	t.Cleanup(func() { startPipelinesOverride = nil })
+	return pool
+}
+
+// seedMapRun seeds a submitted run of the map requestId, its main input carrying
+// the request, and returns its key.
+func seedMapRun(t *testing.T, pool *pgxpool.Pool, requestId, sessionId string) int {
+	t.Helper()
+	peKey := seedRun(t, pool, sessionId, []string{"completed"})
+	if _, err := pool.Exec(context.Background(), `UPDATE jetsapi.input_registry SET schema_provider_json = $1
+		WHERE session_id = $2`, `{"request_id": "`+requestId+`"}`, sessionId); err != nil {
+		t.Fatalf("input_registry: %v", err)
+	}
+	return peKey
+}
+
+// finishRun is the status update of run peKey, completed. With chain the run
+// registers its db_table output, which starts the chained run.
+func finishRun(t *testing.T, pool *pgxpool.Pool, peKey int, sessionId string, chain bool) {
+	t.Helper()
+	env := map[string]any{}
+	if chain {
+		env = map[string]any{
+			"${REGISTER_DB_TABLE}": 1, "$CLIENT": "acme", "$ORG": "", "${DB_TABLE_OBJ_TYPE}": "claim_summary",
+			"$SESSIONID": sessionId, "$YEAR": 2026, "$MONTH": 9, "$DAY": 21, "${TABLE_NAME}": "claims_summary",
+		}
+	}
+	ca := &StatusUpdate{CpipesMode: true, CpipesEnv: env, Dbpool: pool, PeKey: peKey,
+		Status: "completed", FileKey: "in/claims.csv"}
+	if err := ca.CoordinateWork(); err != nil {
+		t.Fatalf("CoordinateWork for run %d: %v", peKey, err)
+	}
+}
+
+// startsChainedRun stubs the pipeline start: on the db_table registration it
+// calls during, then inserts the chained run on that registration, as a
+// submitted run of session child. It returns the chained run's key, 0 until it
+// is started.
+func startsChainedRun(t *testing.T, child string, during func()) func() int {
+	t.Helper()
+	var key int
+	startPipelinesOverride = func(c *DataTableContext, irKey, spKey int, inputSessionId, client, objectType,
+		fileKey, token string, skipStarted bool) error {
+		if objectType != "claim_summary" {
+			return nil
+		}
+		if during != nil {
+			during()
+		}
+		if err := c.Dbpool.QueryRow(context.Background(), `INSERT INTO jetsapi.pipeline_execution_status
+			(pipeline_config_key, main_input_registry_key, merged_input_registry_keys, client, process_name,
+			 main_object_type, input_session_id, session_id, source_period_key, status, user_email)
+			VALUES (2, $1, '{}', $2, 'myprocess', $3, $4, $5, $6, 'submitted', 'system')
+			RETURNING key`, irKey, client, objectType, inputSessionId, child, spKey).Scan(&key); err != nil {
+			t.Errorf("starting the chained run: %v", err)
+			return err
+		}
+		return nil
+	}
+	return func() int { return key }
+}
+
+func lockTaken(t *testing.T, pool *pgxpool.Pool, requestId string) bool {
+	t.Helper()
+	var locked bool
+	if err := pool.QueryRow(context.Background(), `SELECT EXISTS (SELECT 1 FROM jetsapi.pipeline_coordinator_lock
+		WHERE request_id = $1)`, requestId).Scan(&locked); err != nil {
+		t.Fatal(err)
+	}
+	return locked
+}
+
+// The parent is the map's last run, and its chained run is inserted after the
+// parent's status is written: the post map pipeline waits for the chained run.
+func TestCoordinatorMapWaitsForTheChainedRunOfItsLastRun(t *testing.T) {
+	pool := chainedMapFixture(t, "req-chain")
+	parent := seedMapRun(t, pool, "req-chain", "chain-parent")
+	child := startsChainedRun(t, "chain-child", nil)
+
+	finishRun(t, pool, parent, "chain-parent", true)
+	if child() == 0 {
+		t.Fatal("the parent's db_table registration started no chained run")
+	}
+	if lockTaken(t, pool, "req-chain") {
+		t.Fatal("the post map pipeline started with the chained run still running")
+	}
+	finishRun(t, pool, child(), "chain-child", false)
+	if !lockTaken(t, pool, "req-chain") {
+		t.Error("the chained run completed and the post map pipeline did not start")
+	}
+}
+
+// A sibling run completes while the parent registers the output that starts its
+// chained run, so after the parent's status is written and before the chained
+// run exists: the post map pipeline waits for the parent and the chained run.
+func TestCoordinatorMapSiblingCompletingBeforeTheChainedRunExists(t *testing.T) {
+	pool := chainedMapFixture(t, "req-sibling")
+	parent := seedMapRun(t, pool, "req-sibling", "sibling-parent")
+	sibling := seedMapRun(t, pool, "req-sibling", "sibling-other")
+	var lockedMidway bool
+	child := startsChainedRun(t, "sibling-child", func() {
+		finishRun(t, pool, sibling, "sibling-other", false)
+		lockedMidway = lockTaken(t, pool, "req-sibling")
+	})
+
+	finishRun(t, pool, parent, "sibling-parent", true)
+	if lockedMidway {
+		t.Error("the post map pipeline started when the sibling completed, before the chained run existed")
+	}
+	if child() == 0 {
+		t.Fatal("the parent's db_table registration started no chained run")
+	}
+	if lockTaken(t, pool, "req-sibling") {
+		t.Fatal("the post map pipeline started with the chained run still running")
+	}
+	finishRun(t, pool, child(), "sibling-child", false)
+	if !lockTaken(t, pool, "req-sibling") {
+		t.Error("every run completed and the post map pipeline did not start")
 	}
 }
