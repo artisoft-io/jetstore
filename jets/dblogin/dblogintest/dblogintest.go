@@ -22,20 +22,29 @@
 //
 // # Running in any order
 //
-// The restricted group roles and their logins (dblogin.Reader, dblogin.IDE)
-// are cluster-wide, and whichever test reaches dblogin.Ensure first creates
-// them, as its own apiserver user. A user that holds CREATEROLE and is not a
-// superuser may grant, alter or drop only a role it has ADMIN OPTION on, so an
-// apiserver that did not create them would fail with "permission denied to
-// grant role". Apiserver gives it ADMIN OPTION on every one that exists: the
-// standing a deployment's master user has over the roles it created.
+// The restricted group roles (dblogin.Reader, dblogin.IDE) are cluster-wide
+// and shared by every test package; their logins are per database. A user that
+// holds CREATEROLE and is not a superuser may grant, alter or drop only a role
+// it has ADMIN OPTION on, so an apiserver user that did not create the group
+// roles fails dblogin.Ensure with a dblogin.MissingAdminError. Apiserver
+// therefore creates the group roles, as the server's superuser, when they do
+// not exist yet, and gives its user ADMIN OPTION on them: what an operator does
+// for a second JetStore database on a cluster, with the GRANT that error
+// names. Its user creates its own database's logins, and so holds ADMIN OPTION
+// on them; it is also given it on any that an earlier call in the test left.
+//
+// Granting only on the roles that existed when Apiserver ran was not enough
+// under go test -p: a package whose apiserver had found no group roles reached
+// Ensure after another package's apiserver user had created them, and could
+// not grant them. Nor does it grant on other databases' logins any more, as it
+// did: it never needed them, and another package could drop one between the
+// listing and the grant.
 package dblogintest
 
 import (
 	"context"
 	"net/url"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -113,7 +122,7 @@ func Apiserver(t *testing.T, role, database string) *pgxpool.Pool {
 		}
 	}
 	dbtest.CreateDatabase(t, database, "OWNER "+r)
-	adoptRestrictedRoles(t, admin, role)
+	adoptRestrictedRoles(t, admin, role, dbName)
 	u, err := url.Parse(dsn)
 	if err != nil {
 		t.Fatal(err)
@@ -153,20 +162,49 @@ func (d databaseName) Scan(dest ...any) error {
 	return nil
 }
 
-// restrictedRoles matches the names of the restricted group roles and of their
-// logins, which are the group's name and a suffix.
-var restrictedRoles = "^(" + regexp.QuoteMeta(dblogin.Reader) + "|" + regexp.QuoteMeta(dblogin.IDE) + ")(_|$)"
-
-// adoptRestrictedRoles gives owner ADMIN OPTION on every restricted role and
-// login that exists, as the superuser admin is connected.
-func adoptRestrictedRoles(t *testing.T, admin *pgxpool.Pool, owner string) {
+// adoptRestrictedRoles creates the restricted group roles if they do not
+// exist and gives owner ADMIN OPTION on them, and on database's logins that
+// exist, as the superuser admin is connected. The group roles are created
+// here, rather than left to the first dblogin.Ensure, so that they exist when
+// owner is given its option: one another package's apiserver created after
+// this call would be one owner could not grant.
+func adoptRestrictedRoles(t *testing.T, admin *pgxpool.Pool, owner, database string) {
 	t.Helper()
-	_, err := admin.Exec(context.Background(), `DO $$ DECLARE r text; BEGIN
-		FOR r IN SELECT rolname FROM pg_roles WHERE rolname ~ '`+restrictedRoles+`' LOOP
-			EXECUTE format('GRANT %I TO %I WITH ADMIN OPTION', r, '`+strings.ReplaceAll(owner, "'", "''")+`');
-		END LOOP;
-	END $$`)
+	ctx := context.Background()
+	groups := []string{dblogin.Reader, dblogin.IDE}
+	for _, group := range groups {
+		// Two packages can create a group role at the same moment: the second
+		// waits for the first and fails on the duplicate, which here means
+		// the role exists, as wanted.
+		lit := strings.ReplaceAll(group, "'", "''")
+		_, err := admin.Exec(ctx, `DO $$ BEGIN
+			IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '`+lit+`') THEN
+				BEGIN
+					CREATE ROLE `+pgx.Identifier{group}.Sanitize()+` NOLOGIN;
+				EXCEPTION WHEN duplicate_object OR unique_violation THEN NULL;
+				END;
+			END IF;
+		END $$`)
+		if err != nil {
+			t.Fatalf("creating the restricted group role %s: %v", group, err)
+		}
+	}
+	roles := groups
+	var logins []string
+	rows, err := admin.Query(ctx, "SELECT rolname::text FROM pg_roles WHERE rolname = ANY($1) ORDER BY 1", Logins(database))
+	if err == nil {
+		logins, err = pgx.CollectRows(rows, pgx.RowTo[string])
+	}
 	if err != nil {
-		t.Fatalf("giving %s ADMIN OPTION on the restricted roles: %v", owner, err)
+		t.Fatalf("looking for the logins of %s: %v", database, err)
+	}
+	roles = append(roles, logins...)
+	quoted := make([]string, len(roles))
+	for i, r := range roles {
+		quoted[i] = pgx.Identifier{r}.Sanitize()
+	}
+	stmt := "GRANT " + strings.Join(quoted, ", ") + " TO " + pgx.Identifier{owner}.Sanitize() + " WITH ADMIN OPTION"
+	if _, err = admin.Exec(ctx, stmt); err != nil {
+		t.Fatalf("giving %s ADMIN OPTION on the restricted roles: %v\n%s", owner, err, stmt)
 	}
 }
