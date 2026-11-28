@@ -352,8 +352,9 @@ func (c *outputRecordCounts) get() (int64, int64) {
 // equals both "3" and "03". Text is compared exactly.
 //
 // year, month and day are judged by what the file key carries
-// (runWhenComponents): one the key does not carry has no value, so hasValue
-// does not hold and hasNotValue does. Any other component the key does not
+// (runWhenComponents): one the key does not carry, or carries as something
+// other than a number, has no value, so hasValue does not hold and
+// hasNotValue does. Any other component the key does not
 // carry fails the criterion, hasNotValue or not.
 func runWhenMet(criteria []RunWhenCriteria, fileKeyComponents map[string]interface{}, counts *outputRecordCounts) (bool, string) {
 	for i := range criteria {
@@ -417,16 +418,30 @@ func isDefaultedComponent(name string) bool {
 
 // runWhenComponents is the file key as runWhen reads it: FileKeyComponents
 // without the defaulted year, month or day the file key does not carry
-// (utils.FileKeyCarries). FileKeyComponents itself is left as it is, since
-// the reports read their defaults.
+// (utils.FileKeyComponent), and without one it carries that is not a number.
+// FileKeyComponents itself is left as it is, since the reports read their
+// defaults.
 //
 // Until 2026-11-14 runWhen read FileKeyComponents, so a criterion on month
 // with hasValue "1" held for a key with no month at all.
+//
+// A year, month or day that is not a number (month=ab) is read by
+// utils.SplitFileKeyIntoComponents as 0, and until 2026-11-27 runWhen read it
+// so too: a criterion on month with hasValue "0" held for it, and one with
+// hasNotValue "0" failed. runWhen now treats it as absent, so hasValue does not
+// hold and hasNotValue does, and the run logs the value it set aside.
 func (ca *CommandArguments) runWhenComponents() map[string]interface{} {
 	var components map[string]interface{}
 	for _, name := range defaultedComponents {
-		if _, set := ca.FileKeyComponents[name]; !set || utils.FileKeyCarries(ca.FileKey, name) {
+		if _, set := ca.FileKeyComponents[name]; !set {
 			continue
+		}
+		text, carried := utils.FileKeyComponent(ca.FileKey, name)
+		if carried {
+			if _, err := strconv.Atoi(text); err == nil {
+				continue
+			}
+			log.Printf("runWhen reads file key component %s as absent: its value %q is not a number", name, text)
 		}
 		if components == nil {
 			components = make(map[string]interface{}, len(ca.FileKeyComponents))
