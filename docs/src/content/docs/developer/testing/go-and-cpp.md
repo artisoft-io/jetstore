@@ -87,11 +87,23 @@ Two consequences:
   `postgres` user is. Without it the package fails before any test runs, with a message naming the
   privilege. Some tests also create databases and roles of their own beside the package's, so a
   superuser is the simplest choice.
+- **A test's own databases and roles are named under the package's database and dropped when the
+  test ends.** `dbtest.CreateDatabase(t, "suffix")` creates `<package database>_suffix` and drops it
+  `WITH (FORCE)` in the test's cleanup; `dbtest.CreateRole` does the same for a role, which is
+  cluster-wide, and `dbtest.DropRole` drops one the code under test names. A test never creates a
+  database or role under a fixed name: on a long-lived test server nothing would drop it, and two
+  packages running in parallel would collide on it.
+- **Roles the code under test names are dropped too.** A package whose tests run `dblogin.Ensure`
+  passes `dbtest.RolesOf(dblogintest.Logins)` to `dbtest.Main`, which then drops the restricted
+  logins of every database the package made. The two restricted group roles are shared by every
+  database on the server: `dblogintest` marks them, and the last package to finish, finding no
+  other test database left, drops them. After a run the server holds what it held before.
 - **The database `JETS_TEST_DSN` names is only where the connection starts**: the tests do not write
   to it. If it cannot be reached, `dbtest` connects to the server's `postgres` database instead.
 
 A package whose test binary panics or times out does not reach the drop, and leaves its `jetstest_`
-database behind; the next run drops it once it is a day old, and `docker stop` drops everything.
+database behind, with the databases and roles its tests made under its name; the next run drops them
+once they are a day old, and `docker stop` drops everything.
 A new package with database tests needs the same `TestMain`, one line:
 
 ```go

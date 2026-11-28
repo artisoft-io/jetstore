@@ -30,6 +30,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/observe"
 	"github.com/artisoft-io/jetstore/jets/agentic/observe/feedfixture"
 	"github.com/artisoft-io/jetstore/jets/claimset"
+	"github.com/artisoft-io/jetstore/jets/dbtest"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/sessionpurge"
 	"github.com/jackc/pgx/v5"
@@ -44,23 +45,12 @@ func claimSetSummaryTestDB(t *testing.T, database string) *pgxpool.Pool {
 		t.Skip("JETS_TEST_DSN not set; needs a throwaway Postgres")
 	}
 	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	name := pgx.Identifier{database}.Sanitize()
-	if _, err = admin.Exec(ctx, "DROP DATABASE IF EXISTS "+name+" WITH (FORCE)"); err == nil {
-		_, err = admin.Exec(ctx, "CREATE DATABASE "+name)
-	}
-	admin.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
+	name := dbtest.CreateDatabase(t, database)
 	u, err := url.Parse(dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
-	u.Path = "/" + database
+	u.Path = "/" + name
 	pool, err := pgxpool.New(ctx, u.String())
 	if err != nil {
 		t.Fatal(err)

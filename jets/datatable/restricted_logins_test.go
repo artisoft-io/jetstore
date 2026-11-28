@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/artisoft-io/jetstore/jets/dblogin"
+	"github.com/artisoft-io/jetstore/jets/dbtest"
 	"github.com/artisoft-io/jetstore/jets/user"
 )
 
@@ -118,7 +119,7 @@ func TestRestrictedLoginsHoldAgainstTheSQLTheyRun(t *testing.T) {
 
 	// The escape: a statement switching back to the apiserver's role. The
 	// login is a member of nothing it could switch to.
-	const owner = "'" + jm095Owner + "'"
+	owner := "'" + dbtest.Name(t, jm095Owner) + "'"
 	refused("a read switching to the apiserver's role",
 		read(`DO $$ BEGIN PERFORM set_config('role', `+owner+`, true); END $$`), "permission denied to set role")
 	refused("a read resetting its role, then reading a password",

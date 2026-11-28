@@ -27,6 +27,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/artisoft-io/jetstore/jets/dbtest"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -50,19 +51,7 @@ func startupOrderDB(t *testing.T, name string) *pgxpool.Pool {
 	if err != nil {
 		t.Fatalf("parsing JETS_TEST_DSN: %v", err)
 	}
-	admin, err := pgxpool.New(ctx, os.Getenv("JETS_TEST_DSN"))
-	if err != nil {
-		t.Fatalf("connecting to the maintenance database: %v", err)
-	}
-	if _, err := admin.Exec(ctx, "DROP DATABASE IF EXISTS "+name+" WITH (FORCE)"); err != nil {
-		admin.Close()
-		t.Fatalf("dropping %s: %v", name, err)
-	}
-	if _, err := admin.Exec(ctx, "CREATE DATABASE "+name); err != nil {
-		admin.Close()
-		t.Fatalf("creating %s: %v", name, err)
-	}
-	admin.Close()
+	name = dbtest.CreateDatabase(t, name)
 	u.Path = "/" + name
 	pool, err := pgxpool.New(ctx, u.String())
 	if err != nil {

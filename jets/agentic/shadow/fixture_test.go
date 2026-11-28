@@ -11,6 +11,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/agentic/audit"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
+	"github.com/artisoft-io/jetstore/jets/dbtest"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -63,19 +64,7 @@ func freshDB(t *testing.T, dbName string, tables []string, installAgentic bool) 
 	}
 	ctx := context.Background()
 
-	admin, err := pgxpool.New(ctx, os.Getenv("JETS_TEST_DSN"))
-	if err != nil {
-		t.Fatalf("connecting to the maintenance database: %v", err)
-	}
-	if _, err := admin.Exec(ctx, "DROP DATABASE IF EXISTS "+dbName+" WITH (FORCE)"); err != nil {
-		admin.Close()
-		t.Fatalf("dropping %s: %v", dbName, err)
-	}
-	if _, err := admin.Exec(ctx, "CREATE DATABASE "+dbName); err != nil {
-		admin.Close()
-		t.Fatalf("creating %s: %v", dbName, err)
-	}
-	admin.Close()
+	dbName = dbtest.CreateDatabase(t, dbName)
 
 	pool, err := pgxpool.New(ctx, dsnFor(t, dbName))
 	if err != nil {

@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/dbtest"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -147,17 +148,9 @@ func TestHypothesesForTakesThePHIDecisionToo(t *testing.T) {
 // what such a deployment looks like, and asserts that InstallSchema adds the
 // column rather than leaving it.
 func TestInstallSchemaAddsANullableColumnToAnAlreadyInstalledTable(t *testing.T) {
-	pool := testPool(t)
+	testPool(t)
 	ctx := context.Background()
-	name := fmt.Sprintf("ab4_premigration_%d", time.Now().UnixNano())
-	if _, err := pool.Exec(ctx, "CREATE DATABASE "+name); err != nil {
-		t.Fatalf("creating %s: %v", name, err)
-	}
-	t.Cleanup(func() {
-		if _, err := pool.Exec(context.Background(), "DROP DATABASE IF EXISTS "+name); err != nil {
-			t.Logf("dropping %s: %v", name, err)
-		}
-	})
+	name := dbtest.CreateDatabase(t, "ab4_premigration")
 	cfg, err := pgxpool.ParseConfig(os.Getenv("JETS_TEST_DSN"))
 	if err != nil {
 		t.Fatal(err)
