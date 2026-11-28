@@ -90,7 +90,7 @@ which is the clearest statement of what each is for:
 
 | caller | `restaureFromStash` | `keepWorkspaceAndLookupDb` |
 |---|---|---|
-| after a git commit or push | `false` | **`true`** — keep the compiled artefacts |
+| after a git commit or push | `false` | **`true`** — keep the compiled artefacts, and after a commit the overrides of JetStore-owned assets it left out (`keepFiles`, since release 4.1.25) |
 | the `delete_all_workspace_changes` action | **`true`** | `false` — clear everything |
 
 **The doc comments on the `DeleteWorkspaceChanges` and `DeleteAllWorkspaceChanges`
