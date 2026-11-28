@@ -27,6 +27,27 @@ type Window struct {
 	// ConfounderHistoryTruncated on the result, because a detector cannot
 	// tell a short window from a truncated one by looking at the rows.
 	Limit int
+
+	// Source, when set, keeps the step baselines to the runs of one main input
+	// source (StepBaselines): a run is compared with its own source's runs, as
+	// triage compares the one run it judges. It is read only where
+	// jetsapi.input_registry exists (Extent.Sources); elsewhere every run has
+	// the empty source, and a filter on the empty source keeps them all.
+	Source *Source
+	// BySource, with Source nil, keeps every source but groups the step
+	// baselines by source as well (StepBaselines), each StepBaseline one
+	// source's and carrying it in Source. It is what a detector over many runs
+	// needs, the step-regression detector's Gather: each run is judged against
+	// the baseline of its own source, read in one statement for all of them.
+	// With neither set, the runs of every source of a process are one baseline,
+	// which StepRegression refuses where the database records sources.
+	BySource bool
+	// RecentRuns, when above 0 and with Client and ProcessName set, has
+	// StepBaselines also read, for each step, how many of the source's last
+	// RecentRuns runs in the window had it (StepBaseline.Recent). A step the
+	// process stopped running is then told from one it still runs. It is not
+	// read for a window grouped by source (BySource with Source nil).
+	RecentRuns int
 }
 
 func (w Window) until() time.Time {
@@ -144,6 +165,10 @@ type Extent struct {
 	// jets/update_db/main.go:71 — so the write target of every detector shares
 	// the deployment precondition of the table above.
 	Anomalies bool
+	// Sources reports whether jetsapi.input_registry exists, which a run's
+	// main input source is read from (Source). Where it does not, every run
+	// has the empty source.
+	Sources bool
 }
 
 // Regime names which regime the deployment is in, from the keys that join a
@@ -177,7 +202,8 @@ const tablesSQL = `SELECT
     AND to_regclass('jetsapi.pipeline_execution_details') IS NOT NULL,
   to_regclass('jetsapi.pipeline_execution_channel_details') IS NOT NULL,
   to_regclass('jetsapi.anomaly') IS NOT NULL,
-  to_regclass('jetsapi.pipeline_execution_history') IS NOT NULL`
+  to_regclass('jetsapi.pipeline_execution_history') IS NOT NULL,
+  to_regclass('jetsapi.input_registry') IS NOT NULL`
 
 // extentSQL is for a database that predates the archive. The last two
 // columns are HeaderlessWorkers and BareHeaders; both anti-joins are on
@@ -217,7 +243,7 @@ const extentHistorySQL = `SELECT
 func ReadExtent(ctx context.Context, db DB) (*Extent, error) {
 	var e Extent
 	if err := db.QueryRow(ctx, tablesSQL).Scan(
-		&e.ExecutionRecord, &e.ChannelDetails, &e.Anomalies, &e.History); err != nil {
+		&e.ExecutionRecord, &e.ChannelDetails, &e.Anomalies, &e.History, &e.Sources); err != nil {
 		return nil, fmt.Errorf("while reading which execution tables exist: %w", err)
 	}
 	if !e.ExecutionRecord {
@@ -280,6 +306,11 @@ type WorkerRow struct {
 	HasHeader      bool
 	MainObjectType string
 	RunStatus      string
+	// Source is the run's main input source, read through the header where
+	// jetsapi.input_registry exists (Extent.Sources). It is the zero Source
+	// where that table does not exist, where the run has no main input
+	// registration, and where the header is gone.
+	Source Source
 }
 
 // The worker statuses. The worker's own switch produces three terminal values
@@ -312,6 +343,10 @@ func (w *WorkerRow) Stalled() bool {
 // silently drops every worker row whose header has been purged, which in three
 // of four measured environments is the older part of the record — the part a
 // baseline most wants.
+//
+// %[1]s is the run's source, SourceColumns where jetsapi.input_registry exists
+// and three empty strings where it does not, and %[2]s its join, through the
+// header (empty where the table does not exist).
 const workersSQL = `SELECT
     d.key, d.pipeline_execution_status_key, d.session_id, d.client, d.process_name,
     d.source_period_key, d.shard_id, d.jets_partition, coalesce(d.cpipes_step_id, ''),
@@ -319,9 +354,11 @@ const workersSQL = `SELECT
     d.input_records_count, d.input_bad_records_count, d.input_files_count,
     d.input_files_size_mb, d.rete_sessions_count, d.output_records_count,
     d.start_time, d.last_update,
-    h.key IS NOT NULL, coalesce(h.main_object_type, ''), coalesce(h.status, '')
+    h.key IS NOT NULL, coalesce(h.main_object_type, ''), coalesce(h.status, ''),
+    %[1]s
   FROM jetsapi.pipeline_execution_details d
   LEFT JOIN jetsapi.pipeline_execution_status h ON h.key = d.pipeline_execution_status_key
+  %[2]s
  WHERE d.start_time >= $1 AND d.start_time < $2
    AND ($3 = '' OR d.client = $3)
    AND ($4 = '' OR d.process_name = $4)
@@ -348,7 +385,18 @@ type WorkerSet struct {
 // that never reached a terminal state). Neither needs a history, so neither
 // needs a baseline window — a single run's session id is a legitimate Window.
 func Workers(ctx context.Context, db DB, w Window) (*WorkerSet, error) {
-	sql := workersSQL
+	// Whether the runs' sources can be read, asked on its own because a
+	// statement naming an absent relation fails rather than reading nothing.
+	var sources bool
+	if err := db.QueryRow(ctx,
+		`SELECT to_regclass('jetsapi.input_registry') IS NOT NULL`).Scan(&sources); err != nil {
+		return nil, fmt.Errorf("while checking for jetsapi.input_registry: %w", err)
+	}
+	cols, join := noSourceColumns, ""
+	if sources {
+		cols, join = SourceColumns, SourceJoin("h")
+	}
+	sql := fmt.Sprintf(workersSQL, cols, join)
 	if w.Limit > 0 {
 		sql += fmt.Sprintf(" LIMIT %d", w.Limit+1)
 	}
@@ -368,7 +416,8 @@ func Workers(ctx context.Context, db DB, w Window) (*WorkerSet, error) {
 			&r.InputRecords, &r.InputBadRecords, &r.InputFilesCount,
 			&r.InputFilesSizeMb, &r.ReteSessions, &r.OutputRecords,
 			&r.StartTime, &r.LastUpdate,
-			&r.HasHeader, &r.MainObjectType, &r.RunStatus); err != nil {
+			&r.HasHeader, &r.MainObjectType, &r.RunStatus,
+			&r.Source.Client, &r.Source.Org, &r.Source.ObjectType); err != nil {
 			return nil, fmt.Errorf("while scanning a worker row: %w", err)
 		}
 		if !r.HasHeader {
@@ -414,6 +463,14 @@ type StepBaseline struct {
 	LastSuccess *time.Time
 	LastFailure *time.Time
 
+	// Source is the main input source the baseline was read for, the zero
+	// Source when the window kept every source (Window.Source nil).
+	Source Source
+	// Recent is how many of its source's last Window.RecentRuns runs in the
+	// window had the step: 0 for a step the process stopped running that
+	// long ago. Meaningful only where BaselineSet.RecentRead.
+	Recent int64
+
 	// Confounders are the ones this baseline's own rows show. They are the
 	// subset of the Anomaly vocabulary the record can establish; the rest are
 	// the detector's to add from the configuration.
@@ -428,8 +485,14 @@ func (b *StepBaseline) EverSucceeded() bool { return b.Completed > 0 }
 // A worker row whose header is gone cannot be assigned a main_object_type, so
 // it is excluded from the aggregate and counted separately. Grouping it under
 // an empty object type would silently invent a fourth source.
+//
+// %[1]s is the source's join and %[2]s its predicate, both empty when the
+// window keeps every source (sourceClauses); %[3]s the source's three columns
+// and %[4]s their places in the grouping, which are read wherever the join is
+// (baselineSourceClauses).
 const stepBaselineSQL = `SELECT
     d.client, d.process_name, h.main_object_type, coalesce(d.cpipes_step_id, ''),
+    %[3]s,
     count(DISTINCT d.pipeline_execution_status_key),
     count(*),
     count(*) FILTER (WHERE d.status = 'completed'),
@@ -440,11 +503,65 @@ const stepBaselineSQL = `SELECT
     max(d.start_time) FILTER (WHERE d.status = 'failed')
   FROM jetsapi.pipeline_execution_details d
   JOIN jetsapi.pipeline_execution_status h ON h.key = d.pipeline_execution_status_key
+  %[1]s
  WHERE d.start_time >= $1 AND d.start_time < $2
    AND ($3 = '' OR d.client = $3)
    AND ($4 = '' OR d.process_name = $4)
- GROUP BY 1, 2, 3, 4
- ORDER BY 1, 2, 3, 4`
+   %[2]s
+ GROUP BY 1, 2, 3, 4%[4]s
+ ORDER BY 1, 2, 3, 4%[4]s`
+
+// recentRunsSQL reads, for one process of one client (and, with %[2]s, one
+// source), the last $5 runs in the window of each main object type: the runs
+// with a worker row in the window, latest first. recentStepsSQL counts, for
+// each step, how many of them had it; recentCountSQL how many there are.
+const recentRunsSQL = `WITH runs AS (
+  SELECT h.key, h.main_object_type,
+         row_number() OVER (PARTITION BY h.main_object_type ORDER BY h.start_time DESC, h.key DESC) AS rn
+    FROM jetsapi.pipeline_execution_status h
+    %[1]s
+   WHERE h.client = $3 AND h.process_name = $4
+     %[2]s
+     AND EXISTS (SELECT 1 FROM jetsapi.pipeline_execution_details w
+                  WHERE w.pipeline_execution_status_key = h.key AND w.start_time >= $1 AND w.start_time < $2)
+), recent AS (SELECT key, main_object_type FROM runs WHERE rn <= $5)`
+
+const recentStepsSQL = recentRunsSQL + `
+SELECT r.main_object_type, coalesce(d.cpipes_step_id, ''), count(DISTINCT r.key)
+  FROM recent r JOIN jetsapi.pipeline_execution_details d ON d.pipeline_execution_status_key = r.key
+ GROUP BY 1, 2`
+
+const recentCountSQL = recentRunsSQL + `
+SELECT main_object_type, count(*) FROM recent GROUP BY 1`
+
+// sourceClauses returns the join and the predicate that keep a window's runs
+// to its source, in the header alias h, with the source's three values at
+// placeholders from first on, and the arguments; all empty when the window
+// keeps every source or the database records none.
+func sourceClauses(w Window, e *Extent, first int) (join, match string, args []any) {
+	if w.Source == nil || e == nil || !e.Sources {
+		return "", "", nil
+	}
+	return SourceJoin("h"), "AND " + SourceMatch(first, first+1, first+2),
+		[]any{w.Source.Client, w.Source.Org, w.Source.ObjectType}
+}
+
+// baselineSourceClauses is sourceClauses for stepBaselineSQL, which also
+// reads each baseline's source wherever the database records sources and the
+// window asks for them, a filter (Source) or a grouping (BySource): the join,
+// the predicate (a filter's only), the three columns, their grouping, and the
+// arguments. Elsewhere the columns are empty strings and there is no join.
+func baselineSourceClauses(w Window, e *Extent, first int) (join, match, cols, group string, args []any) {
+	if e == nil || !e.Sources || (w.Source == nil && !w.BySource) {
+		return "", "", noSourceColumns, "", nil
+	}
+	cols, group = SourceColumns, ", 5, 6, 7"
+	if w.Source == nil {
+		return SourceJoin("h"), "", cols, group, nil
+	}
+	join, match, args = sourceClauses(w, e, first)
+	return join, match, cols, group, args
+}
 
 const headerlessSQL = `SELECT count(*)
   FROM jetsapi.pipeline_execution_details d
@@ -460,12 +577,16 @@ const headerlessSQL = `SELECT count(*)
 // start_time is the run's submission, a little before its first worker's, so a
 // run submitted just before the window opens is not counted; it is the same
 // bound the worker rows are read with, applied to the header.
-const archivedInWindowSQL = `SELECT client, process_name, main_object_type, count(*)
-  FROM jetsapi.pipeline_execution_history
- WHERE archived_at IS NOT NULL
-   AND start_time >= $1 AND start_time < $2
-   AND ($3 = '' OR client = $3)
-   AND ($4 = '' OR process_name = $4)
+// With a source, only that source's runs are counted (%[1]s and %[2]s, as in
+// stepBaselineSQL).
+const archivedInWindowSQL = `SELECT h.client, h.process_name, h.main_object_type, count(*)
+  FROM jetsapi.pipeline_execution_history h
+  %[1]s
+ WHERE h.archived_at IS NOT NULL
+   AND h.start_time >= $1 AND h.start_time < $2
+   AND ($3 = '' OR h.client = $3)
+   AND ($4 = '' OR h.process_name = $4)
+   %[2]s
  GROUP BY 1, 2, 3`
 
 // BaselineSet is the result of StepBaselines: the aggregate, and the numbers
@@ -473,6 +594,12 @@ const archivedInWindowSQL = `SELECT client, process_name, main_object_type, coun
 type BaselineSet struct {
 	Window    Window
 	Baselines []StepBaseline
+	// BySource reports whether each baseline is one main input source's: the
+	// window kept one source (Window.Source) or grouped by source
+	// (Window.BySource), or the database records no sources, so that every run
+	// has the empty source. False only where sources are recorded and the
+	// window read every source of a process as one baseline.
+	BySource bool
 	// Headerless is the count of worker rows in the window whose header has
 	// been purged. They are excluded from every baseline above, because a
 	// source identity needs main_object_type and it is only on the header.
@@ -484,11 +611,21 @@ type BaselineSet struct {
 	// by archivedKey(client, process, main_object_type). Their worker rows
 	// went with the session, so every baseline of that source is over fewer
 	// runs than the window held, and says so with history_truncated. Empty
-	// where the history view does not exist.
+	// where the history view does not exist. A set grouped by source
+	// (Window.BySource) counts them for every source of the object type: a
+	// deleted session's main input registration may have been deleted with
+	// it, so its run can no longer be put under one source, and a baseline is
+	// then said to be truncated rather than wrongly said to be whole.
 	Archived map[string]int64
 	// Extent is the deployment's retention state, read in the same call so a
 	// caller can tell a genuinely quiet window from a purged one.
 	Extent *Extent
+	// RecentRead reports whether each baseline's Recent was read
+	// (Window.RecentRuns), and RecentRuns, keyed by main object type, how many
+	// of the source's last Window.RecentRuns runs the window holds: fewer than
+	// asked when the window holds fewer runs.
+	RecentRead bool
+	RecentRuns map[string]int64
 }
 
 // Truncated reports whether the set is over less history than it was asked
@@ -530,19 +667,26 @@ func StepBaselines(ctx context.Context, db DB, w Window) (*BaselineSet, error) {
 	if err != nil {
 		return nil, err
 	}
-	set := &BaselineSet{Window: w, Extent: extent}
+	set := &BaselineSet{Window: w, Extent: extent,
+		BySource: w.Source != nil || w.BySource || !extent.Sources}
 
 	if err := db.QueryRow(ctx, headerlessSQL,
 		w.Since, w.until(), w.Client, w.ProcessName).Scan(&set.Headerless); err != nil {
 		return nil, fmt.Errorf("while counting worker rows with no header: %w", err)
 	}
 	if extent.History {
-		if set.Archived, err = readArchivedInWindow(ctx, db, w); err != nil {
+		if set.Archived, err = readArchivedInWindow(ctx, db, w, extent); err != nil {
 			return nil, err
 		}
 	}
 
-	rows, err := db.Query(ctx, stepBaselineSQL, w.Since, w.until(), w.Client, w.ProcessName)
+	join, match, cols, group, srcArgs := baselineSourceClauses(w, extent, 5)
+	args := append([]any{w.Since, w.until(), w.Client, w.ProcessName}, srcArgs...)
+	var source Source
+	if w.Source != nil {
+		source = *w.Source
+	}
+	rows, err := db.Query(ctx, fmt.Sprintf(stepBaselineSQL, join, match, cols, group), args...)
 	if err != nil {
 		return nil, fmt.Errorf("while extracting step baselines: %w", err)
 	}
@@ -550,11 +694,19 @@ func StepBaselines(ctx context.Context, db DB, w Window) (*BaselineSet, error) {
 
 	for rows.Next() {
 		var b StepBaseline
+		var read Source
 		if err := rows.Scan(
 			&b.Client, &b.ProcessName, &b.MainObjectType, &b.StepId,
+			&read.Client, &read.Org, &read.ObjectType,
 			&b.Runs, &b.Workers, &b.Completed, &b.Failed, &b.InProgress,
 			&b.FirstSeen, &b.LastSeen, &b.LastSuccess, &b.LastFailure); err != nil {
 			return nil, fmt.Errorf("while scanning a step baseline: %w", err)
+		}
+		// The filter's source where one was set, as before; the row's own
+		// where the baselines are grouped by source.
+		b.Source = source
+		if w.Source == nil && w.BySource {
+			b.Source = read
 		}
 		b.Confounders = baselineConfounders(&b, set)
 		set.Baselines = append(set.Baselines, b)
@@ -562,11 +714,72 @@ func StepBaselines(ctx context.Context, db DB, w Window) (*BaselineSet, error) {
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("while reading step baselines: %w", err)
 	}
+	rows.Close()
+	// Recent is read for one source or for a process whose runs are one
+	// baseline, not for a set grouped by source, whose recent runs would be
+	// those of every source together.
+	if w.RecentRuns > 0 && w.Client != "" && w.ProcessName != "" && (w.Source != nil || !w.BySource) {
+		if err := readRecent(ctx, db, w, extent, set); err != nil {
+			return nil, err
+		}
+	}
 	return set, nil
 }
 
-func readArchivedInWindow(ctx context.Context, db DB, w Window) (map[string]int64, error) {
-	rows, err := db.Query(ctx, archivedInWindowSQL, w.Since, w.until(), w.Client, w.ProcessName)
+// readRecent reads, for each baseline, how many of its source's last
+// w.RecentRuns runs in the window had the step, and how many such runs there
+// are.
+func readRecent(ctx context.Context, db DB, w Window, extent *Extent, set *BaselineSet) error {
+	join, match, srcArgs := sourceClauses(w, extent, 6)
+	args := append([]any{w.Since, w.until(), w.Client, w.ProcessName, w.RecentRuns}, srcArgs...)
+	steps := map[string]int64{}
+	rows, err := db.Query(ctx, fmt.Sprintf(recentStepsSQL, join, match), args...)
+	if err != nil {
+		return fmt.Errorf("while reading the steps of the source's recent runs: %w", err)
+	}
+	for rows.Next() {
+		var objectType, step string
+		var n int64
+		if err := rows.Scan(&objectType, &step, &n); err != nil {
+			rows.Close()
+			return fmt.Errorf("while scanning a step of the source's recent runs: %w", err)
+		}
+		steps[objectType+"\x00"+step] = n
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("while reading the steps of the source's recent runs: %w", err)
+	}
+	set.RecentRuns = map[string]int64{}
+	rows, err = db.Query(ctx, fmt.Sprintf(recentCountSQL, join, match), args...)
+	if err != nil {
+		return fmt.Errorf("while counting the source's recent runs: %w", err)
+	}
+	for rows.Next() {
+		var objectType string
+		var n int64
+		if err := rows.Scan(&objectType, &n); err != nil {
+			rows.Close()
+			return fmt.Errorf("while scanning the source's recent runs: %w", err)
+		}
+		set.RecentRuns[objectType] = n
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("while counting the source's recent runs: %w", err)
+	}
+	for i := range set.Baselines {
+		b := &set.Baselines[i]
+		b.Recent = steps[b.MainObjectType+"\x00"+b.StepId]
+	}
+	set.RecentRead = true
+	return nil
+}
+
+func readArchivedInWindow(ctx context.Context, db DB, w Window, extent *Extent) (map[string]int64, error) {
+	join, match, srcArgs := sourceClauses(w, extent, 5)
+	args := append([]any{w.Since, w.until(), w.Client, w.ProcessName}, srcArgs...)
+	rows, err := db.Query(ctx, fmt.Sprintf(archivedInWindowSQL, join, match), args...)
 	if err != nil {
 		return nil, fmt.Errorf("while counting the archived runs in the window: %w", err)
 	}

@@ -203,6 +203,22 @@ function feedProfileOf(raw: unknown): string {
 }
 
 /**
+ * `exclude_file_names_json` as the save sends it: the text of the *Files not to
+ * register* field, trimmed, and `""` when the field is empty. 2026-11-27.
+ *
+ * The column holds a JSON list of text a file's name contains, for example
+ * `["_trailer"]`: register keys stages such a file and registers nothing for it.
+ * The server checks the list before either statement runs and refuses one that is
+ * not a list of non-empty strings (`jets/datatable/source_config_exclude_file_names.go`).
+ * **Always sent, like `feed_profile_json`, and for the same reason**: an emptied
+ * field leaves no key in form state, and the update keeps the stored list when the
+ * key is absent, so clearing the field would not clear the list.
+ */
+function excludeFileNamesOf(raw: unknown): string {
+  return (scalar(raw) ?? "").trim();
+}
+
+/**
  * Saves the file configuration, projecting the payload by its file type.
  *
  * **The target is chosen by whether a record was selected**, which is an earlier
@@ -232,6 +248,7 @@ export const saveSourceConfigForFileType: ActionEscape = async (context, host) =
   row["is_part_files"] = partFiles;
   row["is_cumulative"] = cumulativeOf(row["is_cumulative"]);
   row["feed_profile_json"] = feedProfileOf(row["feed_profile_json"]);
+  row["exclude_file_names_json"] = excludeFileNamesOf(row["exclude_file_names_json"]);
   row["user_email"] = host.userEmail();
 
   const table = row["key"] == null ? "source_config" : "update/source_config";

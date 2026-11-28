@@ -4,7 +4,7 @@
 //
 // # Two more loci, and they are not positions in a run
 //
-// The vocabulary has twelve members. Two of them, delivery_overdue and
+// The vocabulary has thirteen members. Two of them, delivery_overdue and
 // delivery_departs_profile, are positions in a feed's deliveries: a feed
 // detector compares a delivery with the feed's declared profile and writes an
 // anomaly with subject feed, and the locus is a predicate over that anomaly row
@@ -30,6 +30,20 @@
 // and absent worker rows would otherwise say. On every other session job_failed
 // is NotEvaluable. A header on the legacy shared session SentinelSession is
 // none of this package's business: the shadow writer skips it and counts it.
+//
+// # A thirteenth, and it is a run that read nothing
+//
+// main_input_empty is a run whose main input held no records: its sharding
+// step (cpipes_step_id reducing00) completed on every worker and read 0
+// records in all, the sum the run's main_input_records_count is written from.
+// It is a run position, appended after the job locus because the vocabulary is
+// never renumbered. Such a run reaches none of its later steps, so on it
+// step_never_started is NotEvaluable and says why (judgeEmptyInput), as a
+// job's row sets the run loci aside. A feed's profile may declare empty
+// deliveries expected (feedprofile.Profile.EmptyDeliveriesExpected): the run's
+// main input source is then a feed that sends empty files, and the locus is
+// Absent with a basis naming the declaration. Absent rather than quiet: quiet
+// is a per-record code's verdict below its threshold.
 //
 // # A locus is not a cause, and this package emits only loci
 //
@@ -82,7 +96,7 @@
 // aggregate. A classifier that returns only what fired supplies numerators and
 // no denominators — the count of sessions in which a locus was *evaluated and
 // did not fire* is not recoverable from a list of hits. So Classify emits one
-// Finding per locus per session unconditionally, twelve of them, and the denominator for a locus is the
+// Finding per locus per session unconditionally, thirteen of them, and the denominator for a locus is the
 // count of its Present and Absent verdicts, with the NotEvaluable ones excluded
 // and reported separately rather than folded into either.
 //
@@ -101,8 +115,9 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/observe"
 )
 
-// The twelve loci: nine positions in a run's execution record, then two in a
-// feed's deliveries, then a job's failure. These are the members of
+// The thirteen loci: nine positions in a run's execution record, then two in a
+// feed's deliveries, then a job's failure, then a run whose main input held no
+// records. These are the members of
 // jetsapi.incident's incident_locus_ck; TestLociMatchDDL asserts them against
 // the generated DDL so a regeneration that adds or removes one fails the suite
 // rather than an insert, which is the guard observe.TestVocabulariesMatchDDL
@@ -112,7 +127,8 @@ import (
 // roughly the order of how little the record retains about it — except for
 // the last two, which are appended because the vocabulary is never
 // renumbered. A delivery precedes the run that loads it, and the job locus is
-// appended after both for the same reason.
+// appended after both for the same reason, and main_input_empty, a run
+// position, after the job locus.
 const (
 	// LocusRunNotStarted — the run header is terminal and there is no worker
 	// row at all.
@@ -154,6 +170,11 @@ const (
 	// other locus is NotEvaluable there, and it is NotEvaluable everywhere
 	// else.
 	LocusJobFailed = "job_failed"
+	// LocusMainInputEmpty — a run whose main input held no records: its
+	// sharding step completed on every worker and read 0 records in all.
+	// Absent, with its basis naming the declaration, when the main input's
+	// feed declares empty deliveries expected.
+	LocusMainInputEmpty = "main_input_empty"
 )
 
 // SentinelSession is the shared session a workspace's custom Lambdas wrote
@@ -179,6 +200,7 @@ var Loci = []string{
 	LocusDeliveryOverdue,
 	LocusDeliveryDepartsProfile,
 	LocusJobFailed,
+	LocusMainInputEmpty,
 }
 
 // DeliveryLoci are the two loci that are positions in a feed's deliveries
@@ -187,9 +209,9 @@ var Loci = []string{
 // these.
 var DeliveryLoci = []string{LocusDeliveryOverdue, LocusDeliveryDepartsProfile}
 
-// IsPipelineRunLocus reports whether a locus is one of the nine positions in a
-// pipeline run's execution record: neither a delivery locus nor the job
-// locus.
+// IsPipelineRunLocus reports whether a locus is one of the ten positions in a
+// pipeline run's execution record, main_input_empty among them: neither a
+// delivery locus nor the job locus.
 func IsPipelineRunLocus(locus string) bool {
 	return slices.Contains(Loci, locus) && !slices.Contains(DeliveryLoci, locus) && locus != LocusJobFailed
 }

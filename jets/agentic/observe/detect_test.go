@@ -41,6 +41,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
+	"github.com/artisoft-io/jetstore/jets/dbtest"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -605,15 +606,11 @@ func TestBothDetectorsEmitAPersistedAnomaly(t *testing.T) {
 // failed on that relation and reported nothing at all — which is the failure
 // the sentence promises to prevent, arriving one table earlier.
 func TestReadExtentAnswersOnAnUnmigratedDatabase(t *testing.T) {
-	pool := testPool(t)
+	testPool(t)
 	ctx := context.Background()
 	// A database of its own rather than a schema trick, so nothing this test
 	// does can be seen by the rest of the suite.
-	name := "unmigrated_" + uniq(t)
-	if _, err := pool.Exec(ctx, "CREATE DATABASE "+name); err != nil {
-		t.Skipf("cannot create a database to simulate an unmigrated deployment: %v", err)
-	}
-	t.Cleanup(func() { pool.Exec(context.Background(), "DROP DATABASE IF EXISTS "+name) })
+	name := dbtest.CreateDatabase(t, "unmigrated_"+uniq(t))
 
 	cfg, err := pgxpool.ParseConfig(os.Getenv("JETS_TEST_DSN"))
 	if err != nil {

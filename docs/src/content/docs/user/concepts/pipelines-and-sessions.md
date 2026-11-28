@@ -121,6 +121,16 @@ At*. Pipelines do not read those rows, but a report run again on such a session,
 rows, finds none. See
 [Purge Data Lambda](/docs/install/reference/stack-components/#purge-data-lambda-optional).
 
+A deletion keeps the session's **registrations**, marked deleted, while a run that read them, live
+or on the *Archived Pipelines* tab, refers to them: an archived run still names its input's source,
+and the scheduled purge deletes a marked registration once no run refers to it. A marked
+registration is not shown on the *Data Registry* tab and no pipeline can start from it.
+
+A deletion also keeps one thing of a file the session registered first: the feed, the file key and when it
+first arrived, so that the feed checks keep reading a later registration of the same file as
+re-processing rather than as a new delivery (see
+[Feed content checks](/docs/user/concepts/feed-content-checks/#what-counts-as-a-delivery-and-how-re-processing-is-reported)).
+
 The detection checks' findings on a session, and shadow triage's verdicts on its runs, go with it.
 Its incidents do not, at once: an incident stands for every delivery or run of its condition, so it
 stays while one of them is held, and the scheduled purge deletes it, with its hypotheses and history,

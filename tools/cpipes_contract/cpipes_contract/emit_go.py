@@ -36,8 +36,10 @@ package compute_pipes
 type ContractField struct {
 	// Required is true when an authored document must carry the field.
 	Required bool
-	// RequiredWhen carries the conditional-requirement expression
-	// (e.g. "absent(expr_pos)") when the requirement is conditional.
+	// RequiredWhen carries the conditional-requirement expression when the
+	// requirement is conditional: clauses present(k), absent(k) and
+	// equals(k, v), joined by " and " (e.g. "absent(expr_pos)",
+	// "equals(claim_set_summary_config.mode, partial)").
 	RequiredWhen string
 	// Values is the closed value range for enum-like string fields, nil
 	// when the field is free-form.

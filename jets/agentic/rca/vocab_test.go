@@ -146,8 +146,10 @@ func TestLociThatMapToNoCauseClass(t *testing.T) {
 	// job_failed is in no row: the table's classes are causes of a run's or a
 	// delivery's failure, and a job's failure is neither. Its incident carries
 	// no hypothesis, and its failure_details is the evidence of why.
+	// main_input_empty is in none either: an empty file arrived, and
+	// source_delivery_failure, the nearest class, is about what did not.
 	want := []string{triage.LocusStepNeverStarted, triage.LocusPerRecordFailuresUnreportable,
-		triage.LocusJobFailed}
+		triage.LocusJobFailed, triage.LocusMainInputEmpty}
 	slices.Sort(unmapped)
 	slices.Sort(want)
 	if !slices.Equal(unmapped, want) {

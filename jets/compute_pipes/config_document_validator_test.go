@@ -73,6 +73,11 @@ func TestConfigDocumentChecksAgreeWithTheStart(t *testing.T) {
 			  "conditional_config": [{"then": {"type": "jetrules",
 			  "jetrules_config": {"process_name": "p", "use_jet_rules_go": true}}}]}]}]}`,
 			"cpipes_config_go_engine"},
+		"a distinct step with no distinct_on": {
+			`{"cluster_config": {}, "conditional_pipes_config": [{"step_name": "dedup", "pipes_config": [{"type": "fan_out",
+			  "input_channel": {"type": "input", "name": "input_row"}, "apply": [{"type": "distinct",
+			  "distinct_config": {"distinct_on": []}, "output_channel": {"name": "o"}}]}]}]}`,
+			"cpipes_config_distinct_on"},
 	} {
 		var cfg ComputePipesConfig
 		if err := json.Unmarshal([]byte(c.content), &cfg); err != nil {

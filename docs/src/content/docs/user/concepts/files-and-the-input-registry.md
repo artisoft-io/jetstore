@@ -71,6 +71,12 @@ The input registry is the ledger of every data set a pipeline can read. It holds
 Each entry carries the client, the organisation, the object type it is registered under, the table,
 the source period and, above all, the **session id**. Home's *Data Registry* tab shows it.
 
+When a session is deleted, its entries are **marked deleted** rather than removed: they leave the
+*Data Registry* tab and no pipeline can start from them, but a run that read them, on the *Archived
+Pipelines* tab included, still knows what its input was. The scheduled purge removes a marked entry
+once no run refers to it. See
+[Deleting a session](/docs/user/concepts/pipelines-and-sessions/#deleting-a-session).
+
 **Pipelines read sessions, never "the latest data".** When `Map_Eligibility` runs, it reads one
 registered eligibility file, by its session. When it finishes, its rows in `hc:Eligibility` are
 registered in turn, under a session of their own, and that is what `Patient_Profile_Template` reads.

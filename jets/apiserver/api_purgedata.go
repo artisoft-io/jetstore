@@ -251,7 +251,8 @@ func resetDomainTablesArgs(runInitScripts, usingSshTunnel bool) []string {
 // agentic layer's judgements on those deliveries, anomaly and run_finding, are
 // left as the reset leaves every other session table: they are a record of what
 // was found, the incidents raised on them are retired by the agentic retention
-// sweep, and the orphan sweep removes them.
+// sweep, and the orphan sweep removes them. jetsapi.purged_delivery is truncated
+// for the same reason as the summaries.
 func resetSessionTables(ctx context.Context, dbpool *pgxpool.Pool) error {
 	tx, err := dbpool.Begin(ctx)
 	if err != nil {
@@ -280,6 +281,18 @@ func resetSessionTables(ctx context.Context, dbpool *pgxpool.Pool) error {
 	}
 	if summaries {
 		if err = truncate("claim_set_summary"); err != nil {
+			return err
+		}
+	}
+	// The record of the deleted first registrations (jets/sessionpurge) speaks
+	// of files in input_registry, truncated above, so a file registered after
+	// the reset is its delivery again.
+	var purged bool
+	if err = tx.QueryRow(ctx, `SELECT to_regclass('jetsapi.purged_delivery') IS NOT NULL`).Scan(&purged); err != nil {
+		return fmt.Errorf("while looking for jetsapi.purged_delivery: %v", err)
+	}
+	if purged {
+		if err = truncate("purged_delivery"); err != nil {
 			return err
 		}
 	}

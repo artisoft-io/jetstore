@@ -32,10 +32,12 @@ package `cdk/jetstore_one/lambdas/register_keys/registerkey`, and it hands each 
         │  per row:
         │  updateFileKeyComponentCase, InsertSourcePeriod(y,m,d)  -> source_period_key
         │  no file_key                                -> skipped
-        │  lookup jetsapi.source_config               -> table_name, is_part_files, domain_keys
+        │  lookup jetsapi.source_config               -> table_name, is_part_files, domain_keys,
+        │                                                exclude_file_names_json
         │  part-file gate (see below)
         │  upsert jetsapi.file_key_staging
-        │  no source_config, or no domain key         -> staged, skipped
+        │  no source_config, name excluded,
+        │  or no domain key                           -> staged, skipped
         │  reserveSessionId, RegisterSession          -> session_id
         │  INSERT jetsapi.input_registry              (one row per domain key)
         ▼
@@ -153,10 +155,32 @@ a file is accepted and nothing runs**. The file is still staged in step 7, so it
 files that arrived, but no session is reserved and no `input_registry` row is written. Domain keys a
 `source_config` names twice are registered once (`uniqueDomainKeys`).
 
+The same query reads `exclude_file_names_json`, a JSON array of substrings such as `["_trailer"]`. A
+file whose **name**, the last segment of its key, contains one of them, case-sensitive, is excluded:
+it is staged in step 7 and goes no further, skipped as `excluded_file_key`. This is how a source keeps
+a trailer or control file sent beside its data files from registering as a delivery. A folder of the
+key never excludes it, and `NULL` or `[]` excludes nothing. The column is read through `to_jsonb` of
+the row, so registration also runs against a database not yet migrated to it; a stored value that is
+not an array of strings is logged as a warning and excludes nothing. It is checked on every path that
+registers: an S3 event, a schema event (whose `RegisterSchemaEvent` then fails, naming the reason, as
+it does whenever its one row registers nothing), and the `register_keys` and `sync_file_keys` actions
+of the apiserver. A loader started from the UI starts from a file's `input_registry` row, which an
+excluded file does not have. It is unrelated to `${JETS_IGNORE_FILE}`, which prunes a run's input
+folder listing at sharding and registers nothing.
+
+The *Source Configuration* screen sets it (the *Files not to register (json)* field), and so can SQL,
+for a source configured by a workspace's initialisation scripts, which need not name the column:
+
+```sql
+UPDATE jetsapi.source_config SET exclude_file_names_json = '["_trailer"]'
+ WHERE client = 'ACME' AND org = 'SomeVendor' AND object_type = 'claims';
+```
+
 **6 — The part-file gate.** When `source_config.is_part_files = 1`, a data source is a *folder* of
 parts rather than one file. The gate reads the S3 object's `size`, never a schema event's `file_size`:
 
-- an object larger than 1 byte is **skipped**: parts are not registered one by one;
+- an object larger than 1 byte is **skipped**: parts are not registered one by one, excluded or not;
+- an excluded object of 1 byte or less is not taken for the sentinel: it is staged under its own key;
 - otherwise it is the sentinel. If `JETS_SENTINEL_FILE_NAME` is set and the key does not end with it,
   the row is skipped too, **except for a schema event**, which names a folder rather than an object;
 - on the sentinel, the file name is stripped so `file_key` becomes the **folder**, and the folder is
@@ -171,8 +195,8 @@ the file had that size.
 **7 — Staging.** The row is upserted into `jetsapi.file_key_staging`, which is unique on `file_key`:
 a file registered again updates its row. A row missing a required column is skipped (`skipMissingColumn`);
 `file_size` defaults to 0. This is the second point where a file is accepted and nothing runs. A row
-whose `source_config` was missing, or names no domain key other than `jets:hashing_override`, stops
-here.
+whose `source_config` was missing, whose name its `source_config` excludes, or whose `source_config`
+names no domain key other than `jets:hashing_override`, stops here.
 
 **8 — Session.** `reserveSessionId` inserts into `jetsapi.session_reservation`, starting from the
 current time in milliseconds and retrying with the next value up to 1000 times, so session ids are
@@ -187,7 +211,17 @@ the file again should do; a re-delivery of one write is stopped at step 2.
 
 `RegisterFileKeys` returns `registered`, the number of rows that registered input, and `skipped` (up
 to 100 rows, each with its reason) with `skipped_count`. A request in which nothing registered is
-still a success, because a request of many keys skips some by design.
+still a success, because a request of many keys skips some by design. The reasons:
+
+| Reason | The row | Staged |
+|---|---|---|
+| `no_file_key` | names no file | no |
+| `part_file` | is a part of a multi-part source; its sentinel registers the folder | no |
+| `sentinel_name_mismatch` | is not the sentinel `JETS_SENTINEL_FILE_NAME` names | no |
+| `missing_column` | lacks a `file_key_staging` column | no |
+| `no_source_config` | has no `source_config` for its client, org and object type | yes |
+| `excluded_file_key` | has a name its `source_config`'s `exclude_file_names_json` excludes | yes |
+| `no_domain_keys` | has a `source_config` with no domain key to register | yes |
 
 **10 — Which pipelines are ready.** `StartPipelinesForInputRegistryV2` finds `process_input` rows
 matching the registry row on client, org, object_type, table_name and source_type, then the pipeline

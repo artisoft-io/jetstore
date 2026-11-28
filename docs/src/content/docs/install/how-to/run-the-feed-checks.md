@@ -23,7 +23,7 @@ it is run by hand for anything else this page describes.
 
 | Mode | Command | What it does |
 |---|---|---|
-| window, the default | `feed_detect -since 26h` | Judges the deliveries registered in the last 26 hours, and whether each feed is overdue now. This is the daily run. |
+| window, the default | `feed_detect -since 26h` | Judges the deliveries registered in the last 26 hours, and whether each feed is overdue now. This is the daily run. It also judges the deliveries registered in the `-late` before the window, 30 days by default, whose claims were mapped after the run that covered them, once each; `-late 0` judges the window alone. |
 | backfill | `feed_detect -mode backfill -from 2026-01-01` | Judges every delivery registered since the date, each against the deliveries before it and nothing after, and dates each finding at the first daily run that would have seen it. *Overdue* is judged at every such run. `-step` sets the interval, a day by default, counted back from `-as-of`. |
 | export | `feed_detect -mode export -from … -as-of … -results results.txt` | Prints the statements the checks run, to be run elsewhere. Opens no connection. |
 | judge | `feed_detect -mode judge -from … -as-of … -results results.txt` | Runs the checks over what those statements returned, and prints their verdicts. Opens no connection. |
@@ -50,7 +50,8 @@ A window or a backfill writes one row to `jetsapi.agentic_detection_run`, under 
   that no longer passes validation, a field the check needs and the profile lacks, a cumulative feed
   for a check that judges incremental ones only;
 - how many of the window's deliveries fired, were silent, and were **not judged**, by reason. Not
-  judged is never clean;
+  judged is never clean. A content check's entry also counts its verdicts on deliveries before the
+  window judged late (`late`), and the summary how many deliveries the run marked judged;
 - per feed, how many verdicts carry `history_truncated`: a delivery with nothing before it is the
   feed's first, or its history was purged, and the two cannot be told apart.
 

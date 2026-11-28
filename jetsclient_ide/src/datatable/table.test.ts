@@ -350,6 +350,12 @@ const HAND_MAINTAINED_KEYS = [
   // Its label was the Rule Terms tab's, carried over from the Dart; it is the
   // Files Relationship tab's own, as the view's other tables are (2026-11-14).
   "wsMainSupportFilesTable",
+  // Reads jetsapi.input_registry_live, the live registrations, since a
+  // deleted session's registrations are marked rather than deleted
+  // (2026-11-27); as do inputRegistryTable, lfFileKeyStagingTable and
+  // main_input_registry_key, already listed. Its fixture entry stays as the
+  // Flutter record.
+  "spSummaryDataSources",
   // 20 rows per page rather than the Dart's 50, so the Rules Configuration
   // screen pages at 20, 40, 100 or 200 (2026-11-25).
   "ruleConfigv2Table",
@@ -556,7 +562,9 @@ describe("the 28 configurations still translated from the flow fixture", () => {
     // total is unchanged.
     // **33 the same day**, with eleven more tables that start at 20 rows per
     // page, six screen tables and five flow tables; the total is unchanged.
-    expect(Object.keys(handMaintained).length).toBe(33);
+    // **34 on 2026-11-27**, with `spSummaryDataSources`, which reads the view
+    // of the live registrations; the total is unchanged.
+    expect(Object.keys(handMaintained).length).toBe(34);
     // **64 since 2026-10-11**: the three rules unit test tables
     // of the rules unit test harness, written rather than translated.
     // **5 and 63 since 2026-11-08**: *Session Registry* and *Archived

@@ -17,8 +17,8 @@ File names without a directory are in `jets/compute_pipes/`.
 
 ## The operator types
 
-A configuration can name 21 types: the variants of `TransformationSpec` (`pipes_model.go`) in the
-contract matrix, `tools/cpipes_contract/matrix/types.csv`. Eighteen are built-in operators that
+A configuration can name 22 types: the variants of `TransformationSpec` (`pipes_model.go`) in the
+contract matrix, `tools/cpipes_contract/matrix/types.csv`. Nineteen are built-in operators that
 `BuildPipeTransformationEvaluator` (`pipes_runtime_model.go`) dispatches on; `infer` is rewritten into
 one of them before the pipeline is built; and two rows, `~override` and `~site`, are not types at all
 but describe what an entry means when its `type` is absent or unknown (see
@@ -31,7 +31,7 @@ reference.
 |---|---|
 | [`map_record`](/docs/developer/reference/generated/pipeline-configuration/#transformationspecmaprecord) | Maps each input record onto the output channel's columns through its column transformations, optionally driven by a file-mapping table (`pipe_transformation_map_record.go`). With `map_record_config.calculate_span_of` naming an output column by its canonical name, such as a date of service, it also records the run's *input span*: the days from the earliest to the latest date it mapped into that column, over every node, shown on the Home screen's Pipelines Status tab (`input_span.go`). It also records the dates' *core span*, from the nearest-rank 1st percentile date to the 99th, shown beside it. With `map_record_config.retain_window`, `{"column": …, "days_before_file_date": n, "days_after_file_date": m}`, it keeps only the records whose column is dated from the file date (`$DATE_FILE_KEY`, from the file key) less *n* days to the file date plus *m* days, bounds included, and drops the rest: those with no date in the column, those before the window and those after it, counted by reason on each node and shown as the run's *Dropped Count* (`retain_window.go`). Each day count is an integer or a string taking env vars, such as `"${RETAIN_WINDOW_DAYS}"`; `days_after_file_date` defaults to 0. The spans are measured before the window decides, on the records as delivered. A step naming a span or window column its output channel does not have is refused when the pipeline is built, as is a window whose day count is not a non-negative integer once substituted, or a run with no `$DATE_FILE_KEY`. |
 | [`filter`](/docs/developer/reference/generated/pipeline-configuration/#transformationspecfilter) | Keeps the records for which its `filter_config.when` expression is true, drops rows without the input channel's number of columns when `row_length_strict` is set, and caps the records kept at `max_output_records` (`pipe_transformation_filter.go`). |
-| [`distinct`](/docs/developer/reference/generated/pipeline-configuration/#transformationspecdistinct) | Keeps one record per value of a composite key (`pipe_transformation_distinct.go`). |
+| [`distinct`](/docs/developer/reference/generated/pipeline-configuration/#transformationspecdistinct) | Keeps one record per value of the composite key `distinct_config.distinct_on`, the input channel's columns it names, in any order and wherever they sit in the record (`pipe_transformation_distinct.go`). It keeps the **first** record it receives for each key and sends it on unchanged as it arrives; a later record with the same key is dropped, as is a record that does not have the input channel's number of columns. The key is **exact**, not a hash: two records share it only when every named column holds the same value in both, so `("ab", "c")` and `("a", "bc")` are two keys, and a null is its own value, neither the empty string nor the text `<nil>`. A value that is not a string is compared by its text, so the string `"1"` and the number 1 are one key. A `distinct_on` that names no column is refused, naming the step: the pipeline does not start, and the workspace IDE refuses to save the configuration. A `conditional_config` override may supply it, and is refused itself when it would leave the step with none. Until JetStore 4.1.24 an empty `distinct_on` was accepted, gave every record one key, and kept only the first. The keys seen are held in memory, one set per instance of the operator: each node builds its own, and under a `splitter` each partition does, so a key is unique across nodes or partitions only when the input is partitioned on it. Until JetStore 4.1.24 the key was read from the record's first *n* columns, *n* being the number of columns named, rather than from the named ones, and its values were joined without a separator; so a `distinct_on` that was not the channel's first *n* columns deduplicated on the wrong columns. |
 | [`sort`](/docs/developer/reference/generated/pipeline-configuration/#transformationspecsort) | Sorts the input records in memory on a composite key or a domain key, and sends them on in that order (`pipe_transformation_sort.go`). |
 | [`aggregate`](/docs/developer/reference/generated/pipeline-configuration/#transformationspecaggregate) | Reduces all its input records to one output record, with aggregate column functions such as `sum`, `count` and `max` (`pipe_transformation_aggregate.go`). |
 
@@ -89,6 +89,12 @@ built, so a feed's override that is not a non-negative integer stops the run at 
 | [`embed`](/docs/developer/reference/generated/pipeline-configuration/#transformationspecembed) | Calls the infer server's embeddings endpoint once per record and puts the vector on the record, through the same plumbing as `ollama` (`pipe_transformation_embed.go`). |
 | [`render`](/docs/developer/reference/generated/pipeline-configuration/#transformationspecrender) | Renders one text template per record over a serialised entity and adds the text to the record (`pipe_transformation_render.go`). See [the render operator](/docs/developer/compute-pipes/operators/render/). |
 
+### Summarise a delivery
+
+| Type | What it does |
+|---|---|
+| [`claim_set_summary`](/docs/developer/reference/generated/pipeline-configuration/#transformationspecclaimsetsummary) | Computes the delivery's claim-set summary row, the row the feed detection's claim-set checks judge from, from the records rather than from the claim-set table, in two steps: `partial` on every node of a step sharded by member emits one partial record per node, and `merge` on one node of a later step adds them and writes the row; the columns are the feed profile's (`pipe_transformation_claim_set_summary.go`). See [the claim_set_summary operator](/docs/developer/compute-pipes/operators/claim-set-summary/). |
+
 ### Write partitions
 
 | Type | What it does |
@@ -120,6 +126,7 @@ The contract matrix needs a row for every shape an `apply` entry can take, and t
 | Page | Kind | Covers |
 |---|---|---|
 | [The render operator](/docs/developer/compute-pipes/operators/render/) | reference | A configured text template over a serialised entity: configuration, notation, failure model |
+| [The claim_set_summary operator](/docs/developer/compute-pipes/operators/claim-set-summary/) | reference | A delivery's claim-set summary computed in the pipeline on many nodes: its preconditions, the two-step layout, the partial record, the merge's check, and when it writes nothing |
 | [How the render operator is designed](/docs/developer/compute-pipes/operators/render-design/) | explanation | Why its input is a column, the worked example that ships, and the measurement it exists because of |
 | [The inference operators](/docs/developer/compute-pipes/operators/infer/) | reference | The `infer` type and backend selection, and the plumbing `ollama`, `vllm` and `embed` share |
 | [What the inference measurements showed](/docs/developer/compute-pipes/operators/infer-measurements/) | explanation | Backend choice, throughput, cold start, encoding, and a template against a model |

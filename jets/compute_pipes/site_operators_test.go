@@ -533,10 +533,13 @@ func TestBuiltinOperatorTypesMatchesTheDispatch(t *testing.T) {
 				case *ast.BasicLit:
 					dispatched[strings.Trim(e.Value, `"`)] = true
 				case *ast.Ident:
-					// RenderOperatorType, a named constant.
-					if e.Name == "RenderOperatorType" {
+					// A named constant: RenderOperatorType, ClaimSetSummaryOperatorType.
+					switch e.Name {
+					case "RenderOperatorType":
 						dispatched[RenderOperatorType] = true
-					} else {
+					case "ClaimSetSummaryOperatorType":
+						dispatched[ClaimSetSummaryOperatorType] = true
+					default:
 						t.Errorf("the dispatch has a case on identifier %s that this test cannot resolve", e.Name)
 					}
 				}

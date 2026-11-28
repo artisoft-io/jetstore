@@ -46,8 +46,9 @@ def main(argv: list[str] | None = None) -> int:
 
     relocate_cmd = sub.add_parser(
         "relocate",
-        help="carry each citation --code rejects to where its line went, read from "
-        "the cited file's git history; never touches a review stamp",
+        help="carry each citation --code rejects to where its line went, followed "
+        "through the cited file's git history from the commit that wrote the "
+        "citation; never touches a review stamp",
     )
     relocate_cmd.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
     relocate_cmd.add_argument(
@@ -57,6 +58,12 @@ def main(argv: list[str] | None = None) -> int:
         "--apply",
         action="store_true",
         help="write the carried citations back onto the rows",
+    )
+    relocate_cmd.add_argument(
+        "--all",
+        action="store_true",
+        help="carry every citation, not only the rejected ones, and report each "
+        "whose line is not where its history says it went",
     )
 
     corpus_cmd = sub.add_parser(
@@ -140,10 +147,22 @@ def main(argv: list[str] | None = None) -> int:
     )
     generate_cmd.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
     generate_cmd.add_argument(
-        "--out",
+        "--model",
         type=Path,
         default=DEFAULT_MATRIX.parent / "cpipes_model.py",
-        help="destination of the generated model",
+        help="the model whose hand-written regions are carried, and the default "
+        "destination",
+    )
+    generate_cmd.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="destination of the generated model (default: --model)",
+    )
+    generate_cmd.add_argument(
+        "--check",
+        action="store_true",
+        help="write nothing; exit 1 when --model is not what the matrix generates",
     )
 
     stamp_cmd.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
@@ -769,20 +788,29 @@ def _stamp(args, matrix: Matrix) -> int:
 
 def _relocate(args, matrix: Matrix) -> int:
     """Report, and under --apply write, the citations whose lines moved. Exits
-    non-zero while any rejected citation is left that could not be carried."""
+    non-zero while any rejected citation is left that could not be carried, and
+    under --all while any accepted citation is not where its history says it went."""
     from . import relocate as relocate_mod
 
-    moves = relocate_mod.relocate(matrix, args.code)
+    moves = relocate_mod.relocate(matrix, args.code, args.matrix, all_citations=args.all)
     carried = [m for m in moves if m.new is not None]
-    stuck = [m for m in moves if m.new is None]
+    stuck = [m for m in moves if m.new is None and m.rejected]
+    unverified = [m for m in moves if m.new is None and not m.rejected]
+    misplaced = [m for m in carried if not m.rejected]
     for m in carried:
-        print(f"  {m.where}: {m.old} -> {m.new} (read at {m.reason})")
+        label = "MISPLACED " if not m.rejected else "  "
+        print(f"{label}{m.where}: {m.old} -> {m.new} (written at {m.reason})")
     for m in stuck:
         print(f"STUCK {m.where}: {m.old}: {m.reason}", file=sys.stderr)
+    for m in unverified:
+        print(f"  unverified {m.where}: {m.old}: {m.reason}")
     lapsed = sum(1 for m in carried if m.reviewed)
     print(
-        f"{len(carried)} citation(s) carried, {len(stuck)} left for a reader; "
+        f"{len(carried)} citation(s) carried ({len(misplaced)} that --code accepts "
+        f"on a line they were not written for), {len(stuck)} left for a reader; "
         f"{lapsed} of the carried are on reviewed rows"
+        + (f"; {len(unverified)} accepted citation(s) whose history could not be followed"
+           if args.all else "")
     )
     if args.apply and carried:
         relocate_mod.apply(moves)
@@ -791,7 +819,7 @@ def _relocate(args, matrix: Matrix) -> int:
             f"applied to {args.matrix}; the {lapsed} reviewed row(s) now read "
             "\"changed since it was reviewed\" until re-approved with `stamp --restamp`"
         )
-    return 1 if stuck else 0
+    return 1 if stuck or misplaced else 0
 
 
 def _harness(args, matrix: Matrix) -> int:

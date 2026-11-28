@@ -56,17 +56,20 @@ func TestLociMatchDDL(t *testing.T) {
 	if !slices.Equal(got, want) {
 		t.Errorf("the locus vocabulary drifted from the generated DDL:\n  Go:  %v\n  DDL: %v", got, want)
 	}
-	// Nine positions in a run's record, two in a feed's deliveries and a job's
-	// failure, each later kind appended because the vocabulary is never
-	// renumbered.
-	if len(Loci) != 12 {
-		t.Errorf("the locus vocabulary has twelve members and Loci holds %d", len(Loci))
+	// Nine positions in a run's record, two in a feed's deliveries, a job's
+	// failure and an empty main input, each later kind appended because the
+	// vocabulary is never renumbered.
+	if len(Loci) != 13 {
+		t.Errorf("the locus vocabulary has thirteen members and Loci holds %d", len(Loci))
 	}
 	if got := Loci[9:11]; !slices.Equal(got, DeliveryLoci) {
 		t.Errorf("the delivery loci must be the tenth and eleventh members, appended: got %v", got)
 	}
 	if Loci[11] != LocusJobFailed {
 		t.Errorf("the job locus must be the twelfth member, appended: got %v", Loci[11])
+	}
+	if Loci[12] != LocusMainInputEmpty {
+		t.Errorf("the empty main input locus must be the thirteenth member, appended: got %v", Loci[12])
 	}
 }
 

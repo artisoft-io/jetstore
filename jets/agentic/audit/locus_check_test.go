@@ -2,12 +2,11 @@ package audit
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"strings"
 	"testing"
-	"time"
 
+	"github.com/artisoft-io/jetstore/jets/dbtest"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -120,12 +119,9 @@ func TestInstallSchemaRefusesToNarrowALocusCheckOverRowsItWouldReject(t *testing
 // share, and drops it afterwards.
 func freshDatabase(t *testing.T, prefix string) *pgxpool.Pool {
 	t.Helper()
-	pool := testPool(t)
+	testPool(t)
 	ctx := context.Background()
-	name := fmt.Sprintf("%s_%d", prefix, time.Now().UnixNano())
-	if _, err := pool.Exec(ctx, "CREATE DATABASE "+name); err != nil {
-		t.Fatalf("creating %s: %v", name, err)
-	}
+	name := dbtest.CreateDatabase(t, prefix)
 	cfg, err := pgxpool.ParseConfig(os.Getenv("JETS_TEST_DSN"))
 	if err != nil {
 		t.Fatal(err)
@@ -135,12 +131,7 @@ func freshDatabase(t *testing.T, prefix string) *pgxpool.Pool {
 	if err != nil {
 		t.Fatalf("connecting to %s: %v", name, err)
 	}
-	t.Cleanup(func() {
-		db.Close()
-		if _, err := pool.Exec(context.Background(), "DROP DATABASE IF EXISTS "+name); err != nil {
-			t.Logf("dropping %s: %v", name, err)
-		}
-	})
+	t.Cleanup(db.Close)
 	return db
 }
 

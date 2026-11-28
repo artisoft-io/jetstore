@@ -20,6 +20,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/csv"
 	"github.com/artisoft-io/jetstore/jets/dbutils"
+	"github.com/artisoft-io/jetstore/jets/inputregistry"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/artisoft-io/jetstore/jets/utils/jcsv"
@@ -134,6 +135,33 @@ func (dc *DataTableColumnDef) String() string {
 	buf.WriteString(")")
 	return buf.String()
 
+}
+
+// resolveLiveRegistry reads jetsapi.input_registry in place of the view of its
+// live rows, jetsapi.input_registry_live, where the view does not exist: on a
+// database the migration has not reached, where no registration is marked
+// deleted and the table's rows are the live ones. The table is aliased with the
+// view's name, so the columns and where clauses that name the view resolve. A
+// screen that lists the live registrations names the view, and keeps working
+// when the code is deployed before the migration runs.
+func (dtq *DataTableAction) resolveLiveRegistry(ctx context.Context, db inputregistry.Querier) error {
+	for i := range dtq.FromClauses {
+		fc := &dtq.FromClauses[i]
+		if fc.Schema != "jetsapi" || fc.Table != "input_registry_live" {
+			continue
+		}
+		rel, err := inputregistry.LiveRelation(ctx, db)
+		if err != nil {
+			return err
+		}
+		if rel == inputregistry.Table {
+			fc.Table = "input_registry"
+			if fc.AsTable == "" {
+				fc.AsTable = "input_registry_live"
+			}
+		}
+	}
+	return nil
 }
 
 // Return DataTableAction query and stmt to get the number of rows
@@ -1135,6 +1163,12 @@ func (ctx *DataTableContext) InsertRows(dataTableAction *DataTableAction, token 
 				httpStatus = http.StatusBadRequest
 				return
 			}
+			// So is a list of excluded file names register keys could not use
+			// (source_config_exclude_file_names.go).
+			if err = normaliseExcludeFileNames(dataTableAction.Data[irow]); err != nil {
+				httpStatus = http.StatusBadRequest
+				return
+			}
 
 		case strings.HasSuffix(dataTableAction.FromClauses[0].Table, "user_git_profile"):
 			gitToken := dataTableAction.Data[irow]["git_token"]
@@ -1455,6 +1489,10 @@ func (ctx *DataTableContext) DoReadAction(dataTableAction *DataTableAction, toke
 
 	var columnsDef []DataTableColumnDef
 	var err error
+
+	if err = dataTableAction.resolveLiveRegistry(context.Background(), ctx.Dbpool); err != nil {
+		return nil, http.StatusInternalServerError, err
+	}
 
 	if len(dataTableAction.Columns) == 0 {
 		// Get table column definition

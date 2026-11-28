@@ -1,6 +1,6 @@
 ---
 title: Run the contract checks
-description: Install the compute pipes contract tooling and run its coherence, citation, corpus and harness checks, the review stamp, and its test suite.
+description: Install the compute pipes contract tooling and run its coherence, citation, model, corpus and harness checks, the review stamp, and its test suite.
 kind: how-to
 sidebar:
   order: 7
@@ -14,8 +14,12 @@ is the JetStore repository root (`--code`), and `../../..` is the folder holding
 ## Install
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -e .
+python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
 ```
+
+The `dev` extra brings `pytest`, which the test suite needs; `pip install -e .` alone installs the
+commands without it. With `uv`, `uv venv .venv && uv pip install --python .venv/bin/python -e '.[dev]'`
+does the same.
 
 ## Name the corpus's workspaces
 
@@ -70,20 +74,77 @@ the `--code` root. Where that workspace is not in the checkout, the citation is 
 full one. The test suite runs the same rule over every citation into the JetStore repository, so a
 change that moves a cited line fails `pytest` as well.
 
+## Check that the matrix still emits the model
+
+```bash
+.venv/bin/cpipes-contract reflect --check     # the model's claims are the matrix's
+.venv/bin/cpipes-contract generate --check    # the matrix emits the committed model
+```
+
+`cpipes_model.py` is where the contract is edited, and `reflect` writes an edit's claims into
+`fields.csv`. `generate` is the other direction: it emits the model from the matrix, and
+`--check` compares instead of writing, prints the diff, and exits non-zero when they differ.
+`tests_generate.py` makes the same comparison, so drift fails `pytest` too. Together the two
+checks say the model and the matrix carry the same contract, each recoverable from the other.
+
+Code the matrix has no column for is marked in the model as a **hand-written region**:
+
+```python
+# >>> hand-written: before TableSpec
+OUTPUT_TABLE_RDF_TYPES = (...)
+# <<< hand-written
+```
+
+The anchor says where `generate` puts the region back: `before <Name>` (above `class <Name>(` or
+`<Name> = `), `field <Class>.<key>` (in place of that field's line) or `end`. `generate` refuses a
+region whose anchor it does not emit, rather than dropping it. Everything outside the regions comes
+from the matrix, so an edit there that `reflect` does not carry (a type's docstring is `types.csv`'s
+`description`; class and field order is the emitter's sorted order) makes `--check` fail until the
+matrix says the same.
+
+Until 2026-11-27 nothing checked this direction, and the committed model had drifted from what the
+matrix emitted in class order, in three type descriptions, and by three blocks of code that a
+regeneration deleted. The emitter's own output did not vary: it is sorted throughout, and the
+test suite asserts it is identical under two hash seeds.
+
+After a change that `generate` writes, regenerate the schema as well:
+
+```bash
+.venv/bin/cpipes-contract generate && .venv/bin/cpipes-contract schema
+```
+
 ## Carry citations whose lines moved
 
 ```bash
 .venv/bin/cpipes-contract relocate --code ../..             # what would move, and what cannot
 .venv/bin/cpipes-contract relocate --code ../.. --apply     # write the carried citations
+.venv/bin/cpipes-contract relocate --code ../.. --all       # also check the citations --code accepts
 ```
 
 A line added above a cited declaration moves every citation below it. `relocate` takes each
-citation `--code` rejects, finds the newest version of the cited file in git in which the line did
-name what it cites, and carries that line through the diff to the file as it is now. It keeps the
-result only when the carried line names it; a citation whose line itself changed is left for a
-reader and makes the command exit non-zero. It never touches `review` or `reviewed_hash`, so a
-reviewed row whose citation moved reads "changed since it was reviewed" until it is re-approved
-with `stamp --restamp`.
+citation `--code` rejects and finds, in the matrix's own git history, the commit that wrote it.
+The cited line must name what it cites in the file at that commit, and when it is a struct
+field's declaration, a field of the struct the row is about. `relocate` then follows that line
+forward through every later version of the file, one diff at a time. Where the line itself
+changed, it looks for the field's declaration inside the struct or function that held the line,
+and takes it only when exactly one line there declares it. It keeps the result only when the
+carried line names what it cites inside a declaration of the same name. A citation that was
+wrong when it was written is followed from the one it replaced, when that one was right. A
+citation that cannot be carried is left for a reader and makes the command exit non-zero.
+
+**`--code` cannot tell a field from its namesake**: a `Comment` citation that has drifted onto
+the next struct's `Comment`, or onto a doc comment that mentions the field, passes it. `--all`
+follows every citation, not only the rejected ones, and reports as `MISPLACED` each one that is
+not where its history says it went. With `--apply` it carries them, and it exits non-zero while
+any remain. The test suite runs the same check over the matrix
+(`test_every_citation_is_where_its_history_says`) when the checkout has its full history.
+
+`relocate` never touches `review` or `reviewed_hash`, so a reviewed row whose citation moved reads
+"changed since it was reviewed" until it is re-approved with `stamp --restamp`.
+
+Until 2026-11-27 `relocate` started from the newest version of the cited file in which the cited
+line number named the field. For 41 of 407 citations that was a neighbouring line that merely
+mentioned the name, and the citation was carried onto it.
 
 ## Measure the corpus
 
@@ -145,7 +206,15 @@ The test suite is the `tests_*.py` files; `pyproject.toml` declares that pattern
 `pytest` collects nothing and exits 0.
 
 ```bash
-uv run --extra dev pytest -q
+.venv/bin/pytest -q            # in the virtual environment installed above
+uv run --extra dev pytest -q   # or let uv build one
 ```
+
+`tests_citations.py` runs `check --code`'s rule over every citation into the JetStore repository,
+so a change that moves a cited line fails it; `relocate` above carries the citations it can.
+`tests_generate.py` fails when `cpipes_model.py` is not what the matrix generates, as
+`generate --check` above does.
+Tests that read a named workspace's configuration skip unless the workspace is checked out beside
+`jetstore` and `CPIPES_CONTRACT_ALIASES` names the alias file.
 
 Each check is one command with one exit code: there is no CI service to host them.

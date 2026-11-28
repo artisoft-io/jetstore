@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/dbtest"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -250,17 +251,9 @@ func TestListIncidentsFiltersByStatusAndCountsHypotheses(t *testing.T) {
 // deployment older than these tables looks like, and asserts the error a screen can act
 // on rather than the string a screen would otherwise print.
 func TestListIncidentsReportsAnUnmigratedDatabase(t *testing.T) {
-	pool := testPool(t) // skips without a DSN, and installs the schema in the *other* database
+	testPool(t) // skips without a DSN, and installs the schema in the *other* database
 	ctx := context.Background()
-	name := fmt.Sprintf("ae1_nomigration_%d", time.Now().UnixNano())
-	if _, err := pool.Exec(ctx, "CREATE DATABASE "+name); err != nil {
-		t.Fatalf("creating %s: %v", name, err)
-	}
-	t.Cleanup(func() {
-		if _, err := pool.Exec(context.Background(), "DROP DATABASE IF EXISTS "+name); err != nil {
-			t.Logf("dropping %s: %v", name, err)
-		}
-	})
+	name := dbtest.CreateDatabase(t, "ae1_nomigration")
 	cfg, err := pgxpool.ParseConfig(os.Getenv("JETS_TEST_DSN"))
 	if err != nil {
 		t.Fatal(err)

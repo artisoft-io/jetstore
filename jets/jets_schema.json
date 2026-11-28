@@ -681,6 +681,11 @@
         "dataType": "jsonb"
       },
       {
+        "columnName": "exclude_file_names_json",
+        "description": "File names register keys does not register, as a JSON array of substrings, for example [\"_trailer\"]: a file whose name (the last segment of its file key) contains one, case-sensitive, is staged in file_key_staging and skipped as excluded_file_key. NULL or [] excludes nothing",
+        "dataType": "text"
+      },
+      {
         "columnName": "schema_provider_json",
         "dataType": "text",
         "description": "Additional file config, with lesser priority than the other settings on this table."
@@ -894,6 +899,11 @@
         "dataType": "datetime",
         "default": "now()",
         "isNotNull": true
+      },
+      {
+        "columnName": "deleted_at",
+        "dataType": "datetime",
+        "description": "When a session deletion (jets/sessionpurge: the retention purge or a user's Delete) marked the registration deleted; NULL while it is live. A deleted session's registrations are marked, not deleted, and kept indefinitely: a run that read the session still resolves its input (schema_provider_json, its source), and a file registered again after its first registration was deleted is still known to have arrived before. The view jetsapi.input_registry_live (jets_init_db.sql) holds the live rows; a reader of current registrations reads it, a reader of what a run read reads this table. A reset of the domain tables truncates the table, marked rows included."
       }
     ],
     "indexes": [
@@ -2700,6 +2710,53 @@
       {
         "indexName": "session_deletion_completed_at_idx",
         "indexDef": "INDEX session_deletion_completed_at_idx ON jetsapi.session_deletion (completed_at)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
+    "tableName": "purged_delivery",
+    "description": "One row per file whose first registration a session deletion removed: the table and file key of the input_registry row, and when it first arrived. Written by jets/sessionpurge in the deleted session's own transaction, by the retention purge and by a user's Delete alike, so that a later registration of the same file stays re-processing rather than becoming the file's delivery. Read by the feed detectors (jets/agentic/observe): a registration is a delivery when it is the first surviving registration of its file key and no row here records an earlier first registration of the same table and file key. Kept for twice RETENTION_DAYS counted from first_arrival, the file's arrival, not from purged_at, which a later deletion rewrites: the retention purge (jets/purge_database) deletes older rows, so a file registered again more than twice RETENTION_DAYS after its first delivery is judged a new delivery. About 0.5 KB a row with its unique index. A reset of the domain tables truncates it.",
+    "columns": [
+      {
+        "columnName": "table_name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "file_key",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "first_session_id",
+        "dataType": "text",
+        "isNotNull": true,
+        "description": "The session of the first registration removed. Read as Unix milliseconds it is the file's arrival, as the feed detectors read a registration's."
+      },
+      {
+        "columnName": "first_arrival",
+        "dataType": "timestamptz",
+        "isNotNull": true,
+        "description": "first_session_id as a time, for a reader."
+      },
+      {
+        "columnName": "deletion_reason",
+        "dataType": "text",
+        "isNotNull": true,
+        "description": "The reason of the deletion that removed it: retention, orphan or user."
+      },
+      {
+        "columnName": "purged_at",
+        "dataType": "timestamptz",
+        "default": "now()",
+        "isNotNull": true
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "purged_delivery_file_uk",
+        "definition": "CONSTRAINT purged_delivery_file_uk UNIQUE (table_name, file_key)"
       }
     ]
   },

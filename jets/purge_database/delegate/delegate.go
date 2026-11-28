@@ -2,6 +2,7 @@ package delegate
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -23,7 +24,9 @@ import (
 // JETS_DSN_SECRET
 // JETS_REGION
 // USING_SSH_TUNNEL for testing or running locally
-// RETENTION_DAYS site global retention days, sessions are purged if > 0
+// RETENTION_DAYS site global retention days, sessions are purged if > 0; the
+// records of deleted first registrations (jetsapi.purged_delivery) are kept
+// twice as long, from the file's arrival
 // PURGE_DRY_RUN a dry run unless exactly "false" (see IsDryRun)
 // AGENT_AUDIT_RETENTION_DAYS the agent's audit trail is purged after this many
 // days if set; unset, it is never purged (see AuditRetentionDays)
@@ -99,26 +102,50 @@ func DomainTablesRetentionDays(value string, retentionDays int) (days int, cappe
 	return n, false, nil
 }
 
+// RetentionDays reads RETENTION_DAYS: the days a session is kept. Unset or
+// empty turns the purge off, which is not an error (set is false). Anything
+// that is not a whole number of days, 1 or more, is an error.
+func RetentionDays(value string) (days int, set bool, err error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 0, false, nil
+	}
+	n, err := strconv.Atoi(value)
+	if err != nil || n < 1 {
+		return 0, true, fmt.Errorf("RETENTION_DAYS must be a whole number of days, 1 or more, or unset; it is %q", value)
+	}
+	return n, true, nil
+}
+
+// readSettings reads the purge's settings with getenv. It reports set false
+// when RETENTION_DAYS is unset, and the purge does nothing. A setting that does
+// not read is not returned as an error here: it is the configuration's
+// SettingsErr, which purgeSessions returns before it does anything, once the
+// database is open, so the refusal is recorded as the job's failure rather than
+// stopping the Lambda with nothing recorded.
+func readSettings(getenv func(string) string, start time.Time) (cfg purgeConfig, set bool) {
+	retentionDays, set, retentionErr := RetentionDays(getenv("RETENTION_DAYS"))
+	if !set {
+		return purgeConfig{}, false
+	}
+	auditDays, auditErr := AuditRetentionDays(getenv("AGENT_AUDIT_RETENTION_DAYS"))
+	return purgeConfig{
+		RetentionDays:         retentionDays,
+		DomainTablesRetention: getenv("DOMAIN_TABLES_RETENTION_DAYS"),
+		AuditRetentionDays:    auditDays,
+		SettingsErr:           errors.Join(retentionErr, auditErr),
+		DryRun:                IsDryRun(getenv("PURGE_DRY_RUN")),
+		Now:                   start,
+		Deadline:              start.Add(runBudget),
+	}, true
+}
+
 // * TODO set retention_days at client level (client_registry)
 func DoPurgeSessions() error {
-	start := time.Now()
-	rd := os.Getenv("RETENTION_DAYS")
-	if len(rd) == 0 {
+	cfg, set := readSettings(os.Getenv, time.Now())
+	if !set {
 		log.Println("Env var RETENTION_DAYS not specified, bailing out!")
 		return nil
-	}
-	retentionDays, err := strconv.Atoi(rd)
-	if err != nil {
-		return fmt.Errorf("while converting RETENTION_DAYS to int : %v", err)
-	}
-	if retentionDays < 1 {
-		log.Println("Retention days must be at least 1, we have", retentionDays)
-		return fmt.Errorf("retention days must be at least 1, we have %d", retentionDays)
-	}
-	dryRun := IsDryRun(os.Getenv("PURGE_DRY_RUN"))
-	auditDays, err := AuditRetentionDays(os.Getenv("AGENT_AUDIT_RETENTION_DAYS"))
-	if err != nil {
-		return err
 	}
 
 	// open db connection
@@ -128,25 +155,18 @@ func DoPurgeSessions() error {
 		len(os.Getenv("USING_SSH_TUNNEL")) > 0,
 		5)
 	if err != nil {
-		return fmt.Errorf("while getting dsn from aws secret: %v", err)
+		return errors.Join(fmt.Errorf("while getting dsn from aws secret: %v", err), cfg.SettingsErr)
 	}
 	dbpool, err := pgxpool.New(context.Background(), dsn)
 	if err != nil {
-		return fmt.Errorf("while opening db connection: %v", err)
+		return errors.Join(fmt.Errorf("while opening db connection: %v", err), cfg.SettingsErr)
 	}
 	defer dbpool.Close()
 
-	// DOMAIN_TABLES_RETENTION_DAYS is read by purgeSessions, which refuses a bad
-	// value once the database is open, so the refusal is recorded as the job's
-	// failure.
-	return purgeSessions(context.Background(), dbpool, purgeConfig{
-		RetentionDays:         retentionDays,
-		DomainTablesRetention: os.Getenv("DOMAIN_TABLES_RETENTION_DAYS"),
-		AuditRetentionDays:    auditDays,
-		DryRun:                dryRun,
-		Now:                   start,
-		Deadline:              start.Add(runBudget),
-	})
+	// The settings are refused by purgeSessions once the database is open, a bad
+	// DOMAIN_TABLES_RETENTION_DAYS included, so a refusal is recorded as the
+	// job's failure.
+	return purgeSessions(context.Background(), dbpool, cfg)
 }
 
 type purgeConfig struct {
@@ -156,15 +176,20 @@ type purgeConfig struct {
 	DomainTablesRetention string
 	// AuditRetentionDays is the agent audit trail's retention; 0 never purges it.
 	AuditRetentionDays int
-	DryRun             bool
-	Now                time.Time // the run's start, from which every age is counted
-	Deadline           time.Time // no session is started after it
+	// SettingsErr is a setting readSettings could not read (RETENTION_DAYS or
+	// AGENT_AUDIT_RETENTION_DAYS); purgeSessions refuses the run with it.
+	SettingsErr error
+	DryRun      bool
+	Now         time.Time // the run's start, from which every age is counted
+	Deadline    time.Time // no session is started after it
 }
 
 // purgeSessions is the purge, given a database:
 //
-//  1. Rules unit test runs and detection runs, by age; a dry run counts them
-//     in a transaction it rolls back.
+//  1. Rules unit test runs and detection runs, by age, and the records of
+//     deleted first registrations whose file arrived more than twice
+//     RETENTION_DAYS ago (purgePurgedDeliveries); a dry run counts them in a
+//     transaction it rolls back.
 //  2. A dry run reads the retention and orphan candidates, runs them through
 //     sessionpurge.ExecuteRequests with every transaction rolled back, logs the
 //     report and stops. It writes nothing.
@@ -173,15 +198,19 @@ type purgeConfig struct {
 //     DOMAIN_TABLES_RETENTION_DAYS that it did not delete whole (purgeTableData),
 //     sweeps the agentic incidents no session they stand for is still held
 //     (jets/agentic/retention), purges the agent audit trail when its retention
-//     is set, purges the archive and the tombstones, and runs VACUUM.
+//     is set, purges the archive, the input_registry rows marked deleted that
+//     no run refers to any more (purgeMarkedRegistrations) and the tombstones,
+//     and runs VACUUM.
 //
-// A dry run deletes the table data and sweeps the incidents inside its own
-// transaction, after its sessions, so it reports the table data and the
-// incidents a real run would delete, and counts the audit rows a real run would
+// A dry run deletes the table data, sweeps the incidents, purges the archive
+// and the marked registrations inside its own transaction, after its sessions,
+// so it reports the table data, the incidents and the registrations a real run
+// would delete, and counts the audit rows a real run would
 // delete; it writes nothing.
 //
-// A DOMAIN_TABLES_RETENTION_DAYS that is not a whole number of days, 1 or more,
-// refuses the run before it does anything, and is recorded as its failure.
+// A RETENTION_DAYS, AGENT_AUDIT_RETENTION_DAYS or DOMAIN_TABLES_RETENTION_DAYS
+// that is not a whole number of days, 1 or more, refuses the run before it does
+// anything, and is recorded as its failure.
 //
 // A session or an incident that fails is logged and retried by the next run; it
 // is not an error of the run, which would have the lambda retried, and neither
@@ -196,6 +225,9 @@ func purgeSessions(ctx context.Context, dbpool *pgxpool.Pool, cfg purgeConfig) (
 	var problems []string
 	defer func() { recordRun(ctx, dbpool, cfg, err, problems) }()
 
+	if cfg.SettingsErr != nil {
+		return cfg.SettingsErr
+	}
 	tableDays, capped, err := DomainTablesRetentionDays(cfg.DomainTablesRetention, cfg.RetentionDays)
 	if err != nil {
 		return err
@@ -226,6 +258,7 @@ func purgeSessions(ctx context.Context, dbpool *pgxpool.Pool, cfg purgeConfig) (
 	// were before the session purge was rebuilt.
 	purgeRulesUnitTestRuns(dbpool, purgeFrom, cfg.DryRun)
 	purgeDetectionRuns(dbpool, purgeFrom, cfg.DryRun)
+	problems = append(problems, purgePurgedDeliveries(dbpool, cfg)...)
 
 	sessionCands, err := sessionpurge.RetentionCandidates(ctx, dbpool, purgeFrom)
 	if err != nil {
@@ -248,6 +281,15 @@ func purgeSessions(ctx context.Context, dbpool *pgxpool.Pool, cfg purgeConfig) (
 					"DRY RUN, nothing written: ")...)
 			}
 			problems = append(problems, sweepIncidents(ctx, tx, sweepOpts, "DRY RUN, nothing written: ")...)
+			// The archive, then the marked registrations it frees, as a real
+			// run purges them, so the count is a real run's.
+			n, err := sessionpurge.PurgeArchive(ctx, tx, cfg.Now.AddDate(0, 0, -archiveDays))
+			if err != nil {
+				problems = append(problems, fmt.Sprintf("the archive purge failed: %v", err))
+				return nil
+			}
+			log.Printf("DRY RUN, nothing written: Purged %d archived pipeline runs", n)
+			problems = append(problems, purgeMarkedRegistrations(ctx, tx, "DRY RUN, nothing written: ")...)
 			return nil
 		}
 		report, err := sessionpurge.ExecuteRequests(ctx, dbpool, append(sessionCands, orphans...), opts)
@@ -284,6 +326,9 @@ func purgeSessions(ctx context.Context, dbpool *pgxpool.Pool, cfg purgeConfig) (
 		return err
 	}
 	log.Printf("Purged %d archived pipeline runs last updated on or before %s", n, archiveFrom)
+	// After the archive, whose purge frees the registrations only its runs
+	// referred to.
+	problems = append(problems, purgeMarkedRegistrations(ctx, dbpool, "")...)
 	n, err = sessionpurge.PurgeTombstones(ctx, dbpool, archiveFrom, cfg.Now.AddDate(0, 0, -userTombstoneDays))
 	if err != nil {
 		return err
@@ -299,8 +344,10 @@ func purgeSessions(ctx context.Context, dbpool *pgxpool.Pool, cfg purgeConfig) (
 	return nil
 }
 
-// logReport logs a run's report: the sessions by reason, the rows per table, the
-// status rows archived and the sessions refused or failed.
+// logReport logs a run's report: the sessions by reason, the rows per table
+// (deleted, and marked deleted for input_registry), the
+// status rows archived, the first registrations of files recorded and the
+// sessions refused or failed.
 func logReport(prefix string, r *sessionpurge.Report) {
 	log.Printf("Session purge: %s%s", prefix, r.Summary())
 	tables := make([]string, 0, len(r.Rows))
@@ -310,6 +357,18 @@ func logReport(prefix string, r *sessionpurge.Report) {
 	sort.Strings(tables)
 	for _, t := range tables {
 		log.Printf("   %s%d rows from %s", prefix, r.Rows[t], t)
+	}
+	marked := make([]string, 0, len(r.Marked))
+	for t := range r.Marked {
+		marked = append(marked, t)
+	}
+	sort.Strings(marked)
+	for _, t := range marked {
+		log.Printf("   %s%d rows marked deleted in %s", prefix, r.Marked[t], t)
+	}
+	if r.PurgedDeliveries > 0 {
+		log.Printf("   %s%d first registrations of files recorded in jetsapi.purged_delivery", prefix,
+			r.PurgedDeliveries)
 	}
 	if len(r.RefusedSessions) > 0 {
 		log.Printf("   refused, a run pending or submitted: %s", strings.Join(r.RefusedSessions, ", "))
@@ -539,6 +598,68 @@ func purgeDetectionRuns(dbpool *pgxpool.Pool, purgeFrom time.Time, dryRun bool) 
 	}
 	log.Printf("%sPurged %d agentic detection run records\n", dryRunPrefix(dryRun), n)
 	return n
+}
+
+// purgedDeliveryRetentions is how many RETENTION_DAYS a row of
+// jetsapi.purged_delivery is kept, counted from the file's first arrival.
+const purgedDeliveryRetentions = 2
+
+// purgePurgedDeliveries deletes the jetsapi.purged_delivery rows whose file
+// first arrived more than twice RETENTION_DAYS before the run's start
+// (sessionpurge.PurgeDeliveriesBefore). The age is the row's first_arrival, the
+// file's arrival as the feed detectors read it, not purged_at, which a later
+// deletion of an earlier registration rewrites. So a file re-sent stays
+// re-processing until twice RETENTION_DAYS after its first delivery, about one
+// retention period after that delivery's session was purged; registered again
+// after that, it is judged a new delivery. A run with no RETENTION_DAYS deletes
+// nothing, and so does a dry run, which counts what a real run would delete, as
+// purgeDetectionRuns's does. It runs with the other age purges, before the
+// session deletions, so a row this run records waits for the next run. A
+// database without the table is left alone. A failure is logged and returned
+// as a line for the run's failure record.
+func purgePurgedDeliveries(dbpool *pgxpool.Pool, cfg purgeConfig) []string {
+	if cfg.RetentionDays < 1 {
+		log.Println("Purged delivery retention: RETENTION_DAYS is not set, jetsapi.purged_delivery is kept")
+		return nil
+	}
+	before := cfg.Now.AddDate(0, 0, -purgedDeliveryRetentions*cfg.RetentionDays)
+	var n int64
+	var exists bool
+	err := ageTx(dbpool, cfg.DryRun, func(ctx context.Context, tx pgx.Tx) (err error) {
+		n, exists, err = sessionpurge.PurgeDeliveriesBefore(ctx, tx, before)
+		return err
+	})
+	if err != nil {
+		log.Println("Warning: while purging jetsapi.purged_delivery:", err)
+		return []string{fmt.Sprintf("the purged_delivery retention failed: %v", err)}
+	}
+	if !exists {
+		log.Println("Purged delivery retention: jetsapi.purged_delivery does not exist, nothing to purge")
+		return nil
+	}
+	log.Printf("%sPurged %d records of deleted first registrations from jetsapi.purged_delivery, "+
+		"files first arrived before %s (twice RETENTION_DAYS)\n", dryRunPrefix(cfg.DryRun), n,
+		before.UTC().Format(time.RFC3339))
+	return nil
+}
+
+// purgeMarkedRegistrations deletes the input_registry rows a session deletion
+// marked deleted that no run, live or archived, refers to
+// (sessionpurge.PurgeMarkedRegistrations), and logs how many. A failure is
+// logged and returned as a line for the run's failure record; the rows are
+// purged by the next run.
+func purgeMarkedRegistrations(ctx context.Context, db sessionpurge.Querier, prefix string) []string {
+	n, exists, err := sessionpurge.PurgeMarkedRegistrations(ctx, db)
+	if err != nil {
+		log.Println("Warning: while purging the marked rows of jetsapi.input_registry:", err)
+		return []string{fmt.Sprintf("the purge of marked input_registry rows failed: %v", err)}
+	}
+	if !exists {
+		log.Printf("%sjetsapi.input_registry has no deleted_at column, no row is marked, nothing to purge", prefix)
+		return nil
+	}
+	log.Printf("%sPurged %d input_registry rows marked deleted that no run refers to", prefix, n)
+	return nil
 }
 
 // ageTx runs one of the age purges in a transaction, committed by a real run

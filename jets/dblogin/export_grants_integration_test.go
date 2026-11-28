@@ -15,6 +15,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/artisoft-io/jetstore/jets/dbtest"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -98,9 +99,10 @@ func TestExportGrantsWithGrantOption(t *testing.T) {
 	ctx := context.Background()
 	cgSetup(t, apiserver)
 	fakeExport(t, super)
+	user := dbtest.Name(t, "dbl_export_option")
 	cgExec(t, super,
-		"GRANT USAGE ON SCHEMA fake_s3 TO dbl_export_option WITH GRANT OPTION",
-		"GRANT EXECUTE ON FUNCTION fake_s3.query_export_to_s3(text) TO dbl_export_option WITH GRANT OPTION")
+		"GRANT USAGE ON SCHEMA fake_s3 TO "+user+" WITH GRANT OPTION",
+		"GRANT EXECUTE ON FUNCTION fake_s3.query_export_to_s3(text) TO "+user+" WITH GRANT OPTION")
 
 	st, err := EnsureStatus(ctx, apiserver)
 	if err != nil {
@@ -124,16 +126,17 @@ func TestExportGrantsThatGiveNothingAreReported(t *testing.T) {
 	if err := super.QueryRow(ctx, "SELECT current_user").Scan(&owner); err != nil {
 		t.Fatal(err)
 	}
+	user := dbtest.Name(t, "dbl_export_other")
 	cgExec(t, super,
-		"GRANT USAGE ON SCHEMA fake_s3 TO dbl_export_other",
-		"GRANT EXECUTE ON FUNCTION fake_s3.query_export_to_s3(text) TO dbl_export_other")
+		"GRANT USAGE ON SCHEMA fake_s3 TO "+user,
+		"GRANT EXECUTE ON FUNCTION fake_s3.query_export_to_s3(text) TO "+user)
 
 	st, err := EnsureStatus(ctx, apiserver)
 	if err != nil {
 		t.Fatalf("EnsureStatus: %v", err)
 	}
 	for _, want := range []string{
-		"schema fake_s3", "dbl_export_other neither owns", "as " + owner + " (the owner)",
+		"schema fake_s3", user + " neither owns", "as " + owner + " (the owner)",
 		`GRANT USAGE ON SCHEMA "fake_s3" TO "jets_ide"`,
 		`GRANT EXECUTE ON FUNCTION fake_s3.query_export_to_s3(text) TO "jets_ide"`,
 	} {

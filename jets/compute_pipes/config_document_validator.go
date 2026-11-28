@@ -29,8 +29,8 @@ import (
 //     column_encodings entry with no column, a text template that does not
 //     compile or a duplicate template key, a writer setting on an input
 //     channel, latest_session_only off a staged file_key read, the retired Go
-//     rule engine, and an output table column whose rdf_type is outside
-//     schema.PgTypeNames. Each reads the document and nothing else: not the
+//     rule engine, a distinct operator with no distinct_on (2026-11-27), and
+//     an output table column whose rdf_type is outside schema.PgTypeNames. Each reads the document and nothing else: not the
 //     env, not a step's when, not the schema event. Both start paths call
 //     ValidatePipeSpecConfig before a step runs and neither succeeds without
 //     it, so a document failing one fails at every start (2026-11-14; until
@@ -38,6 +38,9 @@ import (
 //
 // Warnings, which do not refuse the save:
 //
+//   - a claim_set_summary operator under a splitter, which its step's start
+//     refuses (validateClaimSetSummaryPipes); a warning because the step may
+//     be one whose when is never true;
 //   - an output table's column with no rdf_type. Creating the table needs one,
 //     but a table that exists and is not checked for schema changes never
 //     reads it. jets:key and session_id are skipped, here and at the start
@@ -129,6 +132,7 @@ func ValidateConfigDocument(content string) []wsvalidate.Finding {
 			}
 		}
 	}
+	findings = append(findings, claimSetSummaryDocumentFindings(&cfg)...)
 	unknown := unknownConfigFields([]byte(content))
 	for _, path := range unknown {
 		findings = append(findings, wsvalidate.Finding{
@@ -174,6 +178,7 @@ var configDocumentChecks = []struct {
 	{"cpipes_config_input_writer_field", validateInputChannelsCarryNoWriterFields},
 	{"cpipes_config_latest_session_only", validateLatestSessionOnly},
 	{"cpipes_config_go_engine", validateNoGoEngine},
+	{"cpipes_config_distinct_on", validateDistinctOn},
 }
 
 // validateConditionalStepsHavePipes is ValidatePipeSpecConfig's first check.

@@ -242,7 +242,7 @@ def test_the_model_refuses_every_token_the_schemas_not_enum_excludes():
     excluded = schema["$defs"]["TransformationSpecSite"]["properties"]["type"]["not"][
         "enum"
     ]
-    assert len(excluded) == 19, "the built-in vocabulary moved; re-derive"
+    assert len(excluded) == 20, "the built-in vocabulary moved; re-derive"
     for token in excluded:
         with pytest.raises(ValidationError, match="is a built-in operator"):
             model.TransformationSpecSite.model_validate(

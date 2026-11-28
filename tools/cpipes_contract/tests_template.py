@@ -277,9 +277,19 @@ def test_criterion_21_the_expansion_regenerates_its_target_exactly():
 
     `ValidatePipeSpecConfig` is the criterion's other half and is not run from here -
     it needs the Go harness. Both the expansion and the target return
-    `{"ok": true, "steps": 8}`, checked 2026-08-20:
+    `{"ok": true, "steps": 8}`, checked 2026-08-20 and again 2026-11-27:
 
         go run ./tools/cpipes_contract/harness < cases.json
+
+    **The target is the live configuration, not a snapshot of it, and that is the
+    criterion rather than a convenience.** It says the mechanism holds *on a live
+    config*, so when the workspace's configuration changes this test fails, and the
+    repair is to re-derive the template's body from the configuration as it now is
+    (every step but the repeated load stages, verbatim), not to pin the target. It
+    failed that way on 2026-11-27, when the configuration had gained two context
+    defaults, `latest_session_only` on a stage read, and `calculate_span_of` and
+    `retain_window` on its `map_record`; the schema already described all four, so
+    re-deriving the body was the whole repair.
     """
     _, target, cfg, _ = _round_trip()
     assert json.dumps(cfg, sort_keys=True) == json.dumps(target, sort_keys=True)
@@ -700,7 +710,15 @@ def test_the_fixtures_fill_two_of_the_twenty_five_empty_types():
     # infer step when patient_profile stated its briefing step once for either backend.
     # The fixtures hold an `OllamaSpec`, so they now fill three: the claim the pin
     # protects - that the fixtures concentrate where the corpus is thin - gains one.
-    assert len(cov["empty"]) == 31
+    #
+    # **33 on 2026-11-27.** `RetainWindowSpec` (2026-11-24) arrived with no corpus
+    # instance and without a re-pin, so the assertion was already failing at 32;
+    # `TransformationSpecClaimSetSummary` is the claim_set_summary operator's, which
+    # ships before the first configuration that uses it.
+    #
+    # **34 the same day**: `ClaimSetSummarySpec`, the operator's configuration block,
+    # arrived with its two modes, for the same reason.
+    assert len(cov["empty"]) == 34
     assert cov["filled_by_fixtures"] == ["DomainKeysSpec", "OllamaServerSpec", "OllamaSpec"]
 
 

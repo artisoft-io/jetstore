@@ -101,8 +101,9 @@ class IncidentClassification(StrEnum):
 
 class IncidentLocus(StrEnum):
     """**Ours entirely, and it is the taxonomy the triage design derived from
-    the execution record** (12 values: nine positions in a run's record, then
-    two positions in a feed's deliveries, then a job's failure). Not in the proposal at any level.
+    the execution record** (13 values: nine positions in a run's record, then
+    two positions in a feed's deliveries, then a job's failure, then a run whose
+    main input held no records). Not in the proposal at any level.
 
     **A locus is where in the record a cause would have to have left its
     evidence; it is not a cause.** The triage design's finding is that the
@@ -160,6 +161,15 @@ class IncidentLocus(StrEnum):
     run that did not start. Its failures are grouped as a run's are, by client,
     process name and locus, and a job records only its failures, so its
     condition ends at a person's verdict rather than at an absent run.
+
+    **The thirteenth, `main_input_empty`, is a run whose main input held no
+    records, appended by the same rule.** The sharding step (`cpipes_step_id`
+    `reducing00`) completed on every worker and read 0 records in all, the sum
+    the run's `main_input_records_count` is written from. Such a run reaches
+    none of its later steps, so on it `step_never_started` is not evaluable and
+    says why. A feed's profile may declare empty deliveries expected, and the
+    locus is then absent, its basis naming the declaration: whether an empty
+    file is wrong is the feed's to say, not the record's.
     """
 
     # row 1: header terminal, zero worker rows.
@@ -195,6 +205,10 @@ class IncidentLocus(StrEnum):
     # (`run_not_started` would say a run was submitted and never ran), and it
     # is appended rather than placed with them, by the rule above.
     job_failed = "job_failed"
+    # A run whose main input held no records: its sharding step completed on
+    # every worker and read 0 records in all. It is a run position, appended
+    # rather than placed with the nine, by the rule above.
+    main_input_empty = "main_input_empty"
 
 
 class RunFindingVerdict(StrEnum):
@@ -961,8 +975,8 @@ class Incident(JetsaEntity):
         "when a detector emitted an observation rather than when triage clustered them."
     )
     incident_locus: IncidentLocus = prop(
-        "**Where in the record the evidence sits** - nine positions in a run's execution record "
-        "and two in a feed's deliveries, the taxonomy the record can evidence and the one the "
+        "**Where in the record the evidence sits** - ten positions in a run's execution record, "
+        "two in a feed's deliveries and a job's failure, the taxonomy the record can evidence and the one the "
         "triage classifier classifies deterministically. "
         "Required, and carried beside classification rather than instead of it: the locus is "
         "evidence, the classification is a claim."
@@ -1016,9 +1030,10 @@ class Incident(JetsaEntity):
     )
     incident_client: str | None = prop(
         "For an incident at a run locus, the client of the run it is written on. With "
-        "incident_process_name, incident_locus and incident_error_code it is the key of the run "
-        "condition the incident stands for: the consecutive runs of one process for one client whose "
-        "finding at the locus is present. Carried on the incident so that the incident is found by "
+        "incident_process_name, the three incident_source columns, incident_locus and "
+        "incident_error_code it is the key of the run condition the incident stands for: the "
+        "consecutive runs of one process for one client, from one main input source, whose finding at "
+        "the locus is present. Carried on the incident so that the incident is found by "
         "its key and position after the run it is written on has been deleted. Null at a delivery "
         "locus, and on a run incident written before run conditions.",
         default=None,
@@ -1035,6 +1050,28 @@ class Incident(JetsaEntity):
         "incident at a delivery locus, the delivery's arrival: its session id read as epoch "
         "milliseconds, the value a feed condition orders its positions by. Null on an incident that "
         "carries no key: where incident_client and incident_feed are both null.",
+        default=None,
+    )
+    incident_source_client: str | None = prop(
+        "For an incident at a run locus, the client of the run's main input registration: with "
+        "incident_source_org and incident_source_object_type, the source of the run's main input "
+        "(jetsapi.input_registry's client, org and object_type, by the run's main_input_registry_key). "
+        "It is part of the run condition's key, so the runs of one process are grouped by the source "
+        "their main input came from, and each source's runs are judged against that source's own. "
+        "Distinct from the file's object type a session registration names. The empty string on a run "
+        "with no main input registration, and on a job's failure, which has no main input. Null at a "
+        "delivery locus, and on a run incident written before run conditions carried the source, which "
+        "is then found only by a run with no source.",
+        default=None,
+    )
+    incident_source_org: str | None = prop(
+        "For an incident at a run locus, the org of the run's main input registration: part of the "
+        "source, as incident_source_client is. Empty and null where incident_source_client is.",
+        default=None,
+    )
+    incident_source_object_type: str | None = prop(
+        "For an incident at a run locus, the object type of the run's main input registration: part of "
+        "the source, as incident_source_client is. Empty and null where incident_source_client is.",
         default=None,
     )
     incident_feed: str | None = prop(

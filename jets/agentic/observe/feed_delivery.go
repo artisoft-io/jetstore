@@ -11,7 +11,9 @@ package observe
 // registrations (input_registry rows with source_type 'file'), at its first
 // registration; a later registration of the same file key is re-processing,
 // counted on the coverage line and never judged (feed_delivery_registrations.go
-// holds the one reading both detector families share). A delivery belongs to
+// holds the one reading both detector families share). A file whose first
+// registration a session deletion removed has no delivery: its surviving
+// registrations stay re-processing (jetsapi.purged_delivery). A delivery belongs to
 // the feed whose source_config.table_name it names, on table_name alone, which
 // is unique in source_config. A registration may name
 // another client or org than its feed, as JetStore registers some deliveries
@@ -134,6 +136,10 @@ type FeedDeliveryInput struct {
 	// not a number and so has no arrival. They are not judged and not used as
 	// anyone's predecessor.
 	Unordered map[string]int
+	// Purged are by table_name: the files whose first registration a session
+	// deletion removed, each carrying its surviving registrations, which are
+	// re-processing and no delivery.
+	Purged map[string][]FeedPurgedFile
 }
 
 // FeedRegistrationOrderSQL is registration order, as an ORDER BY over
@@ -145,12 +151,16 @@ type FeedDeliveryInput struct {
 const FeedRegistrationOrderSQL = `(CASE WHEN ir.session_id ~ '^[0-9]{1,18}$' THEN ir.session_id::bigint END) NULLS LAST,
           ir.key`
 
-// feedDeliverySQL reads the deliveries of the feeds named, each feed's in
-// registration order. Its text must not change: a statement export identifies
-// each statement by a hash of its text.
+// feedDeliverySQL reads the registrations of the feeds named, each feed's in
+// registration order, those a session deletion marked deleted included, with
+// the mark (FeedRegistrations.Add). Its text must not change without reason: a
+// statement export identifies each statement by a hash of its text, so a
+// results file from an export by an earlier release is not read against it.
+// It changed on 2026-11-27, when it gained the mark, read through to_jsonb of
+// the row so that it runs unchanged where input_registry has no deleted_at.
 const feedDeliverySQL = `SELECT ir.table_name, ir.session_id, ir.client, ir.org, COALESCE(ir.file_key, ''),
        sp.year, sp.month, sp.day, sp.month_period, sp.week_period, sp.day_period,
-       fks.file_size
+       fks.file_size, ` + feedRegistrationDeletedSQL + `
   FROM jetsapi.input_registry ir
   LEFT JOIN jetsapi.source_period sp ON sp.key = ir.source_period_key
   LEFT JOIN jetsapi.file_key_staging fks ON fks.file_key = ir.file_key
@@ -180,10 +190,13 @@ func ReadFeedDeliveryInput(ctx context.Context, db DB, profiled, unprofiled []fe
 func FeedDeliveryInputOf(regs *FeedRegistrations, profiled, unprofiled []feedprofile.Feed,
 	asOf time.Time) *FeedDeliveryInput {
 	in := &FeedDeliveryInput{AsOf: asOf.UTC(), Profiled: profiled, Unprofiled: unprofiled,
-		Deliveries: map[string][]FeedDelivery{}, Unordered: map[string]int{}}
+		Deliveries: map[string][]FeedDelivery{}, Unordered: map[string]int{}, Purged: map[string][]FeedPurgedFile{}}
 	for _, f := range profiled {
 		if ds := regs.Deliveries(f.TableName, in.AsOf); len(ds) > 0 {
 			in.Deliveries[f.TableName] = ds
+		}
+		if ps := regs.PurgedFiles(f.TableName, in.AsOf); len(ps) > 0 {
+			in.Purged[f.TableName] = ps
 		}
 		if n := regs.Unordered[f.TableName]; n > 0 {
 			in.Unordered[f.TableName] = n
@@ -339,7 +352,8 @@ func feedDeliveryJudgeable(detector string, in *FeedDeliveryInput) ([]feedprofil
 		if n := in.Unordered[f.TableName]; n > 0 {
 			cov.Unordered[f.TableName] = n
 		}
-		if n := FeedReprocessedIn(in.Deliveries[f.TableName], time.Time{}, in.AsOf); n.Registrations > 0 {
+		if n := FeedReprocessedOf(in.Deliveries[f.TableName], in.Purged[f.TableName], time.Time{},
+			in.AsOf); n.Registrations > 0 {
 			cov.Reprocessed[f.TableName] = n
 		}
 	}

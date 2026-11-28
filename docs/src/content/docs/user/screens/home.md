@@ -92,7 +92,8 @@ to the clipboard. They are set when JetStore is deployed, and are not in this li
 ## Data Registry
 
 The input registry: every data set a pipeline can read, the files that arrived and the tables that
-pipelines wrote, the latest first. Its caption is *File and Domain Table Registry*. See
+pipelines wrote, the latest first. The registrations of a deleted session are not listed: a
+deletion marks them deleted (`jetsapi.input_registry_live` holds the others). Its caption is *File and Domain Table Registry*. See
 [Files, file keys and the input registry](/docs/user/concepts/files-and-the-input-registry/#the-input-registry).
 
 ![The Data Registry tab: the CI client's three files of 5 January 2026, registered as source type file in their staging tables, and the three domain tables the Map pipelines wrote from them, each with its session id.](../../../../assets/screenshots/user/screens/home/data-registry.png)

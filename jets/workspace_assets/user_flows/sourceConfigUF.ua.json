@@ -12,7 +12,7 @@
           "domain_keys_json", "code_values_mapping_json", "input_columns_json",
           "input_columns_positions_csv", "input_format", "is_part_files", "input_format_data_json",
           "schema_provider_json", "scSingleOrMultiPartFileOption", "currentSheet", "is_cumulative",
-          "feed_profile_json"
+          "feed_profile_json", "exclude_file_names_json"
         ] },
         { "do": "goToState", "state": "add_source_config" }
       ]
@@ -41,6 +41,7 @@
         { "do": "set", "key": "automated", "value": { "literal": "0" } },
         { "do": "set", "key": "is_cumulative", "value": { "fromKey": "is_cumulative" } },
         { "do": "set", "key": "feed_profile_json", "value": { "fromKey": "feed_profile_json" } },
+        { "do": "set", "key": "exclude_file_names_json", "value": { "fromKey": "exclude_file_names_json" } },
         { "do": "set", "key": "input_format", "value": { "fromKey": "input_format" } },
 
         { "do": "set", "key": "scSingleOrMultiPartFileOption", "value": { "literal": "scMultiPartFileOption" },
@@ -127,6 +128,7 @@
         { "do": "set", "key": "schema_provider_json", "value": { "fromKey": "schema_provider_json" } },
         { "do": "set", "key": "is_cumulative", "value": { "fromKey": "is_cumulative" } },
         { "do": "set", "key": "feed_profile_json", "value": { "fromKey": "feed_profile_json" } },
+        { "do": "set", "key": "exclude_file_names_json", "value": { "fromKey": "exclude_file_names_json" } },
         { "do": "post", "endpoint": "/dataTable", "action": "insert_rows", "table": "delete/source_config",
           "data": { "rows": "wholeState" } },
         { "do": "clearSelection", "key": "scSourceConfigKey" },
@@ -134,7 +136,7 @@
           "scSourceConfigKey", "key", "client", "org", "object_type", "input_format",
           "scSingleOrMultiPartFileOption", "is_part_files", "input_columns_json",
           "input_columns_positions_csv", "domain_keys_json", "code_values_mapping_json",
-          "schema_provider_json", "is_cumulative", "feed_profile_json"
+          "schema_provider_json", "is_cumulative", "feed_profile_json", "exclude_file_names_json"
         ] }
       ]
     },

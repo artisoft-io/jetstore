@@ -5,11 +5,12 @@ package main
 //
 // A process that fails the same way run after run is one fault, and shadow
 // triage raises one incident for it, on its first run: the consecutive live
-// runs of one process for one client with a present finding at one run locus,
-// and at per_record_failures_reported one error code, are a run condition, and
-// each later run joins its incident and carries none of its own. A run incident
-// written so carries its key and its position (jetsapi.incident's
-// incident_client, incident_process_name, incident_anchor_start_time and
+// runs of one process for one client, from one main input source, with a
+// present finding at one run locus, and at per_record_failures_reported one
+// error code, are a run condition, and each later run joins its incident and
+// carries none of its own. A run incident written so carries its key and its
+// position (jetsapi.incident's incident_client, incident_process_name, the
+// three incident_source columns, incident_anchor_start_time and
 // incident_error_code), and is found by them, never by its session, so it is
 // still its condition's incident after its own run is deleted.
 //
@@ -49,6 +50,10 @@ type RunIncidentKey struct {
 	// Anchor is the start time of the run the incident is written on, its
 	// position, kept after that run is deleted; zero when it carries no key.
 	Anchor time.Time
+	// Source is the main input source of the run the incident is written on,
+	// the empty source on a run with none, a job's failure, and an incident
+	// written before the key carried a source.
+	Source observe.Source
 }
 
 // Keyed reports whether the incident carries a run condition's key, so a
@@ -59,7 +64,7 @@ func (k RunIncidentKey) Keyed() bool { return k.Process != "" && !k.Anchor.IsZer
 
 // Key is the run condition's key at a locus.
 func (k RunIncidentKey) Key(locus string) runcondition.Key {
-	return runcondition.Key{Client: k.Client, Process: k.Process, Locus: locus, Code: k.ErrorCode}
+	return runcondition.Key{Client: k.Client, Process: k.Process, Source: k.Source, Locus: locus, Code: k.ErrorCode}
 }
 
 // runIncidentKeyColumnsSQL asks whether jetsapi.incident has the four columns
@@ -70,10 +75,22 @@ const runIncidentKeyColumnsSQL = `SELECT to_regclass('jetsapi.incident') IS NOT 
            AND column_name IN ('incident_error_code', 'incident_client', 'incident_process_name',
                                'incident_anchor_start_time')) = 4`
 
+// runIncidentSourceColumnsSQL asks whether jetsapi.incident has the three
+// columns a run incident's main input source is read from.
+const runIncidentSourceColumnsSQL = `SELECT (SELECT count(*) FROM information_schema.columns
+         WHERE table_schema = 'jetsapi' AND table_name = 'incident'
+           AND column_name IN ('incident_source_client', 'incident_source_org',
+                               'incident_source_object_type')) = 3`
+
+// readRunIncidentKeysSQL reads the keys, with the source columns at %s, or
+// empty strings where the table has none.
 const readRunIncidentKeysSQL = `SELECT incident_id, coalesce(incident_error_code, ''),
-       coalesce(incident_client, ''), coalesce(incident_process_name, ''), incident_anchor_start_time
+       coalesce(incident_client, ''), coalesce(incident_process_name, ''), incident_anchor_start_time, %s
   FROM jetsapi.incident
  WHERE incident_id = ANY($1::text[])`
+
+const runIncidentSourceColumns = `coalesce(incident_source_client, ''), coalesce(incident_source_org, ''),
+       coalesce(incident_source_object_type, '')`
 
 // readRunIncidentKeys reads the key of each named incident. An incident with
 // none of the four columns set is left out, as is every incident of a
@@ -90,7 +107,15 @@ func readRunIncidentKeys(ctx context.Context, db observe.DB, ids []string) (map[
 	if !has {
 		return out, nil
 	}
-	rows, err := db.Query(ctx, readRunIncidentKeysSQL, ids)
+	var sourced bool
+	if err := db.QueryRow(ctx, runIncidentSourceColumnsSQL).Scan(&sourced); err != nil {
+		return nil, fmt.Errorf("while asking whether incidents carry a main input source: %w", err)
+	}
+	cols := `'', '', ''`
+	if sourced {
+		cols = runIncidentSourceColumns
+	}
+	rows, err := db.Query(ctx, fmt.Sprintf(readRunIncidentKeysSQL, cols), ids)
 	if err != nil {
 		return nil, fmt.Errorf("while reading the run condition keys of incidents %v: %w", ids, err)
 	}
@@ -99,7 +124,8 @@ func readRunIncidentKeys(ctx context.Context, db observe.DB, ids []string) (map[
 		var id string
 		var k RunIncidentKey
 		var anchor *time.Time
-		if err := rows.Scan(&id, &k.ErrorCode, &k.Client, &k.Process, &anchor); err != nil {
+		if err := rows.Scan(&id, &k.ErrorCode, &k.Client, &k.Process, &anchor,
+			&k.Source.Client, &k.Source.Org, &k.Source.ObjectType); err != nil {
 			return nil, fmt.Errorf("while scanning an incident's run condition key: %w", err)
 		}
 		if anchor != nil {
@@ -301,7 +327,15 @@ func runConditionPayload(c *IncidentRunCondition) map[string]any {
 	if c.Key.Code != "" {
 		out["errorCode"] = c.Key.Code
 	}
+	if !c.Key.Source.IsZero() {
+		out["source"] = sourcePayload(c.Key.Source)
+	}
 	return out
+}
+
+// sourcePayload is a main input source as the incident screen reads it.
+func sourcePayload(s observe.Source) map[string]any {
+	return map[string]any{"client": s.Client, "org": s.Org, "objectType": s.ObjectType}
 }
 
 func runCodesPayload(cs []RunCode) []map[string]any {
@@ -324,6 +358,11 @@ func addRunIncident(row map[string]any, d *RunIncidentDetail) {
 	}
 	if d.Key.ErrorCode != "" {
 		row["errorCode"] = d.Key.ErrorCode
+	}
+	// Only where set: a run incident with no source, a job's failure, and one
+	// written before the key carried a source send none.
+	if !d.Key.Source.IsZero() {
+		row["mainInputSource"] = sourcePayload(d.Key.Source)
 	}
 	if len(d.Codes) > 0 {
 		row["codes"] = runCodesPayload(d.Codes)
@@ -392,9 +431,19 @@ func readRunSpans(ctx context.Context, db observe.DB, incs []audit.IncidentSumma
 // incidents by "<locus>/<code>"; a per-record incident written before codes
 // ("<locus>/") stands for every code of its session.
 func runSessionMatches(ctx context.Context, db observe.DB, session string, own map[string]bool) ([]SessionIncident, error) {
+	var hasSources bool
+	if err := db.QueryRow(ctx, `SELECT to_regclass('jetsapi.input_registry') IS NOT NULL`).Scan(&hasSources); err != nil {
+		return nil, fmt.Errorf("while asking whether input registrations are recorded: %w", err)
+	}
+	cols, join := `'', '', ''`, ""
+	if hasSources {
+		cols, join = observe.SourceColumns, observe.SourceJoin("h")
+	}
 	var client, process string
-	err := db.QueryRow(ctx, `SELECT client, process_name FROM jetsapi.pipeline_execution_status
-		WHERE session_id = $1 ORDER BY key LIMIT 1`, session).Scan(&client, &process)
+	var source observe.Source
+	err := db.QueryRow(ctx, `SELECT h.client, h.process_name, `+cols+` FROM jetsapi.pipeline_execution_status h
+		`+join+` WHERE h.session_id = $1 ORDER BY h.key LIMIT 1`, session).Scan(&client, &process,
+		&source.Client, &source.Org, &source.ObjectType)
 	if errors.Is(err, pgx.ErrNoRows) {
 		// No run header: the session is no position of any run condition.
 		return nil, nil
@@ -434,8 +483,9 @@ func runSessionMatches(ctx context.Context, db observe.DB, session string, own m
 		if own[a.locus+"/"+a.code] || (a.locus == triage.LocusPerRecordFailuresReported && own[a.locus+"/"]) {
 			continue
 		}
-		h, err := runcondition.Read(ctx, db, runcondition.Key{Client: client, Process: process, Locus: a.locus,
-			Code: a.code})
+		key := runcondition.KeyOf(&triage.RunHeader{Client: client, ProcessName: process, Source: source},
+			a.locus, a.code)
+		h, err := runcondition.Read(ctx, db, key)
 		if err != nil {
 			return nil, err
 		}

@@ -42,7 +42,7 @@ itself, so a task's three commands are always on one row.
 | **Window** | How far back it looked. |
 | **Anomaly detection** | Its status (*requested*, *running*, *ok*, *failed*), how long it took, and how many anomalies it found over how many worker rows, how many it wrote and how many were already recorded. |
 | **Feed checks** | Its status and duration, how many anomalies the feed checks found over how many profiled feeds, how many they wrote and how many were already recorded; how many feeds have no profile and were not judged; and any feed that could not be checked, with the database's error code. A task that ran before the feed checks were part of it shows *not recorded*. |
-| **Shadow triage** | Its status and duration, how many runs it classified, the incidents and hypotheses it wrote, and how many incidents were already raised; and whether the shadow-mode attestation holds. |
+| **Shadow triage** | Its status and duration, how many runs it classified, the incidents and hypotheses it wrote, and how many incidents were already raised; how many failures on the old shared session, `F000000000000`, it skipped, shown only when there are some (see [Incidents](/docs/user/screens/incidents/)); and whether the shadow-mode attestation holds. |
 
 **Show census and attestation** opens, under the row, the census of each locus over the runs
 classified (*present*, *absent*, *not evaluable*) and the text of the attestation:
@@ -78,11 +78,26 @@ archived when their sessions were deleted. A deleted session keeps its run in th
 loses its worker counts, so a step whose history was deleted looks new. Such an anomaly carries the
 confounder *history truncated*.
 
+**Step regression compares a run with the earlier runs of its own source.** A run's main input
+source is the client, org and object type its main input was registered under, as on the
+[Incidents](/docs/user/screens/incidents/) screen. A process that reads the files of two vendors has
+two sources, and each step has a history for each of them. A step fails as a regression only when
+it completed on earlier runs of the same process, client, object type **and** source: at least 3
+runs in the baseline window, at least one of them completed. A vendor's run that fails a step only
+the other vendor's files reach raises nothing, however often the other vendor's runs completed it.
+A run with no main input registration has an empty source, compared with the process's other runs
+with none. Where the database has no input registrations table, every run has the empty source and
+the process has one history, and the anomaly's basis says so. The detector that compares by source
+is *step_regression@2*; earlier anomalies, compared with every run of the process, are
+*step_regression@1*.
+
 **Step regression reads its history from the worker rows too.** A run whose session was deleted is
 not among a step's earlier runs, because its worker rows were deleted with the session. Its run is
 still in the pipeline history, so the detector counts, for each client, process and object type, the
 runs in its window that were deleted. An anomaly about a step of a source that lost runs carries the
-confounder *history truncated*, and its basis says how many runs were deleted.
+confounder *history truncated*, and its basis says how many runs were deleted. A deleted run is
+counted for every source of its object type, because its input registration may have been deleted
+with its session.
 
 **The numbers are starting points, not measured values.** The 10 runs, the 3 runs, the halving and the
 floor are the detection command's defaults: `-volume-history-runs`, `-volume-min-prior-runs`,

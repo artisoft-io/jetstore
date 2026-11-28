@@ -34,6 +34,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/observe"
 	"github.com/artisoft-io/jetstore/jets/agentic/observe/feedfixture"
 	"github.com/artisoft-io/jetstore/jets/agentic/shadow"
+	"github.com/artisoft-io/jetstore/jets/dbtest"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -54,17 +55,7 @@ func freshDB(t *testing.T, dbName string) *pgxpool.Pool {
 		t.Skip("JETS_TEST_DSN not set; needs a throwaway Postgres")
 	}
 	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, stmt := range []string{"DROP DATABASE IF EXISTS " + dbName + " WITH (FORCE)", "CREATE DATABASE " + dbName} {
-		if _, err := admin.Exec(ctx, stmt); err != nil {
-			admin.Close()
-			t.Fatal(err)
-		}
-	}
-	admin.Close()
+	dbName = dbtest.CreateDatabase(t, dbName)
 	u, err := url.Parse(dsn)
 	if err != nil {
 		t.Fatal(err)

@@ -189,10 +189,48 @@ Terminal state reporting for every state machine.
 Deletes sessions past the retention window, and the agentic rows nothing still held stands for.
 
 - **What goes with a session**: every row of it, in every table, the detectors' readings of it
-  (`jetsapi.anomaly`) and shadow triage's verdicts on its runs (`jetsapi.run_finding`) included.
+  (`jetsapi.anomaly`) and shadow triage's verdicts on its runs (`jetsapi.run_finding`) included,
+  except its **input registrations**: its `jetsapi.input_registry` rows are **marked deleted**
+  (`deleted_at` set) and kept, so a run that read the session, live or archived, still resolves its
+  input (the schema provider of its main input, its client, org and object type), and a later
+  registration of a file it registered first is still known to be re-processing. A marked row is no
+  longer a registration: the *Data Registry* tab, a pipeline start, a resubmission and the purge's own
+  choice of sessions and tables read the view `jetsapi.input_registry_live`, the rows not marked. The
+  log counts them under `Session purge:` as `input_registry rows marked deleted`. On a database the
+  migration has not reached, where the column does not exist, they are deleted as before.
   Its incidents are not deleted with it: a feed or process that keeps failing the same way has one
   incident, on its first delivery or run, and later ones join it, so deleting the incident with its
   first session would raise a second one for the same fault.
+- **What a session leaves**: for each file the session registered first, a row of
+  `jetsapi.purged_delivery` with the feed's table, the file key and that first registration's
+  arrival, written in the deletion's transaction by the purge and by a user's *Delete* alike. The
+  feed checks read it so that a later registration of the same file stays re-processing rather than
+  becoming the file's delivery (see
+  [Feed content checks](/docs/user/concepts/feed-content-checks/#what-counts-as-a-delivery-and-how-re-processing-is-reported)).
+  The log counts them under `Session purge:`, as first registrations of files recorded, and a dry
+  run counts the ones it would record. A reset of the domain tables empties the table.
+- **How long that record is kept**: **twice `RETENTION_DAYS`, counted from the file's first
+  arrival** (`first_arrival`, the arrival the feed checks read, not the time the row was written).
+  The first registration itself goes about one `RETENTION_DAYS` after the arrival, so the record
+  outlives it by about one more. Each run deletes the older rows, before the session deletions, and
+  logs `Purged N records of deleted first registrations from jetsapi.purged_delivery`; a dry run
+  logs the count and deletes nothing, and a database without the table is left alone. **Once a
+  file's record is gone, its earliest surviving registration, if any, is read as its delivery**: a
+  file re-sent, or re-processed, more than twice `RETENTION_DAYS` after its first delivery is judged
+  a new delivery. A row costs about 0.5 KB with its index (measured on PostgreSQL 16: 507 MB for a
+  million rows with file keys of about 120 characters); before 4.1.24 the rows were never deleted.
+- **When a marked registration goes**: once **no run refers to it**. Each run, after it purges the
+  archived runs older than 180 days, deletes every `input_registry` row marked deleted that no row of
+  `pipeline_execution_status` or `pipeline_execution_status_archive` names, by its session
+  (`input_session_id`), its key (`main_input_registry_key`) or among `merged_input_registry_keys`,
+  and logs `Purged N input_registry rows marked deleted that no run refers to`. So a marked row lasts
+  as long as the last run that read it, at most the archive's 180 days after that run was last
+  updated, and one no run read goes at the next run. A row not marked is never touched by this. One
+  statement does it, and no run can start from a marked row: a start and a resubmission read only
+  the live registrations, and a registration is marked only when its session's deletion commits,
+  after which a start that reads the session is refused. A dry run counts the rows in the
+  transaction it rolls back, after the archive purge it would make. A database without the column
+  has nothing marked, and the step does nothing.
 - **When an incident goes**: after the sessions, in the same run, the purge deletes each incident no
   session it stands for is still held: its own session is gone (no registration, run, input or
   reading left) and no delivery or run still held is placed in it. Its hypotheses, remediations and
@@ -204,6 +242,8 @@ Deletes sessions past the retention window, and the agentic rows nothing still h
   deletion and restored in the same transaction (the database user must own the table, or the
   table is kept and the log says so); `agent_run` rows older, once their audit rows have gone; and
   `approval_event` rows decided before it. `change_proposal` has no timestamp and is always kept.
+  A value that is not a whole number of days, 1 or more, refuses the run, recorded as the purge
+  job's failure, as a bad `RETENTION_DAYS` is.
 - **Table data on a clock of its own**: `DOMAIN_TABLES_RETENTION_DAYS` deletes a session's table
   data earlier than the session, for an installation that keeps no member data longer than it must.
   Unset or empty, it is `RETENTION_DAYS`, and the purge does what it did before the variable
@@ -231,7 +271,8 @@ Deletes sessions past the retention window, and the agentic rows nothing still h
   again on a session whose table data is gone, or a look at its rows from the Query Tool or the
   *Process Errors* screen, finds none. Run a session's reports before its table data ages out.
 - **Dry run**: unless `PURGE_DRY_RUN` is exactly `false`, the purge logs what it would delete, the
-  table data, the incidents and the audit rows included, and deletes nothing. The log opens with both
+  table data, the incidents, the audit rows, the `purged_delivery` records, the archived runs and
+  the marked registrations included, and deletes nothing. The log opens with both
   clocks, and has one line per table under `Session purge:`, `Table data purge:` (lines
   `table data: N rows from T`, and the sessions held for a summary), `Incident retention:` and `Agent audit retention:`.
 - **Deployment**: `RETENTION_DAYS` non-empty. `PURGE_DATA_SCHEDULED_HOUR_UTC` sets the daily

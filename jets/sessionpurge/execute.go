@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/inputregistry"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -52,10 +53,19 @@ type Report struct {
 	// pipeline_execution_status rows archived. Domain tables are keyed by their
 	// input_registry.table_name, the fixed tables by their qualified name.
 	Rows map[string]int64
+	// PurgedDeliveries is the first registrations of files the deleted
+	// sessions held, recorded in jetsapi.purged_delivery (purged_delivery.go).
+	PurgedDeliveries int64
+	// Marked is the rows marked deleted rather than deleted, per table, keyed
+	// as Rows is: jetsapi.input_registry's, whose deleted_at a deletion sets
+	// (see fixedTables). On a database without that column the registrations
+	// are deleted and counted in Rows instead.
+	Marked map[string]int64
 }
 
 func newReport() Report {
-	return Report{ByReason: map[Reason]int{}, Rows: map[string]int64{}, FailedErrors: map[string]string{}}
+	return Report{ByReason: map[Reason]int{}, Rows: map[string]int64{}, Marked: map[string]int64{},
+		FailedErrors: map[string]string{}}
 }
 
 // ArchiveTable is the key in Report.Rows for the status rows archived.
@@ -66,6 +76,10 @@ const ArchiveTable = "jetsapi.pipeline_execution_status_archive"
 // of all, after the coordinator tables and the archive move. Each is guarded as a
 // domain table is, so a database not yet migrated skips the tables it lacks.
 var fixedTables = []fixedTable{
+	// Marked, not deleted, where the table has deleted_at (registryTable): a
+	// run that read the session still resolves its input's registration, and a
+	// file registered again is still known to have arrived before. The marked
+	// rows are kept; nothing deletes them but a reset of the domain tables.
 	{"input_registry", "session_id"},
 	{"input_loader_status", "session_id"},
 	{"process_errors", "session_id"},
@@ -129,15 +143,40 @@ type table struct {
 	ident  string // quoted, for the statement and for to_regclass
 	column string // the column holding the session id, unquoted
 	domain bool   // a table named in input_registry.table_name, not a fixed one
+	// mark: the session's rows are marked deleted (deleted_at set) rather than
+	// deleted. Only jetsapi.input_registry, and only where it has the column.
+	mark bool
 }
 
-// resolveTables returns the tables to delete from: every table_name registered in
-// input_registry, then the fixed tables, each kept only if it resolves to a table
-// with its session column (session_id for a domain table). A name that does not
-// is logged and skipped.
+// registryTable is the key in Report.Rows and Report.Marked of
+// jetsapi.input_registry.
+const registryTable = "jetsapi.input_registry"
+
+// markStmt marks a session's live registrations deleted. A row already marked
+// keeps its first deleted_at.
+const markStmt = `UPDATE jetsapi.input_registry SET deleted_at = now() WHERE session_id = $1 AND deleted_at IS NULL`
+
+// resolveTables returns the tables to delete from: every table_name of a live
+// registration (jetsapi.input_registry_live, inputregistry.LiveRelation), then
+// the fixed tables, each kept only if it resolves to a table with its session
+// column (session_id for a domain table). A name that does not is logged and
+// skipped. input_registry is marked rather than deleted from where it has
+// deleted_at (inputregistry.HasDeletedAt).
+//
+// A table whose registrations are all marked is not resolved, as a table whose
+// registrations were all deleted was not: a session's rows are in the tables it
+// is registered in, and its registrations are live until it is deleted.
 func resolveTables(ctx context.Context, db Querier) ([]table, error) {
+	mark, err := inputregistry.HasDeletedAt(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+	live, err := inputregistry.LiveRelation(ctx, db)
+	if err != nil {
+		return nil, err
+	}
 	var candidates []table
-	rows, err := db.Query(ctx, `SELECT DISTINCT table_name FROM jetsapi.input_registry ORDER BY table_name`)
+	rows, err := db.Query(ctx, `SELECT DISTINCT table_name FROM `+live+` ORDER BY table_name`)
 	if err != nil {
 		return nil, fmt.Errorf("while reading the domain tables from input_registry: %w", err)
 	}
@@ -157,8 +196,9 @@ func resolveTables(ctx context.Context, db Querier) ([]table, error) {
 		return nil, err
 	}
 	for _, f := range fixedTables {
-		candidates = append(candidates, table{name: "jetsapi." + f.name,
-			ident: pgx.Identifier{"jetsapi", f.name}.Sanitize(), column: f.column})
+		name := "jetsapi." + f.name
+		candidates = append(candidates, table{name: name,
+			ident: pgx.Identifier{"jetsapi", f.name}.Sanitize(), column: f.column, mark: mark && name == registryTable})
 	}
 
 	idents, columns := make([]string, len(candidates)), make([]string, len(candidates))
@@ -325,6 +365,10 @@ func run(ctx context.Context, db *pgxpool.Pool, reqs []Request, opts Options, cl
 			for name, n := range res.rows {
 				report.Rows[name] += n
 			}
+			for name, n := range res.marked {
+				report.Marked[name] += n
+			}
+			report.PurgedDeliveries += res.purgedDeliveries
 		}
 	}
 	if opts.DryRun && opts.AfterDryRun != nil {
@@ -336,8 +380,9 @@ func run(ctx context.Context, db *pgxpool.Pool, reqs []Request, opts Options, cl
 }
 
 type result struct {
-	held, refused bool
-	rows          map[string]int64
+	held, refused    bool
+	rows, marked     map[string]int64
+	purgedDeliveries int64
 }
 
 // errDryRunBroken: the dry run's transaction cannot go on, so the run stops.
@@ -440,7 +485,22 @@ func deleteRows(ctx context.Context, tx pgx.Tx, r *Request, tables []table, clai
 		return nil
 	}
 
+	// Before input_registry's rows of the session are marked or deleted: the
+	// files it first registered, so a later registration of one stays
+	// re-processing.
+	if res.purgedDeliveries, err = recordPurgedDeliveries(ctx, tx, r); err != nil {
+		return res, err
+	}
+	res.marked = map[string]int64{}
 	for _, t := range tables {
+		if t.mark {
+			tag, err := tx.Exec(ctx, markStmt, r.SessionID)
+			if err != nil {
+				return res, fmt.Errorf("on %s: %w", t.name, err)
+			}
+			res.marked[t.name] += tag.RowsAffected()
+			continue
+		}
 		if err = exec(t.name, "DELETE FROM "+t.ident+" WHERE "+pgx.Identifier{t.column}.Sanitize()+" = $1",
 			r.SessionID); err != nil {
 			return res, err

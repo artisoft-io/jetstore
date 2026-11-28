@@ -409,8 +409,11 @@ CREATE TABLE IF NOT EXISTS jetsapi.incident (
   incident_client                  text,
   incident_process_name            text,
   incident_anchor_start_time       timestamp with time zone,
+  incident_source_client           text,
+  incident_source_org              text,
+  incident_source_object_type      text,
   incident_feed                    text,
-  CONSTRAINT incident_locus_ck CHECK (incident_locus IN ('run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile', 'job_failed')),
+  CONSTRAINT incident_locus_ck CHECK (incident_locus IN ('run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile', 'job_failed', 'main_input_empty')),
   CONSTRAINT incident_classification_ck
              CHECK (classification IS NULL OR classification IN ('source_delivery_failure', 'source_content_change', 'transport_failure', 'parse_failure', 'validation_breach', 'transformation_defect', 'infrastructure_failure', 'dependency_failure', 'capacity_or_cost_deviation', 'benign_variation')),
   CONSTRAINT incident_severity_ck CHECK (severity IN ('info', 'low', 'medium', 'high', 'critical')),
@@ -452,6 +455,12 @@ ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_process_name text
 -- stmt
 ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_anchor_start_time timestamp with time zone;
 -- stmt
+ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_source_client text;
+-- stmt
+ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_source_org text;
+-- stmt
+ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_source_object_type text;
+-- stmt
 ALTER TABLE jetsapi.incident ADD COLUMN IF NOT EXISTS incident_feed text;
 -- stmt
 -- incident_locus_ck follows incident_locus's vocabulary onto a table created before the
@@ -466,11 +475,11 @@ BEGIN
     FROM pg_constraint c
    WHERE c.conrelid = 'jetsapi.incident'::regclass AND c.conname = 'incident_locus_ck';
   IF admitted IS NULL
-     OR NOT (admitted @> ARRAY['run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile', 'job_failed']::text[]
-             AND admitted <@ ARRAY['run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile', 'job_failed']::text[]) THEN
+     OR NOT (admitted @> ARRAY['run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile', 'job_failed', 'main_input_empty']::text[]
+             AND admitted <@ ARRAY['run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile', 'job_failed', 'main_input_empty']::text[]) THEN
     ALTER TABLE jetsapi.incident
       DROP CONSTRAINT IF EXISTS incident_locus_ck,
-      ADD CONSTRAINT incident_locus_ck CHECK (incident_locus IN ('run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile', 'job_failed'));
+      ADD CONSTRAINT incident_locus_ck CHECK (incident_locus IN ('run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile', 'job_failed', 'main_input_empty'));
   END IF;
 END $$;
 -- stmt
@@ -537,7 +546,7 @@ CREATE TABLE IF NOT EXISTS jetsapi.run_finding (
   classifier_ref                   text NOT NULL,
   classified_at                    timestamp with time zone NOT NULL,
   PRIMARY KEY (session_id, locus, error_code),
-  CONSTRAINT run_finding_locus_ck CHECK (locus IN ('run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile', 'job_failed')),
+  CONSTRAINT run_finding_locus_ck CHECK (locus IN ('run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile', 'job_failed', 'main_input_empty')),
   CONSTRAINT run_finding_verdict_ck CHECK (verdict IN ('present', 'quiet', 'absent', 'not_evaluable')),
   CONSTRAINT run_finding_code_ck
              CHECK (error_code = '' OR locus = 'per_record_failures_reported'),
@@ -557,11 +566,11 @@ BEGIN
     FROM pg_constraint c
    WHERE c.conrelid = 'jetsapi.run_finding'::regclass AND c.conname = 'run_finding_locus_ck';
   IF admitted IS NULL
-     OR NOT (admitted @> ARRAY['run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile', 'job_failed']::text[]
-             AND admitted <@ ARRAY['run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile', 'job_failed']::text[]) THEN
+     OR NOT (admitted @> ARRAY['run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile', 'job_failed', 'main_input_empty']::text[]
+             AND admitted <@ ARRAY['run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile', 'job_failed', 'main_input_empty']::text[]) THEN
     ALTER TABLE jetsapi.run_finding
       DROP CONSTRAINT IF EXISTS run_finding_locus_ck,
-      ADD CONSTRAINT run_finding_locus_ck CHECK (locus IN ('run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile', 'job_failed'));
+      ADD CONSTRAINT run_finding_locus_ck CHECK (locus IN ('run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile', 'job_failed', 'main_input_empty'));
   END IF;
 END $$;
 -- stmt
@@ -584,7 +593,13 @@ END $$;
 -- key_columns, service_date_column and member_column are the declaration the row was
 -- computed under, so a profile that changes them makes the row stale rather than wrong.
 -- lag_exceeds and out_of_span_count are decided on the exact days against the declaration
--- named beside them, at summary time.
+-- named beside them, at summary time. claim_set_judged_at is when a feed_detect run that
+-- writes first judged the delivery from this row, null until one has: a window run also
+-- judges the deliveries before its window that no run has judged, as a delivery whose
+-- claims were mapped after the run whose window held it. computed_by is the path that
+-- computed the row: database, feed_detect's statement over the claim-set table, or
+-- pipeline, the claim_set_summary operator over a pipeline's records. The two checks that
+-- compare a delivery with its predecessor do not compare rows computed by different paths.
 CREATE TABLE IF NOT EXISTS jetsapi.claim_set_summary (
   table_name                       text NOT NULL,
   delivery_session_id              text NOT NULL,
@@ -611,10 +626,44 @@ CREATE TABLE IF NOT EXISTS jetsapi.claim_set_summary (
   present_counts                   jsonb NOT NULL,
   key_fingerprint                  bigint,
   key_sketch                       bytea,
+  claim_set_judged_at              timestamp with time zone,
+  computed_by                      text NOT NULL DEFAULT 'database',
   PRIMARY KEY (table_name, delivery_session_id),
   CONSTRAINT claim_set_summary_sketch_ck
-             CHECK (key_sketch IS NULL OR octet_length(key_sketch) = 12288)
+             CHECK (key_sketch IS NULL OR octet_length(key_sketch) = 12288),
+  CONSTRAINT claim_set_summary_computed_by_ck
+             CHECK (computed_by IN ('database', 'pipeline'))
 );
+-- stmt
+-- claim_set_judged_at on a table created before it: added once, and every row there then
+-- marked judged at its summarised_at. Those rows were written by runs that judged only their
+-- window, so which of them were judged is not recorded; marking them all keeps the first
+-- runs after the upgrade from judging history as late, including any file whose first
+-- registration a purge deleted before the deletion recorded it (jetsapi.purged_delivery).
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_attribute
+                  WHERE attrelid = 'jetsapi.claim_set_summary'::regclass
+                    AND attname = 'claim_set_judged_at' AND NOT attisdropped) THEN
+    ALTER TABLE jetsapi.claim_set_summary ADD COLUMN claim_set_judged_at timestamp with time zone;
+    UPDATE jetsapi.claim_set_summary SET claim_set_judged_at = summarised_at;
+  END IF;
+END
+$$;
+-- stmt
+-- computed_by on a table created before it: added once, its default giving every row there
+-- database, since feed_detect was the only writer before the pipeline operator.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_attribute
+                  WHERE attrelid = 'jetsapi.claim_set_summary'::regclass
+                    AND attname = 'computed_by' AND NOT attisdropped) THEN
+    ALTER TABLE jetsapi.claim_set_summary ADD COLUMN computed_by text NOT NULL DEFAULT 'database';
+    ALTER TABLE jetsapi.claim_set_summary ADD CONSTRAINT claim_set_summary_computed_by_ck
+      CHECK (computed_by IN ('database', 'pipeline'));
+  END IF;
+END
+$$;
 -- stmt
 CREATE INDEX IF NOT EXISTS claim_set_summary_session_idx
   ON jetsapi.claim_set_summary (session_id);
@@ -642,7 +691,7 @@ CREATE INDEX IF NOT EXISTS claim_set_summary_session_idx
 -- for neither.
 --
 -- hypothesis_locus is constrained by the SAME vocabulary incident_locus is: the CHECK
--- below interpolates the one 'run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile', 'job_failed' the emitter builds from M.IncidentLocus, so there is
+-- below interpolates the one 'run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile', 'job_failed', 'main_input_empty' the emitter builds from M.IncidentLocus, so there is
 -- no second list to drift. It is required because the ranker's headline finding was that
 -- 20 of 29 model-generated hypotheses sat at loci triage did not find present -- and
 -- without this column a hypothesis raised at an absent locus is indistinguishable in
@@ -674,7 +723,7 @@ CREATE TABLE IF NOT EXISTS jetsapi.hypothesis (
   basis                            jsonb NOT NULL,
   CONSTRAINT hypothesis_cause_category_ck
              CHECK (cause_category IS NULL OR cause_category IN ('source_delivery_failure', 'source_content_change', 'transport_failure', 'parse_failure', 'validation_breach', 'transformation_defect', 'infrastructure_failure', 'dependency_failure', 'capacity_or_cost_deviation', 'benign_variation')),
-  CONSTRAINT hypothesis_locus_ck CHECK (hypothesis_locus IN ('run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile', 'job_failed'))
+  CONSTRAINT hypothesis_locus_ck CHECK (hypothesis_locus IN ('run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile', 'job_failed', 'main_input_empty'))
 );
 -- stmt
 ALTER TABLE jetsapi.hypothesis ADD COLUMN IF NOT EXISTS hypothesis_incident_ref text NOT NULL;
@@ -707,11 +756,11 @@ BEGIN
     FROM pg_constraint c
    WHERE c.conrelid = 'jetsapi.hypothesis'::regclass AND c.conname = 'hypothesis_locus_ck';
   IF admitted IS NULL
-     OR NOT (admitted @> ARRAY['run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile', 'job_failed']::text[]
-             AND admitted <@ ARRAY['run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile', 'job_failed']::text[]) THEN
+     OR NOT (admitted @> ARRAY['run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile', 'job_failed', 'main_input_empty']::text[]
+             AND admitted <@ ARRAY['run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile', 'job_failed', 'main_input_empty']::text[]) THEN
     ALTER TABLE jetsapi.hypothesis
       DROP CONSTRAINT IF EXISTS hypothesis_locus_ck,
-      ADD CONSTRAINT hypothesis_locus_ck CHECK (hypothesis_locus IN ('run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile', 'job_failed'));
+      ADD CONSTRAINT hypothesis_locus_ck CHECK (hypothesis_locus IN ('run_not_started', 'step_never_started', 'worker_not_terminated', 'worker_failed', 'sink_failed_under_completed_worker', 'rows_lost_silently', 'per_record_failures_reported', 'per_record_failures_unreportable', 'written_not_arrived', 'delivery_overdue', 'delivery_departs_profile', 'job_failed', 'main_input_empty'));
   END IF;
 END $$;
 -- stmt

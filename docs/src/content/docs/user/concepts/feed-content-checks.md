@@ -57,6 +57,16 @@ has summarised them, or has run since without summarising them, but never past t
 retention period. A run with `-dry-run`
 judges from the summaries it computes and writes none.
 
+**A delivery whose claims are mapped after its window is judged by a later run, once.** A daily run
+judges the deliveries registered in its window. A delivery whose claims are not yet mapped when that
+run reads it has no summary, so it is not judged, for want of claim rows, and by the next day it is
+outside the window. So a daily run also judges every delivery registered in the 30 days before its
+window whose summary no run has judged yet: the run that first finds its claims summarises it and
+judges it, as the day's run would have. A run that writes marks each delivery it judged from a
+summary, in the summary (`claim_set_judged_at`), so no delivery is judged late twice; a dry run marks
+nothing. The coverage line counts these verdicts as judged late. A backfill judges the range it is
+given and nothing before it.
+
 A summary holds counts (rows, distinct keys, distinct members, rows with a date of service), the
 newest and oldest date of service, the span between them, a histogram of the rows by days behind the
 newest, the number of rows carrying a value in **every** column of the table, and a fingerprint and a
@@ -136,7 +146,9 @@ A check reports a delivery as **not judged**, with the reason, rather than as pa
 - the feed has no profile, or the profile does not declare a field the check needs;
 - the check judges incremental feeds only and the feed is cumulative;
 - the claim-set table holds no row of the delivery's session, nor of any pipeline run that read it,
-  or does not exist, as when the pipeline that reads the feed skips the database load;
+  or does not exist, as when the pipeline that reads the feed skips the database load. When the
+  claims are mapped later, a later daily run judges the delivery (see
+  [A summary of each delivery](#a-summary-of-each-delivery));
 - a column the profile names is not in the table;
 - the check compares with a predecessor and no earlier delivery survives. This is the feed's first
   delivery, or its earlier deliveries were purged by the retention period, and the two cannot be told
@@ -147,7 +159,11 @@ A check reports a delivery as **not judged**, with the reason, rather than as pa
   two are not compared (`small_delivery`);
 - the delivery's claims are gone and its summary was written under a declaration the check cannot
   read it against now, such as another `claim_set`, or a span off the histogram's bounds
-  (`summary_declaration_changed`).
+  (`summary_declaration_changed`);
+- the check compares with a predecessor, and one of the two summaries was computed by the feed
+  detection from the claim-set table and the other by a pipeline from its records
+  (`summary_path_differs`). The two compute the same summary from two readings of the same claims,
+  and a difference between the readings would read as a change of the delivery.
 
 ## What leaves the database
 
@@ -208,3 +224,24 @@ A file that is new to the feed but registered for an old period is still a deliv
 three missed weeks raises one back-dated finding for each of the three files, however many times
 each was registered. A registration with no file key has nothing to identify its file, and is a
 delivery of its own.
+
+**A file registered again stays re-processing after its first registration is deleted.** Deleting a
+session, by the retention period or by a person's *Delete*, marks its registrations deleted, and the
+scheduled purge deletes a marked registration once no pipeline run refers to it, so a file's first
+registration can be marked or gone while a later registration of it survives. A marked first
+registration is read as the file's arrival and is never a delivery. Before the deletion, JetStore also
+records the feed's table, the file key and the first registration's arrival
+(`jetsapi.purged_delivery`), which outlasts a marked registration no run read. A registration is a
+delivery only when it is the first registration of its file not marked deleted and no deleted first
+registration of the same file, marked or recorded, arrived before it. So a
+file sent again stays re-processing: it is not summarised, takes no place among the feed's
+deliveries, and is not judged, by a daily run or a backfill, and the coverage line counts it with the
+other re-processing, saying how many of the files had their first registration deleted. The record
+is kept for twice the installation's retention period (`RETENTION_DAYS`), counted from the file's
+first arrival, about one retention period after its first registration is deleted. After that, and
+once the marked first registration is gone too, the file's earliest surviving registration, if any,
+is read as its delivery, so a file sent again more
+than twice the retention period after its first delivery is judged a new delivery (see
+[Purge Data Lambda](/docs/install/reference/stack-components/#purge-data-lambda-optional)). The
+record begins when an installation is upgraded to it, so a first registration deleted before
+then is not recorded, and a later registration of that file is still read as its delivery.

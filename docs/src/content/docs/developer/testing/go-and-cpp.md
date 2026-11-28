@@ -66,21 +66,56 @@ without it.
 A test that needs a database reads its address from `JETS_TEST_DSN` and **skips when it is not set**,
 so a run without it passes and tests less. These tests create the tables they need, in the `jetsapi`
 schema from `jets/jets_schema.json` or in a schema of their own, and drop them again: **point
-`JETS_TEST_DSN` at a scratch database**, never at an installation's. A container is enough:
+`JETS_TEST_DSN` at a scratch server**, never at an installation's. A container is enough:
 
 ```bash
 docker run --rm -d --name jets-test-pg -e POSTGRES_PASSWORD=test \
-  -e POSTGRES_DB=jetstest -p 55432:5432 postgres:16-alpine
+  -p 55432:5432 postgres:16-alpine
 
-export JETS_TEST_DSN='postgres://postgres:test@localhost:55432/jetstest'
+export JETS_TEST_DSN='postgres://postgres:test@localhost:55432/postgres?sslmode=disable'
 go test -count=1 ./jets/datatable/... ./jets/schema/... ./jets/update_db/... ./jets/apiserver/
+```
+
+**Each package gets a database of its own.** Every package with such tests has a `TestMain` that
+calls `dbtest.Main` (package `jets/dbtest`). It creates a database with a unique name, starting
+`jetstest_`, on the server `JETS_TEST_DSN` names, points `JETS_TEST_DSN` at it for that package's
+tests, and drops it when they finish, whether they pass or fail. So the packages can run together, in
+one `go test` and in parallel, or one after another on one server, and none sees what another left.
+Two consequences:
+
+- **The role in `JETS_TEST_DSN` needs `CREATEDB`**, or to be a superuser, as the container's
+  `postgres` user is. Without it the package fails before any test runs, with a message naming the
+  privilege. Some tests also create databases and roles of their own beside the package's, so a
+  superuser is the simplest choice.
+- **A test's own databases and roles are named under the package's database and dropped when the
+  test ends.** `dbtest.CreateDatabase(t, "suffix")` creates `<package database>_suffix` and drops it
+  `WITH (FORCE)` in the test's cleanup; `dbtest.CreateRole` does the same for a role, which is
+  cluster-wide, and `dbtest.DropRole` drops one the code under test names. A test never creates a
+  database or role under a fixed name: on a long-lived test server nothing would drop it, and two
+  packages running in parallel would collide on it.
+- **Roles the code under test names are dropped too.** A package whose tests run `dblogin.Ensure`
+  passes `dbtest.RolesOf(dblogintest.Logins)` to `dbtest.Main`, which then drops the restricted
+  logins of every database the package made. The two restricted group roles are shared by every
+  database on the server: `dblogintest` marks them, and the last package to finish, finding no
+  other test database left, drops them. After a run the server holds what it held before.
+- **The database `JETS_TEST_DSN` names is only where the connection starts**: the tests do not write
+  to it. If it cannot be reached, `dbtest` connects to the server's `postgres` database instead.
+
+A package whose test binary panics or times out does not reach the drop, and leaves its `jetstest_`
+database behind, with the databases and roles its tests made under its name; the next run drops them
+once they are a day old, and `docker stop` drops everything.
+A new package with database tests needs the same `TestMain`, one line:
+
+```go
+func TestMain(m *testing.M) { dbtest.Main(m) }
 ```
 
 The packages with such tests include `jets/datatable`, `jets/schema`, `jets/update_db`,
 `jets/apiserver`, `jets/compute_pipes`, `jets/workspace`, `jets/purge_database/delegate`,
-`jets/sessionpurge` and several under `jets/agentic/`; `grep -rl JETS_TEST_DSN --include='*_test.go' jets`
-lists them. Each test file's header says what it creates. Run with `go test -v` to see which tests
-skipped and why. Stop the container afterwards with `docker stop jets-test-pg`.
+`jets/sessionpurge`, the register keys lambda (`cdk/jetstore_one/lambdas/register_keys/registerkey`)
+and several under `jets/agentic/`; `grep -rl JETS_TEST_DSN --include='*_test.go' jets cdk` lists them.
+Each test file's header says what it creates. Run with `go test -v` to see which tests skipped and
+why. Stop the container afterwards with `docker stop jets-test-pg`.
 
 ### Tests that link the C++ engine
 

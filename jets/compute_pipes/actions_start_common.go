@@ -929,7 +929,7 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 	if err := validateLatestSessionOnly(cpConfig); err != nil {
 		return err
 	}
-	if err := firstError(validateNoGoEngine(cpConfig), validateOutputTableColumnTypes(cpConfig)); err != nil {
+	if err := firstError(validateNoGoEngine(cpConfig), validateOutputTableColumnTypes(cpConfig), validateDistinctOn(cpConfig)); err != nil {
 		return err
 	}
 	for i := range pipeConfig {
@@ -1019,7 +1019,7 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 			// 	transformationConfig.OutputChannel.SchemaProvider)
 			sp := cpConfig.GetSchemaProviderSpec(outputChConfig.SchemaProvider)
 
-			if err := validateSiteOperatorSpec(transformationConfig); err != nil {
+			if err := firstError(validateSiteOperatorSpec(transformationConfig), validateClaimSetSummaryOperator(cpConfig, pipeSpec, transformationConfig, &outputChConfig)); err != nil {
 				return err
 			}
 

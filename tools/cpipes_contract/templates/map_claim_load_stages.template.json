@@ -31,6 +31,16 @@
         "type": "value",
         "key": "${PERIOD_ID_TYPE}",
         "expr": "${MONTH_PERIOD}"
+      },
+      {
+        "type": "default_value",
+        "key": "${RETAIN_WINDOW_DAYS}",
+        "expr": "180"
+      },
+      {
+        "type": "default_value",
+        "key": "${RETAIN_WINDOW_DAYS_AFTER}",
+        "expr": "0"
       }
     ],
     "output_tables": [
@@ -176,6 +186,7 @@
               "name": "PreviousEligibility",
               "format": "csv",
               "compression": "none",
+              "latest_session_only": true,
               "file_key": "$CLIENT/Eligibility/${PERIOD_ID}M",
               "lookback_periods": "1:1"
             },
@@ -221,7 +232,13 @@
                 "new_record": true,
                 "map_record_config": {
                   "is_debug": false,
-                  "file_mapping_table_name": "${TABLE_NAME}"
+                  "file_mapping_table_name": "${TABLE_NAME}",
+                  "calculate_span_of": "org3:Date_of_Service",
+                  "retain_window": {
+                    "column": "org3:Date_of_Service",
+                    "days_before_file_date": "${RETAIN_WINDOW_DAYS}",
+                    "days_after_file_date": "${RETAIN_WINDOW_DAYS_AFTER}"
+                  }
                 },
                 "columns": [
                   {

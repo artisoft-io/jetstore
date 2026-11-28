@@ -29,6 +29,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/observe/feedfixture"
 	"github.com/artisoft-io/jetstore/jets/agentic/shadow"
 	"github.com/artisoft-io/jetstore/jets/agentic/triage"
+	"github.com/artisoft-io/jetstore/jets/dbtest"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -48,17 +49,7 @@ func conditionDB(t *testing.T, name string) *pgxpool.Pool {
 	if err != nil {
 		t.Fatalf("parsing JETS_TEST_DSN: %v", err)
 	}
-	admin, err := pgxpool.New(ctx, os.Getenv("JETS_TEST_DSN"))
-	if err != nil {
-		t.Fatalf("connecting to the maintenance database: %v", err)
-	}
-	for _, q := range []string{"DROP DATABASE IF EXISTS " + name + " WITH (FORCE)", "CREATE DATABASE " + name} {
-		if _, err := admin.Exec(ctx, q); err != nil {
-			admin.Close()
-			t.Fatalf("%s: %v", q, err)
-		}
-	}
-	admin.Close()
+	name = dbtest.CreateDatabase(t, name)
 	u.Path = "/" + name
 	pool, err := pgxpool.New(ctx, u.String())
 	if err != nil {

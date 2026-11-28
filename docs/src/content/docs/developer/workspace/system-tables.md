@@ -290,6 +290,23 @@ The purpose is to record the `session_id` for each file load and outputs of pipe
 
 This table is populated by the file loader and the pipeline execution upon successful execution.
 
+**A deleted session's rows are marked, not deleted** (`deleted_at`, NULL while the registration is
+live). `jets/sessionpurge` sets it when the session is deleted, by the retention purge or a user's
+*Delete*, and deletes the row only once no run, in `pipeline_execution_status` or its archive, refers
+to it by `input_session_id`, `main_input_registry_key` or `merged_input_registry_keys`. The view
+**`jetsapi.input_registry_live`** (`jets_init_db.sql`) holds the live rows, with every column but
+`deleted_at`:
+
+- **Read the view** for the registrations that exist now: what a screen lists, what a pipeline
+  starts from, what a report or a runbook selects as the current inputs. Go code names it through
+  `jets/inputregistry.LiveRelation`, which gives the table on a database the migration has not
+  reached, where nothing is marked.
+- **Read the table** for what a run that already happened read: its input's `schema_provider_json`,
+  its source (client, org, object type), whether a file arrived before. The marked rows are what
+  keeps those answers after the input's session is deleted.
+- **Write the table.** A column added to `input_registry` in `jets_schema.json` is added to the
+  view's column list too; `TestInputRegistryLiveColumns` (`jets/update_db`) fails until it is.
+
 ## Table `process_input`
 
 Defines the details of the input data. `source_type` can be `file` (for data coming from `source_config`)

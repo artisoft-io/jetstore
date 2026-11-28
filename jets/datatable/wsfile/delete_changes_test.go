@@ -8,7 +8,7 @@ package wsfile
 //
 // The restore tests always run. The DeleteFileChange tests are skipped unless
 // JETS_TEST_DSN names a PostgreSQL; they create and drop a database of their
-// own, wsfile_revert_test.
+// own, the package's test database's name and _wsfile_revert_test (jets/dbtest).
 
 import (
 	"context"
@@ -19,6 +19,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/artisoft-io/jetstore/jets/dbtest"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -75,20 +76,12 @@ func revertDB(t *testing.T) *pgxpool.Pool {
 		t.Skip("JETS_TEST_DSN is not set")
 	}
 	bg := context.Background()
-	admin, err := pgxpool.New(bg, dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer admin.Close()
-	_, _ = admin.Exec(bg, "DROP DATABASE IF EXISTS wsfile_revert_test WITH (FORCE)")
-	if _, err = admin.Exec(bg, "CREATE DATABASE wsfile_revert_test"); err != nil {
-		t.Fatal(err)
-	}
+	name := dbtest.CreateDatabase(t, "wsfile_revert_test")
 	u, err := url.Parse(dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
-	u.Path = "/wsfile_revert_test"
+	u.Path = "/" + name
 	pool, err := pgxpool.New(bg, u.String())
 	if err != nil {
 		t.Fatal(err)

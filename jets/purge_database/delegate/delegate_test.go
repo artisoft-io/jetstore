@@ -1,8 +1,9 @@
 package delegate
 
 // The rules unit test purge against a real PostgreSQL. Skipped unless
-// JETS_TEST_DSN names one; it recreates the two tables in a database of its own,
-// rut_ac_purge. Locally:
+// JETS_TEST_DSN names one; it creates the two tables in a database of its own,
+// the package's test database's name and _rut_ac_purge, dropped when the test
+// ends (jets/dbtest). Locally:
 //
 //	docker run -d --rm --name rut-ac-pg -e POSTGRES_PASSWORD=pw -p 5471:5432 postgres:16
 //	JETS_TEST_DSN=postgres://postgres:pw@localhost:5471/postgres \
@@ -16,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/dbtest"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -27,21 +29,9 @@ func purgeTestDB(t *testing.T) *pgxpool.Pool {
 		t.Skip("JETS_TEST_DSN is not set; see the header of this file")
 	}
 	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var n int
-	_ = admin.QueryRow(ctx, "SELECT count(*) FROM pg_database WHERE datname = 'rut_ac_purge'").Scan(&n)
-	if n == 0 {
-		if _, err = admin.Exec(ctx, "CREATE DATABASE rut_ac_purge"); err != nil {
-			admin.Close()
-			t.Fatal(err)
-		}
-	}
-	admin.Close()
+	name := dbtest.CreateDatabase(t, "rut_ac_purge")
 	u, _ := url.Parse(dsn)
-	u.Path = "/rut_ac_purge"
+	u.Path = "/" + name
 	pool, err := pgxpool.New(ctx, u.String())
 	if err != nil {
 		t.Fatal(err)

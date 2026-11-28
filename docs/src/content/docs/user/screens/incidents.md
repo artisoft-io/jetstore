@@ -7,7 +7,7 @@ kind: reference
 An **incident** is a problem that JetStore's detection found, or that a person raised: in a pipeline
 run, a worker that failed, one that never finished, records that failed or went missing; in a feed's
 deliveries, a delivery that did not come or one that departs from what the feed declares; or a
-JetStore job, such as the purge, that failed. JetStore
+JetStore job, such as the purge, that failed; or a run whose main input held no records. JetStore
 separates two things about it. Its **locus** is *where the evidence sits* in the record, which the
 record establishes. Its **cause** is *a claim* about what produced it, which the record
 does not establish, and which a hypothesis or a person makes. The *Incidents* screen lists the
@@ -82,7 +82,7 @@ no further than *diagnosed*.
 | **Delivery departs from profile** | A delivery arrived and departs from what the profile declares: its size, how recent its service dates are, the span they cover, a required field's completeness, its overlap with earlier deliveries, a repeat of the last delivery, or a period older than one already delivered. The locus does not say which; the detection that raised it does, and the incident's evidence names it. |
 
 **A feed incident is on a registration session, which may have no pipeline run.** Its page shows the
-nine run loci as *not evaluable*, because there is no run to ask, and the feed locus with the
+run loci as *not evaluable*, because there is no run to ask, and the feed locus with the
 detection's own words as its evidence. The feed is named by its **source configuration**, with that
 configuration's client. When the delivery was registered under another client, such as `Any`, the
 evidence says so beside it; the incident does not take that client as the feed's.
@@ -130,9 +130,23 @@ rather than the evidence for what the condition holds today.
 ### A recurring run failure is one incident
 
 A process that fails the same way run after run is one fault too. Consecutive runs of one process
-for one client with a finding at the same run locus form a **run condition**, and shadow triage
-raises one incident for it, on its first run; each later run with the finding joins it and has no
-incident of its own.
+for one client, from one **main input source**, with a finding at the same run locus form a **run
+condition**, and shadow triage raises one incident for it, on its first run; each later run with the
+finding joins it and has no incident of its own.
+
+- **Each source of a process is a condition of its own.** A run's main input source is the client,
+  org and object type its main input was registered under. A process that reads the files of two
+  vendors has two sources, and each vendor's runs are grouped, and judged, against that vendor's runs
+  alone: a fault in one vendor's files is its own incident, and the other vendor's runs neither join
+  it nor end it. A run with no main input registration has an empty source, and its process's runs
+  with an empty source are grouped together. The source is not the file's **Object type** the list
+  shows, which is read from the file's staging record; the incident's page names the source.
+- **The steps a run is expected to have are its source's.** *Step never started* compares a run
+  with the earlier runs of the same process, client and source over the baseline window, so one
+  vendor's runs are not expected to reach the steps only another vendor's files reach. A step is
+  expected only if it ran on at least 3 of those runs **and** on at least one of the source's last 3
+  runs: a step the process stopped running is reported on at most the 3 runs after it stopped, and
+  on none after. Your verdict on the first says whether the change was intended.
 
 - **Per-record failures are one incident per error code.** Every row of a run's process errors gets
   a short error code when it is read (see
@@ -153,11 +167,38 @@ incident of its own.
 - **Incidents written before run conditions stay as they are**, one per run, and a condition open
   across the change gets one new incident at its first run triaged afterwards. On the list they keep
   a count of 1 and their own session's time.
+- **Incidents written before the source was part of the key carry no source.** A run with a source
+  does not find them, so a condition open when the source was added gets one new incident for each
+  of its sources, at the first run of that source triaged afterwards. A run with no source still
+  finds them, and a job's failure keeps its key.
 
 The incident's page shows its run condition as it stands now (see
 [The run condition of a run incident](#the-run-condition-of-a-run-incident) below), and a later
 run's session finds the condition's incident (see
 [Finding a session's incidents](#finding-a-sessions-incidents)).
+
+### A run whose main input is empty
+
+A file can arrive and hold no records. A run of such a file completes its **sharding** step, the
+step that reads the main input and splits it among the workers, reads 0 records, and reaches none of
+its later steps. Shadow triage reads it at its own locus, **Main input empty**, so the incident says
+what happened without your having to read its evidence.
+
+- **It is present** when the run's sharding step completed on every worker and read 0 records in
+  all, the count Home's *Pipelines Status* shows as the run's main input records. It is not
+  evaluable when the sharding step did not complete, or did not record its count.
+- **On a run whose main input is empty, *Step never started* is not evaluable**, and says why: the
+  later steps did not run because there was nothing to give them, which is not a missing step.
+- **Its runs are grouped like any run condition**, by process, client, source and locus, so a
+  vendor that sends empty files day after day is one incident, and its first file with records ends
+  the condition.
+- **A feed may declare empty deliveries expected.** Some vendors send an empty file on days with
+  nothing to send. When the feed's profile says so (`empty_deliveries_expected`, see
+  [Declare a feed profile](/docs/user/how-to/declare-a-feed-profile/#the-fields)), the locus is
+  *absent* on its empty runs, its evidence names the declaration, and nothing is raised. The feed is
+  the run's main input source: the source configuration of its client, org and object type.
+- **No cause is proposed.** No cause class describes an empty input, so the incident has no
+  hypothesis and stays *triaged*. Whether an empty file is wrong is the feed's to say.
 
 ### A job's failure
 
@@ -167,7 +208,7 @@ row of its own: a status of *failed* under a session reserved for the failure, w
 configuration and no input, and the job's error as its failure details. Shadow triage reads such a
 row at one locus, **Job failed**, and the incident names the job.
 
-- **A job's row is judged at *Job failed* only.** Its page shows the nine run loci as *not
+- **A job's row is judged at *Job failed* only.** Its page shows the run loci as *not
   evaluable*, because a job is not a pipeline run: a job that failed is never read as a run that did
   not start.
 - **A job that fails day after day is one incident**, grouped like a run condition, by the job, its
@@ -236,7 +277,7 @@ delivery before claiming a cause.
 | **Summary** | On a feed incident only: a few paragraphs saying what was found, in words. See [The summary of a feed incident](#the-summary-of-a-feed-incident) below. |
 | **Condition** | On a feed incident only: the deliveries of the condition the incident stands for, how it ended or that it is still open, and the previous incident at the locus. See [The condition of a feed incident](#the-condition-of-a-feed-incident) below. |
 | **What the record evidences** | The **locus**, what it means and what it **cannot see**; for per-record failures, the incident's **error code**, the **error codes in this run** with their rows, and a link to the session's process errors (see [The run condition of a run incident](#the-run-condition-of-a-run-incident)); the **session**; the **source type** and **file key** of each input registered under that session, `file` or `domain_table`, which find its runs on Home's *Pipelines Status* (*Set Session Id* with the session, or *Set Filters* with the file key); what **raised** it, with whether corrections to it reach an audit chain; when it was **detected**; the **step** and **shard** it is localised to, when it is; and the **confounders**, what the detector could not rule out. |
-| **Run condition** | On a run incident whose condition holds more than its own run: the runs it stands for, still held, from when to when. On a run incident with no key to find its condition by, or whose runs have all been deleted, the heading with a note saying which. See [The run condition of a run incident](#the-run-condition-of-a-run-incident) below. |
+| **Run condition** | On a run incident whose condition holds more than its own run: the process, client and main input source it is keyed by, and the runs it stands for, still held, from when to when. A run incident with a source names it under *What the record evidences* as well, as its **main input source**. On a run incident with no key to find its condition by, or whose runs have all been deleted, the heading with a note saying which. See [The run condition of a run incident](#the-run-condition-of-a-run-incident) below. |
 | **What has been claimed** | The **cause**, if any, the **severity** and the **model version** that raised it. |
 | **Ranked hypotheses** | The causes proposed, best first. Each shows its confidence and cause category, the counts it was ranked on, and its **supporting** and **contradicting** evidence, each item with its source. A hypothesis contradicted more than supported, or raised at another locus, is marked. |
 | **How this incident got here** | Every transition of its status: from, to, by *a person* or *the system itself*, when, and why. A cause set by a transition is shown too. |

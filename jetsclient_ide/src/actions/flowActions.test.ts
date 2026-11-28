@@ -292,7 +292,7 @@ describe("the flows' action documents", () => {
     expect(steps.every((s) => s.when !== undefined)).toBe(true);
   });
 
-  it("clears all fifteen keys the delete arm removes, not the six transcribed", () => {
+  it("clears all sixteen keys the delete arm removes, not the six transcribed", () => {
     // A known transcription mechanism, on the largest list in the corpus. The Dart calls
     // `state.remove` thirteen times after encoding the request
     // (`configure_files/form_action_delegates.dart`, `deleteSourceConfig`); the
@@ -304,9 +304,11 @@ describe("the flows' action documents", () => {
     // one's. **Fourteen since Release 4.0.4 (2026-10-15)**: `is_cumulative` is
     // record content on the same terms, and the insert reads it too. **Fifteen
     // since 2026-11-21**: `feed_profile_json`, the feed profile, is the same again.
+    // **Sixteen since 2026-11-27**: `exclude_file_names_json`, the file names
+    // register keys stages and does not register.
     const steps = (sourceConfig as ActionDocument).actions["deleteSourceConfig"]!.steps;
     const removal = steps.find((s) => s.do === "remove")!;
-    expect(removal.do === "remove" && removal.keys).toHaveLength(15);
+    expect(removal.do === "remove" && removal.keys).toHaveLength(16);
     // The post is before the removal, as `deleteClientAction`'s is: the Dart
     // encodes the body *first* and then empties the map, and `wholeState` reads
     // the state at the moment the step runs.
@@ -315,9 +317,10 @@ describe("the flows' action documents", () => {
     // publishes: `fromKey` unwraps a selected row's one-element arrays, as the
     // client and org deletes do. Posted as arrays they panicked the server's
     // domain-keys hook (a 502 at a client). **Sixteen since 2026-11-21**, with
-    // the feed profile's column.
+    // the feed profile's column, and **seventeen since 2026-11-27**, with the
+    // excluded file names'.
     expect(steps.map((s) => s.do)).toEqual([
-      "confirm", ...Array<string>(16).fill("set"), "post", "clearSelection", "remove",
+      "confirm", ...Array<string>(17).fill("set"), "post", "clearSelection", "remove",
     ]);
   });
 
@@ -805,6 +808,13 @@ describe("every form-state key is a declared constant's value", () => {
      * *+ Add* and the delete arm.
      */
     "feed_profile_json",
+    /**
+     * **A third new `source_config` column, the file names register keys stages
+     * and does not register (2026-11-27)**, on the same terms: column 16 of
+     * `scSourceConfigKey`'s `formStateBinding`, the *Files not to register (json)*
+     * field, and removed by both *+ Add* and the delete arm.
+     */
+    "exclude_file_names_json",
   ]);
 
   it("reads the constants file it depends on", () => {

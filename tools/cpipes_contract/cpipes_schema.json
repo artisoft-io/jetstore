@@ -1525,6 +1525,137 @@
       "title": "ChannelSpec",
       "type": "object"
     },
+    "ClaimSetSummaryPipe": {
+      "additionalProperties": false,
+      "description": "Summarises a delivery's claim records into its claim-set summary row: one partial per node of a step sharded by member, then a merge of the partials on one node, which writes the row.",
+      "properties": {
+        "claim_set_summary_config": {
+          "$ref": "#/$defs/ClaimSetSummarySpec",
+          "description": "Configuration of the claim_set_summary operator: its mode."
+        },
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "conditional_config": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ConditionalTransformationSpecClaimSetSummaryPipe"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Conditions that override fields of this operator or replace it altogether.",
+          "title": "Conditional Config"
+        },
+        "output_channel": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "memory": "#/$defs/OutputChannelConfigMemory",
+                  "output": "#/$defs/OutputChannelConfigOutput",
+                  "sql": "#/$defs/OutputChannelConfigSql",
+                  "stage": "#/$defs/OutputChannelConfigStage"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/OutputChannelConfigMemory"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigStage"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigOutput"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigSql"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The channel a partial is emitted on, whose channel spec carries the partial columns. Set in partial mode; a merge writes the summary row and takes none. Required when: equals(claim_set_summary_config.mode, partial).",
+          "title": "Output Channel"
+        },
+        "type": {
+          "const": "claim_set_summary",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.",
+          "title": "Type",
+          "type": "string"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExpressionNode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Guard: the transformation is applied only when this evaluates true."
+        }
+      },
+      "required": [
+        "type",
+        "claim_set_summary_config"
+      ],
+      "title": "TransformationSpecClaimSetSummary",
+      "type": "object"
+    },
+    "ClaimSetSummarySpec": {
+      "additionalProperties": false,
+      "description": "Configuration of the claim_set_summary operator: partial, on every node of a step whose input is sharded by member, or merge, on the one node of a later step that reads the partials.",
+      "properties": {
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "mode": {
+          "description": "partial summarises the node's records and emits one partial record; merge adds every partial of the run and writes the delivery's summary row.",
+          "enum": [
+            "partial",
+            "merge"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "ClaimSetSummarySpec",
+      "type": "object"
+    },
     "ClusterShardingInfo": {
       "additionalProperties": false,
       "description": "Pipeline configuration for worker nodes - internal to JetStore",
@@ -3401,6 +3532,46 @@
       "title": "ConditionalTransformationSpec",
       "type": "object"
     },
+    "ConditionalTransformationSpecClaimSetSummaryPipe": {
+      "additionalProperties": false,
+      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation altogether.",
+      "properties": {
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "then": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TransformationSpecOverrideClaimSetSummaryPipe"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The override (type empty) or replacement (type set) applied when the condition holds."
+        },
+        "when": {
+          "$ref": "#/$defs/ExpressionNode",
+          "description": "When is the condition to evaluate, if true then apply the Then spec."
+        }
+      },
+      "required": [
+        "when"
+      ],
+      "title": "ConditionalTransformationSpec",
+      "type": "object"
+    },
     "ConditionalTransformationSpecClusteringPipe": {
       "additionalProperties": false,
       "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation altogether.",
@@ -4630,22 +4801,17 @@
           "title": "Comment"
         },
         "distinct_on": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
           "description": "Columns forming the composite key rows are distinct on.",
-          "title": "Distinct On"
+          "items": {
+            "type": "string"
+          },
+          "title": "Distinct On",
+          "type": "array"
         }
       },
+      "required": [
+        "distinct_on"
+      ],
       "title": "DistinctSpec",
       "type": "object"
     },
@@ -4730,7 +4896,7 @@
     },
     "ElementGroup": {
       "additionalProperties": false,
-      "description": "Element: a group of a text template document - children emitted in array order, with a fallback for the case where none of them emitted.",
+      "description": "A group of a text template document: children emitted in array order, with a fallback for the case where none of them emitted.",
       "properties": {
         "comment": {
           "anyOf": [
@@ -4795,7 +4961,7 @@
     },
     "ElementParagraph": {
       "additionalProperties": false,
-      "description": "Element: a paragraph of a text template document - one block of markup, wrapped to the document's width.",
+      "description": "A paragraph of a text template document: one block of markup, wrapped to the document width.",
       "properties": {
         "comment": {
           "anyOf": [
@@ -12782,6 +12948,7 @@
                     "aggregate": "#/$defs/TransformationSpecAggregate",
                     "analyze": "#/$defs/TransformationSpecAnalyze",
                     "anonymize": "#/$defs/TransformationSpecAnonymize",
+                    "claim_set_summary": "#/$defs/TransformationSpecClaimSetSummary",
                     "clustering": "#/$defs/TransformationSpecClustering",
                     "distinct": "#/$defs/TransformationSpecDistinct",
                     "embed": "#/$defs/TransformationSpecEmbed",
@@ -12858,6 +13025,9 @@
                   },
                   {
                     "$ref": "#/$defs/TransformationSpecRender"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationSpecClaimSetSummary"
                   },
                   {
                     "$ref": "#/$defs/TransformationSpecSite"
@@ -13017,6 +13187,7 @@
                     "aggregate": "#/$defs/TransformationSpecAggregate",
                     "analyze": "#/$defs/TransformationSpecAnalyze",
                     "anonymize": "#/$defs/TransformationSpecAnonymize",
+                    "claim_set_summary": "#/$defs/TransformationSpecClaimSetSummary",
                     "clustering": "#/$defs/TransformationSpecClustering",
                     "distinct": "#/$defs/TransformationSpecDistinct",
                     "embed": "#/$defs/TransformationSpecEmbed",
@@ -13093,6 +13264,9 @@
                   },
                   {
                     "$ref": "#/$defs/TransformationSpecRender"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationSpecClaimSetSummary"
                   },
                   {
                     "$ref": "#/$defs/TransformationSpecSite"
@@ -17385,6 +17559,7 @@
           "aggregate": "#/$defs/TransformationSpecAggregate",
           "analyze": "#/$defs/TransformationSpecAnalyze",
           "anonymize": "#/$defs/TransformationSpecAnonymize",
+          "claim_set_summary": "#/$defs/TransformationSpecClaimSetSummary",
           "clustering": "#/$defs/TransformationSpecClustering",
           "distinct": "#/$defs/TransformationSpecDistinct",
           "embed": "#/$defs/TransformationSpecEmbed",
@@ -17461,6 +17636,9 @@
         },
         {
           "$ref": "#/$defs/TransformationSpecRender"
+        },
+        {
+          "$ref": "#/$defs/TransformationSpecClaimSetSummary"
         },
         {
           "$ref": "#/$defs/TransformationSpecSite"
@@ -18062,6 +18240,104 @@
         }
       },
       "title": "TransformationSpecBase",
+      "type": "object"
+    },
+    "TransformationSpecClaimSetSummary": {
+      "additionalProperties": false,
+      "description": "Summarises a delivery's claim records into its claim-set summary row, read by the feed detection: one partial per node of a step sharded by member, then a merge of the partials on one node, which writes the row.",
+      "properties": {
+        "claim_set_summary_config": {
+          "$ref": "#/$defs/ClaimSetSummarySpec",
+          "description": "Configuration of the claim_set_summary operator: its mode."
+        },
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "conditional_config": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ConditionalTransformationSpec"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Conditions that override fields of this operator or replace it altogether.",
+          "title": "Conditional Config"
+        },
+        "output_channel": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "memory": "#/$defs/OutputChannelConfigMemory",
+                  "output": "#/$defs/OutputChannelConfigOutput",
+                  "sql": "#/$defs/OutputChannelConfigSql",
+                  "stage": "#/$defs/OutputChannelConfigStage"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/OutputChannelConfigMemory"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigStage"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigOutput"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigSql"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The channel a partial is emitted on, whose channel spec carries the partial columns. Set in partial mode; a merge writes the summary row and takes none. Required when: equals(claim_set_summary_config.mode, partial).",
+          "title": "Output Channel"
+        },
+        "type": {
+          "const": "claim_set_summary",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.",
+          "title": "Type",
+          "type": "string"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExpressionNode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Guard: the transformation is applied only when this evaluates true."
+        }
+      },
+      "required": [
+        "type",
+        "claim_set_summary_config"
+      ],
+      "title": "TransformationSpecClaimSetSummary",
       "type": "object"
     },
     "TransformationSpecClustering": {
@@ -20250,6 +20526,62 @@
       "title": "TransformationSpecOverride",
       "type": "object"
     },
+    "TransformationSpecOverrideClaimSetSummaryPipe": {
+      "additionalProperties": false,
+      "description": "Fragments of transformation operator to override fields of the host transformation operator.",
+      "properties": {
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "output_channel": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "memory": "#/$defs/OutputChannelConfigMemory",
+                  "output": "#/$defs/OutputChannelConfigOutput",
+                  "sql": "#/$defs/OutputChannelConfigSql",
+                  "stage": "#/$defs/OutputChannelConfigStage"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/OutputChannelConfigMemory"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigStage"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigOutput"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigSql"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The channel the operator writes to.",
+          "title": "Output Channel"
+        }
+      },
+      "title": "TransformationSpecOverride",
+      "type": "object"
+    },
     "TransformationSpecOverrideClusteringPipe": {
       "additionalProperties": false,
       "description": "Fragments of transformation operator to override fields of the host transformation operator.",
@@ -21972,7 +22304,8 @@
               "jetrules",
               "clustering",
               "infer",
-              "render"
+              "render",
+              "claim_set_summary"
             ]
           },
           "title": "Type",

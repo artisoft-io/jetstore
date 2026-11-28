@@ -175,3 +175,100 @@ func TestPurgeGoesOnWhenItsRecordFails(t *testing.T) {
 	runErr := errors.New("while reading the retention candidates: boom")
 	recordRun(context.Background(), nil, purgeConfig{}, runErr, nil) // must not panic
 }
+
+// RETENTION_DAYS and AGENT_AUDIT_RETENTION_DAYS are read before the database is
+// open and refused after it: readSettings keeps a value that does not read as
+// the configuration's SettingsErr, and an unset RETENTION_DAYS turns the purge
+// off without one.
+func TestReadSettings(t *testing.T) {
+	env := func(vars map[string]string) func(string) string {
+		return func(k string) string { return vars[k] }
+	}
+	now := time.Now()
+	for _, tc := range []struct {
+		name    string
+		vars    map[string]string
+		set     bool
+		days    int
+		audit   int
+		wantErr []string
+	}{
+		{name: "unset", vars: map[string]string{}, set: false},
+		{name: "empty", vars: map[string]string{"RETENTION_DAYS": " "}, set: false},
+		{name: "valid", vars: map[string]string{"RETENTION_DAYS": "30", "AGENT_AUDIT_RETENTION_DAYS": "400"},
+			set: true, days: 30, audit: 400},
+		{name: "retention not a number", vars: map[string]string{"RETENTION_DAYS": "x"}, set: true,
+			wantErr: []string{`RETENTION_DAYS must be a whole number of days, 1 or more, or unset; it is "x"`}},
+		{name: "retention zero", vars: map[string]string{"RETENTION_DAYS": "0"}, set: true,
+			wantErr: []string{`RETENTION_DAYS must be a whole number of days, 1 or more, or unset; it is "0"`}},
+		{name: "audit bad", vars: map[string]string{"RETENTION_DAYS": "30", "AGENT_AUDIT_RETENTION_DAYS": "-1"},
+			set: true, days: 30,
+			wantErr: []string{`AGENT_AUDIT_RETENTION_DAYS must be a whole number of days, 1 or more, or unset; it is "-1"`}},
+		{name: "both bad", vars: map[string]string{"RETENTION_DAYS": "x", "AGENT_AUDIT_RETENTION_DAYS": "y"}, set: true,
+			wantErr: []string{`RETENTION_DAYS must be`, `AGENT_AUDIT_RETENTION_DAYS must be`}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, set := readSettings(env(tc.vars), now)
+			if set != tc.set {
+				t.Fatalf("set = %v, want %v", set, tc.set)
+			}
+			if !set {
+				return
+			}
+			if cfg.RetentionDays != tc.days || cfg.AuditRetentionDays != tc.audit {
+				t.Errorf("days %d and audit %d, want %d and %d", cfg.RetentionDays, cfg.AuditRetentionDays, tc.days, tc.audit)
+			}
+			if len(tc.wantErr) == 0 {
+				if cfg.SettingsErr != nil {
+					t.Errorf("SettingsErr %v, want none", cfg.SettingsErr)
+				}
+				return
+			}
+			if cfg.SettingsErr == nil {
+				t.Fatalf("no SettingsErr, want %q", tc.wantErr)
+			}
+			for _, w := range tc.wantErr {
+				if !strings.Contains(cfg.SettingsErr.Error(), w) {
+					t.Errorf("SettingsErr %q does not contain %q", cfg.SettingsErr, w)
+				}
+			}
+		})
+	}
+}
+
+// A setting that does not read refuses the run before it does anything, and
+// the refusal is recorded once as the purge's failure, as a bad
+// DOMAIN_TABLES_RETENTION_DAYS is: no session is deleted.
+func TestPurgeRecordsABadSetting(t *testing.T) {
+	for _, name := range []string{"RETENTION_DAYS", "AGENT_AUDIT_RETENTION_DAYS"} {
+		t.Run(name, func(t *testing.T) {
+			pool := jobFailureTestDB(t)
+			purgetest.Seed(t, pool, purgetest.Session{ID: "old", Client: "c1", Registered: true, LastUpdate: daysAgo(40),
+				DomainTables: []string{"DomainA"}})
+			vars := map[string]string{"RETENTION_DAYS": "30", "PURGE_DRY_RUN": "false"}
+			vars[name] = "x"
+			cfg, set := readSettings(func(k string) string { return vars[k] }, time.Now())
+			if !set {
+				t.Fatal("RETENTION_DAYS is set and read as unset")
+			}
+			err := purgeSessions(context.Background(), pool, cfg)
+			if err == nil {
+				t.Fatalf("a run with %s=x returned no error", name)
+			}
+			got := purgeFailures(t, pool)
+			if len(got) != 1 {
+				t.Fatalf("%d failures recorded, want 1: %+v", len(got), got)
+			}
+			checkJobRow(t, got[0])
+			want := "the purge stopped: " + name + ` must be a whole number of days, 1 or more, or unset; it is "x"`
+			if got[0].details != want {
+				t.Errorf("failure_details %q, want %q", got[0].details, want)
+			}
+			var n int
+			if err := pool.QueryRow(context.Background(),
+				`SELECT count(*) FROM jetsapi.session_registry WHERE session_id = 'old'`).Scan(&n); err != nil || n != 1 {
+				t.Errorf("session old: %d rows (%v), want it kept", n, err)
+			}
+		})
+	}
+}

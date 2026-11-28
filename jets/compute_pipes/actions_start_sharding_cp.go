@@ -326,7 +326,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	}
 
 	// Validate the pipeConfig, including PipeSpec.TransformationSpec.OutputChannel configuration
-	err = cpipesStartup.ValidatePipeSpecConfig(&cpipesStartup.CpConfig, pipeConfig)
+	err = firstError(cpipesStartup.ValidatePipeSpecConfig(&cpipesStartup.CpConfig, pipeConfig), validateClaimSetSummaryNodes(pipeConfig, shardResult.nbrShardingNodes, cpipesStartup.CpConfig.GetStepName(stepId)), resolveClaimSetSummaries(ctx, dbpool, args.PipelineExecKey, pipeConfig))
 	if err != nil {
 		return result, mainInputSchemaProvider, err
 	}

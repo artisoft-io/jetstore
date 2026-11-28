@@ -72,6 +72,10 @@
       "minimum": 0,
       "maximum": 1
     },
+    "empty_deliveries_expected": {
+      "description": "True when the feed may send a file with no records, as some feeds do on days with nothing to send. A run whose main input held no records is then not a finding at main_input_empty. Absent is false.",
+      "type": "boolean"
+    },
     "required_fields": {
       "description": "Columns that must be present in at least a share of a delivery's rows.",
       "type": "array",

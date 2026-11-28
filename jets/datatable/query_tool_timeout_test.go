@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/dbtest"
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -33,24 +34,12 @@ func jm067Pool(t *testing.T) *pgxpool.Pool {
 		t.Skip("JETS_TEST_DSN is not set; see the header of this file")
 	}
 	bg := context.Background()
-	admin, err := pgxpool.New(bg, dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer admin.Close()
-	for _, stmt := range []string{
-		`DROP DATABASE IF EXISTS ` + jm067DB + ` WITH (FORCE)`,
-		`CREATE DATABASE ` + jm067DB,
-	} {
-		if _, err = admin.Exec(bg, stmt); err != nil {
-			t.Fatalf("%v\n%s", err, stmt)
-		}
-	}
+	name := dbtest.CreateDatabase(t, jm067DB)
 	u, err := url.Parse(dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
-	u.Path = "/" + jm067DB
+	u.Path = "/" + name
 	cfg, err := pgxpool.ParseConfig(u.String())
 	if err != nil {
 		t.Fatal(err)

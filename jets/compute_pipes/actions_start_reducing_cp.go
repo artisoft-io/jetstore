@@ -222,6 +222,12 @@ startStepId:
 		}
 	}
 
+	// A claim_set_summary merge writes the whole delivery's summary, so its step runs on one
+	// node; the operator's feed and delivery are resolved once here, for every node.
+	if err := firstError(validateClaimSetSummaryNodes(pipeConfig, len(partitions), stepName), resolveClaimSetSummaries(ctx, dbpool, args.PipelineExecKey, pipeConfig)); err != nil {
+		return result, err
+	}
+
 	// Check if at last step
 	isLastReducing := false
 	if stepId == cpipesStartup.CpConfig.NbrComputePipes()-1 {

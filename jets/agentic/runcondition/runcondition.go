@@ -11,18 +11,27 @@
 // incident, on its first run; each later run of the condition joins it rather
 // than raising another.
 //
-// **The key** is (client, process name, locus), and at
+// **The key** is (client, process name, main input source, locus), and at
 // per_record_failures_reported also the error code: one run can report several
 // codes, each with its own threshold and its own verdict, so each code has
 // conditions of its own.
 //
+// **The source is the run's main input registration's** client, org and object
+// type (observe.Source, triage.RunHeader.Source), the empty source when the run
+// has none. A process that reads two vendors' files runs on two sources, and
+// each source's runs are a key's positions of their own: a fault in one
+// vendor's files is one condition, and the other vendor's runs neither join it
+// nor end it, nor are they judged against its steps.
+//
 // **A job's failures are run conditions too**, at locus job_failed with the
 // job's name as the process: a job writes a row only when it fails, so its
 // condition holds every failure from the first, and ends only at a person's
-// verdict (IsRunLocus).
+// verdict (IsRunLocus). A job has no main input, and its key keeps the empty
+// source (KeyOf).
 //
-// **The positions** are the process's live runs for that client, the rows of
-// jetsapi.pipeline_execution_status, in start_time then session order. **A
+// **The positions** are the process's live runs for that client and source,
+// the rows of jetsapi.pipeline_execution_status, in start_time then session
+// order. **A
 // deleted run is no position**: it neither ends a condition nor joins one, and
 // the archive of deleted runs is not read.
 //
@@ -37,9 +46,16 @@
 // # Where a finding goes: Resolve
 //
 // A run incident carries its key and its position: the client, the process
-// name and the start time of the run it is written on (jetsapi.incident's
-// incident_client, incident_process_name and incident_anchor_start_time, with
-// incident_locus and incident_error_code). **A condition's incidents are found
+// name, the source and the start time of the run it is written on
+// (jetsapi.incident's incident_client, incident_process_name,
+// incident_source_client, incident_source_org, incident_source_object_type and
+// incident_anchor_start_time, with incident_locus and incident_error_code).
+// **An incident written before its key carried the source has no source** (its
+// three source columns are NULL), and it is found by the key with the empty
+// source only: a run with no main input registration still finds it, and a
+// run with a source does not, so a condition with a source that was open when
+// the source joined the key raises a new incident at its first run triaged
+// after. **A condition's incidents are found
 // by key and position, never by session**: the incidents at its key whose
 // position falls after the absent run before the condition and before the absent
 // run that ends it. So an incident whose first run was deleted is still its
@@ -107,7 +123,7 @@ func Rank(v string) int {
 }
 
 // IsRunLocus reports whether a locus is one a run condition can be keyed on:
-// the nine positions in a run's execution record, and job_failed, a job's
+// the ten positions in a run's execution record, and job_failed, a job's
 // failure, rather than a position in a feed's deliveries.
 //
 // **A job's failures are grouped as a run's are**, by client, process name and
@@ -147,7 +163,7 @@ type Row struct {
 //     whose "" row is not evaluable is not evaluable for every code.
 //
 // **Only the loci that apply to the session are stored**: on a job's row
-// (Report.Job) the job_failed row alone, and on any other session the nine run
+// (Report.Job) the job_failed row alone, and on any other session the ten run
 // loci and no job_failed row, which would say only that a pipeline run is not a
 // job. A run with no row at a locus is one triage never classified there, so
 // it neither joins nor ends a condition, which is what either row would have
@@ -217,14 +233,32 @@ func verdictOf(code string, own, base *Row) (string, *Row) {
 type Key struct {
 	Client  string
 	Process string
-	Locus   string
+	// Source is the main input source of the key's runs, the zero Source for
+	// runs with no main input registration and at job_failed.
+	Source observe.Source
+	Locus  string
 	// Code is the error code at per_record_failures_reported, "" elsewhere.
 	Code string
 }
 
+// KeyOf is the key of a run's finding at a locus and code: the header's
+// client, process and source. At job_failed the source is left empty, as a
+// job has no main input, so a job's key is its client, name and locus.
+func KeyOf(h *triage.RunHeader, locus, code string) Key {
+	k := Key{Client: h.Client, Process: h.ProcessName, Source: h.Source, Locus: locus, Code: code}
+	if locus == triage.LocusJobFailed {
+		k.Source = observe.Source{}
+	}
+	return k
+}
+
 // Describe renders the key for a basis.
 func (k Key) Describe() string {
-	s := fmt.Sprintf("process %s for client %s at locus %s", k.Process, k.Client, k.Locus)
+	s := fmt.Sprintf("process %s for client %s", k.Process, k.Client)
+	if !k.Source.IsZero() {
+		s += ", " + k.Source.Describe() + ","
+	}
+	s += " at locus " + k.Locus
 	if k.Code != "" {
 		s += fmt.Sprintf(", error code %q", k.Code)
 	}
@@ -664,53 +698,80 @@ func (h *History) Members(incidentId string) (*Condition, []Run) {
 	return nil, nil
 }
 
-// readRunsSQL reads a process's live runs for a client, in order, with the
-// run_finding rows at the locus that say its verdict at the key: the code's
-// own row and the row for the locus as a whole.
-const readRunsSQL = `SELECT s.session_id, s.start_time,
+// readRunsSQL reads a process's live runs for a client and source, in order,
+// with the run_finding rows at the locus that say its verdict at the key: the
+// code's own row and the row for the locus as a whole. %[1]s is the source's
+// join and %[2]s its predicate (on $5 to $7), both empty where
+// jetsapi.input_registry is not deployed and every run has the empty source.
+const readRunsSQL = `SELECT h.session_id, h.start_time,
        own.verdict, own.classified_at, own.stored_rows,
        base.verdict, base.classified_at
-  FROM jetsapi.pipeline_execution_status s
+  FROM jetsapi.pipeline_execution_status h
+  %[1]s
   LEFT JOIN jetsapi.run_finding own
-         ON own.session_id = s.session_id AND own.locus = $3 AND own.error_code = $4 AND $4 <> ''
+         ON own.session_id = h.session_id AND own.locus = $3 AND own.error_code = $4 AND $4 <> ''
   LEFT JOIN jetsapi.run_finding base
-         ON base.session_id = s.session_id AND base.locus = $3 AND base.error_code = ''
- WHERE s.client = $1 AND s.process_name = $2
- ORDER BY s.start_time, s.session_id`
+         ON base.session_id = h.session_id AND base.locus = $3 AND base.error_code = ''
+ WHERE h.client = $1 AND h.process_name = $2 %[2]s
+ ORDER BY h.start_time, h.session_id`
 
-// readRunsNoFindingsSQL is readRunsSQL where jetsapi.run_finding is absent.
-const readRunsNoFindingsSQL = `SELECT s.session_id, s.start_time
-  FROM jetsapi.pipeline_execution_status s
- WHERE s.client = $1 AND s.process_name = $2
- ORDER BY s.start_time, s.session_id`
+// readRunsNoFindingsSQL is readRunsSQL where jetsapi.run_finding is absent;
+// its source is on $3 to $5.
+const readRunsNoFindingsSQL = `SELECT h.session_id, h.start_time
+  FROM jetsapi.pipeline_execution_status h
+  %[1]s
+ WHERE h.client = $1 AND h.process_name = $2 %[2]s
+ ORDER BY h.start_time, h.session_id`
 
-// readIncidentsSQL reads the run incidents at a key, by position.
+// readIncidentsSQL reads the run incidents at a key, by position. %[1]s keeps
+// those of the key's source, on $5 to $7: the empty source finds the incidents
+// whose source columns are empty or NULL, the latter written before the key
+// carried a source.
 const readIncidentsSQL = `SELECT incident_id, incident_session_id, status, incident_anchor_start_time
   FROM jetsapi.incident
  WHERE incident_client = $1 AND incident_process_name = $2 AND incident_locus = $3
-   AND coalesce(incident_error_code, '') = $4 AND incident_anchor_start_time IS NOT NULL
+   AND coalesce(incident_error_code, '') = $4 AND incident_anchor_start_time IS NOT NULL %[1]s
  ORDER BY incident_anchor_start_time, incident_session_id, incident_id`
+
+const incidentSourceMatch = `AND coalesce(incident_source_client, '') = $5
+   AND coalesce(incident_source_org, '') = $6 AND coalesce(incident_source_object_type, '') = $7`
 
 const tablesSQL = `SELECT to_regclass('jetsapi.run_finding') IS NOT NULL,
        to_regclass('jetsapi.incident') IS NOT NULL,
        to_regclass('jetsapi.incident_event') IS NOT NULL,
        EXISTS (SELECT 1 FROM information_schema.columns
-                WHERE table_schema = 'jetsapi' AND table_name = 'incident' AND column_name = 'incident_client')`
+                WHERE table_schema = 'jetsapi' AND table_name = 'incident' AND column_name = 'incident_client'),
+       to_regclass('jetsapi.input_registry') IS NOT NULL,
+       EXISTS (SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'jetsapi' AND table_name = 'incident'
+                  AND column_name = 'incident_source_object_type')`
 
 // Read reads what a key's conditions are computed from: the process's live
 // runs with their verdicts at the key, the incidents at the key, and their
 // first human verdicts. It writes nothing.
 func Read(ctx context.Context, db observe.DB, key Key) (*History, error) {
-	var findings, incidents, events, keyed bool
-	if err := db.QueryRow(ctx, tablesSQL).Scan(&findings, &incidents, &events, &keyed); err != nil {
+	var findings, incidents, events, keyed, sources, sourced bool
+	if err := db.QueryRow(ctx, tablesSQL).Scan(&findings, &incidents, &events, &keyed, &sources,
+		&sourced); err != nil {
 		return nil, fmt.Errorf("while asking which tables %s's conditions can be read from: %w", key.Describe(), err)
 	}
 	h := &History{Key: key, FindingsRead: findings}
+	src := []any{key.Source.Client, key.Source.Org, key.Source.ObjectType}
 	stmt, args := readRunsNoFindingsSQL, []any{key.Client, key.Process}
 	if findings {
 		stmt, args = readRunsSQL, []any{key.Client, key.Process, key.Locus, key.Code}
 	}
-	rows, err := db.Query(ctx, stmt, args...)
+	join, match := "", ""
+	switch {
+	case sources:
+		join, match = observe.SourceJoin("h"), "AND "+observe.SourceMatch(len(args)+1, len(args)+2, len(args)+3)
+		args = append(args, src...)
+	case !key.Source.IsZero():
+		// No registration is recorded, so every run has the empty source and
+		// none is a position of a key with a source.
+		match = "AND false"
+	}
+	rows, err := db.Query(ctx, fmt.Sprintf(stmt, join, match), args...)
 	if err != nil {
 		return nil, fmt.Errorf("while reading the runs of %s: %w", key.Describe(), err)
 	}
@@ -751,7 +812,16 @@ func Read(ctx context.Context, db observe.DB, key Key) (*History, error) {
 	if !incidents || !keyed {
 		return h, nil
 	}
-	rows, err = db.Query(ctx, readIncidentsSQL, key.Client, key.Process, key.Locus, key.Code)
+	incMatch, incArgs := "", []any{key.Client, key.Process, key.Locus, key.Code}
+	switch {
+	case sourced:
+		incMatch = incidentSourceMatch
+		incArgs = append(incArgs, src...)
+	case !key.Source.IsZero():
+		// The incidents carry no source, so none is at a key with one.
+		incMatch = "AND false"
+	}
+	rows, err = db.Query(ctx, fmt.Sprintf(readIncidentsSQL, incMatch), incArgs...)
 	if err != nil {
 		return nil, fmt.Errorf("while reading the incidents of %s: %w", key.Describe(), err)
 	}

@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/dbtest"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -54,21 +55,39 @@ var historyView = regexp.MustCompile(`(?s)CREATE OR REPLACE VIEW jetsapi\.pipeli
 // HistoryViewStatement is the statement creating pipeline_execution_history,
 // read from jets_init_db.sql.
 func HistoryViewStatement(t testing.TB) string {
+	return ViewStatement(t, "pipeline_execution_history")
+}
+
+// LiveViewStatement is the statement creating input_registry_live, the live
+// registrations, read from jets_init_db.sql.
+func LiveViewStatement(t testing.TB) string {
+	return ViewStatement(t, "input_registry_live")
+}
+
+// ViewStatement is the CREATE OR REPLACE VIEW statement of jetsapi.<name>,
+// read from jets_init_db.sql.
+func ViewStatement(t testing.TB, name string) string {
 	t.Helper()
 	buf, err := os.ReadFile(filepath.Join(JetsDir(), "jets_init_db.sql"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	stmt := historyView.FindString(string(buf))
+	re := historyView
+	if name != "pipeline_execution_history" {
+		re = regexp.MustCompile(`(?s)CREATE OR REPLACE VIEW jetsapi\.` + regexp.QuoteMeta(name) + ` AS.*?\n;`)
+	}
+	stmt := re.FindString(string(buf))
 	if stmt == "" {
-		t.Fatal("jets_init_db.sql has no CREATE OR REPLACE VIEW jetsapi.pipeline_execution_history")
+		t.Fatalf("jets_init_db.sql has no CREATE OR REPLACE VIEW jetsapi.%s", name)
 	}
 	return stmt
 }
 
-// DB returns a pool on a fresh database named name: the jetsapi tables of
-// jets_schema.json, the view pipeline_execution_history, an empty public schema
-// for domain tables, and one source_period row, key 1.
+// DB returns a pool on a fresh database, named under the package's test
+// database from name and dropped when the test ends (jets/dbtest): the jetsapi
+// tables of jets_schema.json, the views pipeline_execution_history and
+// input_registry_live, an empty public schema for domain tables, and one
+// source_period row, key 1.
 func DB(t *testing.T, name string) *pgxpool.Pool {
 	t.Helper()
 	dsn := os.Getenv("JETS_TEST_DSN")
@@ -76,19 +95,7 @@ func DB(t *testing.T, name string) *pgxpool.Pool {
 		t.Skip("JETS_TEST_DSN is not set; see the header of jets/sessionpurge/purgetest")
 	}
 	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var n int
-	_ = admin.QueryRow(ctx, "SELECT count(*) FROM pg_database WHERE datname = $1", name).Scan(&n)
-	if n == 0 {
-		if _, err = admin.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{name}.Sanitize()); err != nil {
-			admin.Close()
-			t.Fatal(err)
-		}
-	}
-	admin.Close()
+	name = dbtest.CreateDatabase(t, name)
 	u, err := url.Parse(dsn)
 	if err != nil {
 		t.Fatal(err)
@@ -114,6 +121,9 @@ func DB(t *testing.T, name string) *pgxpool.Pool {
 	}
 	if _, err = pool.Exec(ctx, HistoryViewStatement(t)); err != nil {
 		t.Fatalf("creating pipeline_execution_history: %v", err)
+	}
+	if _, err = pool.Exec(ctx, LiveViewStatement(t)); err != nil {
+		t.Fatalf("creating input_registry_live: %v", err)
 	}
 	if _, err = pool.Exec(ctx, `INSERT INTO jetsapi.source_period
 		(key, year, month, day, month_period, week_period, day_period) VALUES (1, 2026, 1, 1, 313, 1357, 9497)`); err != nil {
@@ -243,7 +253,9 @@ func Seed(t testing.TB, pool *pgxpool.Pool, s Session) []int {
 // and public, with a session_id column, the archive and session_deletion
 // excepted; and the
 // coordinator map rows of its requests, under jetsapi.pipeline_coordinator_map.
-// Tables with no row of the session are left out.
+// Tables with no row of the session are left out. An input_registry row a
+// deletion marked deleted is not the session's any more and is not counted:
+// MarkedRows counts those.
 func SessionRows(t testing.TB, pool *pgxpool.Pool, id string) map[string]int64 {
 	t.Helper()
 	ctx := context.Background()
@@ -268,8 +280,13 @@ func SessionRows(t testing.TB, pool *pgxpool.Pool, id string) map[string]int64 {
 	out := map[string]int64{}
 	for _, tb := range tables {
 		var n int64
-		err := pool.QueryRow(ctx, fmt.Sprintf(`SELECT count(*) FROM %s WHERE session_id = $1`,
-			pgx.Identifier{tb[0], tb[1]}.Sanitize()), id).Scan(&n)
+		live := ""
+		if tb[0] == "jetsapi" && tb[1] == "input_registry" {
+			// Through to_jsonb, so it holds where the column was dropped.
+			live = ` AND (to_jsonb(r) ->> 'deleted_at') IS NULL`
+		}
+		err := pool.QueryRow(ctx, fmt.Sprintf(`SELECT count(*) FROM %s r WHERE session_id = $1%s`,
+			pgx.Identifier{tb[0], tb[1]}.Sanitize(), live), id).Scan(&n)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -286,6 +303,18 @@ func SessionRows(t testing.TB, pool *pgxpool.Pool, id string) map[string]int64 {
 		out["jetsapi.pipeline_coordinator_map"] = n
 	}
 	return out
+}
+
+// MarkedRows counts the input_registry rows of session id that a deletion
+// marked deleted.
+func MarkedRows(t testing.TB, pool *pgxpool.Pool, id string) int64 {
+	t.Helper()
+	var n int64
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM jetsapi.input_registry r
+		WHERE session_id = $1 AND (to_jsonb(r) ->> 'deleted_at') IS NOT NULL`, id).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
 }
 
 // RowCounts counts the rows of every table in jetsapi and public.

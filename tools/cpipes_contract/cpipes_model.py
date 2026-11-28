@@ -8,9 +8,15 @@ audit/Go-binding record, regenerated FROM this file:
     python -m cpipes_contract reflect          # sync the matrix claim columns
     python -m cpipes_contract reflect --check  # the divergence guard (CI)
 
-The `generate` command is the bootstrap projection that first produced this
-file from the reviewed matrix - running it again OVERWRITES edits made
-here. Engine-applied defaults are noted in the descriptions and deliberately
+`generate` emits this file from the matrix, and carries over from it the
+regions marked `# >>> hand-written` (code the matrix has no column for).
+`generate --check` (and tests_generate.py) fail when this file is not what it
+emits, so an edit here is reflected into the matrix before it is committed:
+
+    python -m cpipes_contract reflect           # the edit, into the matrix
+    python -m cpipes_contract generate --check  # the matrix still emits this file
+
+Engine-applied defaults are noted in the descriptions and deliberately
 NOT materialised as Pydantic defaults, so a dumped document stays minimal and
 the wire format unchanged.
 """
@@ -163,6 +169,12 @@ class ChannelSpec(_Base):
     has_dynamic_columns: bool | None = Field(default=None, description="The channel's columns are extended at run time.")
     name: str = Field(description="The channel name referenced by input and output channels.")
     same_columns_as_input: bool | None = Field(default=None, description="Use the same columns as the input channel.")
+
+
+class ClaimSetSummarySpec(_Base):
+    """Configuration of the claim_set_summary operator: partial, on every node of a step whose input is sharded by member, or merge, on the one node of a later step that reads the partials."""
+    comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
+    mode: Literal["partial", "merge"] = Field(description="partial summarises the node's records and emits one partial record; merge adds every partial of the run and writes the delivery's summary row.")
 
 
 class ClusterShardingInfo(_Base):
@@ -364,7 +376,7 @@ class DateFormatLookupSpec(_Base):
 class DistinctSpec(_Base):
     """Configuration for the distinct transformation operator: specify the composite key."""
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
-    distinct_on: list[str] | None = Field(default=None, description="Columns forming the composite key rows are distinct on.")
+    distinct_on: list[str] = Field(description="Columns forming the composite key rows are distinct on.")
 
 
 class DomainKeyInfo(_Base):
@@ -380,14 +392,14 @@ class DomainKeysSpec(_Base):
 
 
 class ElementParagraph(_Base):
-    """Element: a paragraph of a text template document - one block of markup, wrapped to the document's width."""
+    """A paragraph of a text template document: one block of markup, wrapped to the document width."""
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
     text: str = Field(description="A paragraph's markup.")
     when: str | None = Field(default=None, description="Predicate gating the element. Absent means always.")
 
 
 class ElementGroup(_Base):
-    """Element: a group of a text template document - children emitted in array order, with a fallback for the case where none of them emitted."""
+    """A group of a text template document: children emitted in array order, with a fallback for the case where none of them emitted."""
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
     elements: list[Element] = Field(description="A group's children, emitted in array order.")
     empty: str | None = Field(default=None, description="A group's fallback, emitted as one paragraph when no child emitted anything.")
@@ -771,13 +783,6 @@ class MapExpression(_Base):
     rdf_type: str | None = Field(default=None, description="Type conversion applied to the output value.")
 
 
-class RetainWindowSpec(_Base):
-    """A map_record step's retain window: an output column and the days before and after the file date between which a record is kept."""
-    column: str = Field(description="Output column, by its canonical name, whose date decides whether a record is kept.")
-    days_after_file_date: int | str | None = Field(default=None, description="Days after the file date the window ends, inclusive; an int or a string with env var substitution, a non-negative integer once substituted. Engine default: 0 (builder).")
-    days_before_file_date: int | str = Field(description="Days before the file date the window starts, inclusive; an int or a string with env var substitution, a non-negative integer once substituted.")
-
-
 class MapRecordSpec(_Base):
     """Optional configuration for map_record operator: log trace info, read column mapping from db table."""
     calculate_span_of: str | None = Field(default=None, description="Output column, by its canonical name, whose dates give the run's input span on Pipeline Status: the days from the earliest to the latest value over the records the step maps.")
@@ -1100,6 +1105,13 @@ class ReportCmdSpec(_Base):
     when: ExpressionNode | None = Field(default=None, description="Optional expression to determine if the command is to be executed.")
 
 
+class RetainWindowSpec(_Base):
+    """A map_record step's retain window: an output column and the days before and after the file date between which a record is kept."""
+    column: str = Field(description="Output column, by its canonical name, whose date decides whether a record is kept.")
+    days_after_file_date: int | str | None = Field(default=None, description="Days after the file date the window ends, inclusive; an int or a string with env var substitution, a non-negative integer once substituted. Engine default: 0 (builder).")
+    days_before_file_date: int | str = Field(description="Days before the file date the window starts, inclusive; an int or a string with env var substitution, a non-negative integer once substituted.")
+
+
 class S3CopyFileSpec(_Base):
     """Configuration of the s3_copy_file report command: source and destination bucket/key. Default worker_pool_size is calculated from the number of tasks."""
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
@@ -1210,9 +1222,9 @@ class SiteOperatorSpec(_Base):
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
     config: Any | None = Field(default=None, description="The site's own configuration, carried verbatim: JetStore does not decode it, validate it or know its schema.")
     error_channel: OutputChannelConfig | None = Field(default=None, description="Channel where the operator reports row-level errors.")
+    lookups: list[str] | None = Field(default=None, description="Keys of the document's own lookup_tables entries this operator reads. Declaring one is what keeps the table from being pruned before it is loaded; the builder resolves each key to the loaded table and hands them to the factory.")
     max_error_count: int | None = Field(default=None, description="Cap on the records reported to the error channel.")
     output_channels: list[OutputChannelConfig] | None = Field(default=None, description="Channels this operator writes beyond the step's own output_channel. The builder resolves each one and hands the resolved channels to the factory, so the operator names nothing its own step did not declare.")
-    lookups: list[str] | None = Field(default=None, description="Keys of the document's own lookup_tables entries this operator reads. Declaring one is what keeps the table from being pruned before it is loaded; the builder resolves each key to the loaded table and hands them to the factory.")
 
 
 class SortSpec(_Base):
@@ -1265,6 +1277,7 @@ class TableColumnSpec(_Base):
     rdf_type: str | None = Field(default=None, description="The column's rdf type.")
 
 
+# >>> hand-written: before TableSpec
 # The column types an output table may name: `schema.PgTypeNames`, the keys of
 # `pgTypes` in jets/schema/schema.go, which the engine refuses anything outside
 # (`ToPgType`, and `validateOutputTableColumnTypes` in jets/compute_pipes). The
@@ -1290,13 +1303,16 @@ def _output_table_rdf_types(columns):
                 f"it must be one of {', '.join(OUTPUT_TABLE_RDF_TYPES)}"
             )
     return columns
+# <<< hand-written
 
 
 class TableSpec(_Base):
     """Shared configuration to load the pipeline output in JetStore DB (postgres)"""
     channel_spec_name: str | None = Field(default=None, description="ChannelSpecName specify the channel spec. Column provides metadata info")
     check_schema_changed: bool | None = Field(default=None, description="Verify whether the table schema changed before the load.")
+    # >>> hand-written: field TableSpec.columns
     columns: Annotated[list[TableColumnSpec] | None, AfterValidator(_output_table_rdf_types)] = Field(default=None, description="Column metadata of the table.", json_schema_extra={"items": {"properties": {"rdf_type": {"enum": list(OUTPUT_TABLE_RDF_TYPES)}}}})
+    # <<< hand-written
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
     key: str = Field(description="Key is the table key for reference by compute pipes steps")
     name: str = Field(description="Name is the table name for reference by compute pipes steps, env var replacement used for table name (e.g., ${CLIENT}_${OBJECT_TYPE})")
@@ -1612,6 +1628,13 @@ class TransformationSpecRender(TransformationSpecBase):
     render_config: RenderSpec = Field(description="Configuration of the render operator.")
 
 
+class TransformationSpecClaimSetSummary(TransformationSpecBase):
+    """Summarises a delivery's claim records into its claim-set summary row, read by the feed detection: one partial per node of a step sharded by member, then a merge of the partials on one node, which writes the row."""
+    type: Literal["claim_set_summary"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed, vllm, infer, render.")
+    claim_set_summary_config: ClaimSetSummarySpec = Field(description="Configuration of the claim_set_summary operator: its mode.")
+    output_channel: OutputChannelConfig | None = Field(default=None, description="The channel a partial is emitted on, whose channel spec carries the partial columns. Set in partial mode; a merge writes the summary row and takes none. Required when: equals(claim_set_summary_config.mode, partial).")
+
+
 class TransformationSpecOverride(_Base):
     """Fragments of transformation operator to override fields of the host transformation operator."""
     analyze_config: AnalyzeSpec | None = Field(default=None, description="Configuration of the analyze operator.")
@@ -1631,7 +1654,7 @@ class TransformationSpecOverride(_Base):
     sort_config: SortSpec | None = Field(default=None, description="Configuration of the sort operator.")
 
 
-_TRANSFORMATION_SPEC_TOKENS = ("ollama", "embed", "vllm", "partition_writer", "map_record", "aggregate", "analyze", "high_freq", "anonymize", "distinct", "shuffling", "group_by", "filter", "sort", "merge", "jetrules", "clustering", "infer", "render")
+_TRANSFORMATION_SPEC_TOKENS = ("ollama", "embed", "vllm", "partition_writer", "map_record", "aggregate", "analyze", "high_freq", "anonymize", "distinct", "shuffling", "group_by", "filter", "sort", "merge", "jetrules", "clustering", "infer", "render", "claim_set_summary")
 
 
 class TransformationSpecSite(_Base):
@@ -1676,14 +1699,16 @@ class VllmSpec(_Base):
 
 
 AnonymizeSpec = Annotated[Union[AnonymizeSpecAnonymization, AnonymizeSpecDeIdentification], Field(discriminator="mode"), BeforeValidator(_tag_default("mode", "anonymization"))]
+CsvSourceSpec = Annotated[Union[CsvSourceSpecCpipes, CsvSourceSpecCsvFile], Field(discriminator="type")]
+# >>> hand-written: before Element
 # Element is the one union here with no discriminator field: a paragraph and a
 # group are told apart by which of `text` and `elements` is present, which the
 # matrix records as the two rows' `variant_when`. `extra="forbid"` on both
 # branches is what makes the plain Union exact rather than permissive - an
 # element carrying both matches neither branch, and one carrying neither fails
 # both branches' required field.
+# <<< hand-written
 Element = Annotated[Union[ElementParagraph, ElementGroup], Field(union_mode="left_to_right")]
-CsvSourceSpec = Annotated[Union[CsvSourceSpecCpipes, CsvSourceSpecCsvFile], Field(discriminator="type")]
 FunctionTokenNode = Annotated[Union[FunctionTokenNodeParseDate, FunctionTokenNodeParseDouble, FunctionTokenNodeParseText], Field(discriminator="type")]
 InputChannelConfig = Annotated[Union[InputChannelConfigMemory, InputChannelConfigInput, InputChannelConfigStage, InputChannelConfigGenerator], Field(discriminator="type"), BeforeValidator(_tag_default("type", "memory"))]
 LookupColumnSpec = Annotated[Union[LookupColumnSpecSelect, LookupColumnSpecValue], Field(discriminator="type")]
@@ -1695,7 +1720,7 @@ SplitterSpec = Annotated[Union[SplitterSpecStandard, SplitterSpecExtCount], Fiel
 TransformationColumnSpec = Annotated[Union[TransformationColumnSpecAvrg, TransformationColumnSpecCase, TransformationColumnSpecCount, TransformationColumnSpecDistinctCount, TransformationColumnSpecEval, TransformationColumnSpecHash, TransformationColumnSpecLookup, TransformationColumnSpecMap, TransformationColumnSpecMapReduce, TransformationColumnSpecMax, TransformationColumnSpecMin, TransformationColumnSpecMultiSelect, TransformationColumnSpecSelect, TransformationColumnSpecSum, TransformationColumnSpecValue], Field(discriminator="type")]
 TransformationSpec = Annotated[
     Union[
-        Annotated[Union[TransformationSpecOllama, TransformationSpecEmbed, TransformationSpecVllm, TransformationSpecPartitionWriter, TransformationSpecMapRecord, TransformationSpecAggregate, TransformationSpecAnalyze, TransformationSpecHighFreq, TransformationSpecAnonymize, TransformationSpecDistinct, TransformationSpecShuffling, TransformationSpecGroupBy, TransformationSpecFilter, TransformationSpecSort, TransformationSpecMerge, TransformationSpecJetrules, TransformationSpecClustering, TransformationSpecInfer, TransformationSpecRender], Field(discriminator="type")],
+        Annotated[Union[TransformationSpecOllama, TransformationSpecEmbed, TransformationSpecVllm, TransformationSpecPartitionWriter, TransformationSpecMapRecord, TransformationSpecAggregate, TransformationSpecAnalyze, TransformationSpecHighFreq, TransformationSpecAnonymize, TransformationSpecDistinct, TransformationSpecShuffling, TransformationSpecGroupBy, TransformationSpecFilter, TransformationSpecSort, TransformationSpecMerge, TransformationSpecJetrules, TransformationSpecClustering, TransformationSpecInfer, TransformationSpecRender, TransformationSpecClaimSetSummary], Field(discriminator="type")],
         TransformationSpecSite,
     ],
     Field(union_mode="left_to_right"),
@@ -1712,6 +1737,7 @@ _MATRIX_KEYS = {
     "CaseEnvExpression": ("CaseEnvExpression", "*"),
     "CaseExpression": ("CaseExpression", "*"),
     "ChannelSpec": ("ChannelSpec", "*"),
+    "ClaimSetSummarySpec": ("ClaimSetSummarySpec", "*"),
     "ClusterShardingInfo": ("ClusterShardingInfo", "*"),
     "ClusterShardingSpec": ("ClusterShardingSpec", "*"),
     "ClusterSpec": ("ClusterSpec", "*"),
@@ -1783,6 +1809,7 @@ _MATRIX_KEYS = {
     "RegexNode": ("RegexNode", "*"),
     "RenderSpec": ("RenderSpec", "*"),
     "ReportCmdSpec": ("ReportCmdSpec", "s3_copy_file"),
+    "RetainWindowSpec": ("RetainWindowSpec", "*"),
     "S3CopyFileSpec": ("S3CopyFileSpec", "*"),
     "SchemaColumnSpec": ("SchemaColumnSpec", "*"),
     "SchemaProviderSpecDefault": ("SchemaProviderSpec", "default"),
@@ -1816,6 +1843,7 @@ _MATRIX_KEYS = {
     "TransformationSpecAggregate": ("TransformationSpec", "aggregate"),
     "TransformationSpecAnalyze": ("TransformationSpec", "analyze"),
     "TransformationSpecAnonymize": ("TransformationSpec", "anonymize"),
+    "TransformationSpecClaimSetSummary": ("TransformationSpec", "claim_set_summary"),
     "TransformationSpecClustering": ("TransformationSpec", "clustering"),
     "TransformationSpecDistinct": ("TransformationSpec", "distinct"),
     "TransformationSpecEmbed": ("TransformationSpec", "embed"),
@@ -1842,6 +1870,7 @@ for _m in _MODELS:
     _m.model_rebuild()
 
 
+# >>> hand-written: end
 # ---------------------------------------------------------------------------
 # The runtime document
 # ---------------------------------------------------------------------------
@@ -1891,3 +1920,4 @@ class ComputePipesRuntimeConfig(ComputePipesConfig):
 
 ClusterSpecRuntime.model_rebuild()
 ComputePipesRuntimeConfig.model_rebuild()
+# <<< hand-written

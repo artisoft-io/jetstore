@@ -21,6 +21,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/agentic/feedprofile"
 	"github.com/artisoft-io/jetstore/jets/agentic/observe/feedfixture"
+	"github.com/artisoft-io/jetstore/jets/dbtest"
 	"github.com/artisoft-io/jetstore/jets/keyset"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -34,20 +35,9 @@ func claimSetSummaryScratch(t *testing.T, database string) *pgxpool.Pool {
 		t.Skip("JETS_TEST_DSN not set; needs a throwaway Postgres")
 	}
 	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	name := pgx.Identifier{database}.Sanitize()
-	if _, err = admin.Exec(ctx, "DROP DATABASE IF EXISTS "+name+" WITH (FORCE)"); err == nil {
-		_, err = admin.Exec(ctx, "CREATE DATABASE "+name)
-	}
-	admin.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
+	name := dbtest.CreateDatabase(t, database)
 	u, _ := url.Parse(dsn)
-	u.Path = "/" + database
+	u.Path = "/" + name
 	pool, err := pgxpool.New(ctx, u.String())
 	if err != nil {
 		t.Fatal(err)
@@ -244,6 +234,68 @@ func TestClaimSetChecksJudgeFromSummariesOnceRowsAreGone(t *testing.T) {
 		if (span == 31) != (undecided == 0) {
 			t.Errorf("a span of %d: %d verdicts not judged for a changed declaration", span, undecided)
 		}
+	}
+
+	// A summary computed by the other path: every third delivery's row is
+	// marked as a pipeline's. The two checks that compare a delivery with its
+	// predecessor do not compare two rows computed by different paths, and
+	// say why; every other verdict is the one judged from rows.
+	if _, err := pool.Exec(ctx, `UPDATE jetsapi.claim_set_summary s SET computed_by = 'pipeline'
+		FROM (SELECT table_name, delivery_session_id,
+		        row_number() OVER (PARTITION BY table_name ORDER BY delivery_session_id::bigint) AS n
+		        FROM jetsapi.claim_set_summary) o
+		WHERE o.table_name = s.table_name AND o.delivery_session_id = s.delivery_session_id AND o.n % 3 = 0`); err != nil {
+		t.Fatal(err)
+	}
+	paths := map[string]string{}
+	pathRows, err := pool.Query(ctx, `SELECT table_name || ' ' || delivery_session_id, computed_by
+		FROM jetsapi.claim_set_summary`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for pathRows.Next() {
+		var k, v string
+		if err := pathRows.Scan(&k, &v); err != nil {
+			t.Fatal(err)
+		}
+		paths[k] = v
+	}
+	if err := pathRows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	mixed, _, err := SummariseClaimSets(ctx, pool, feeds, o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mixed) != len(before) {
+		t.Fatalf("%d verdicts with mixed paths, %d from rows", len(mixed), len(before))
+	}
+	differ, same := 0, 0
+	for i := range before {
+		b, m := before[i], mixed[i]
+		comparing := b.Detector == ClaimSetDeliveryOverlap || b.Detector == ClaimSetDeliveryUnchanged
+		cur, prev := paths[b.TableName+" "+b.SessionID], paths[b.TableName+" "+b.PredecessorSessionID]
+		judgedBefore := b.Verdict != ClaimSetNotJudged || b.Reason == ClaimSetSmallDelivery
+		if comparing && prev != "" && cur != "" && cur != prev && judgedBefore {
+			differ++
+			if m.Verdict != ClaimSetNotJudged || m.Reason != ClaimSetSummaryPathDiffers ||
+				!strings.Contains(m.Detail, "the pipeline from its records") ||
+				!strings.Contains(m.Detail, b.PredecessorSessionID) || len(m.Anomalies) != 0 {
+				t.Errorf("%s %s %s, paths %s and %s: %s %q %s", b.Detector, b.TableName, b.SessionID, cur, prev,
+					m.Verdict, m.Reason, m.Detail)
+			}
+			continue
+		}
+		if comparing && judgedBefore {
+			same++
+		}
+		if b.Verdict != m.Verdict || b.Reason != m.Reason || !reflect.DeepEqual(b.Anomalies, m.Anomalies) {
+			t.Errorf("%s %s %s: from rows %s %q, with mixed paths %s %q", b.Detector, b.TableName, b.SessionID,
+				b.Verdict, b.Reason, m.Verdict, m.Reason)
+		}
+	}
+	if differ == 0 || same == 0 {
+		t.Errorf("%d comparisons across paths and %d within one; the test needs both", differ, same)
 	}
 }
 

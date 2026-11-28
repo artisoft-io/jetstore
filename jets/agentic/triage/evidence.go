@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/agentic/feedprofile"
 	"github.com/artisoft-io/jetstore/jets/agentic/observe"
 	"github.com/jackc/pgx/v5"
 )
@@ -105,6 +106,12 @@ type RunHeader struct {
 	// configuration were deleted with the session.
 	ArchivedAt    *time.Time
 	ArchiveReason string
+	// Source is the run's main input source: the client, org and object type
+	// of the input_registry row main_input_registry_key names. The zero Source
+	// when the run has none, as a job's row has none, when that row is gone,
+	// and where jetsapi.input_registry is not deployed. A run condition is
+	// keyed on it, and the step baseline is read for it.
+	Source observe.Source
 }
 
 // Deleted reports whether the run's session was deleted, so the header is all
@@ -130,15 +137,21 @@ func (h *RunHeader) Terminal() bool {
 	return false
 }
 
-const headerSQL = `SELECT key, pipeline_config_key, coalesce(input_session_id, ''), session_id, client,
-    process_name, main_object_type,
-    status, coalesce(failure_details, ''), start_time, last_update, NULL::timestamp, ''
-  FROM jetsapi.pipeline_execution_status WHERE session_id = $1`
+// headerSQL and headerHistorySQL read the header from the live table or the
+// history, with its source by %[1]s (the source's columns) and %[2]s (its
+// join), or empty strings where jetsapi.input_registry is not deployed.
+const headerSQL = `SELECT h.key, h.pipeline_config_key, coalesce(h.input_session_id, ''), h.session_id, h.client,
+    h.process_name, h.main_object_type,
+    h.status, coalesce(h.failure_details, ''), h.start_time, h.last_update, NULL::timestamp, '', %[1]s
+  FROM jetsapi.pipeline_execution_status h %[2]s WHERE h.session_id = $1`
 
-const headerHistorySQL = `SELECT key, pipeline_config_key, coalesce(input_session_id, ''), session_id, client,
-    process_name, main_object_type,
-    status, coalesce(failure_details, ''), start_time, last_update, archived_at, coalesce(archive_reason, '')
-  FROM jetsapi.pipeline_execution_history WHERE session_id = $1`
+const headerHistorySQL = `SELECT h.key, h.pipeline_config_key, coalesce(h.input_session_id, ''), h.session_id, h.client,
+    h.process_name, h.main_object_type,
+    h.status, coalesce(h.failure_details, ''), h.start_time, h.last_update, h.archived_at,
+    coalesce(h.archive_reason, ''), %[1]s
+  FROM jetsapi.pipeline_execution_history h %[2]s WHERE h.session_id = $1`
+
+const noSourceColumns = `'', '', ''`
 
 // ReadHeader returns the run header, or nil when there is none. With history
 // set it reads jetsapi.pipeline_execution_history, so the header of a run whose
@@ -150,15 +163,23 @@ const headerHistorySQL = `SELECT key, pipeline_config_key, coalesce(input_sessio
 // before the session purge deleted at six months — and the caller cannot tell
 // them apart, which is why every predicate that needs the header reports
 // NotEvaluable rather than Absent when it is missing.
-func ReadHeader(ctx context.Context, db observe.DB, sessionId string, history bool) (*RunHeader, error) {
+//
+// With sources set, the header carries the run's source (RunHeader.Source),
+// read from jetsapi.input_registry, which must then exist.
+func ReadHeader(ctx context.Context, db observe.DB, sessionId string, history, sources bool) (*RunHeader, error) {
 	var h RunHeader
 	stmt := headerSQL
 	if history {
 		stmt = headerHistorySQL
 	}
-	err := db.QueryRow(ctx, stmt, sessionId).Scan(
+	cols, join := noSourceColumns, ""
+	if sources {
+		cols, join = observe.SourceColumns, observe.SourceJoin("h")
+	}
+	err := db.QueryRow(ctx, fmt.Sprintf(stmt, cols, join), sessionId).Scan(
 		&h.Key, &h.PipelineConfigKey, &h.InputSessionId, &h.SessionId, &h.Client, &h.ProcessName, &h.MainObjectType,
-		&h.Status, &h.FailureDetails, &h.StartTime, &h.LastUpdate, &h.ArchivedAt, &h.ArchiveReason)
+		&h.Status, &h.FailureDetails, &h.StartTime, &h.LastUpdate, &h.ArchivedAt, &h.ArchiveReason,
+		&h.Source.Client, &h.Source.Org, &h.Source.ObjectType)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		return nil, nil
@@ -534,6 +555,14 @@ type Evidence struct {
 	// may have no run. Nil only when Gather was not called.
 	Feed *FeedEvidence
 
+	// MainInputFeed is the feed the run's main input is a delivery of: the
+	// source_config row of the header's source, read for its profile, which
+	// may declare empty deliveries expected (locus main_input_empty). Nil when
+	// the run has no source, no source_config row has it, or the table is not
+	// deployed; MainInputFeedNote then says which, "" when it was read.
+	MainInputFeed     *feedprofile.Feed
+	MainInputFeedNote string
+
 	// Survey is the operator census locus per_record_failures_unreportable
 	// needs. It is a second read of the same column because the two questions
 	// are different: observe asks which of five confounders the config mentions,
@@ -541,7 +570,7 @@ type Evidence struct {
 	Survey *ConfigSurvey
 }
 
-// Gather reads everything the twelve predicates need for one session, in one
+// Gather reads everything the thirteen predicates need for one session, in one
 // call: the run's record for the nine run loci, and the session's feed
 // anomalies, registrations and source configuration for the two delivery loci.
 //
@@ -585,7 +614,10 @@ func (c Classifier) Gather(ctx context.Context, db observe.DB, sessionId string,
 		// absent ones.
 		return ev, nil
 	}
-	if ev.Header, err = ReadHeader(ctx, db, sessionId, ev.Extent.History); err != nil {
+	if ev.Header, err = ReadHeader(ctx, db, sessionId, ev.Extent.History, ev.Extent.InputRegistry); err != nil {
+		return nil, err
+	}
+	if err = ev.readMainInputFeed(ctx, db); err != nil {
 		return nil, err
 	}
 	if ev.Workers, err = observe.Workers(ctx, db, observe.Window{
@@ -630,8 +662,15 @@ func (c Classifier) Gather(ctx context.Context, db observe.DB, sessionId string,
 				Until: start,
 			}
 			if ev.Header != nil {
+				// The run's own source's runs, and which steps the last
+				// MinPriorRuns of them had: a run is judged against the runs of
+				// the source it read, and a step the source stopped running
+				// leaves what it is expected to have.
 				prior.Client = ev.Header.Client
 				prior.ProcessName = ev.Header.ProcessName
+				source := ev.Header.Source
+				prior.Source = &source
+				prior.RecentRuns = int(c.MinPriorRuns)
 			}
 			if ev.Prior, err = observe.StepBaselines(ctx, db, prior); err != nil {
 				return nil, err
@@ -639,6 +678,37 @@ func (c Classifier) Gather(ctx context.Context, db observe.DB, sessionId string,
 		}
 	}
 	return ev, nil
+}
+
+// readMainInputFeed reads the feed of the run's main input source, for its
+// profile; see Evidence.MainInputFeed.
+func (ev *Evidence) readMainInputFeed(ctx context.Context, db observe.DB) error {
+	switch {
+	case ev.Header == nil:
+		ev.MainInputFeedNote = "the run has no header, so its main input source is not known"
+		return nil
+	case !ev.Extent.InputRegistry:
+		ev.MainInputFeedNote = "jetsapi.input_registry is not deployed, so the run's main input source is not known"
+		return nil
+	case ev.Header.Source.IsZero():
+		ev.MainInputFeedNote = "the run has no main input registration, so it is a delivery of no feed"
+		return nil
+	case !ev.Extent.SourceConfig:
+		ev.MainInputFeedNote = "jetsapi.source_config is not deployed, so no feed profile could be read"
+		return nil
+	}
+	src := ev.Header.Source
+	f, ok, err := feedprofile.LoadSource(ctx, db, src.Client, src.Org, src.ObjectType)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		ev.MainInputFeedNote = fmt.Sprintf("no source configuration has client %q, org %q and object type %q, so "+
+			"the run's main input is a delivery of no configured feed", src.Client, src.Org, src.ObjectType)
+		return nil
+	}
+	ev.MainInputFeed = &f
+	return nil
 }
 
 // runStart is when this run began: the header's start_time, or the earliest
