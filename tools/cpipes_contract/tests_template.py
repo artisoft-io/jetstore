@@ -277,9 +277,19 @@ def test_criterion_21_the_expansion_regenerates_its_target_exactly():
 
     `ValidatePipeSpecConfig` is the criterion's other half and is not run from here -
     it needs the Go harness. Both the expansion and the target return
-    `{"ok": true, "steps": 8}`, checked 2026-08-20:
+    `{"ok": true, "steps": 8}`, checked 2026-08-20 and again 2026-11-27:
 
         go run ./tools/cpipes_contract/harness < cases.json
+
+    **The target is the live configuration, not a snapshot of it, and that is the
+    criterion rather than a convenience.** It says the mechanism holds *on a live
+    config*, so when the workspace's configuration changes this test fails, and the
+    repair is to re-derive the template's body from the configuration as it now is
+    (every step but the repeated load stages, verbatim), not to pin the target. It
+    failed that way on 2026-11-27, when the configuration had gained two context
+    defaults, `latest_session_only` on a stage read, and `calculate_span_of` and
+    `retain_window` on its `map_record`; the schema already described all four, so
+    re-deriving the body was the whole repair.
     """
     _, target, cfg, _ = _round_trip()
     assert json.dumps(cfg, sort_keys=True) == json.dumps(target, sort_keys=True)
