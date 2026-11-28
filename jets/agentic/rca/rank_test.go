@@ -45,7 +45,7 @@ func report(session string, verdicts map[string]triage.Verdict,
 	return r
 }
 
-// The one thing criterion 45 asks for, asserted over every hypothesis the floor
+// The one thing the ranking must give, asserted over every hypothesis the floor
 // can emit rather than over a chosen example.
 //
 // The census is deliberate: it fires every locus the gate's table maps, so every one of the
@@ -359,7 +359,7 @@ func TestRankingIsStable(t *testing.T) {
 	}
 }
 
-// **Criterion 45's last clause, asserted rather than asserted about.** A reader
+// **The ranking's basis, asserted rather than asserted about.** A reader
 // must be able to check the ranking by counting the two lists, so the basis has
 // to name both counts and the ratio it made of them.
 func TestTheRankingBasisIsCheckableByCounting(t *testing.T) {

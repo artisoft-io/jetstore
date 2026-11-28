@@ -183,7 +183,7 @@ func TestRegisterFileKeysSchemaEventWithSizeZero(t *testing.T) {
 	}
 }
 
-// Criterion 13. Without the comma-ok assertion this panics with
+// An absent file_size. Without the comma-ok assertion this panics with
 // "interface conversion: interface {} is nil, not int64" — an absent file_size
 // is what every schema event RegisterSchemaEvent builds carries, because
 // SchemaProviderSpec.FileSize serialises as file_size and the copying switch
@@ -221,7 +221,7 @@ func TestRegisterFileKeysSchemaEventWithSizeAbsent(t *testing.T) {
 	}
 }
 
-// Criterion 14. Without the comma-ok assertion this panics with
+// An absent string field. Without the comma-ok assertion this panics with
 // "interface conversion: interface {} is nil, not string" at :206, before the
 // source_config query. Not reachable from this change request — the lambda
 // always sets file_key — and it is the same defect class in the same function.

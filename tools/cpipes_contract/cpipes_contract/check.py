@@ -7,7 +7,7 @@ fragment library points at actually resolves.
 
 Two modes. The default runs the checks that hold while the matrix is still partial,
 which is the whole of the extraction work. `--strict` adds the checks that only make sense
-once extraction is complete, and is what the exit criteria run.
+once extraction is complete.
 """
 
 from __future__ import annotations

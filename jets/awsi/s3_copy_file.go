@@ -9,7 +9,6 @@ import (
 	"slices"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -49,7 +48,8 @@ func newCreateMultipartUploadInput(destBucket, destKey string) *s3.CreateMultipa
 	return createInput
 }
 
-// function that starts, perform each part upload, and completes the copy
+// function that starts, perform each part upload, and completes the copy;
+// each part copy is retried as every S3 send is (RetrySend)
 func MultiPartCopy(ctx context.Context, svc *s3.Client, maxPoolSize int,
 	srcBucket string, srcKey string, destBucket string, destKey string, debug bool) error {
 	if maxPoolSize == 0 {
@@ -112,8 +112,10 @@ func MultiPartCopy(ctx context.Context, svc *s3.Client, maxPoolSize int,
 			copyInput.ServerSideEncryption = types.ServerSideEncryptionAwsKms
 			copyInput.SSEKMSKeyId = &kmsKeyArn
 		}
-		_, err = svc.CopyObject(ctx, copyInput)
-		return err
+		return RetrySend(ctx, fmt.Sprintf("copy to s3://%s/%s", destBucket, destKey), func() error {
+			_, err := svc.CopyObject(ctx, copyInput)
+			return err
+		})
 	}
 
 	// Copy using a multi-part copy action
@@ -148,7 +150,6 @@ func MultiPartCopy(ctx context.Context, svc *s3.Client, maxPoolSize int,
 		return errors.New("no upload id found in start upload request")
 	}
 
-	maxRetry := 4
 	partSize := smallChunk
 	if totalFileSize > fileSizeMidPoint {
 		partSize = bigChunk
@@ -200,20 +201,16 @@ func MultiPartCopy(ctx context.Context, svc *s3.Client, maxPoolSize int,
 				defer wg.Done()
 				// Do work - upload the part
 				for partInput := range tasksCh {
-
-					sleepDuration := 500 * time.Millisecond
-					retry := 0
-				do_retry:
-					partResp, err := svc.UploadPartCopy(ctx, &partInput)
+					// A part copy is retried as every S3 send is (RetrySend): on
+					// throttling and transient errors only, with a jittered
+					// backoff. Copying a part again replaces it.
+					var partResp *s3.UploadPartCopyOutput
+					err := RetrySend(ctx, fmt.Sprintf("copy of part %d to s3://%s/%s", *partInput.PartNumber, destBucket, destKey),
+						func() (err error) {
+							partResp, err = svc.UploadPartCopy(ctx, &partInput)
+							return err
+						})
 					if err != nil {
-						if retry < maxRetry && !strings.Contains(err.Error(), "context canceled") {
-							log.Printf(
-								"Got error in s3Client.UploadPartCopy '%v' for part %d (retrying)", err, *partInput.PartNumber)
-							retry++
-							time.Sleep(sleepDuration)
-							sleepDuration *= 2
-							goto do_retry
-						}
 						abort(fmt.Sprintf("Upload worker %d, part %d failed", iworker, *partInput.PartNumber))
 						sendError(fmt.Errorf("while uploading worker %d, part %d: %v", iworker, *partInput.PartNumber, err))
 						return

@@ -1,4 +1,4 @@
-// Criterion 29 — one agent run's transcript is viewable from its audit record
+// One agent run's transcript is viewable from its audit record
 // alone — tested against a real Postgres. Needs JETS_TEST_DSN; see the note at
 // the head of audit_test.go.
 package audit
@@ -16,7 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// oneTableOnly enforces the "alone" of criterion 29 structurally rather than by
+// oneTableOnly enforces the "alone" of "from its audit record alone" structurally rather than by
 // reading the source. It fails the read if the SELECT names any table but
 // jetsapi.agent_audit, so a future join to agent_run for a convenience column
 // breaks this test rather than quietly weakening the claim.
@@ -185,7 +185,7 @@ func TestChainTimeMatchesPostgres(t *testing.T) {
 }
 
 // Tampering, exercised as a pure function over the events. The append-only
-// trigger makes a real UPDATE impossible — criterion 9 — which is exactly why
+// trigger makes a real UPDATE impossible (`TestAppendOnly`), which is exactly why
 // the detector would otherwise never run against a damaged chain.
 func TestVerifyDetectsTampering(t *testing.T) {
 	pool := testPool(t)

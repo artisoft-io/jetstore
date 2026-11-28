@@ -94,6 +94,28 @@ func TestCreateDatabaseAndRoleAreDroppedWithTheTest(t *testing.T) {
 	}
 }
 
+// markShared, which Main runs on the roles Shared names, marks those that
+// exist as SharedRoles does, for the last package to drop, and passes over a
+// name no role has.
+func TestMarkSharedMarksTheRolesThatExist(t *testing.T) {
+	conn := admin(t)
+	role := CreateRole(t, "shared_group", "NOLOGIN")
+	missing := Name(t, "shared_missing")
+	markShared(context.Background(), conn, []string{role, missing})
+	var got string
+	err := conn.QueryRow(context.Background(), `SELECT coalesce(shobj_description(oid, 'pg_authid'), '')
+		FROM pg_roles WHERE rolname = $1`, role).Scan(&got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != sharedMarker {
+		t.Errorf("the role %s carries %q, not the shared marker", role, got)
+	}
+	if count(t, conn, roleExists, missing) != 0 {
+		t.Errorf("markShared made the role %s", missing)
+	}
+}
+
 // A crashed run's databases and roles, its own and those its tests made under
 // its name, go with the next run once they are a day old, with the roles RolesOf
 // names for them; a younger run's stay.

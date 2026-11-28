@@ -94,7 +94,7 @@ import (
 const (
 	// RenderOperatorType is the operator's type as the configuration spells it.
 	// It is the token `render` rather than `template` because `template` is
-	// already taken by gap 20's *configuration* templates
+	// already taken by the cpipes contract's *configuration* templates
 	// (`tools/cpipes_contract/templates/`), and a reader meeting
 	// `"type": "template"` in a `pipes_config` would have no way to tell which
 	// sense was meant. The operator *renders*; what it
@@ -540,8 +540,8 @@ func resolveRenderTemplate(cpConfig *ComputePipesConfig, config *RenderSpec) (*t
 // validateTextTemplates compiles every declared document at startup, whether or
 // not a step names it.
 //
-// **The operator alone would leave a hole and it is the hole criterion 84 would
-// be graded through.** `resolveRenderTemplate` compiles the one document its
+// **The operator alone would leave a hole, and it is the one a template failing
+// only at run time would get through.** `resolveRenderTemplate` compiles the one document its
 // step names, so a second entry of `text_templates` carrying an unclosed `each`
 // or a mistyped construct sits in the configuration unexamined -- until somebody
 // points a step at it, which is a different day and a different pull request.

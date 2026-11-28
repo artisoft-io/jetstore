@@ -83,7 +83,7 @@ func TestExpectedSingleTriple(t *testing.T) {
 		rulestest.OutcomeFail, "(m1 hc:Plan_Type) has no object")
 }
 
-// Criterion 7, first half: an expected pattern with a variable matches a
+// An expected pattern with a variable matches a
 // subject nobody can name.
 func TestExpectedPatternBindsUnnamedSubject(t *testing.T) {
 	s := testSnapshot()
@@ -114,7 +114,7 @@ func TestExpectedPatternBindsUnnamedSubject(t *testing.T) {
 		rulestest.OutcomePass, "1 match: {?m=m1}")
 }
 
-// Criterion 7, second half: an excluded pattern with a variable passes only
+// An excluded pattern with a variable passes only
 // when nothing binds.
 func TestExcludedPattern(t *testing.T) {
 	s := testSnapshot()
@@ -142,7 +142,7 @@ func countCheck(s, p, n, pattern string) string {
 	return c + "}"
 }
 
-// Criterion 8: a count check passes and fails on the count it states.
+// A count check passes and fails on the count it states.
 func TestCountCheck(t *testing.T) {
 	s := testSnapshot()
 	r := evaluate(t, s, rulestest.KindExpected, countCheck("jets:iState", "_0:mergeList", "2", ""))

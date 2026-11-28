@@ -43,7 +43,11 @@ from .template import Hole, _bundle_members
 
 
 def _bundle_tokens(matrix: Path | None) -> dict[str, list[str]]:
-    """Bundle -> the discriminator *values* it admits, which is what a model must emit."""
+    """Bundle -> the discriminator *values* it admits, which is what a model must emit.
+
+    A virtual token (`~site`) is not a value a document can carry, so it is left out:
+    the site bundle admits any value the built-ins do not, and its schema says so.
+    """
     import csv
 
     if matrix is None:
@@ -51,6 +55,8 @@ def _bundle_tokens(matrix: Path | None) -> dict[str, list[str]]:
     out: dict[str, list[str]] = {}
     with open(matrix / "bundle_members.csv", newline="") as fh:
         for row in csv.DictReader(fh):
+            if row["type_token"].startswith("~"):
+                continue
             out.setdefault(row["bundle"], []).append(row["type_token"])
     return out
 
@@ -503,7 +509,7 @@ def from_model(
             value = json.loads(body["response"])
             # **`ok` means the fragment validates, not that JSON came back.** The first
             # version set it on a successful parse, and reported 9/9 and 1/1 while every
-            # fragment was invalid - a criterion-22 pass rate of 100% where the truth
+            # fragment was invalid - an authoring pass rate of 100% where the truth
             # was 0%. Ollama's `format` did not enforce this schema, so a parseable
             # response is no evidence at all and the check has to be ours.
             errors = sorted(

@@ -638,7 +638,7 @@ func TestUnmigratedDeploymentReportsNotEvaluableRatherThanAbsent(t *testing.T) {
 	}
 }
 
-// --- the census, which is what criterion 44 asks for -------------------------
+// --- the census: per class, with denominators -------------------------------
 
 // A per-locus census over every session the migrated fixture built, with the
 // denominators separated. It is a report rather than an assertion about the

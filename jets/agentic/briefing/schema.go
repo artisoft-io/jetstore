@@ -109,8 +109,8 @@ type Schema struct {
 	// optional and declaring it is what turns the runtime closure into a
 	// property of the briefing rather than of a run - see Cover.
 	//
-	// **It lives here rather than only in the pipeline config because the two
-	// halves of gap 18 are one document.** A provenance schema that does not
+	// **It lives here rather than only in the pipeline config because the
+	// response shape and the provenance rules are one document.** A provenance schema that does not
 	// know what fields the briefing has can only wait for one to arrive.
 	Response json.RawMessage `json:"response_format,omitempty"`
 	// Disclaimer is the intended-use notice, declared here and populated by

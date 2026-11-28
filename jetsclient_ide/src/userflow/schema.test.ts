@@ -48,7 +48,7 @@ const flowsDir = fileURLToPath(
 );
 
 /** The projected keys, named for the reason `install_test.go`'s list is named. */
-const PROJECTED = ["map_claim_load_stages", "qc_metrics", "qc_report"];
+const PROJECTED = ["qc_metrics", "qc_report"];
 
 /**
  * Flows that **were** translations and are written by hand from now on.

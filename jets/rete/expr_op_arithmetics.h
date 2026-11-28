@@ -9,6 +9,8 @@
 #include <algorithm>
 #include <string>
 #include <memory>
+#include <optional>
+#include <stdexcept>
 #include <utility>
 #include <regex>
 #include <sstream>
@@ -191,6 +193,103 @@ integer_quotient(T lhs, T rhs)
   return L{lhs / rhs};
 }
 
+// An integer sum, difference or product of two operands of one type is null when it does
+// not fit that type, as a right operand that does not fit the left operand's type is null
+// (NullWhenOutOfRange). For a signed type INT32_MAX + 1 overflowed, which is undefined
+// behaviour, and gave INT32_MIN on x86-64, until 2026-11-27. An unsigned type wrapped
+// modulo 2^n, which is defined but no more meaningful: uint32 5 - 7 was 4294967294 and
+// uint64 max + 1 was 0. It is null too since 2026-11-27, so that an integer result is
+// either the exact value or null whatever the operands' signedness.
+template<class L, class T>
+inline RDFTTYPE
+integer_sum(T lhs, T rhs)
+{
+  T r;
+  if(__builtin_add_overflow(lhs, rhs, &r)) return rdf::Null();
+  return L{r};
+}
+template<class L, class T>
+inline RDFTTYPE
+integer_difference(T lhs, T rhs)
+{
+  T r;
+  if(__builtin_sub_overflow(lhs, rhs, &r)) return rdf::Null();
+  return L{r};
+}
+template<class L, class T>
+inline RDFTTYPE
+integer_product(T lhs, T rhs)
+{
+  T r;
+  if(__builtin_mul_overflow(lhs, rhs, &r)) return rdf::Null();
+  return L{r};
+}
+
+// Date arithmetic: a date or a datetime plus or minus a number of days.
+// --------------------------------------------------------------------------------------
+// The day count is null when it is not a finite number, and so is a date the engine
+// cannot hold, outside 1400-01-01 to 9999-12-31 (boost::gregorian's range); a datetime
+// keeps its time of day. A double is truncated toward zero, as it was. Until 2026-11-27
+// a double became an int by int(), undefined behaviour for a NaN, an infinity or 1e300; an
+// int64 or a uint64 count was cut to an int silently, and a uint32 above INT32_MAX became
+// negative; a minus negated the count first, undefined for the minimum int32 and int64;
+// and a date past the range was a date boost could not print.
+inline constexpr long long kMaxDayCount = 4000000;   // more than the 3,652,058 days of the range
+
+template<class N>
+inline std::optional<long long>
+day_count(N n, bool negate)
+{
+  long long days;
+  if constexpr (std::is_floating_point_v<N>) {
+    if(not std::isfinite(n)) return std::nullopt;
+    double const t = std::trunc(n);
+    if(t > kMaxDayCount or t < -kMaxDayCount) return std::nullopt;
+    days = static_cast<long long>(t);
+  } else if constexpr (std::is_unsigned_v<N>) {
+    if(n > static_cast<unsigned long long>(kMaxDayCount)) return std::nullopt;
+    days = static_cast<long long>(n);
+  } else {
+    if(n > kMaxDayCount or n < -kMaxDayCount) return std::nullopt;
+    days = static_cast<long long>(n);
+  }
+  return negate ? -days : days;
+}
+
+inline std::optional<rdf::date>
+shifted_date(rdf::date const& d, std::optional<long long> days)
+{
+  static rdf::date const first(boost::gregorian::date(boost::date_time::min_date_time));
+  static rdf::date const last(boost::gregorian::date(boost::date_time::max_date_time));
+  if(not days or d.is_special()) return std::nullopt;
+  try {
+    auto r = rdf::add_days(d, static_cast<int>(*days));
+    if(r.is_special() or r < first or r > last) return std::nullopt;
+    return r;
+  } catch(std::out_of_range const&) {
+    return std::nullopt;
+  }
+}
+
+template<class N>
+inline RDFTTYPE
+date_plus_days(rdf::date const& d, N n, bool negate = false)
+{
+  auto r = shifted_date(d, day_count(n, negate));
+  if(not r) return rdf::Null();
+  return rdf::LDate{*r};
+}
+
+template<class N>
+inline RDFTTYPE
+datetime_plus_days(rdf::datetime const& dt, N n, bool negate = false)
+{
+  if(dt.is_special()) return rdf::Null();
+  auto r = shifted_date(dt.date(), day_count(n, negate));
+  if(not r) return rdf::Null();
+  return rdf::LDatetime{rdf::datetime{*r, dt.time_of_day()}};
+}
+
 // AddVisitor
 // --------------------------------------------------------------------------------------
 // + - * / on numbers: a double operand, on either side, makes the result a double. Until
@@ -203,28 +302,28 @@ struct AddVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallback
   AddVisitorImpl(): rs(nullptr), br(nullptr) {}
   template<class T, class U> RDFTTYPE operator()(T, U) const {return rdf::Null();}   // a type mismatch
 
-  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data+rhs.data};}
-  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{return rdf::LInt32{lhs.data+boost::numeric_cast<int32_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt64  rhs)const{return rdf::LInt32{lhs.data+boost::numeric_cast<int32_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt64 rhs)const{return rdf::LInt32{lhs.data+boost::numeric_cast<int32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return integer_sum<rdf::LInt32>(lhs.data, rhs.data);}
+  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{return integer_sum<rdf::LInt32>(lhs.data, boost::numeric_cast<int32_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt64  rhs)const{return integer_sum<rdf::LInt32>(lhs.data, boost::numeric_cast<int32_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt64 rhs)const{return integer_sum<rdf::LInt32>(lhs.data, boost::numeric_cast<int32_t>(rhs.data));}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)+rhs.data};}
 
-  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LInt32  rhs)const{return rdf::LUInt32{lhs.data+boost::numeric_cast<uint32_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LUInt32 rhs)const{return rdf::LUInt32{lhs.data+rhs.data};}
-  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LInt64  rhs)const{return rdf::LUInt32{lhs.data+boost::numeric_cast<uint32_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LUInt64 rhs)const{return rdf::LUInt32{lhs.data+boost::numeric_cast<uint32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LInt32  rhs)const{return integer_sum<rdf::LUInt32>(lhs.data, boost::numeric_cast<uint32_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LUInt32 rhs)const{return integer_sum<rdf::LUInt32>(lhs.data, rhs.data);}
+  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LInt64  rhs)const{return integer_sum<rdf::LUInt32>(lhs.data, boost::numeric_cast<uint32_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LUInt64 rhs)const{return integer_sum<rdf::LUInt32>(lhs.data, boost::numeric_cast<uint32_t>(rhs.data));}
   RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)+rhs.data};}
 
-  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LInt32  rhs)const{return rdf::LInt64{lhs.data+boost::numeric_cast<int64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LUInt32 rhs)const{return rdf::LInt64{lhs.data+boost::numeric_cast<int64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LInt64  rhs)const{return rdf::LInt64{lhs.data+rhs.data};}
-  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LUInt64 rhs)const{return rdf::LInt64{lhs.data+boost::numeric_cast<int64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LInt32  rhs)const{return integer_sum<rdf::LInt64>(lhs.data, boost::numeric_cast<int64_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LUInt32 rhs)const{return integer_sum<rdf::LInt64>(lhs.data, boost::numeric_cast<int64_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LInt64  rhs)const{return integer_sum<rdf::LInt64>(lhs.data, rhs.data);}
+  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LUInt64 rhs)const{return integer_sum<rdf::LInt64>(lhs.data, boost::numeric_cast<int64_t>(rhs.data));}
   RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)+rhs.data};}
 
-  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LInt32  rhs)const{return rdf::LUInt64{lhs.data+boost::numeric_cast<uint64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LUInt32 rhs)const{return rdf::LUInt64{lhs.data+boost::numeric_cast<uint64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LInt64  rhs)const{return rdf::LUInt64{lhs.data+boost::numeric_cast<uint64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LUInt64 rhs)const{return rdf::LUInt64{lhs.data+rhs.data};}
+  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LInt32  rhs)const{return integer_sum<rdf::LUInt64>(lhs.data, boost::numeric_cast<uint64_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LUInt32 rhs)const{return integer_sum<rdf::LUInt64>(lhs.data, boost::numeric_cast<uint64_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LInt64  rhs)const{return integer_sum<rdf::LUInt64>(lhs.data, boost::numeric_cast<uint64_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LUInt64 rhs)const{return integer_sum<rdf::LUInt64>(lhs.data, rhs.data);}
   RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)+rhs.data};}
 
   RDFTTYPE operator()(rdf::LDouble lhs, rdf::LInt32  rhs)const{return rdf::LDouble{lhs.data+boost::numeric_cast<double>(rhs.data)};}
@@ -244,62 +343,66 @@ struct AddVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallback
   RDFTTYPE operator()(rdf::LString lhs, rdf::LDatetime rhs)const{return rdf::LString{lhs.data+rdf::to_string(rhs.data)};}
 
   // -------------------------------------------------------------------------------------------
-  RDFTTYPE operator()(rdf::LInt32        lhs, rdf::LDate       rhs)const{return rdf::LDate{rdf::add_days(std::move(rhs.data), lhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt32       lhs, rdf::LDate       rhs)const{return rdf::LDate{rdf::add_days(std::move(rhs.data), lhs.data)};}
-  RDFTTYPE operator()(rdf::LInt64        lhs, rdf::LDate       rhs)const{return rdf::LDate{rdf::add_days(std::move(rhs.data), lhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt64       lhs, rdf::LDate       rhs)const{return rdf::LDate{rdf::add_days(std::move(rhs.data), lhs.data)};}
-  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LDate       rhs)const{return rdf::LDate{rdf::add_days(std::move(rhs.data), int(lhs.data))};}
+  RDFTTYPE operator()(rdf::LInt32        lhs, rdf::LDate       rhs)const{return date_plus_days(rhs.data, lhs.data);}
+  RDFTTYPE operator()(rdf::LUInt32       lhs, rdf::LDate       rhs)const{return date_plus_days(rhs.data, lhs.data);}
+  RDFTTYPE operator()(rdf::LInt64        lhs, rdf::LDate       rhs)const{return date_plus_days(rhs.data, lhs.data);}
+  RDFTTYPE operator()(rdf::LUInt64       lhs, rdf::LDate       rhs)const{return date_plus_days(rhs.data, lhs.data);}
+  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LDate       rhs)const{return date_plus_days(rhs.data, lhs.data);}
   // -------------------------------------------------------------------------------------------
-  RDFTTYPE operator()(rdf::LInt32        lhs, rdf::LDatetime   rhs)const{return rdf::LDatetime{rdf::datetime{rdf::add_days(rhs.data.date(), lhs.data), rhs.data.time_of_day()}};}
-  RDFTTYPE operator()(rdf::LUInt32       lhs, rdf::LDatetime   rhs)const{return rdf::LDatetime{rdf::datetime{rdf::add_days(rhs.data.date(), lhs.data), rhs.data.time_of_day()}};}
-  RDFTTYPE operator()(rdf::LInt64        lhs, rdf::LDatetime   rhs)const{return rdf::LDatetime{rdf::datetime{rdf::add_days(rhs.data.date(), lhs.data), rhs.data.time_of_day()}};}
-  RDFTTYPE operator()(rdf::LUInt64       lhs, rdf::LDatetime   rhs)const{return rdf::LDatetime{rdf::datetime{rdf::add_days(rhs.data.date(), lhs.data), rhs.data.time_of_day()}};}
-  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LDatetime   rhs)const{return rdf::LDatetime{rdf::datetime{rdf::add_days(rhs.data.date(), int(lhs.data)), rhs.data.time_of_day()}};}
+  RDFTTYPE operator()(rdf::LInt32        lhs, rdf::LDatetime   rhs)const{return datetime_plus_days(rhs.data, lhs.data);}
+  RDFTTYPE operator()(rdf::LUInt32       lhs, rdf::LDatetime   rhs)const{return datetime_plus_days(rhs.data, lhs.data);}
+  RDFTTYPE operator()(rdf::LInt64        lhs, rdf::LDatetime   rhs)const{return datetime_plus_days(rhs.data, lhs.data);}
+  RDFTTYPE operator()(rdf::LUInt64       lhs, rdf::LDatetime   rhs)const{return datetime_plus_days(rhs.data, lhs.data);}
+  RDFTTYPE operator()(rdf::LDouble       lhs, rdf::LDatetime   rhs)const{return datetime_plus_days(rhs.data, lhs.data);}
   // -------------------------------------------------------------------------------------------
-  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LInt32        rhs)const{return rdf::LDate{rdf::add_days(std::move(lhs.data), rhs.data)};}
-  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LUInt32       rhs)const{return rdf::LDate{rdf::add_days(std::move(lhs.data), rhs.data)};}
-  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LInt64        rhs)const{return rdf::LDate{rdf::add_days(std::move(lhs.data), rhs.data)};}
-  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LUInt64       rhs)const{return rdf::LDate{rdf::add_days(std::move(lhs.data), rhs.data)};}
-  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LDouble       rhs)const{return rdf::LDate{rdf::add_days(std::move(lhs.data), int(rhs.data))};}
+  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LInt32        rhs)const{return date_plus_days(lhs.data, rhs.data);}
+  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LUInt32       rhs)const{return date_plus_days(lhs.data, rhs.data);}
+  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LInt64        rhs)const{return date_plus_days(lhs.data, rhs.data);}
+  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LUInt64       rhs)const{return date_plus_days(lhs.data, rhs.data);}
+  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LDouble       rhs)const{return date_plus_days(lhs.data, rhs.data);}
   
-  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LInt32        rhs)const{return rdf::LDatetime{rdf::datetime{rdf::add_days(lhs.data.date(), rhs.data), lhs.data.time_of_day()}};}
-  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LUInt32       rhs)const{return rdf::LDatetime{rdf::datetime{rdf::add_days(lhs.data.date(), rhs.data), lhs.data.time_of_day()}};}
-  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LInt64        rhs)const{return rdf::LDatetime{rdf::datetime{rdf::add_days(lhs.data.date(), rhs.data), lhs.data.time_of_day()}};}
-  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LUInt64       rhs)const{return rdf::LDatetime{rdf::datetime{rdf::add_days(lhs.data.date(), rhs.data), lhs.data.time_of_day()}};}
-  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LDouble       rhs)const{return rdf::LDatetime{rdf::datetime{rdf::add_days(lhs.data.date(), int(rhs.data)), lhs.data.time_of_day()}};}
+  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LInt32        rhs)const{return datetime_plus_days(lhs.data, rhs.data);}
+  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LUInt32       rhs)const{return datetime_plus_days(lhs.data, rhs.data);}
+  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LInt64        rhs)const{return datetime_plus_days(lhs.data, rhs.data);}
+  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LUInt64       rhs)const{return datetime_plus_days(lhs.data, rhs.data);}
+  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LDouble       rhs)const{return datetime_plus_days(lhs.data, rhs.data);}
   ReteSession * rs;
   BetaRow const* br;
 };
 
 // SubsVisitor
 // --------------------------------------------------------------------------------------
+// A date or a datetime minus a double moves it back by the double truncated toward zero,
+// as plus a double moves it on (date - 2.9 is two days back), with the same limits
+// (date_plus_days). Until 2026-11-27 it was not an operation and was null, while minus an
+// integer and plus a double both computed.
 struct SubsVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   SubsVisitorImpl(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T, U) const {return rdf::Null();}   // a type mismatch
 
-  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data-rhs.data};}
-  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{return rdf::LInt32{lhs.data-boost::numeric_cast<int32_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt64  rhs)const{return rdf::LInt32{lhs.data-boost::numeric_cast<int32_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt64 rhs)const{return rdf::LInt32{lhs.data-boost::numeric_cast<int32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return integer_difference<rdf::LInt32>(lhs.data, rhs.data);}
+  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{return integer_difference<rdf::LInt32>(lhs.data, boost::numeric_cast<int32_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt64  rhs)const{return integer_difference<rdf::LInt32>(lhs.data, boost::numeric_cast<int32_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt64 rhs)const{return integer_difference<rdf::LInt32>(lhs.data, boost::numeric_cast<int32_t>(rhs.data));}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)-rhs.data};}
 
-  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LInt32  rhs)const{return rdf::LUInt32{lhs.data-boost::numeric_cast<uint32_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LUInt32 rhs)const{return rdf::LUInt32{lhs.data-rhs.data};}
-  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LInt64  rhs)const{return rdf::LUInt32{lhs.data-boost::numeric_cast<uint32_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LUInt64 rhs)const{return rdf::LUInt32{lhs.data-boost::numeric_cast<uint32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LInt32  rhs)const{return integer_difference<rdf::LUInt32>(lhs.data, boost::numeric_cast<uint32_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LUInt32 rhs)const{return integer_difference<rdf::LUInt32>(lhs.data, rhs.data);}
+  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LInt64  rhs)const{return integer_difference<rdf::LUInt32>(lhs.data, boost::numeric_cast<uint32_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LUInt64 rhs)const{return integer_difference<rdf::LUInt32>(lhs.data, boost::numeric_cast<uint32_t>(rhs.data));}
   RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)-rhs.data};}
 
-  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LInt32  rhs)const{return rdf::LInt64{lhs.data-boost::numeric_cast<int64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LUInt32 rhs)const{return rdf::LInt64{lhs.data-boost::numeric_cast<int64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LInt64  rhs)const{return rdf::LInt64{lhs.data-rhs.data};}
-  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LUInt64 rhs)const{return rdf::LInt64{lhs.data-boost::numeric_cast<int64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LInt32  rhs)const{return integer_difference<rdf::LInt64>(lhs.data, boost::numeric_cast<int64_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LUInt32 rhs)const{return integer_difference<rdf::LInt64>(lhs.data, boost::numeric_cast<int64_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LInt64  rhs)const{return integer_difference<rdf::LInt64>(lhs.data, rhs.data);}
+  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LUInt64 rhs)const{return integer_difference<rdf::LInt64>(lhs.data, boost::numeric_cast<int64_t>(rhs.data));}
   RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)-rhs.data};}
 
-  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LInt32  rhs)const{return rdf::LUInt64{lhs.data-boost::numeric_cast<uint64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LUInt32 rhs)const{return rdf::LUInt64{lhs.data-boost::numeric_cast<uint64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LInt64  rhs)const{return rdf::LUInt64{lhs.data-boost::numeric_cast<uint64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LUInt64 rhs)const{return rdf::LUInt64{lhs.data-boost::numeric_cast<uint64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LInt32  rhs)const{return integer_difference<rdf::LUInt64>(lhs.data, boost::numeric_cast<uint64_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LUInt32 rhs)const{return integer_difference<rdf::LUInt64>(lhs.data, boost::numeric_cast<uint64_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LInt64  rhs)const{return integer_difference<rdf::LUInt64>(lhs.data, boost::numeric_cast<uint64_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LUInt64 rhs)const{return integer_difference<rdf::LUInt64>(lhs.data, boost::numeric_cast<uint64_t>(rhs.data));}
   RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)-rhs.data};}
 
   RDFTTYPE operator()(rdf::LDouble lhs, rdf::LInt32  rhs)const{return rdf::LDouble{lhs.data-boost::numeric_cast<double>(rhs.data)};}
@@ -309,21 +412,23 @@ struct SubsVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallbac
   RDFTTYPE operator()(rdf::LDouble lhs, rdf::LDouble rhs)const{return rdf::LDouble{lhs.data-boost::numeric_cast<double>(rhs.data)};}
 
   // -------------------------------------------------------------------------------------------
-  RDFTTYPE operator()(rdf::LInt32        lhs, rdf::LDatetime   rhs)const{return rdf::LDatetime{rdf::datetime{rdf::add_days(rhs.data.date(), -lhs.data), rhs.data.time_of_day()}};}
-  RDFTTYPE operator()(rdf::LUInt32       lhs, rdf::LDatetime   rhs)const{return rdf::LDatetime{rdf::datetime{rdf::add_days(rhs.data.date(), -lhs.data), rhs.data.time_of_day()}};}
-  RDFTTYPE operator()(rdf::LInt64        lhs, rdf::LDatetime   rhs)const{return rdf::LDatetime{rdf::datetime{rdf::add_days(rhs.data.date(), -lhs.data), rhs.data.time_of_day()}};}
-  RDFTTYPE operator()(rdf::LUInt64       lhs, rdf::LDatetime   rhs)const{return rdf::LDatetime{rdf::datetime{rdf::add_days(rhs.data.date(), -lhs.data), rhs.data.time_of_day()}};}
+  RDFTTYPE operator()(rdf::LInt32        lhs, rdf::LDatetime   rhs)const{return datetime_plus_days(rhs.data, lhs.data, true);}
+  RDFTTYPE operator()(rdf::LUInt32       lhs, rdf::LDatetime   rhs)const{return datetime_plus_days(rhs.data, lhs.data, true);}
+  RDFTTYPE operator()(rdf::LInt64        lhs, rdf::LDatetime   rhs)const{return datetime_plus_days(rhs.data, lhs.data, true);}
+  RDFTTYPE operator()(rdf::LUInt64       lhs, rdf::LDatetime   rhs)const{return datetime_plus_days(rhs.data, lhs.data, true);}
   // -------------------------------------------------------------------------------------------
-  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LInt32        rhs)const{return rdf::LDate{rdf::add_days(std::move(lhs.data), -rhs.data)};}
-  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LUInt32       rhs)const{return rdf::LDate{rdf::add_days(std::move(lhs.data), -rhs.data)};}
-  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LInt64        rhs)const{return rdf::LDate{rdf::add_days(std::move(lhs.data), -rhs.data)};}
-  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LUInt64       rhs)const{return rdf::LDate{rdf::add_days(std::move(lhs.data), -rhs.data)};}
+  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LInt32        rhs)const{return date_plus_days(lhs.data, rhs.data, true);}
+  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LUInt32       rhs)const{return date_plus_days(lhs.data, rhs.data, true);}
+  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LInt64        rhs)const{return date_plus_days(lhs.data, rhs.data, true);}
+  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LUInt64       rhs)const{return date_plus_days(lhs.data, rhs.data, true);}
+  RDFTTYPE operator()(rdf::LDate       lhs, rdf::LDouble       rhs)const{return date_plus_days(lhs.data, rhs.data, true);}
   RDFTTYPE operator()(rdf::LDate       lhs, rdf::LDate         rhs)const{return rdf::LInt32{rdf::days(std::move(lhs.data), std::move(rhs.data))};}
   
-  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LInt32        rhs)const{return rdf::LDatetime{rdf::datetime{rdf::add_days(lhs.data.date(), -rhs.data), lhs.data.time_of_day()}};}
-  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LUInt32       rhs)const{return rdf::LDatetime{rdf::datetime{rdf::add_days(lhs.data.date(), -rhs.data), lhs.data.time_of_day()}};}
-  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LInt64        rhs)const{return rdf::LDatetime{rdf::datetime{rdf::add_days(lhs.data.date(), -rhs.data), lhs.data.time_of_day()}};}
-  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LUInt64       rhs)const{return rdf::LDatetime{rdf::datetime{rdf::add_days(lhs.data.date(), -rhs.data), lhs.data.time_of_day()}};}
+  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LInt32        rhs)const{return datetime_plus_days(lhs.data, rhs.data, true);}
+  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LUInt32       rhs)const{return datetime_plus_days(lhs.data, rhs.data, true);}
+  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LInt64        rhs)const{return datetime_plus_days(lhs.data, rhs.data, true);}
+  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LUInt64       rhs)const{return datetime_plus_days(lhs.data, rhs.data, true);}
+  RDFTTYPE operator()(rdf::LDatetime   lhs, rdf::LDouble       rhs)const{return datetime_plus_days(lhs.data, rhs.data, true);}
   ReteSession * rs;
   BetaRow const* br;
 };
@@ -335,28 +440,28 @@ struct MultVisitorImpl: public boost::static_visitor<RDFTTYPE>, public NoCallbac
   MultVisitorImpl(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T, class U> RDFTTYPE operator()(T, U) const {return rdf::Null();}   // a type mismatch
 
-  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data*rhs.data};}
-  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{return rdf::LInt32{lhs.data*boost::numeric_cast<int32_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt64  rhs)const{return rdf::LInt32{lhs.data*boost::numeric_cast<int32_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt64 rhs)const{return rdf::LInt32{lhs.data*boost::numeric_cast<int32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return integer_product<rdf::LInt32>(lhs.data, rhs.data);}
+  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{return integer_product<rdf::LInt32>(lhs.data, boost::numeric_cast<int32_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt64  rhs)const{return integer_product<rdf::LInt32>(lhs.data, boost::numeric_cast<int32_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt64 rhs)const{return integer_product<rdf::LInt32>(lhs.data, boost::numeric_cast<int32_t>(rhs.data));}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)*rhs.data};}
 
-  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LInt32  rhs)const{return rdf::LUInt32{lhs.data*boost::numeric_cast<uint32_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LUInt32 rhs)const{return rdf::LUInt32{lhs.data*rhs.data};}
-  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LInt64  rhs)const{return rdf::LUInt32{lhs.data*boost::numeric_cast<uint32_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LUInt64 rhs)const{return rdf::LUInt32{lhs.data*boost::numeric_cast<uint32_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LInt32  rhs)const{return integer_product<rdf::LUInt32>(lhs.data, boost::numeric_cast<uint32_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LUInt32 rhs)const{return integer_product<rdf::LUInt32>(lhs.data, rhs.data);}
+  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LInt64  rhs)const{return integer_product<rdf::LUInt32>(lhs.data, boost::numeric_cast<uint32_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LUInt64 rhs)const{return integer_product<rdf::LUInt32>(lhs.data, boost::numeric_cast<uint32_t>(rhs.data));}
   RDFTTYPE operator()(rdf::LUInt32 lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)*rhs.data};}
 
-  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LInt32  rhs)const{return rdf::LInt64{lhs.data*boost::numeric_cast<int64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LUInt32 rhs)const{return rdf::LInt64{lhs.data*boost::numeric_cast<int64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LInt64  rhs)const{return rdf::LInt64{lhs.data*rhs.data};}
-  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LUInt64 rhs)const{return rdf::LInt64{lhs.data*boost::numeric_cast<int64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LInt32  rhs)const{return integer_product<rdf::LInt64>(lhs.data, boost::numeric_cast<int64_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LUInt32 rhs)const{return integer_product<rdf::LInt64>(lhs.data, boost::numeric_cast<int64_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LInt64  rhs)const{return integer_product<rdf::LInt64>(lhs.data, rhs.data);}
+  RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LUInt64 rhs)const{return integer_product<rdf::LInt64>(lhs.data, boost::numeric_cast<int64_t>(rhs.data));}
   RDFTTYPE operator()(rdf::LInt64  lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)*rhs.data};}
 
-  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LInt32  rhs)const{return rdf::LUInt64{lhs.data*boost::numeric_cast<uint64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LUInt32 rhs)const{return rdf::LUInt64{lhs.data*boost::numeric_cast<uint64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LInt64  rhs)const{return rdf::LUInt64{lhs.data*boost::numeric_cast<uint64_t>(rhs.data)};}
-  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LUInt64 rhs)const{return rdf::LUInt64{lhs.data*boost::numeric_cast<uint64_t>(rhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LInt32  rhs)const{return integer_product<rdf::LUInt64>(lhs.data, boost::numeric_cast<uint64_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LUInt32 rhs)const{return integer_product<rdf::LUInt64>(lhs.data, boost::numeric_cast<uint64_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LInt64  rhs)const{return integer_product<rdf::LUInt64>(lhs.data, boost::numeric_cast<uint64_t>(rhs.data));}
+  RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LUInt64 rhs)const{return integer_product<rdf::LUInt64>(lhs.data, boost::numeric_cast<uint64_t>(rhs.data));}
   RDFTTYPE operator()(rdf::LUInt64 lhs, rdf::LDouble rhs)const{return rdf::LDouble{boost::numeric_cast<double>(lhs.data)*rhs.data};}
 
   RDFTTYPE operator()(rdf::LDouble lhs, rdf::LInt32  rhs)const{return rdf::LDouble{lhs.data*boost::numeric_cast<double>(rhs.data)};}
@@ -420,14 +525,25 @@ using DivVisitor  = NullWhenOutOfRange<DivVisitorImpl>;
 
 // AbsVisitor
 // --------------------------------------------------------------------------------------
+// abs of the minimum int32 or int64 is null: its absolute value does not fit the type,
+// and abs() of it is undefined behaviour, which gave the minimum back on x86-64
+// (2026-11-27).
+template<class L, class T>
+inline RDFTTYPE
+integer_abs(T v)
+{
+  if(v == std::numeric_limits<T>::min()) return rdf::Null();
+  return L{v < 0 ? static_cast<T>(-v) : v};
+}
+
 struct AbsVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   AbsVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   template<class T> RDFTTYPE operator()(T) const {return rdf::Null();}   // a type mismatch
 
-  RDFTTYPE operator()(rdf::LInt32  lhs)const{return rdf::LInt32{abs(lhs.data)};}
+  RDFTTYPE operator()(rdf::LInt32  lhs)const{return integer_abs<rdf::LInt32>(lhs.data);}
   RDFTTYPE operator()(rdf::LUInt32 lhs)const{return lhs;}
-  RDFTTYPE operator()(rdf::LInt64  lhs)const{return rdf::LInt64{abs(lhs.data)};}
+  RDFTTYPE operator()(rdf::LInt64  lhs)const{return integer_abs<rdf::LInt64>(lhs.data);}
   RDFTTYPE operator()(rdf::LUInt64 lhs)const{return lhs;}
   RDFTTYPE operator()(rdf::LDouble lhs)const{return rdf::LDouble{fabs(lhs.data)};}
 
@@ -1162,10 +1278,14 @@ struct ToDoubleVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbac
 
 // ToTextVisitor
 // --------------------------------------------------------------------------------------
+// to_text of a blank node, the one value it does not write, is null, with a row or
+// without (2026-11-27), as a type mismatch is in + - * / and abs, and as to_int and
+// to_double are of what they cannot read. Until then it threw in a session's rule,
+// which failed the session, and was null only with no beta row.
 struct ToTextVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   ToTextVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T> RDFTTYPE operator()(T lhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for to_text: ("<<lhs<<")");};
+  template<class T> RDFTTYPE operator()(T) const {return rdf::Null();}   // a blank node
 
   RDFTTYPE operator()(rdf::RDFNull   lhs)const{return rdf::LString{std::string("null")};}
   RDFTTYPE operator()(rdf::LInt32    lhs)const{return rdf::LString{std::to_string(lhs.data)};}

@@ -274,7 +274,7 @@ INSERT INTO public.rbk_target (n, label) SELECT g, :label FROM generate_series(1
 	"after": `SELECT count(*)::integer AS rows FROM public.rbk_target`,
 }
 
-// Criterion 1: a ddl stops for Accept or Deny with its statement, bound values
+// A ddl stops for Accept or Deny with its statement, bound values
 // and preview; it runs, as the person who accepted it, only on Accept.
 func TestRunbookDDLStopsForConfirmationAndRunsOnAccept(t *testing.T) {
 	f := newRbkFixture(t)
@@ -349,7 +349,7 @@ func TestRunbookDDLStopsForConfirmationAndRunsOnAccept(t *testing.T) {
 	}
 }
 
-// Criterion 1, the other half: Deny does not run the ddl. Continue after a
+// Deny does not run the ddl. Continue after a
 // deny skips it and keeps the denial; Retry asks again.
 func TestRunbookDenyDoesNotExecute(t *testing.T) {
 	f := newRbkFixture(t)
@@ -400,7 +400,7 @@ func TestRunbookDenyDoesNotExecute(t *testing.T) {
 	}
 }
 
-// Criterion 1, enforced in the executor as well as by the validator: a ddl
+// Enforced in the executor as well as by the validator: a ddl
 // row that reaches execution without an Accept is refused.
 func TestRunbookDDLNeverRunsWithoutAccept(t *testing.T) {
 	f := newRbkFixture(t)
@@ -429,7 +429,7 @@ func oneQuery(name, sql string, extra string) (string, map[string]string) {
 		{"id": "end", "type": "pause", "message": "end"}]}`, map[string]string{"q": sql}
 }
 
-// Criterion 2: a query cannot write; PostgreSQL refuses it in the read-only
+// A query cannot write; PostgreSQL refuses it in the read-only
 // transaction.
 func TestRunbookQueryIsReadOnly(t *testing.T) {
 	f := newRbkFixture(t)
@@ -474,7 +474,7 @@ func TestRunbookRefusesTransactionControlAndCopy(t *testing.T) {
 	}
 }
 
-// Criterion 3: a statement past its timeout is cancelled by the database.
+// A statement past its timeout is cancelled by the database.
 func TestRunbookStatementTimeout(t *testing.T) {
 	f := newRbkFixture(t)
 	rb, sql := oneQuery("slow", `SELECT 1 AS n FROM pg_sleep(5)`, `, "timeout": "1s"`)
@@ -491,7 +491,7 @@ func TestRunbookStatementTimeout(t *testing.T) {
 	}
 }
 
-// Criterion 4: values reach SQL only as bind parameters — a timestamp, a
+// Values reach SQL only as bind parameters — a timestamp, a
 // list and a text that looks like SQL — and the text sent carries $n only.
 func TestRunbookBindParameters(t *testing.T) {
 	f := newRbkFixture(t)
@@ -564,7 +564,7 @@ func TestRunbookWaitRecordsNextCheck(t *testing.T) {
 	}
 }
 
-// Criterion 5: a restart leaves an executing step interrupted and its run
+// A restart leaves an executing step interrupted and its run
 // paused; nothing reruns on its own; Retry reruns it and Skip skips it. A run
 // another task is driving is left alone.
 func TestRunbookRestartSweep(t *testing.T) {
@@ -640,7 +640,7 @@ const rbkEditRunbook = `{"format": 1, "runbook": "edit", "steps": [
   {"id": "stop", "type": "pause", "message": "edit now"},
   {"id": "two", "type": "query", "returns": {"n": "integer"}}]}`
 
-// Criterion 6: an edit at a pause takes effect for the steps to come and is
+// An edit at a pause takes effect for the steps to come and is
 // recorded as a revision; an edit to a step that has run is refused.
 func TestRunbookEditAtAPause(t *testing.T) {
 	f := newRbkFixture(t)
@@ -692,7 +692,7 @@ func TestRunbookEditAtAPause(t *testing.T) {
 	}
 }
 
-// Criterion 7: each step runs under its person's capability, read when it
+// Each step runs under its person's capability, read when it
 // runs. A refusal fails the step and pauses the run.
 func TestRunbookCapabilityIsCheckedWhenTheStepRuns(t *testing.T) {
 	f := newRbkFixture(t)
@@ -732,7 +732,7 @@ func TestRunbookCapabilityIsCheckedWhenTheStepRuns(t *testing.T) {
 	}
 }
 
-// Criterion 9: nothing is exported before a release, and the released result
+// Nothing is exported before a release, and the released result
 // carries every step's record.
 func TestRunbookReleaseThenExport(t *testing.T) {
 	f := newRbkFixture(t)
@@ -779,7 +779,7 @@ func TestRunbookReleaseThenExport(t *testing.T) {
 	}
 }
 
-// Criterion 10, the executor's half: abort cancels the running statement and
+// The executor's half: abort cancels the running statement and
 // records the rest skipped.
 func TestRunbookAbortCancelsTheRunningStatement(t *testing.T) {
 	f := newRbkFixture(t)

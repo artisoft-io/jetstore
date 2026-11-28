@@ -17,18 +17,18 @@ import (
 // the one in `jets/agentic/briefing/check.go` carried six, so `2025-08-14
 // 10:00:00` was a date to a checker and not to a renderer.
 //
-// # This is not a domain dependency, and criterion 81 is the reason to say so
+// # This is not a domain dependency, and the engine's neutrality is the reason to say so
 //
-// Criterion 81 asks that the engine name nothing about briefings. It names
+// The engine must name nothing about briefings. It names
 // nothing here either: what it takes from that package is a path syntax and
 // four readings of a scalar, none of which mentions a member, a claim or a
 // medication. **The import edge already existed** - `chain.go` resolves a path
 // with [briefing.ParseSelector] - so nothing about the engine's shape changes,
 // and the alternative was a fourth copy of a date table.
 //
-// # What delegating does to criterion 82
+// # What delegating does to the equivalence test
 //
-// Nothing, and that is the argument rather than the hope. Criterion 82 compares
+// Nothing, and that is the argument rather than the hope. The equivalence test compares
 // `prose.Render` with a rendering of the template document, and its subject is
 // **the document**: the elements, their order, the predicates and the filters
 // they name. These four functions are named by no document and were byte

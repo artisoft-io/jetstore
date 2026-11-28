@@ -1,7 +1,7 @@
-// The item-8 exit criteria, tested against a real Postgres (plan section
-// 7.2): criterion 9 — UPDATE and DELETE against agent_audit both fail;
-// criterion 10 — an interrupt between the intent write and the act leaves
-// the intent row present. Plus the hash chain (A8.5) recomputed
+// The audit store's guarantees, tested against a real Postgres. UPDATE and
+// DELETE against agent_audit both fail. An interrupt between the intent
+// write and the act leaves the intent row present. Plus the hash chain
+// recomputed
 // independently in Go, and the Go event-type constants asserted against the
 // generated CHECK constraint.
 //
@@ -53,7 +53,7 @@ func mustAppend(t *testing.T, pool *pgxpool.Pool, ev *Event) int {
 	return seq
 }
 
-// Criterion 9: UPDATE and DELETE both fail — and TRUNCATE, one better.
+// UPDATE and DELETE both fail — and TRUNCATE, one better.
 func TestAppendOnly(t *testing.T) {
 	pool := testPool(t)
 	ctx := context.Background()
@@ -89,7 +89,7 @@ func TestAppendOnly(t *testing.T) {
 	}
 }
 
-// A8.4 + A8.5: outcomes are second rows correlated by run_id/seq, and the
+// Outcomes are second rows correlated by run_id/seq, and the
 // hash chain links them — recomputed here independently of the trigger.
 func TestOutcomeRowsAndHashChain(t *testing.T) {
 	pool := testPool(t)
@@ -164,7 +164,7 @@ func TestEventTypes(t *testing.T) {
 	}
 }
 
-// Criterion 10: the child process commits the intent and dies before the
+// The child process commits the intent and dies before the
 // act; the parent finds the intent row and no outcome. The negative control
 // dies before the commit and must leave nothing — the transaction boundary,
 // not the log call, is what carries the guarantee (section 7.1's point

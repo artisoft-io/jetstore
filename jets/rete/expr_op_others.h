@@ -168,15 +168,27 @@ struct MultiLookupRandVisitor: public boost::static_visitor<RDFTTYPE>, public No
 // AgeAsOfVisitor
 // Calculate the age (in years), typical use:  (dob age_as_of serviceDate)
 // where dob and serviceDate are date literals
+//
+// age_as_of and age_in_months_as_of of operands they do not take are null, with a row
+// or without (2026-11-27): anything but two dates, and for age_in_months_as_of also
+// text that does not read as a date. So are + - * / and abs of a type mismatch, and
+// to_int and to_double of what they cannot read (expr_op_arithmetics.h). Until then
+// each threw in a session's rule, which failed the session, and was null only with no
+// beta row; text that is not a date threw with no row too.
+//
+// A date that is not a date (not-a-date, or an infinity) is null too, either operand
+// (2026-11-27), as date arithmetic on one is (date_plus_days in expr_op_arithmetics.h):
+// boost threw std::out_of_range from year() of it, which failed the session.
 // --------------------------------------------------------------------------------------
 struct AgeAsOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   AgeAsOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   AgeAsOfVisitor(): rs(nullptr), br(nullptr) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for age_as_of: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T, U)const{return rdf::Null();}   // a type mismatch
 
   RDFTTYPE operator()(rdf::LDate lhs, rdf::LDate rhs)const
   {
+    if(lhs.data.is_special() or rhs.data.is_special()) return rdf::Null();
     auto birthday = lhs.data;
     auto asOf = rhs.data;
     int age = asOf.year() - birthday.year();
@@ -192,16 +204,13 @@ struct AgeInMonthsAsOfVisitor: public boost::static_visitor<RDFTTYPE>, public No
 {
   AgeInMonthsAsOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   AgeInMonthsAsOfVisitor(): rs(nullptr), br(nullptr) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for age_in_months_as_of: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T, U)const{return rdf::Null();}   // a type mismatch
 
   RDFTTYPE operator()(rdf::LString lhs, rdf::LDate rhs)const
   {
-    // try to parse lhs as date string first, if fail then return null
+    // text that does not read as a date is null
     auto birthday = rdf::parse_date(lhs.data);
-    if(birthday.is_not_a_date()) {
-      RETE_EXCEPTION("Invalid date string for age_in_months_as_of: ("<<lhs.data<<")");
-      return rdf::Null();
-    }
+    if(birthday.is_special() or rhs.data.is_special()) return rdf::Null();
     auto asOf = rhs.data;
     int years = asOf.year() - birthday.year();
     int months = 0;
@@ -218,6 +227,7 @@ struct AgeInMonthsAsOfVisitor: public boost::static_visitor<RDFTTYPE>, public No
 
   RDFTTYPE operator()(rdf::LDate lhs, rdf::LDate rhs)const
   {
+    if(lhs.data.is_special() or rhs.data.is_special()) return rdf::Null();
     auto birthday = lhs.data;
     auto asOf = rhs.data;
     int years = asOf.year() - birthday.year();
@@ -237,15 +247,37 @@ struct AgeInMonthsAsOfVisitor: public boost::static_visitor<RDFTTYPE>, public No
   BetaRow const* br;
 };
 
+// to_timestamp, month_period_of, week_period_of and day_period_of
+// --------------------------------------------------------------------------------------
+// Each takes a date. The three periods are those the platform computes for a session's
+// source period (CalculatePeriod in jets/datatable/source_period.go, which fills
+// source_period, session_registry's periods and $DAY_PERIOD), so a rule can compare its
+// dates with the session's period:
+//   month_period_of = (year - 1970) * 12 + month
+//   week_period_of  = unix time / 604800 + 1     (7 * 86400 seconds a week)
+//   day_period_of   = unix time / 86400 + 1      (24 * 60 * 60 seconds a day)
+// the division truncating toward zero in both languages, so 1970-01-01 is month 1, week 1
+// and day 1, and the day before it is day 0. Until 2026-11-27 day_period_of divided by
+// 84400, a typing slip: it ran ahead of the platform's day period by one more day about
+// every 42 days from 1970, skipping an integer each time, so that 2026-11-27 was 21277
+// against the platform's 20785; only 1969-11-20 to 1970-02-12 agreed.
+//
+// A date that is not a date (not-a-date, or an infinity) is null since 2026-11-27, as date
+// arithmetic on one is: to_timestamp, week_period_of and day_period_of of it gave a
+// meaningless number (to_timestamp 9223372036854 for not-a-date), and month_period_of
+// threw from boost, which failed the session. Anything but a date still throws in a
+// session's rule; until 2026-11-27 three of the four named month_period_of in the message.
+
 // ToTimestampVisitor
 // --------------------------------------------------------------------------------------
 struct ToTimestampVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   ToTimestampVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   ToTimestampVisitor(): rs(nullptr), br(nullptr) {}
-  template<class T>RDFTTYPE operator()(T lhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for month_period_of: ("<<lhs<<")");};
+  template<class T>RDFTTYPE operator()(T lhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for to_timestamp: ("<<lhs<<")");};
   RDFTTYPE operator()(rdf::LDate lhs)const
   {
+    if(lhs.data.is_special()) return rdf::Null();
     return rdf::LInt64(rdf::to_timestamp(lhs.data));
   }
   ReteSession * rs;
@@ -262,6 +294,7 @@ struct MonthPeriodVisitor: public boost::static_visitor<RDFTTYPE>, public NoCall
   RDFTTYPE operator()(rdf::LDate lhs)const
   {
     // monthPeriod = (year-1970)*12 + month
+    if(lhs.data.is_special()) return rdf::Null();
     auto date = lhs.data;
     auto ymd = date.year_month_day();
     int month = ymd.month.as_number();
@@ -278,12 +311,13 @@ struct WeekPeriodVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallb
 {
   WeekPeriodVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   WeekPeriodVisitor(): rs(nullptr), br(nullptr) {}
-  template<class T>RDFTTYPE operator()(T lhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for month_period_of: ("<<lhs<<")");};
+  template<class T>RDFTTYPE operator()(T lhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for week_period_of: ("<<lhs<<")");};
   RDFTTYPE operator()(rdf::LDate lhs)const
   {
-    // secPerDay = 24 * 60 * 60 = 84400
+    // secPerDay = 24 * 60 * 60 = 86400
     // secPerWeek = 7 * secPerDay = 604800
     // weekPeriod = int(unixTime/secPerWeek + 1)
+    if(lhs.data.is_special()) return rdf::Null();
     auto timestamp = rdf::to_timestamp(lhs.data);
     return rdf::LInt32(int((timestamp / 604800L) + 1L));
   }
@@ -297,13 +331,14 @@ struct DayPeriodVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallba
 {
   DayPeriodVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   DayPeriodVisitor(): rs(nullptr), br(nullptr) {}
-  template<class T>RDFTTYPE operator()(T lhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for month_period_of: ("<<lhs<<")");};
+  template<class T>RDFTTYPE operator()(T lhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for day_period_of: ("<<lhs<<")");};
   RDFTTYPE operator()(rdf::LDate lhs)const
   {
-    // secPerDay = 24 * 60 * 60 = 84400
+    // secPerDay = 24 * 60 * 60 = 86400
     // dayPeriod = int(unixTime/secPerDay + 1)
+    if(lhs.data.is_special()) return rdf::Null();
     auto timestamp = rdf::to_timestamp(lhs.data);
-    return rdf::LInt32(int((timestamp / 84400L) + 1L));
+    return rdf::LInt32(int((timestamp / 86400L) + 1L));
   }
   ReteSession * rs;
   BetaRow const* br;

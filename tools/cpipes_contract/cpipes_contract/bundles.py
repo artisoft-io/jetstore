@@ -56,7 +56,22 @@ REF = "#/$defs/{}"
 
 
 def _camel(token: str) -> str:
-    return "".join(p[:1].upper() + p[1:] for p in token.split("_"))
+    """`map_record` -> `MapRecord`; a virtual token drops its `~`, `~site` -> `Site`.
+
+    That is the matrix's own naming rule for virtual tokens, so a bundle member that
+    is the site operator's complement token names `TransformationSpecSite`.
+    """
+    return "".join(p[:1].upper() + p[1:] for p in token.lstrip("~").split("_"))
+
+
+def site_token(token: str) -> bool:
+    """A bundle member written as a virtual token stands for every token it selects.
+
+    `~site` is the complement of the built-in operators (`unlisted(type)` in
+    `types.csv`): its bundle is the bundle of every operator a deployment supplies,
+    whatever that operator is called.
+    """
+    return token.startswith("~")
 
 
 def _read(path: Path) -> list[dict]:
@@ -262,6 +277,19 @@ def check_corpus(schema: dict, matrix: Path, root: Path) -> tuple[int, list[str]
         for m in _read(matrix / "bundle_members.csv")
         if kind.get(m["bundle"]) == "TransformationSpec"
     }
+    # An operator none of the built-ins names is a site operator, and belongs to the
+    # bundle whose member is the complement token: the builder sends it to the site
+    # operator registry whatever it is called (2026-11-27).
+    builtin = set(defs["TransformationSpec"]["discriminator"]["mapping"])
+    site_bundle = next((b for t, b in bundle_of.items() if site_token(t)), None)
+
+    def bundle_for(token: str) -> str | None:
+        if token in bundle_of:
+            return bundle_of[token]
+        if token not in builtin and not site_token(token):
+            return site_bundle
+        return None
+
     validators = {
         name: jsonschema.Draft202012Validator(
             {"$schema": schema["$schema"], "$ref": REF.format(name), "$defs": defs}
@@ -279,7 +307,7 @@ def check_corpus(schema: dict, matrix: Path, root: Path) -> tuple[int, list[str]
                 if key == "apply" and isinstance(value, list):
                     for i, item in enumerate(value):
                         if isinstance(item, dict) and "type" in item:
-                            bundle = bundle_of.get(item["type"])
+                            bundle = bundle_for(item["type"])
                             if bundle is None:
                                 findings.append(f"{path}.apply.{i}: operator {item['type']!r} is in no bundle")
                             else:

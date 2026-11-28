@@ -42,17 +42,14 @@ func StashFiles(workspaceName string) error {
 	stashWorkspacePath := filepath.Join(stashPath, workspaceName)
 	if _, err2 := os.Stat(stashWorkspacePath); errors.Is(err2, os.ErrNotExist) {
 		log.Println("Stashing workspace files")
-		if err := copyDirNoDereference(workspacePath, stashWorkspacePath); err != nil {
+		// The files we don't want restored (stashOmits) are left out of the
+		// copy rather than copied and removed: on a workstation `.git` is the
+		// developer's whole clone (since 2026-11-27, when dev mode began taking
+		// a stash, RefreshStash).
+		if err := copyDirNoDereference(workspacePath, stashWorkspacePath, stashOmits...); err != nil {
 			log.Printf("while stashing workspace files: %v", err)
 			return err
 		}
-
-		// Removing files that we don't want to be restaured
-		_ = os.RemoveAll(filepath.Join(stashWorkspacePath, ".git"))
-		_ = os.RemoveAll(filepath.Join(stashWorkspacePath, ".github"))
-		_ = os.RemoveAll(filepath.Join(stashWorkspacePath, ".gitignore"))
-		_ = os.RemoveAll(filepath.Join(stashWorkspacePath, "lookup.db"))
-		_ = os.RemoveAll(filepath.Join(stashWorkspacePath, "workspace.db"))
 	} else if err2 == nil {
 		log.Println("Workspace files already stashed, not overriting them")
 	} else {
@@ -166,6 +163,27 @@ func copyDirNoDereference(srcDir, dstDir string, skip ...string) error {
 			return nil
 		}
 	})
+}
+
+// RefreshStash takes the workspace's stash afresh: it clears the one there is,
+// then stashes the workspace as it stands (ClearStash, StashFiles).
+//
+// **It is what the apiserver's start does in dev mode, since 2026-11-27.** The
+// stack takes its stash with StashFiles alone, and gets a fresh one on every
+// start because each start is a new container. A workstation keeps
+// WORKSPACES_HOME across starts, and StashFiles keeps an existing stash, so a
+// stash taken once would be restored from for ever: a revert brought back the
+// file as it was at that first start. Dev mode took no stash at all for that
+// reason, so a revert was refused. Refreshed at each start, the stash is the
+// workspace as it was when the apiserver started, which is what a revert on
+// a workstation returns a file to. An edit saved before that start is in the
+// stash too: the workstation's tree is the developer's own checkout, and
+// nothing at a dev start puts it back to its repository's content.
+func RefreshStash(workspaceName string) error {
+	if err := ClearStash(workspaceName); err != nil {
+		return fmt.Errorf("while clearing the stash of workspace %s: %w", workspaceName, err)
+	}
+	return StashFiles(workspaceName)
 }
 
 // Function to remove the stash

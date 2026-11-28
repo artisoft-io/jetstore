@@ -29,7 +29,7 @@ func (ce *JrSpecialColumnEncoding) EncodeColumnData(rdfSession JetRdfSession, su
 		// The recommendation is "render from extractAsEntity's map with an
 		// empty exclusion set - one function, two callers, and the exclusion list
 		// the only difference between what the template sees and what the model
-		// sees", which is what criterion 76 needs: the template arm and the model
+		// sees", which is what a control needs: the template arm and the model
 		// arm must differ in the renderer and in nothing else. A second
 		// extraction path would be a second thing to keep in step, and this
 		// repository has measured what a second encoder costs.

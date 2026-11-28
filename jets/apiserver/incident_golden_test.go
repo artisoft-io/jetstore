@@ -20,7 +20,7 @@ import (
 // The incident the supervision screens render, produced by triage rather than
 // typed.
 //
-// **Criterion 50 asks for the screens to show a supervisor an incident and its
+// **The screens must show a supervisor an incident and its
 // ranked hypotheses "over an incident triage wrote", and until this file the
 // screen tests rendered a hand-written row.** A hand-written fixture is a fixture
 // its author agreed with by construction, which is the same failure at the wire: the
@@ -33,11 +33,11 @@ import (
 // tested against, which is the only version of this that keeps working after the
 // day it was written. Regenerate with UPDATE_GOLDEN=1 and read the diff.
 //
-// The bound, stated because the criterion's own text invites the confusion: this
+// The bound, stated because the requirement's own text invites the confusion: this
 // establishes that the *payload* the screen is tested against is one triage
 // produced. **No browser has rendered it and no live apiserver has served it**,
-// which is the same distance criterion 31 spent two phases crossing and which
-// nothing here shortens.
+// and that is a distance between a test and an operator which nothing here
+// shortens.
 const goldenIncidentPath = "../../jetsclient_ide/src/incidents/__fixtures__/triage_written_incident.json"
 
 var goldenNow = time.Date(2026, 9, 4, 12, 0, 0, 0, time.UTC)
@@ -104,7 +104,7 @@ func TestTheScreensFixtureIsAnIncidentTriageWrote(t *testing.T) {
 			"they mean to.\n--- got ---\n%s", got)
 	}
 
-	// The two things criterion 50's first clause is about, asserted on the
+	// The two things the screen requirement is about, asserted on the
 	// generated payload rather than on a fixture: the locus is there and the
 	// cause is not claimed. The screen test asserts how they are rendered.
 	var decoded map[string]any

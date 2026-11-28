@@ -219,6 +219,7 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 					FeatureBranch:   dataTableAction.FeatureBranch,
 				})
 				var buf strings.Builder
+				var keepOut []string
 				// The commit pushes the local tree and then deletes every override, so
 				// the local tree must hold the overrides first (syncOverridesToLocal).
 				// Unlike the compile, a commit after a failed sync is refused: it would
@@ -227,17 +228,23 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 					buf.WriteString(syncLog)
 					buf.WriteString("Commit not done: the workspace overrides could not be written to the local workspace\n")
 					err = fmt.Errorf("commit not done: %s", strings.TrimSpace(syncLog))
+				} else if keepOut, err = wsfile.OwnedAssetOverrides(ctx.Dbpool, dataTableAction.WorkspaceName); err != nil {
+					buf.WriteString(fmt.Sprintf("Commit not done: %v\n", err))
 				} else {
-					// Commit and push workspace changes and update workspace_registry table
-					gitLog, err = workspaceGit.CommitLocalWorkspace(&gitProfile, wsCommitMessage)
+					// Commit and push workspace changes and update workspace_registry table.
+					// The overrides of JetStore-owned assets are left out of the commit
+					// and kept as overrides: in the repository they would make
+					// the next build's install refuse the workspace.
+					gitLog, err = workspaceGit.CommitLocalWorkspace(&gitProfile, wsCommitMessage, keepOut...)
 					buf.WriteString(gitLog)
 					buf.WriteString("\n")
 				}
 				if err != nil {
 					status = "error"
 				} else {
-					// Delete all workspace overrides w/o restaure from stash
-					err = wsfile.DeleteAllFileChanges(ctx.Dbpool, dataTableAction.WorkspaceName, false, true)
+					// Delete all workspace overrides w/o restaure from stash, but those
+					// the commit left out
+					err = wsfile.DeleteAllFileChanges(ctx.Dbpool, dataTableAction.WorkspaceName, false, true, keepOut...)
 					if err != nil {
 						status = "error"
 					}
@@ -468,8 +475,8 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for compile_workspace, missing workspace_name")
 			}
-			// Refuse a row that is not the active workspace (I-4), and a compile while
-			// rules unit tests of the workspace are queued or executing (AC.5); the
+			// Refuse a row that is not the active workspace, and a compile while
+			// rules unit tests of the workspace are queued or executing; the
 			// claim writes the status below before a test request can look for it.
 			// compile_workspace names the row by key, compile_workspace_by_name by
 			// workspace name.
@@ -606,7 +613,7 @@ func (ctx *DataTableContext) DoWorkspaceReadAction(dataTableAction *DataTableAct
 		// refused with the sentence the test run itself is refused with
 		// (activeWorkspaceRefusal), rather than failing on a workspace.db that a
 		// workspace this server never compiled does not have -- found by the
-		// browser pass (rules_unit_test_harness AG.1).
+		// browser pass.
 		//
 		// **Scoped to unit_tests, not to every workspace.db read.** The IDE's own
 		// tables (wsJetRulesTable and the other ws*Table documents) read $SCHEMA
@@ -822,7 +829,7 @@ func (ctx *DataTableContext) WorkspaceQueryStructure(dataTableAction *DataTableA
 
 	switch requestType {
 	case "workspace_file_structure":
-		// The section list, the file-suffix filters and — the part C.1 added —
+		// The section list, the file-suffix filters and — the part added last —
 		// which sections have a compiled view of `workspace.db` all live in one
 		// table now, wsfile.WorkspaceSections. This used to be eight
 		// near-identical blocks with copy-pasted error handling, and the client
@@ -1012,7 +1019,7 @@ func documentPathOK(fileName string) bool {
 // **Why this exists beside GetWorkspaceFileContent, which reads any workspace
 // file.** That one gates on `workspace_ide`, and `jets_init_db.sql` grants
 // `workspace_ide` to `knowledge_engineer` alone. Since the eleven flows became
-// workspace assets (ui_refresh's X.5, 2026-08-26) the React app reads its flow
+// workspace assets (2026-08-26) the React app reads its flow
 // documents at run time, so the IDE's capability had become the capability
 // required to *use a flow* — and `ops_user` and `client_advocate`, who hold
 // `jetstore_read` and `run_pipelines`, could no longer open one. They are the
@@ -1120,7 +1127,7 @@ func (ctx *DataTableContext) SaveWorkspaceFileContent(dataTableAction *DataTable
 	}
 
 	// Validate structured files before writing them. Two steps, in this order,
-	// and the order is the agreement with the agentic_ai stream (Q-3):
+	// and the order was agreed before either side of the table was written:
 	//
 	//  1. **Well-formedness, for anything ending .json.** It is a precondition for
 	//     every structured check, so doing it once keeps one bad file from
@@ -1212,10 +1219,10 @@ func (ctx *DataTableContext) DeleteWorkspaceChanges(dataTableAction *DataTableAc
 		// off** (see the comment there): the clear is what would have replaced the
 		// pristine snapshot with an edited one.
 		//
-		// This was gated shut for one revision of Phase 6, before that fix existed,
+		// This was gated shut for one revision, before that fix existed,
 		// on the ground that the row is the only copy of the edit. It is the only
 		// copy, and with a pristine stash the revert is still what the user asked
-		// for. Q-89.
+		// for.
 		err = wsfile.DeleteFileChange(ctx.Dbpool, workspaceName, wsFileName.(string))
 		if err != nil {
 			httpStatus = http.StatusBadRequest
@@ -1246,7 +1253,7 @@ func (ctx *DataTableContext) DeleteAllWorkspaceChanges(dataTableAction *DataTabl
 	}
 	// Runs whether or not git is on; `DeleteWorkspaceChanges` above carries the
 	// argument, which is that the stash a no-git deployment restores from is
-	// pristine by construction and stays that way. Q-89.
+	// pristine by construction and stays that way.
 	//
 	// **Note the asymmetry with `commit_workspace`, which is still skipped when
 	// git is off.** That call passes `restaureFromStash` false: it drops the rows

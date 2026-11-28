@@ -137,8 +137,8 @@ func (e *ErrNoTranscript) Error() string {
 
 // ReadTranscript reads one run's events, oldest first, and verifies the chain.
 //
-// The query names one table on purpose — criterion 29's "from its audit record
-// alone" is a claim about this SELECT. `payload::text` rather than the jsonb
+// The query names one table on purpose — a transcript viewable "from its audit
+// record alone" is a claim about this SELECT. `payload::text` rather than the jsonb
 // value because those are the bytes the chain hashed.
 func ReadTranscript(ctx context.Context, db Querier, runId string) (*Transcript, error) {
 	if runId == "" {
@@ -191,7 +191,7 @@ func chainTime(t time.Time) string { return t.UTC().Format(chainTimeLayout) + "Z
 //
 // It is a pure function over the slice so that tampering is testable: the
 // append-only trigger makes a real UPDATE impossible, which is the property
-// criterion 9 tests, and would otherwise leave the detector itself unexercised.
+// `TestAppendOnly` tests, and would otherwise leave the detector itself unexercised.
 // Mutating a TranscriptEvent in memory is the same input a tampered row would
 // produce, and reaches the same code.
 //
@@ -260,8 +260,8 @@ func shortHash(h []byte) string {
 	return s
 }
 
-// Render writes the transcript as readable text — the rendering criterion 29's
-// "viewable" asks for, and the one an IDE screen or an operator at a
+// Render writes the transcript as readable text — what makes it "viewable",
+// and the one an IDE screen or an operator at a
 // terminal reads the same way.
 //
 // **The verdict leads, and the defects are shown where they happened.** A log

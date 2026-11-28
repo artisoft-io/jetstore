@@ -19,7 +19,7 @@ import (
 )
 
 // The toggle defaults to Ollama when unset, which is what keeps an image built before the
-// toggle existed working, and what keeps the promotion decision (item 17) out of the code.
+// toggle existed working, and what keeps the decision to promote vLLM out of the code.
 func TestInferBackendFromEnvDefaultsToOllama(t *testing.T) {
 	t.Setenv("JETS_INFER_BACKEND", "")
 	if got := inferBackendFromEnv(); got != inferBackendOllama {

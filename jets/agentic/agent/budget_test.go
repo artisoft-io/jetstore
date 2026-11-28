@@ -11,7 +11,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/tools"
 )
 
-// Criterion 17: the budget binds. Three caps, three separate demonstrations,
+// The budget binds. Three caps, three separate demonstrations,
 // and the distinction between the two ways a run can be stopped.
 
 // slowInfer answers after a delay, so a wall-clock cap has something to bite.
@@ -33,7 +33,7 @@ func (s *slowInfer) Chat(ctx context.Context, _ *infer.Request) (*infer.Response
 
 // The iteration cap, already enforced by the loop and asserted here as part of
 // the criterion rather than left implicit in the loop's own tests.
-func TestCriterion17_IterationCapEndsTheRunExhausted(t *testing.T) {
+func TestBudget_IterationCapEndsTheRunExhausted(t *testing.T) {
 	in := &stubInfer{answers: []string{`{"a":1}`, `{"b":2}`, `{"c":3}`}}
 	reg := &stubRegistry{reports: []any{&tools.ValidationReport{Valid: false}}}
 	res, err := loop(in, reg, &recorder{}, 2).Run(context.Background(), task())
@@ -50,7 +50,7 @@ func TestCriterion17_IterationCapEndsTheRunExhausted(t *testing.T) {
 
 // The wall-clock cap. A call slower than the budget must end the run as
 // exhausted — the budget bound it — rather than as a failure.
-func TestCriterion17_WallClockCapEndsTheRunExhausted(t *testing.T) {
+func TestBudget_WallClockCapEndsTheRunExhausted(t *testing.T) {
 	in := &slowInfer{delay: time.Second, answer: `{"a":1}`}
 	l := &Loop{
 		Infer: in, Registry: &stubRegistry{reports: []any{&tools.ValidationReport{Valid: true}}},
@@ -76,7 +76,7 @@ func TestCriterion17_WallClockCapEndsTheRunExhausted(t *testing.T) {
 // The distinction the measurement depends on: a caller cancelling is not the
 // budget running out. An interrupted run says nothing about the model and must
 // not land in the compile-pass denominator.
-func TestCriterion17_CallerCancellationIsInterruptedNotExhausted(t *testing.T) {
+func TestBudget_CallerCancellationIsInterruptedNotExhausted(t *testing.T) {
 	in := &slowInfer{delay: time.Second, answer: `{"a":1}`}
 	l := &Loop{
 		Infer: in, Registry: &stubRegistry{reports: []any{&tools.ValidationReport{Valid: true}}},
@@ -103,7 +103,7 @@ func TestCriterion17_CallerCancellationIsInterruptedNotExhausted(t *testing.T) {
 
 // Both deadlines firing at once resolves to the caller's, because the caller's
 // cancellation is the cause and the derived deadline is a consequence of it.
-func TestCriterion17_CancelledParentWinsOverTheDerivedDeadline(t *testing.T) {
+func TestBudget_CancelledParentWinsOverTheDerivedDeadline(t *testing.T) {
 	in := &slowInfer{delay: time.Second, answer: `{"a":1}`}
 	l := &Loop{
 		Infer: in, Registry: &stubRegistry{}, Audit: &recorder{},
@@ -127,7 +127,7 @@ func TestCriterion17_CancelledParentWinsOverTheDerivedDeadline(t *testing.T) {
 
 // Token spend is recorded for every run, whatever the outcome — including the
 // ones that exhausted, which are precisely the expensive ones.
-func TestCriterion17_TokenSpendIsRecordedOnEveryOutcome(t *testing.T) {
+func TestBudget_TokenSpendIsRecordedOnEveryOutcome(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
 		valid bool

@@ -36,8 +36,9 @@ var stashOmits = []string{".git", ".github", ".gitignore", "lookup.db", "workspa
 // addedSinceStash says whether fileName was added to the workspace after the
 // stash was taken: the workspace has a stash, the stash holds no copy of the
 // file, and the name is not one the stash leaves out on purpose. A workspace
-// with no stash at all (a workstation, where dev mode takes none) has every file
-// absent from it, so it answers false there and the revert is refused as before.
+// with no stash at all has every file absent from it, so it answers false there
+// and the revert is refused. (A workstation in dev mode had none until
+// 2026-11-27, when its start began taking one, RefreshStash.)
 func addedSinceStash(workspaceName, fileName string) (bool, error) {
 	stashRoot := filepath.Join(StashDir(), workspaceName)
 	if info, err := os.Stat(stashRoot); err != nil || !info.IsDir() {
@@ -159,7 +160,12 @@ func restoreFileFromStash(workspaceName, fileName, destination string) error {
 // Delete all files overrides from database for workspaceName.
 // if restaureFromStash is true then, replace the local file with the stash content
 // if keepWorkspaceAndLookupDb is true, then don't remove files 'workspace.db', 'lookup.db', 'workspace.tgz', 'reports.tgz' from the overrides
-func DeleteAllFileChanges(dbpool *pgxpool.Pool, workspaceName string, restaureFromStash, keepWorkspaceAndLookupDb bool) error {
+//
+// keepFiles are further rows kept, by file name: the overrides a commit left
+// out (2026-11-27), which stay overrides of this installation. Only the
+// rows are kept; with restaureFromStash the files are restored all the same, so
+// the commit passes none of them with it.
+func DeleteAllFileChanges(dbpool *pgxpool.Pool, workspaceName string, restaureFromStash, keepWorkspaceAndLookupDb bool, keepFiles ...string) error {
 	// Validate workspace name before using it to build filesystem paths (CWE-73)
 	workspaceName, err := utils.ValidateWorkspaceName(workspaceName)
 	if err != nil {
@@ -168,9 +174,13 @@ func DeleteAllFileChanges(dbpool *pgxpool.Pool, workspaceName string, restaureFr
 	log.Println("DeleteAllWorkspaceChanges: workspace_name", workspaceName)
 	stmt := `DELETE FROM jetsapi.workspace_changes WHERE workspace_name = $1`
 	args := []any{workspaceName}
+	kept := append([]string(nil), keepFiles...)
 	if keepWorkspaceAndLookupDb {
+		kept = append(kept, CompiledAssets...)
+	}
+	if len(kept) > 0 {
 		stmt += ` AND file_name <> ALL($2)`
-		args = append(args, CompiledAssets)
+		args = append(args, kept)
 	}
 	// Restore first, and keep the rows when the restore fails: deleting them
 	// while the files keep the edits would lose the edits (see DeleteFileChange).

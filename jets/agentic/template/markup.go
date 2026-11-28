@@ -17,8 +17,8 @@ import (
 // working definition: a construct is a total function from a value to a value,
 // and a block form decides whether and how often a span is emitted. `require`
 // is a modifier on the same definition - it changes no value and produces none.
-// R-115 is the note that R-107's construct count watches one of the two places
-// this notation can grow, and the block forms are the other.
+// The construct count is one of the two places this notation can grow, and the
+// block forms are the other; both are watched.
 //
 // **Whitespace in markup is not whitespace in the output.** Every paragraph is
 // wrapped, and `wrap` collapses runs of whitespace through `strings.Fields`, so

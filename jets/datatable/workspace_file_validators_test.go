@@ -41,7 +41,7 @@ func TestValidatorForPicksTheMostSpecificSuffix(t *testing.T) {
 		"jet_rules/optimizer_statistics.json":   true,
 		"jet_rules/A.optimizer_statistics.json": true, // a statistics process's own file
 		"jet_rules/main.jr.json":                false,
-		// The eighth row (runbooks AA.4). A runbook's SQL goes through `.sql`.
+		// The eighth row (runbooks). A runbook's SQL goes through `.sql`.
 		"runbooks/health_check.rb.json":     true,
 		"runbooks/health_check/recent.sql":  true,
 		"runbooks/health_check.rbr.json":    false, // a run's result is never a workspace file
@@ -140,11 +140,12 @@ func TestShippingDocumentsPassTheSaveCheck(t *testing.T) {
 		}
 		checked++
 	}
-	// Ten flows since 2026-10-01, when registerFileKeyUF was retired by
-	// jetstore_maintenance_02 (Q-6, task AD.4). Fourteen since 2026-10-11, with
-	// rulesUnitTestUF (rules_unit_test_harness, task AD.4).
-	if checked != 14 {
-		t.Errorf("expected the app's ten remaining flows, rulesUnitTestUF and three projections, checked %d", checked)
+	// Ten flows since 2026-10-01, when registerFileKeyUF was retired.
+	// Fourteen since 2026-10-11, with
+	// rulesUnitTestUF. Thirteen since 2026-11-27, when the map_claim_load_stages
+	// projection was retired from the shipped assets.
+	if checked != 13 {
+		t.Errorf("expected the app's ten remaining flows, rulesUnitTestUF and two projections, checked %d", checked)
 	}
 }
 
@@ -183,9 +184,9 @@ func TestShippingTablesPassTheSaveCheck(t *testing.T) {
 	// **A lower bound, and it used to be an exact count — the change is the
 	// point.** This asserted `checked != 38` and `jets/userflow`'s
 	// TestShippingTablesValidate asserted the same directory's exact size a
-	// package away, so every screen track C ports had to update two numbers that
-	// mean the same thing. C.2 updated one of them and left this test failing on
-	// its own branch; C.4 found it while adding the fortieth document.
+	// package away, so every ported screen had to update two numbers that
+	// mean the same thing. One port updated one of them and left this test failing on
+	// its own branch; the next found it while adding the fortieth document.
 	//
 	// The exact count belongs where the documents are *named* — `jets/userflow`
 	// lists which non-flow tables are in the directory and why — and what this test
@@ -311,15 +312,15 @@ func TestCheckWorkspaceFileIsTheWiring(t *testing.T) {
 	})
 }
 
-// The `.pv.json` row (agentic_ai AK.2). It is here rather than only in
+// The `.pv.json` row. It is here rather than only in
 // jets/agentic/briefing because the claim being tested is the *wiring*: the
-// mechanism I.3's comment describes - adding a row is the whole of adding a file
-// type - held for a fifth type added by a different stream.
+// mechanism the table's comment describes - adding a row is the whole of adding a file
+// type - held for a fifth type added by a different party.
 func TestProvenanceSchemaGoesThroughTheSavePath(t *testing.T) {
-	// The disclaimer block is required by Confine (agentic_ai AK.3): a schema
+	// The disclaimer block is required by Confine: a schema
 	// declaring a briefing's shape and no intended-use notice is refused at save
-	// time. This sample gained it on 2026-09-05, when AK.2's fixture and AK.3's
-	// rule met on jets_ai and neither pull request's diff showed the other.
+	// time. This sample gained it on 2026-09-05, when this fixture and that
+	// rule met on one branch and neither pull request's diff showed the other.
 	const good = `{
 	  "key": "patient_briefing",
 	  "disclaimer": {"field": "cintel:Briefing_Disclaimer"},
@@ -467,7 +468,7 @@ func TestSaveCheckRefusesAStatisticsFileTheCompilerWouldRefuse(t *testing.T) {
 	}
 }
 
-// The `.rb.json` row (runbooks Phase 1, AA.4): the save path reaches
+// The `.rb.json` row: the save path reaches
 // runbook.ValidateFile, refuses what it refuses with the JSON Pointer in the
 // message, and saves a runbook whose SQL files it cannot see.
 func TestRunbookGoesThroughTheSavePath(t *testing.T) {

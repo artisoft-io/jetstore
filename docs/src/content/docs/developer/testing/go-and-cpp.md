@@ -97,7 +97,11 @@ Two consequences:
   passes `dbtest.RolesOf(dblogintest.Logins)` to `dbtest.Main`, which then drops the restricted
   logins of every database the package made. The two restricted group roles are shared by every
   database on the server: `dblogintest` marks them, and the last package to finish, finding no
-  other test database left, drops them. After a run the server holds what it held before.
+  other test database left, drops them. A package some of whose tests run `dblogin.Ensure` on a
+  database of their own, rather than through `dblogintest.Apiserver`, also passes
+  `dbtest.Shared(dblogin.Reader, dblogin.IDE)`, so that `dbtest.Main` marks them when the package
+  ends (`jets/datatable` does; until 2026-11-27 such a test run alone left the two roles behind).
+  After a run the server holds what it held before.
 - **The database `JETS_TEST_DSN` names is only where the connection starts**: the tests do not write
   to it. If it cannot be reached, `dbtest` connects to the server's `postgres` database instead.
 
@@ -154,9 +158,8 @@ FAIL    github.com/artisoft-io/jetstore/jets/bridge [build failed]
 ```
 
 The `#cgo` directives in `jets/bridge/bridge.go` look for the library in `build/jets` of the
-checkout, then in `/usr/local/go/build/jets` and `/app/jets` (the second is where the builder image
-puts it, `dockerfiles/Dockerfile.cpipes_builder`), and then the
-linker looks in its default path (`ldconfig -p | grep libjets` shows what is there). **A checkout with
+checkout, then in `/app/jets` (where the builder image puts it, `dockerfiles/Dockerfile.cpipes_builder`),
+and then the linker looks in its default path (`ldconfig -p | grep libjets` shows what is there). **A checkout with
 no `build/jets` of its own, such as a git worktree, falls through to the last of these**, and links
 whatever `libjets.so` another checkout left there. The failure names the first function the old
 library lacks, not the library, so it reads like a bug in the code. Build the library in this

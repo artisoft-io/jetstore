@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"os/exec"
@@ -152,11 +153,34 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 	// before anything is read or written. Unchecked, a missing file_key let the
 	// row be inserted and then panicked the handler at the start, leaving a
 	// submitted run that nothing would start.
+	//
+	// main_input_registry_key is read here too, for the same reason: it was
+	// parsed only after the insert, so a start without it answered 500 with the
+	// run committed. It is stored back as an int64, so the lookup, the insert and
+	// the start read one value: a JSON number arrives as a float64, and one of
+	// 1,000,000 or more was formatted 1e+06 and failed the start's ParseInt.
 	var startFields map[string]string
+	var mainInputRegistryKey int64
+	if strings.HasSuffix(dataTableAction.FromClauses[0].Table, "pipeline_execution_status") {
+		if v := dataTableAction.Data[irow]["main_input_registry_key"]; v != nil {
+			mainInputRegistryKey, err = registryKeyOf(v)
+			if err != nil {
+				httpStatus = http.StatusBadRequest
+				err = fmt.Errorf("error: main_input_registry_key in request to start a pipeline: %v", err)
+				return
+			}
+			dataTableAction.Data[irow]["main_input_registry_key"] = mainInputRegistryKey
+		}
+	}
 	if dataTableAction.FromClauses[0].Table == "pipeline_execution_status" && status == "submitted" {
 		startFields, err = requiredStrings(dataTableAction.Data[irow], "file_key", "client", "user_email")
 		if err != nil {
 			httpStatus = http.StatusBadRequest
+			return
+		}
+		if dataTableAction.Data[irow]["main_input_registry_key"] == nil {
+			httpStatus = http.StatusBadRequest
+			err = errors.New("error: missing main_input_registry_key in request to start a pipeline")
 			return
 		}
 	}
@@ -281,27 +305,6 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 
 	case "pipeline_execution_status":
 		if status == "submitted" {
-			var mainInputRegistryKey int64
-			switch vv := dataTableAction.Data[irow]["main_input_registry_key"].(type) {
-			case string:
-				mainInputRegistryKey, err = strconv.ParseInt(vv, 10, 64)
-				if err != nil {
-					httpStatus = http.StatusInternalServerError
-					err = fmt.Errorf("while converting main_input_registry_key to int64: %v", err)
-					return
-				}
-			case int:
-				mainInputRegistryKey = int64(vv)
-			case int64:
-				mainInputRegistryKey = vv
-			default:
-				mainInputRegistryKey, err = strconv.ParseInt(fmt.Sprintf("%v", vv), 10, 64)
-				if err != nil {
-					httpStatus = http.StatusInternalServerError
-					err = fmt.Errorf("while converting main_input_registry_key to int64: %v", err)
-					return
-				}
-			}
 			task := &PendingTask{
 				Key:                  int64(peKey),
 				MainInputRegistryKey: sql.NullInt64{Int64: mainInputRegistryKey, Valid: true},
@@ -322,6 +325,43 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 		}
 	}
 	return
+}
+
+// registryKeyOf reads an input_registry key from a request row: a string of
+// digits, a Go integer, or a JSON number, which the request decoder gives as a
+// float64 (or a json.Number where it decodes with UseNumber). A float64 is read
+// exactly, refused when it is not a whole number or is past the range a float64
+// holds every integer of, rather than formatted with %v, which writes 1000000 as
+// 1e+06.
+func registryKeyOf(v any) (int64, error) {
+	switch x := v.(type) {
+	case string:
+		n, err := strconv.ParseInt(strings.TrimSpace(x), 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf("%q is not an integer", x)
+		}
+		return n, nil
+	case json.Number:
+		n, err := x.Int64()
+		if err != nil {
+			return 0, fmt.Errorf("%s is not an integer", x)
+		}
+		return n, nil
+	case float64:
+		const maxExact = 1 << 53
+		if x != math.Trunc(x) || x > maxExact || x < -maxExact {
+			return 0, fmt.Errorf("%v is not an integer key", x)
+		}
+		return int64(x), nil
+	case int:
+		return int64(x), nil
+	case int32:
+		return int64(x), nil
+	case int64:
+		return x, nil
+	default:
+		return 0, fmt.Errorf("a %T is not a key", v)
+	}
 }
 
 // requiredStrings returns the named fields of a request row, refusing the row
@@ -1080,23 +1120,7 @@ func (ctx *DataTableContext) RegisterSchemaEvent(dbpool *pgxpool.Pool, schemaEve
 	}
 
 	// Prepare the register key request
-	year := 1970
-	month := 1
-	day := 1
-	fdate, ok := schemaInfo["file_date"].(string)
-	if !ok {
-		fdate = ""
-	}
-	if len(fdate) > 0 {
-		d, err := rdf.ParseDate(fdate)
-		if err != nil {
-			log.Printf("Schema has invalid FileDate, ignoring")
-		} else {
-			year = d.Year()
-			month = int(d.Month())
-			day = d.Day()
-		}
-	}
+	year, month, day := schemaEventDate(schemaEvent.FileDate, schemaEvent.FileKey)
 	schemaInfo["year"] = year
 	schemaInfo["month"] = month
 	schemaInfo["day"] = day
@@ -1134,6 +1158,30 @@ func (ctx *DataTableContext) RegisterSchemaEvent(dbpool *pgxpool.Pool, schemaEve
 			schemaInfo["client"], schemaInfo["vendor"], schemaInfo["object_type"], schemaInfo["file_key"], reason)
 	}
 	return nil
+}
+
+// schemaEventDate is the date a schema event registers under, its source period:
+// its file_date; else, when that is absent or does not parse, the date its file
+// key carries as year=, month= and day= (utils.FileKeyDate); else 1970-01-01. A
+// file_date that does not parse is logged with its value, and so is a fallback to
+// 1970 when the event gave a date in either place and neither could be read.
+func schemaEventDate(fileDate, fileKey string) (year, month, day int) {
+	if fileDate != "" {
+		d, err := rdf.ParseDate(fileDate)
+		if err == nil {
+			return d.Year(), int(d.Month()), d.Day()
+		}
+		log.Printf("Schema event for file key %q has a file_date that does not parse, %q: %v; using the date of its file key",
+			fileKey, fileDate, err)
+	}
+	if d, ok := utils.FileKeyDate(fileKey); ok {
+		return d.Year(), int(d.Month()), d.Day()
+	}
+	if fileDate != "" || utils.FileKeyCarries(fileKey, "year") {
+		log.Printf("Schema event for file key %q has no usable file_date and its file key carries no valid date; registering it under 1970-01-01",
+			fileKey)
+	}
+	return 1970, 1, 1
 }
 
 // NewPipelineCoordinatorMapSchemaInfo creates the schema info for a pipeline coordinator map register schema event,
@@ -1197,10 +1245,14 @@ func (ctx *DataTableContext) ProcessCoordinatorMapRegisterSchemaEvent(dbpool *pg
 			return fmt.Errorf("coordinator map %s: step %d: %v", requestId, i+1, err)
 		}
 	}
-	// The schema's default for status is 'in-progress'; this has always written
-	// 'in_progress', and only 'failed' is ever compared.
-	stmt := `INSERT INTO jetsapi.pipeline_coordinator_map (request_id, status, nbr_tasks, schema_provider_json) VALUES ($1, 'in_progress', $2, $3)`
-	_, err := dbpool.Exec(context.Background(), stmt, requestId, len(coordinatedPipesMap), postMapEventJson)
+	// The map is 'registering' until every step is registered, so that its post
+	// map pipeline does not start while a step is still to register, however
+	// fast the runs of the steps before it finish (startPostMapWhenDone). The
+	// schema's default for status is 'registering' since release 4.1.25; it was
+	// 'in-progress', which nothing writes, and update_db leaves an existing
+	// column's default as it is, so every writer names the status.
+	stmt := `INSERT INTO jetsapi.pipeline_coordinator_map (request_id, status, nbr_tasks, schema_provider_json) VALUES ($1, 'registering', 0, $2)`
+	_, err := dbpool.Exec(context.Background(), stmt, requestId, postMapEventJson)
 	if err != nil {
 		return fmt.Errorf("while inserting into pipeline_coordinator_map: %v", err)
 	}
@@ -1222,7 +1274,7 @@ func (ctx *DataTableContext) ProcessCoordinatorMapRegisterSchemaEvent(dbpool *pg
 				CpipesEnv:                step.Env,
 				NotifyApiGatewayOverride: step.NotifyApiGatewayOverride,
 			}
-			if ferr := failPipelineCoordinatorMap(dbpool, requestId, notice.SessionId, "in_progress",
+			if ferr := failPipelineCoordinatorMap(dbpool, requestId, notice.SessionId, "registering",
 				postMapEventJson, notice); ferr != nil {
 				log.Printf("while failing coordinator map %s: %v", requestId, ferr)
 			}
@@ -1230,7 +1282,22 @@ func (ctx *DataTableContext) ProcessCoordinatorMapRegisterSchemaEvent(dbpool *pg
 		}
 	}
 
-	return nil
+	// Every step is registered: record how many runs they started, open the map
+	// to its runs, and start the post map pipeline if they have all finished
+	// already, or if the steps started none. A map a run failed meanwhile is
+	// failed and stays so.
+	runs, err := mapRuns(dbpool, requestId)
+	if err != nil {
+		return err
+	}
+	_, err = dbpool.Exec(context.Background(),
+		`UPDATE jetsapi.pipeline_coordinator_map SET status = 'in_progress', nbr_tasks = $2
+		 WHERE request_id = $1 AND status = 'registering'`, requestId, len(runs))
+	if err != nil {
+		return fmt.Errorf("coordinator map %s: while opening it to its runs: %v", requestId, err)
+	}
+	log.Printf("coordinator map %s: %d steps registered, starting %d runs", requestId, len(coordinatedPipesMap), len(runs))
+	return startPostMapWhenDone(dbpool, requestId, "")
 }
 
 // checkCoordinatedStep is what a coordinator map's step needs to register, checked

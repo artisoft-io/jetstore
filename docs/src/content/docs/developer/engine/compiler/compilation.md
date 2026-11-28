@@ -57,6 +57,37 @@ A sequence naming a file that is not a compiled main rule file fails the compile
 The workspace compile then builds `lookup.db` from the lookup tables and archives what the
 pipelines and reports fetch (`workspace.tgz`, `reports.tgz`).
 
+## The config block, and `$max_rule_exec` refused
+
+A main rule file's `main { ... }` block sets the rule set's configuration, which the compiler
+stores in `workspace.db`'s `jetstore_config` and the rule file's `.config.json`:
+`$max_looping` (read by the pipeline, the number of loops of a rule set), `$input_types` and
+`$main_rule_sets`.
+
+**`$max_rule_exec` is a compile error since 2026-11-27**, at the line that sets it:
+
+```text
+error in main.jr at line 4: $max_rule_exec is refused: nothing reads it. The limit it names is
+jets:max_vertex_visits on jets:iState; set it with triple(jets:iState, jets:max_vertex_visits,
+1000000); in the rule file, or as jets:max_vertex_visits in the process's rule configuration
+```
+
+Until then the compiler stored it and nothing read it: neither the engine nor the pipeline, so a
+rule author who set it got no limit and no message. The limit it names is the engine's visits of
+a rule's vertex, which `ReteSession::initialize` reads from `jets:max_vertex_visits` on
+`jets:iState`, as an integer; without it a session stops at 10,000 visits (see
+[Limits, memory safety and the sanitizer build](/docs/developer/engine/rule-engine/limits-and-memory-safety/)).
+Set it in the main rule file with the triple, or in the process's rule configuration:
+
+```text
+triple(jets:iState, jets:max_vertex_visits, 1000000);
+```
+
+A workspace that sets `$max_rule_exec` stops compiling until the line is removed or replaced by the
+triple. The token stays in the grammar (`MaxRuleExec`, `JetRule.g4`) so that this message, and not a
+syntax error, is what the author reads; the refusal is `MaxRuleExecRefused` in
+`jet_rule_listener_methods.go`.
+
 ## String literals
 
 A string in a rule file is written in double quotes. It is read the same way wherever it appears: a

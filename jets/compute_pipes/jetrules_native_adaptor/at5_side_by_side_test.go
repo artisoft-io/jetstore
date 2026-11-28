@@ -9,7 +9,7 @@ package jetrules_native_adaptor
 // the template and the model call take **the same jetrules fact set**
 // and differ in the renderer and in nothing else. This
 // file is what runs both over the 22-member evaluation population and prints
-// them side by side, so the judgement criterion 75 asks for is made against
+// them side by side, so the judgement between them is made against
 // output rather than against argument.
 //
 // # What makes the two arms controlled, which is the whole design
@@ -29,7 +29,7 @@ package jetrules_native_adaptor
 // model's map is the template's map with exactly the excluded property names
 // removed at every depth - nothing added, nothing else lost. If a future change
 // gives one arm a different traversal, a different prefix setting or a different
-// subject, that test fails and criterion 76 stops being satisfiable by
+// subject, that test fails and "differ in the renderer only" stops being checkable by
 // inspection. `extractAsEntity` passes `excludeProp` down its own recursion
 // (`extractAsEntity`, `jets/compute_pipes/jetrules_extract_entity.go:82`), which
 // is what makes the two maps comparable at all.
@@ -157,7 +157,7 @@ func at5EncodeString(t *testing.T, s compute_pipes.JetRdfSession, briefing compu
 	return ""
 }
 
-// --- criterion 76, asserted -----------------------------------------------
+// --- the two arms differ in the renderer only, asserted ---------------------
 
 // at5ExtractMap recovers the entity map each arm is built from, so the two
 // **inputs** can be compared rather than the two outputs.
@@ -252,7 +252,7 @@ func at5Sorted(v any) any {
 	}
 }
 
-// **Criterion 76 as a test rather than as a sentence.** Anything reported as a
+// **"Differ in the renderer only" as a test rather than as a sentence.** Anything reported as a
 // difference between the arms is attributable to the renderer only if the two
 // arms saw the same facts; this asserts that they did, over every member of the
 // population rather than over one.

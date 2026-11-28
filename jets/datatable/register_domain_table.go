@@ -320,8 +320,10 @@ func (ca *StatusUpdate) RegisterDbTableInputSource(schemaProviderJson string) er
 		if err != nil {
 			return fmt.Errorf("error creating jwt token: %v", err)
 		}
-		err = ctx.StartPipelinesForInputRegistryV2(inputRegistryKey, sourcePeriodKey, sessionId.(string), client.(string),
-			objType.(string), fileKey.(string), token)
+		// Through startPipelinesForInputRegistry, as RegisterFileKeys starts
+		// its pipelines, so a test can see the chained run this starts.
+		err = startPipelinesForInputRegistry(ctx, inputRegistryKey, sourcePeriodKey, sessionId.(string), client.(string),
+			objType.(string), fileKey.(string), token, false)
 		if err != nil {
 			log.Println("WARNING while calling StartPipelinesForInputRegistryV2 (ignored):", err)
 		}

@@ -72,6 +72,12 @@ function TreeNode({
         title={node.label}
       >
         <span className="tree-label">{node.label}</span>
+        {node.installed === true && (
+          // A file JetStore installs, which a save turns into a local override.
+          <span className="tree-badge" title={node.installed_note} aria-label="Installed by JetStore">
+            JetStore
+          </span>
+        )}
         <span className="tree-size">{formatSize(node.size)}</span>
       </button>
     );

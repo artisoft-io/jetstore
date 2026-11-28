@@ -24,3 +24,65 @@ func TestFileKeyCarries(t *testing.T) {
 		t.Errorf("SplitFileKeyIntoComponents defaults changed: month %v, day %v", components["month"], components["day"])
 	}
 }
+
+// A year, month or day that is present and not a number is 0, as the log line
+// says, not the 1970, 1 or 1 an absent one gets: FileKeyDate, and through it a
+// job failure's period and a schema event's source period, tell a bad date from
+// a real one by the 0.
+func TestSplitFileKeyNonNumericDateIsZero(t *testing.T) {
+	key := "client=c/year=abc/month=x/day=y/in.csv"
+	c := SplitFileKeyIntoComponents(map[string]any{}, &key)
+	if c["year"] != 0 || c["month"] != 0 || c["day"] != 0 {
+		t.Errorf("year, month, day = %v, %v, %v; want 0, 0, 0", c["year"], c["month"], c["day"])
+	}
+	absent := "client=c/in.csv"
+	c = SplitFileKeyIntoComponents(map[string]any{}, &absent)
+	if c["year"] != 1970 || c["month"] != 1 || c["day"] != 1 {
+		t.Errorf("absent year, month, day = %v, %v, %v; want 1970, 1, 1", c["year"], c["month"], c["day"])
+	}
+}
+
+func TestFileKeyDate(t *testing.T) {
+	for key, want := range map[string]string{
+		"a/year=2025/month=3/day=7/f.csv":  "2025-03-07",
+		"a/year=2025/month=12/f.csv":       "2025-12-01",
+		"a/year=2025/f.csv":                "2025-01-01",
+		"a/month=3/day=7/f.csv":            "", // no year
+		"a/year=abc/f.csv":                 "", // not a number: 0
+		"a/year=2025/month=x/f.csv":        "",
+		"a/year=2025/month=13/f.csv":       "",
+		"a/year=2025/month=2/day=30/f.csv": "",
+		"a/year=0/f.csv":                   "",
+		"":                                 "",
+	} {
+		d, ok := FileKeyDate(key)
+		got := ""
+		if ok {
+			got = d.Format("2006-01-02")
+		}
+		if got != want {
+			t.Errorf("FileKeyDate(%q) = %q, %v; want %q", key, got, ok, want)
+		}
+	}
+}
+
+// FileKeyComponent gives the text the key carries, before year, month and day
+// are typed.
+func TestFileKeyComponent(t *testing.T) {
+	key := "client=Acme/year=2026/month=ab/day=/file.csv"
+	for name, want := range map[string]struct {
+		text    string
+		carried bool
+	}{
+		"client": {"Acme", true},
+		"year":   {"2026", true},
+		"month":  {"ab", true},
+		"day":    {"", true},
+		"org":    {"", false},
+	} {
+		text, carried := FileKeyComponent(key, name)
+		if text != want.text || carried != want.carried {
+			t.Errorf("FileKeyComponent(%q) = %q, %v, want %q, %v", name, text, carried, want.text, want.carried)
+		}
+	}
+}

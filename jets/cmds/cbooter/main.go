@@ -232,7 +232,7 @@ func main() {
 }
 
 // The inference backends cbooter can start, and the values of JETS_INFER_BACKEND that
-// select them. Item 15b added the second; the first is the default, so an image built
+// select them. vLLM was added second; the first is the default, so an image built
 // before the toggle existed keeps working when the variable is absent.
 //
 // The value is normally baked into the image rather than set on the container definition:
@@ -254,7 +254,7 @@ const inferServerPort = "11434"
 // inferBackendFromEnv reads the toggle, defaulting to Ollama when it is absent.
 //
 // The default is deliberate and is not a preference between the two: whether vLLM is
-// promoted to the default image is item 17's decision and not this code's, so an
+// promoted to the default image is a deployment decision and not this code's, so an
 // unset variable has to keep meaning what it meant before the toggle existed.
 func inferBackendFromEnv() string {
 	if backend := os.Getenv("JETS_INFER_BACKEND"); backend != "" {
@@ -351,8 +351,8 @@ func vllmServerCommand() (string, []string, []string, error) {
 	}
 	// HF_HOME is where the weights land, and is the analogue of OLLAMA_MODELS. It has to be
 	// on the mounted volume for the same two reasons: the root filesystem is read-only, and
-	// a download repeated at every task start is paid in the cold-start figure item 17
-	// measures.
+	// a download repeated at every task start is paid in the cold start, every
+	// time the task starts.
 	hfHome := os.Getenv("HF_HOME")
 	if hfHome == "" {
 		return "", nil, nil, fmt.Errorf(

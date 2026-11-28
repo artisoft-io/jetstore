@@ -27,7 +27,7 @@ func TestTriageWritesAnIncidentPerLocusWithItsHypotheses(t *testing.T) {
 	}
 
 	// The report carries all nine verdicts, not the hits — the denominator
-	// criterion 44 asks for survives the wiring.
+	// a per-class report needs survives the wiring.
 	if len(res.Report.Findings) != len(triage.Loci) {
 		t.Errorf("the result carries %d findings; a per-class denominator needs all %d",
 			len(res.Report.Findings), len(triage.Loci))
@@ -136,7 +136,7 @@ func TestTriageWritesAnIncidentPerLocusWithItsHypotheses(t *testing.T) {
 	}
 }
 
-// TestTheBasisReachesTheRecord is criterion 45's last clause meeting the write.
+// TestTheBasisReachesTheRecord is the ranking's basis meeting the write.
 //
 // jetsapi.hypothesis has no basis column and no locus column, which an assessment
 // graded as *met for what the ranker emits and not surviving the write*. Two of the
@@ -184,7 +184,7 @@ func TestTheBasisReachesTheRecord(t *testing.T) {
 			t.Errorf("%s carries %d hypotheses and its last transition is to %s",
 				got.IncidentId, got.Hypotheses, last.ToStatus)
 		}
-		// Criterion 45's last clause, in the database.
+		// The ranking's basis, in the database.
 		if last.Rationale != res.Ranking.Basis {
 			t.Errorf("%s's diagnosis transition does not carry the ranking's basis.\n  rationale: %s",
 				got.IncidentId, last.Rationale)
@@ -275,7 +275,7 @@ func TestASecondRunAddsAndDoesNotRetract(t *testing.T) {
 		"answered present; %d already raised", len(before), len(after), len(second.AlreadyRaised))
 }
 
-// TestTheCeilingRefusesToAct is criterion 47's guard, seen to fire.
+// TestTheCeilingRefusesToAct is the "nothing acts" guard, seen to fire.
 func TestTheCeilingRefusesToAct(t *testing.T) {
 	pool := freshDB(t, "shadow_ceiling", migratedTables, true)
 	ctx := context.Background()

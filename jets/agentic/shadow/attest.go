@@ -10,7 +10,7 @@ import (
 )
 
 // Attest reads the incident record back and reports what it shows about whether
-// anything acted. It is criterion 47's second clause as a query.
+// anything acted. It is "the audit record shows that nothing acted" as a query.
 //
 // # Why a query rather than a stored claim
 //
@@ -35,7 +35,7 @@ import (
 //     and holds one value, so it says where an incident is *now* and an incident
 //     that had been remediated and then closed would answer `closed`. The event
 //     table is written once per transition and never updated, so it answers *has
-//     it ever been*, which is the question criterion 47 asks.
+//     it ever been*, which is the question that matters here.
 //   - **Is every incident's current status explained by its own history.** An
 //     incident is either at `detected` with no events, or its status is the
 //     `to_status` of its latest event. Anything else is a status that arrived
@@ -125,7 +125,7 @@ func (a *Attestation) Holds() bool {
 }
 
 // Report is the attestation in the words an operator reads, and it is what a
-// reader of criterion 47 is meant to be able to point at.
+// reader asking whether anything acted is meant to be able to point at.
 func (a *Attestation) Report() string {
 	var b strings.Builder
 	if a.Targets == nil || !a.Targets.Ready() || !a.Targets.Remediation {

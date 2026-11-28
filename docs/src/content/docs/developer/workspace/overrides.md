@@ -11,8 +11,12 @@ sidebar:
 **Any file saved through the IDE becomes a row in `jetsapi.workspace_changes`**, synced
 onto the container at startup after the workspace is stashed. Each one logs
 `*** compilation required due to override of file …` and forces a recompile on every
-boot on a new image, except an override of a page of the workspace guide under `docs/` and, since
-2026-11-14, of the workspace's root `README.md`, which nothing compiles. **They persist across deployments and outrank the image**, so a pipeline can be
+boot on a new image, except an override of a page of the workspace guide under `docs/`, of the
+workspace's root `README.md` (since 2026-11-14) and of a runbook or its SQL under `runbooks/` (since
+release 4.1.25), which nothing compiles or archives (`overrideRequiresCompile`,
+`jets/workspace/compile_workspace_utils.go`). The other directories stay in: `pipes_config/`,
+`provenance/` and `reports/` are archived by the compile into `workspace.tgz` or `reports.tgz`, and
+`user_flows/` and `table_configs/` are checked by it. **They persist across deployments and outrank the image**, so a pipeline can be
 running a version that is in neither the image nor the repository — we found a
 `patient_profile.pc.json` override five weeks old on a freshly deployed container.
 
@@ -59,12 +63,34 @@ removes its folders, innermost first, while each is empty and absent from the st
 2026-11-22 *Add File* created an empty file on disk and recorded nothing, so the next start of an
 installation lost it, and it emptied a file of the same name.
 
+**An override of a JetStore-owned asset says when JetStore changes the asset under it, since
+release 4.1.25** (`jets/datatable/wsfile/override_base.go`). An owned asset is a file directly in an
+asset group's directory (`data_model/`, `pipes_config/`, `user_flows/`, `table_configs/`) that the
+directory's `jets_assets_manifest.json` records (`workspace_assets.InstalledHash`). A save of one
+(`SaveContent`) records the manifest's hash of it, the version the override was made on, in
+`jetsapi.workspace_override_base`, keyed by the override's `workspace_changes` key. Each start
+(`checkWorkspaceVersion`, `CheckOverrideBases`) compares that base with the hash installed now and
+writes the result to the override's `workspace_changes.status`, a column nothing wrote before, which
+the Workspace Changes list shows as *Change Status*:
+
+| status | meaning |
+|---|---|
+| `overrides JetStore asset` | the installed asset is the one the override was made on |
+| `JetStore asset updated since override` | JetStore changed the asset since; the start logs a `*** WARNING` naming the file and the two hashes |
+| `overrides JetStore asset, base unknown` | saved before release 4.1.25, or with no base table; the start lists these in one log line |
+
+**The base is the override's, not the file's.** A re-save of the same override keeps its base, so an
+unrelated edit does not clear the warning; a revert deletes the row, and a new override of the file
+gets a new key and the version installed then. A base whose override is gone is deleted at the next
+start. `workspace_changes` keeps its schema (update_db does not touch it), so the base has its own
+table; on a database without it a save records nothing and a start flags nothing.
+
 **`DeleteAllFileChanges` takes two flags and the two call sites set them oppositely**,
 which is the clearest statement of what each is for:
 
 | caller | `restaureFromStash` | `keepWorkspaceAndLookupDb` |
 |---|---|---|
-| after a git commit or push | `false` | **`true`** — keep the compiled artefacts |
+| after a git commit or push | `false` | **`true`** — keep the compiled artefacts, and after a commit the overrides of JetStore-owned assets it left out (`keepFiles`, since release 4.1.25) |
 | the `delete_all_workspace_changes` action | **`true`** | `false` — clear everything |
 
 **The doc comments on the `DeleteWorkspaceChanges` and `DeleteAllWorkspaceChanges`
@@ -84,8 +110,19 @@ since the stash was taken is deleted** (`addedSinceStash`, `jets/datatable/wsfil
 the workspace has a stash, the stash has no copy, and the name is not one the stash leaves out on
 purpose (`.git`, `.github`, `.gitignore`, `lookup.db`, `workspace.db`). The confirmation before each
 revert says so. Any other file the stash does not hold is refused with a message, and its override
-is kept. In dev mode the apiserver takes no stash, so a revert is refused, and nothing is deleted,
-unless one was taken by hand under `$WORKSPACES_HOME/ws:stash/`. *Delete/Revert ALL Changes* keeps the
-compiled assets (`wsfile.CompiledAssets`: `workspace.db`, `lookup.db`, `workspace.tgz`, `reports.tgz`),
+is kept.
+
+**In dev mode the apiserver takes the stash afresh at every start, since release 4.1.25**
+(`wsfile.RefreshStash`): it clears `$WORKSPACES_HOME/ws:stash/<workspace>/` and copies the workspace
+again. On the stack each start is a new container, so `StashFiles` alone gives a fresh stash; a
+workstation keeps `WORKSPACES_HOME`, and a stash kept from an earlier start would bring back that
+start's file. Until then dev mode took no stash and every revert was refused. **On a workstation a
+revert returns the file to its state when the apiserver started**: the tree is the developer's own
+checkout and a dev start applies no override, so an edit saved before the start is in the stash and
+stays in the file, while the revert deletes its row. Take it back with git. The stash leaves out
+`.git`, `.github`, `.gitignore`, `lookup.db` and `workspace.db` rather than copying and deleting them.
+Where `WORKSPACES_HOME` is inside a repository, ignore `ws:stash/` there.
+
+*Delete/Revert ALL Changes* keeps the compiled assets (`wsfile.CompiledAssets`: `workspace.db`, `lookup.db`, `workspace.tgz`, `reports.tgz`),
 their rows and their files; until November 2026 it deleted their rows and put the start-up `.tgz` files
 back over the compiled ones.

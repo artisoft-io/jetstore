@@ -3,8 +3,7 @@ import "data_model/jets_model.jr"
 import "data_model/test_looping_model.jr"
 
 main {
-  $max_looping = 5,
-  $max_rule_exec = 100
+  $max_looping = 5
 };
 
 volatile_resource newPerson = "newPerson";

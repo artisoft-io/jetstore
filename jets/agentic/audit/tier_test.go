@@ -30,7 +30,7 @@ var tierCheckConstraints = []string{
 	"remediation_tier_ck",
 }
 
-// Criterion 51's first clause rests on the two operands naming the same
+// The tier gate (a required tier compared against a run's current tier) rests on the two operands naming the same
 // vocabulary. This is what says they do.
 func TestTiersMatchTheGeneratedCheck(t *testing.T) {
 	sql, err := os.ReadFile("agent_audit.sql")

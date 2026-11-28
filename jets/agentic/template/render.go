@@ -13,7 +13,7 @@ import (
 // its template declares required is the *data* failing. The renderer still
 // renders; it reports what was not there. What that buys is that the diagnosis
 // costs the render nothing and [Template.Render] keeps a signature with no
-// error in it, which is what makes criterion 84 the compiler's to enforce.
+// error in it, which is what makes "rendering cannot fail" the compiler's to enforce.
 //
 // **The caller decides what a violation costs.** A caller reproducing
 // `prose.Render` maps a non-empty list to an error; whether the `render`

@@ -131,6 +131,12 @@ type Tab =
        */
       readOnly: boolean;
       /**
+       * The node's `installed_note`, on a file JetStore installs: editable, and
+       * a save of it is a local override. Shown when the file opens and in the
+       * status bar.
+       */
+      installedNote?: string;
+      /**
        * A file *New file* opened, which is not in the workspace until the tab is
        * saved (`AddFiles.tsx`). Its save adds the file rather than saving over
        * one, and it is unsaved until then, empty or not.
@@ -322,9 +328,13 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
             current: file.content,
             size: node.size,
             readOnly: node.read_only === true,
+            ...(node.installed === true && node.installed_note ? { installedNote: node.installed_note } : {}),
           },
         ]);
         setActiveKey(`file:${file.fileName}`);
+        // A file JetStore installs says, before it is edited, what a save of it
+        // becomes.
+        if (node.installed === true && node.installed_note) setStatus(node.installed_note);
       }).finally(() => setBusy(false));
     },
     [guard, setStatus, tabs, workspace, workspaceApi],
@@ -814,6 +824,9 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
                   <span className="spacer" />
                   <span>{languageNameFor(activeTab.label)}</span>
                   {activeTab.readOnly && <span>Read only</span>}
+                  {activeTab.installedNote !== undefined && (
+                    <span title={activeTab.installedNote}>Installed by JetStore</span>
+                  )}
                   <span>{activeTab.current.length.toLocaleString()} chars</span>
                   <span>{activeTab.current !== activeTab.saved ? "Modified" : "Saved"}</span>
                 </>

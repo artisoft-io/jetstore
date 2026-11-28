@@ -59,7 +59,7 @@ import (
 // document every number is a float64 and every date is text. Both render the
 // same way here, which is what makes a template's output independent of how its
 // input was encoded - and is what `TestDecodedDocumentTypesRenderTheSame`
-// asserts on both sides of criterion 82.
+// asserts on both sides of the `prose.Render` and template engine equivalence.
 func ValueText(v any) string {
 	switch x := v.(type) {
 	case nil:

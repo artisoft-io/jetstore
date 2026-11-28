@@ -4,9 +4,9 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
-	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
@@ -44,10 +44,14 @@ func (ctx *S3DeviceWorker) DoWork(mgr *S3DeviceManager, resultCh chan ComputePip
 	resultCh <- ComputePipesResult{PartsCount: count}
 }
 
+// processTask puts one local file to s3, then removes it.
+//
+// The send is retried with awsi.RetrySend, from the start of the file each
+// time. Until 2026-11-27 it was retried six times at 500 ms on any error, with
+// a body that the failed attempt had already read from: a retry after a
+// partial read sent the rest of the file as the whole object.
 func (ctx *S3DeviceWorker) processTask(task *S3Object, _ *S3DeviceManager, resultCh chan ComputePipesResult) error {
 	var cpErr error
-	var putObjInput *s3.PutObjectInput
-	var retry int
 
 	// log.Printf("*** S3DeviceWorker: Put s3 key %s, from local file %s\n",task.FileKey, task.LocalFilePath)
 	// open the local temp file for the writer
@@ -64,24 +68,23 @@ func (ctx *S3DeviceWorker) processTask(task *S3Object, _ *S3DeviceManager, resul
 	if awsi.IsJetStoreBucket(task.ExternalBucket) {
 		task.ExternalBucket = bucketName
 	}
-	putObjInput = &s3.PutObjectInput{
-		Bucket: &task.ExternalBucket,
-		Key:    &task.FileKey,
-		Body:   bufio.NewReader(fileHd),
-	}
-	if len(kmsKeyArn) > 0 {
-		putObjInput.ServerSideEncryption = types.ServerSideEncryptionAwsKms
-		putObjInput.SSEKMSKeyId = &kmsKeyArn
-	}
-	retry = 0
-do_retry:
-	_, err = ctx.s3Uploader.Upload(context.TODO(), putObjInput)
-	if err != nil {
-		if retry < 6 {
-			time.Sleep(500 * time.Millisecond)
-			retry++
-			goto do_retry
+	err = awsi.RetrySend(context.TODO(), fmt.Sprintf("s3://%s/%s", task.ExternalBucket, task.FileKey), func() error {
+		if _, err := fileHd.Seek(0, io.SeekStart); err != nil {
+			return fmt.Errorf("while rewinding local file %s: %w", task.LocalFilePath, err)
 		}
+		putObjInput := &s3.PutObjectInput{
+			Bucket: &task.ExternalBucket,
+			Key:    &task.FileKey,
+			Body:   bufio.NewReader(fileHd),
+		}
+		if len(kmsKeyArn) > 0 {
+			putObjInput.ServerSideEncryption = types.ServerSideEncryptionAwsKms
+			putObjInput.SSEKMSKeyId = &kmsKeyArn
+		}
+		_, err := ctx.s3Uploader.Upload(context.TODO(), putObjInput)
+		return err
+	})
+	if err != nil {
 		cpErr = fmt.Errorf("while copying file to s3: %v", err)
 		goto gotError
 	}

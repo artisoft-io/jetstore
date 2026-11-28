@@ -48,7 +48,7 @@ func (ws *Workspace) LocalDir() (string, error) {
 	return ws.dir, nil
 }
 
-// Sidecar mirrors jets_agentic.meta.json (the A1.6 emitter's shape).
+// Sidecar mirrors jets_agentic.meta.json (the shape `jets-agentic generate` emits).
 type Sidecar struct {
 	Model        string                       `json:"model"`
 	Version      string                       `json:"version"`

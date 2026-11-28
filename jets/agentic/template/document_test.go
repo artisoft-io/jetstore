@@ -130,7 +130,7 @@ func TestTheWorkedDocumentReportsWhatIsMissing(t *testing.T) {
 	}
 }
 
-// TestNothingHereNamesADomain is criterion 81 asserted rather than claimed.
+// TestNothingHereNamesADomain asserts, rather than claims, a domain-free engine.
 // **It is a weak test and is worth having anyway**: it cannot know what a
 // domain word is, so it checks the four names the notation itself uses as the line
 // between the notation and a briefing. A fifth domain word would pass it.

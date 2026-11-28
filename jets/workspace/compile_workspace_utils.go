@@ -15,6 +15,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
 	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/run_reports/tarextract"
+	"github.com/artisoft-io/jetstore/jets/runbook"
 	"github.com/artisoft-io/jetstore/jets/utils"
 	workspace_assets "github.com/artisoft-io/jetstore/jets/workspace_assets"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -81,14 +82,37 @@ func WorkspaceControlFilePath() string {
 // without this one edited README would make every start on a new image
 // compile the workspace instead of taking the image's.
 //
+// **Nor do the runbooks, since 2026-11-27** (runbook.Dir): a runbook and its
+// steps' SQL are read from the workspace when a run starts, and the compile
+// neither reads them nor archives them (workspaceArchivePaths). So a runbook
+// saved or added in the IDE, an override like any other, made every start on a
+// new image compile the workspace for nothing.
+//
+// The other directories no compile reads into workspace.db stay in: reports/ and
+// pipes_config/ are archived into reports.tgz and workspace.tgz, provenance/
+// into workspace.tgz, and user_flows/ and table_configs/ are validated by the
+// compile (validateWorkspaceAssets), which is the gate that refuses an invalid document
+// before it is deployed. process_config/'s SQL is read by update_db, not here,
+// and is kept in on the safe side.
+//
 // Its one consumer is the apiserver's start-up on a new image (server.go,
 // checkWorkspaceVersion): an override that requires a compile makes it compile
 // the workspace under a version of its own instead of taking the image's
 // compiled workspace (startupCompileVersion). The compressed and compiled files
 // (.tgz, .db) are decided before this is asked.
 func overrideRequiresCompile(fileName string) bool {
-	return !wsfile.InDir(fileName, wsfile.WritableMarkdownDir) && !wsfile.IsRootReadme(fileName)
+	for _, dir := range uncompiledDirs {
+		if wsfile.InDir(fileName, dir) {
+			return false
+		}
+	}
+	return !wsfile.IsRootReadme(fileName)
 }
+
+// uncompiledDirs are the workspace directories whose files no compile reads or
+// archives, so that an override of one requires no compile at a start
+// (overrideRequiresCompile).
+var uncompiledDirs = []string{wsfile.WritableMarkdownDir, runbook.Dir}
 
 // Function to pull override workspace files from databse to the
 // container workspace (local copy).

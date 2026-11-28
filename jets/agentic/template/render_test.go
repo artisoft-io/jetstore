@@ -23,7 +23,7 @@ func renderOne(t *testing.T, markup string, doc map[string]any) string {
 //
 // **The second half is the one worth having.** Every construct is total, and a
 // test that only ever feeds it what it wants measures nothing about that: the
-// claim criterion 84 rests on is what happens to a chain whose runtime value is
+// claim that rendering cannot fail rests on what happens to a chain whose runtime value is
 // the wrong kind, and the answer is the empty string rather than a failure.
 func TestTheTenConstructs(t *testing.T) {
 	cases := []struct {
@@ -315,7 +315,7 @@ func TestRequireReportsAndStillRenders(t *testing.T) {
 	}
 }
 
-// TestRenderIsTotal is criterion 84 from the other side: whatever the record
+// TestRenderIsTotal is the compile-only failure rule from the other side: whatever the record
 // is, the render returns. There is no error to check because there is no error
 // in the signature, so what this asserts is that nothing panics and that the
 // output is the specified empty form.

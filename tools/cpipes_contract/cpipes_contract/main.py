@@ -474,6 +474,12 @@ def main(argv: list[str] | None = None) -> int:
             if args.project and not findings:
                 from .project import project as project_template
 
+                # A retired template's documents are on `RetiredAssets`, and the
+                # destination is the asset directory: writing them there would put
+                # back files an install refuses to run beside.
+                if tpl.retired:
+                    print(f"  {path.name}: retired ({tpl.retired}); not projected")
+                    continue
                 beside = path.with_name(path.name.replace(".template.json", ".bindings.json"))
                 if not beside.exists():
                     print(f"  {path.name}: no bindings; not projected")
@@ -533,7 +539,7 @@ def main(argv: list[str] | None = None) -> int:
 
         from .fragments import (
             check_against_matrix,
-            criterion_24,
+            thin_types_kept_whole,
             curate,
             extract,
             recovered_parts,
@@ -564,10 +570,10 @@ def main(argv: list[str] | None = None) -> int:
             print(f"FINDING recovered source unreadable - {finding}", file=sys.stderr)
 
         kept, stats = curate(parts)
-        # Criterion 24 is about what the curation *dropped* from the corpus, so it is
+        # The thin-type rule is about what the curation *dropped* from the corpus, so it is
         # checked before recovered parts are added: an addition is not a loss, and
         # comparing after would report a gain as a violation.
-        thin_lost = criterion_24(parts, kept, args.matrix / "types.csv")
+        thin_lost = thin_types_kept_whole(parts, kept, args.matrix / "types.csv")
 
         # Recovered parts join the *curated* library, not the extraction: library.jsonl
         # stays a faithful record of the live corpus, while the consumable library gets

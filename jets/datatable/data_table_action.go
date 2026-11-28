@@ -931,13 +931,19 @@ func (ctx *DataTableContext) ExecRawQueryMap(dataTableAction *DataTableAction, t
 // Delegates to InsertRows
 func (ctx *DataTableContext) InsertRawRows(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
 	httpStatus = http.StatusOK
-	// Copy Data so to re-use dataTableAction with different sets of Data
+	// Each request row carries one raw_rows buffer, and its parsed rows replace
+	// dataTableAction.Data for the InsertRows call that buffer makes. So the
+	// request rows are held here, by value: until release 4.1.25 this was a
+	// pointer to dataTableAction.Data, so a second request row was read from the
+	// first buffer's parsed rows (refused as missing raw_rows, or an index out of
+	// range when the first buffer had one row), and the process mapping's table
+	// was read from parsed row irow rather than from the buffer's first row.
 	requestTable := dataTableAction.FromClauses[0].Table
-	inData := &dataTableAction.Data
-	for irow := range *inData {
+	inData := dataTableAction.Data
+	for irow := range inData {
 
-		buf := (*inData)[irow]["raw_rows"]
-		userEmail := (*inData)[irow]["user_email"]
+		buf := inData[irow]["raw_rows"]
+		userEmail := inData[irow]["user_email"]
 		if buf == nil || userEmail == nil {
 			log.Printf("Error request is missing raw_rows or user_email from request with Table %s", requestTable)
 			httpStatus = http.StatusInternalServerError
@@ -1034,25 +1040,16 @@ func (ctx *DataTableContext) InsertRawRows(dataTableAction *DataTableAction, tok
 				httpStatus, err = RefusalFor(err2)
 				return
 			}
-			// Put the table name in each row
-			var tableName string
-			client := dataTableAction.Data[irow]["client"]
-			org := dataTableAction.Data[irow]["org"]
-			objectType := dataTableAction.Data[irow]["object_type"]
-			if client != nil && objectType != nil {
-				if org == nil || org == "" {
-					tableName = fmt.Sprintf("%s_%s", client, objectType)
-				} else {
-					tableName = fmt.Sprintf("%s_%s_%s", client, org, objectType)
-				}
-				if tableName != "" {
-					for irow := range dataTableAction.Data {
-						dataTableAction.Data[irow]["table_name"] = tableName
-					}
-				}
+			// Put the table name in each row, from this buffer's first row
+			tableName, derived, err2 := processMappingTableName(dataTableAction.Data[0])
+			if err2 != nil {
+				httpStatus, err = http.StatusBadRequest, err2
+				return
 			}
-			if tableName == "" {
-				tableName = dataTableAction.Data[irow]["table_name"].(string)
+			if derived {
+				for _, row := range dataTableAction.Data {
+					row["table_name"] = tableName
+				}
 			}
 			// Remove existing rows in database
 			stmt := `DELETE FROM jetsapi.process_mapping 
@@ -1073,6 +1070,37 @@ func (ctx *DataTableContext) InsertRawRows(dataTableAction *DataTableAction, tok
 		}
 	}
 	return
+}
+
+// processMappingTableName is the table a pasted process mapping replaces, read
+// from its first row: client_org_object_type, or client_object_type when org is
+// empty, when the row has client and object_type (derived, and then written into
+// every row), else its table_name. A row with neither is refused, naming the
+// fields it lacks, before the mapping's DELETE: table_name was type-asserted and
+// panicked the handler when absent.
+func processMappingTableName(row map[string]any) (tableName string, derived bool, err error) {
+	text := func(k string) string {
+		s, _ := row[k].(string)
+		return s
+	}
+	client, org, objectType := text("client"), text("org"), text("object_type")
+	if client != "" && objectType != "" {
+		if org == "" {
+			return fmt.Sprintf("%s_%s", client, objectType), true, nil
+		}
+		return fmt.Sprintf("%s_%s_%s", client, org, objectType), true, nil
+	}
+	if tableName = text("table_name"); tableName != "" {
+		return tableName, false, nil
+	}
+	var missing []string
+	for _, k := range []string{"client", "object_type", "table_name"} {
+		if text(k) == "" {
+			missing = append(missing, k)
+		}
+	}
+	return "", false, fmt.Errorf("error: the process mapping names no table: it needs client and object_type, or table_name, "+
+		"and its first row has no %s", strings.Join(missing, ", no "))
 }
 
 // InsertRows ------------------------------------------------------

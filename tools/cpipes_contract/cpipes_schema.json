@@ -4132,6 +4132,46 @@
       "title": "ConditionalTransformationSpec",
       "type": "object"
     },
+    "ConditionalTransformationSpecSitePipe": {
+      "additionalProperties": false,
+      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation altogether.",
+      "properties": {
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "then": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TransformationSpecOverrideSitePipe"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The override (type empty) or replacement (type set) applied when the condition holds."
+        },
+        "when": {
+          "$ref": "#/$defs/ExpressionNode",
+          "description": "When is the condition to evaluate, if true then apply the Then spec."
+        }
+      },
+      "required": [
+        "when"
+      ],
+      "title": "ConditionalTransformationSpec",
+      "type": "object"
+    },
     "ConditionalTransformationSpecSortPipe": {
       "additionalProperties": false,
       "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation altogether.",
@@ -6919,7 +6959,8 @@
             {
               "enum": [
                 "chat",
-                "completions"
+                "completions",
+                "generate"
               ],
               "type": "string"
             },
@@ -6928,7 +6969,7 @@
             }
           ],
           "default": null,
-          "description": "The route to call, passed to the backend: on vllm, chat (/v1/chat/completions) or completions (/v1/completions); on ollama, the ollama api, chat or generate. Engine default: chat (builder).",
+          "description": "The route to call, passed to the backend: on vllm, chat (/v1/chat/completions) or completions (/v1/completions); on ollama, the ollama api, chat or generate. Engine default: generate on ollama and chat on vllm (builder).",
           "title": "Api"
         },
         "backend": {
@@ -15249,6 +15290,157 @@
       "title": "SiteOperatorSpec",
       "type": "object"
     },
+    "SitePipe": {
+      "additionalProperties": false,
+      "description": "Runs an operator the deployment supplies rather than JetStore: any type the built-in operators do not name, built through the site operator registry, with its own configuration in site_config. What the operator does is the deployment's to say.",
+      "properties": {
+        "columns": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ColumnMapping"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The column transformations, handed to the factory as specs; the operator builds evaluators from them through OperatorEnv.ColumnEvaluator.",
+          "title": "Columns"
+        },
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "conditional_config": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ConditionalTransformationSpecSitePipe"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Conditions that override fields of this operator or replace it altogether.",
+          "title": "Conditional Config"
+        },
+        "new_record": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Emit a new record rather than augmenting the input one.",
+          "title": "New Record"
+        },
+        "output_channel": {
+          "description": "The channel the operator writes to.",
+          "discriminator": {
+            "mapping": {
+              "memory": "#/$defs/OutputChannelConfigMemory",
+              "output": "#/$defs/OutputChannelConfigOutput",
+              "sql": "#/$defs/OutputChannelConfigSql",
+              "stage": "#/$defs/OutputChannelConfigStage"
+            },
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OutputChannelConfigMemory"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigStage"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigOutput"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigSql"
+            }
+          ],
+          "title": "Output Channel"
+        },
+        "site_config": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SiteOperatorSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Configuration of the site-supplied operator: its error channel, its error cap, and its own configuration document."
+        },
+        "type": {
+          "description": "The operator, naming none of the built-in operators: an unrecognised type is what sends the builder's dispatch to the site operator registry.",
+          "minLength": 1,
+          "not": {
+            "enum": [
+              "ollama",
+              "embed",
+              "vllm",
+              "partition_writer",
+              "map_record",
+              "aggregate",
+              "analyze",
+              "high_freq",
+              "anonymize",
+              "distinct",
+              "shuffling",
+              "group_by",
+              "filter",
+              "sort",
+              "merge",
+              "jetrules",
+              "clustering",
+              "infer",
+              "render",
+              "claim_set_summary"
+            ]
+          },
+          "title": "Type",
+          "type": "string"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExpressionNode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Guard: the transformation is applied only when this evaluates true."
+        }
+      },
+      "required": [
+        "output_channel",
+        "type"
+      ],
+      "title": "TransformationSpecSite",
+      "type": "object"
+    },
     "SortPipe": {
       "additionalProperties": false,
       "description": "Sort the input records in memory, send the sorted records to output channel.",
@@ -21601,6 +21793,78 @@
           ],
           "default": null,
           "description": "Configuration of the shuffling operator."
+        }
+      },
+      "title": "TransformationSpecOverride",
+      "type": "object"
+    },
+    "TransformationSpecOverrideSitePipe": {
+      "additionalProperties": false,
+      "description": "Fragments of transformation operator to override fields of the host transformation operator.",
+      "properties": {
+        "columns": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ColumnMapping"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The column transformations producing the output record.",
+          "title": "Columns"
+        },
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "output_channel": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "memory": "#/$defs/OutputChannelConfigMemory",
+                  "output": "#/$defs/OutputChannelConfigOutput",
+                  "sql": "#/$defs/OutputChannelConfigSql",
+                  "stage": "#/$defs/OutputChannelConfigStage"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/OutputChannelConfigMemory"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigStage"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigOutput"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigSql"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The channel the operator writes to.",
+          "title": "Output Channel"
         }
       },
       "title": "TransformationSpecOverride",

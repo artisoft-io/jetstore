@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * `TextDialog` — the `R-2` fallback for a refused clipboard write.
+ * `TextDialog` — the fallback for a refused clipboard write.
  * What jsdom can observe: the dialog opens
  * with the text in a read-only box, selected, and both ways out close it.
  */

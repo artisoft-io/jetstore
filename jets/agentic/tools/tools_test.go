@@ -1,4 +1,4 @@
-// Criterion 12, second clause: the same three tools reachable from a Go
+// The same three tools reachable from a Go
 // test with no adapter — which is what proves the registry, not MCP, is the
 // interface. The fixture is a real compiled workspace: test_ws plus
 // the installed jets_agentic assets, compiled offline by compile_workspace
@@ -185,7 +185,7 @@ func TestSignaturesAndHandlersAgree(t *testing.T) {
 	}
 }
 
-// Criterion 12, second clause: all three tools through the registry, no
+// All three tools through the registry, no
 // adapter anywhere.
 func TestRegistryDrivesAllThreeTools(t *testing.T) {
 	ws := fixture(t)
@@ -294,7 +294,7 @@ func TestRegistryDrivesAllThreeTools(t *testing.T) {
 	}
 }
 
-// A3.1: the glossary narrows per entity, inlines vocabularies in full, and
+// The glossary narrows per entity, inlines vocabularies in full, and
 // reports the undocumented rather than omitting them.
 func TestGlossary(t *testing.T) {
 	ws := fixture(t)

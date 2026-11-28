@@ -1584,7 +1584,19 @@ func AssertCastRow(config *JetrulesSpec, rdfSession JetRdfSession, cr *CastRow) 
 	return assertInputRow(config, rdfSession, &row, map[string][]string{cr.assertType: cr.layout})
 }
 
+// NewRdfNode returns the error of a node the engine did not create (NodeErr).
 func NewRdfNode(inValue any, re JetResourceManager) (RdfNode, error) {
+	node, err := newRdfNode(inValue, re)
+	if err != nil {
+		return nil, err
+	}
+	if err = NodeErr(node); err != nil {
+		return nil, err
+	}
+	return node, nil
+}
+
+func newRdfNode(inValue any, re JetResourceManager) (RdfNode, error) {
 	switch vv := inValue.(type) {
 	case string:
 		return re.NewTextLiteral(vv), nil

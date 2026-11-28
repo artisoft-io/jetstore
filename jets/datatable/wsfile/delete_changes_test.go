@@ -175,7 +175,7 @@ func TestDeleteFileChangeDeletesAFileAddedSinceTheStash(t *testing.T) {
 func TestDeleteFileChangeKeepsTheRowWhenThereIsNoStash(t *testing.T) {
 	pool := revertDB(t)
 	ws, file := stashScenario(t, "pristine")
-	// No StashFiles: as on a workstation, every file is absent from the stash.
+	// No StashFiles: as on a workspace never stashed, every file is absent from the stash.
 	added := filepath.Join(filepath.Dir(file), "added_later.json")
 	if err := os.WriteFile(added, []byte("the user's file"), 0644); err != nil {
 		t.Fatal(err)

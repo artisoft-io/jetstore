@@ -56,8 +56,7 @@ type span struct {
 // carries; and the entity's `Briefing_Disclaimer` value is removed if it is
 // still there, which covers a caller that assembled the artefact some other way.
 // **The notice must go before anything counts advisory language**: it is the one
-// string in the artefact that must carry imperative language, and A section 8.3
-// says so in terms.
+// string in the artefact that must carry imperative language, by design.
 func stripNotice(f *FactSet, s string) string {
 	_, body := prose.SplitNotice(s)
 	if f != nil && strings.TrimSpace(f.Disclaimer) != "" {

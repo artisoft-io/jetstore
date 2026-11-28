@@ -169,7 +169,7 @@ func TestInputDocumentExample(t *testing.T) {
 	}
 }
 
-// Criterion 5: an unknown key is refused with its path, at every depth.
+// An unknown key is refused with its path, at every depth.
 func TestUnknownKeysRefusedWithPath(t *testing.T) {
 	cases := []struct {
 		name, path, hint string
@@ -214,7 +214,7 @@ func TestUnknownKeysRefusedWithPath(t *testing.T) {
 	}
 }
 
-// Criterion 5: a pipeline-only field is refused with its path (definition §3.2).
+// A pipeline-only field is refused with its path.
 func TestPipelineOnlyFieldsRefused(t *testing.T) {
 	fields := map[string]any{
 		"pool_size": 2, "max_input_count": 10, "max_rete_sessions_saved": 1,
@@ -250,7 +250,7 @@ func TestPipelineOnlyFieldsRefused(t *testing.T) {
 	}
 }
 
-// Criterion 5: legacy, compare_engines and expect below the top level are
+// `legacy`, `compare_engines` and `expect` below the top level are
 // refused with the path, naming where they belong.
 func TestTopLevelFieldsMisplaced(t *testing.T) {
 	cases := []struct {

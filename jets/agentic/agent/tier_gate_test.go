@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// Criterion 51: a required tier is compared against a run's current tier, the
+// The tier gate: a required tier is compared against a run's current tier, the
 // comparison refuses, and the refusal is in the audit record.
 
 // tieredRegistry is a stubRegistry that can also say what a tool requires, so
@@ -43,7 +43,7 @@ func tieredLoop(reg Verifier, rec Auditor, gate TierGate) *Loop {
 
 // The whole criterion in one test: a tool requiring T3, a run at T1, a refusal,
 // and the refusal on the transcript with both operands.
-func TestCriterion51_ARunBelowTheRequiredTierIsRefused(t *testing.T) {
+func TestTierGate_ARunBelowTheRequiredTierIsRefused(t *testing.T) {
 	reg := &tieredRegistry{
 		stubRegistry: stubRegistry{reports: []any{&tools.ValidationReport{Valid: true}}},
 		minTier:      "T3",

@@ -222,7 +222,7 @@ func encodeFixture(t *testing.T, encoding string) string {
 // walks of the same graph. Before the sort landed this failed on the first
 // iteration that shuffled; after it, one distinct string is the whole
 // assertion - and it covers both shipped arms, because the TOON and the JSON
-// read the same map (criterion 76).
+// read the same map.
 func TestEncodedEntityDoesNotDependOnIterationOrder(t *testing.T) {
 	for _, encoding := range []string{"json", "toon"} {
 		seen := map[string]int{}

@@ -109,7 +109,8 @@ as a field, so the S3 layout carries the metadata:
 
 `vendor` is also stored as `org`. A missing `year`, `month` or `day` is 1970, 1 or 1. **A value that
 is present and not a number is logged and becomes 0**, because `strconv.Atoi` returns 0 with its
-error. Either way the file is not refused: it lands in an
+error; the 0 is kept because the readers of a key's date (`utils.FileKeyDate`) tell a bad date from a
+real one by it. Either way the file is not refused: it lands in an
 unexpected source period. `doFileKey` then sets `size` from the S3 event.
 
 **A site handler can run here.** `JETS_REGISTER_KEY_LAMBDA_ENTRY` can point the Lambda at a site main
@@ -127,10 +128,43 @@ later, inside `RegisterFileKeys`, so a hook that matches on any of the three mus
 the S3 event names when the bucket is versioned, and reads it as one `SchemaProviderSpec` or a list
 of them. `RegisterSchemaEvent` (`jets/datatable/pipeline_execution.go`) sends a
 `pipeline_coordinator_map` event to its own path; any other becomes one row with `year`, `month` and
-`day` from its `file_date` (1970-01-01 when it has none or it does not parse), the event itself as
-`schema_provider_json`, and `request_id` from the event or its `${REQUEST_ID}` env entry. The action
-is marked `IsSchemaEvent`. **A schema event that registers nothing is an error**, naming the reason,
+`day` from its `file_date`, the event itself as `schema_provider_json`, and `request_id` from the event or its `${REQUEST_ID}` env entry. The action
+is marked `IsSchemaEvent`. **An event with no `file_date`, or one that does not parse, takes the date
+its `file_key` carries** as `year=`, `month=` and `day=` components (`utils.FileKeyDate`; month and day
+default to 1), and 1970-01-01 only when the key carries no valid date either; a `file_date` that does
+not parse is logged with its value. Until release 4.1.25 such an event registered under 1970-01-01
+whatever its key carried. **A schema event that registers nothing is an error**, naming the reason,
 where a file-key row that registers nothing is not.
+
+**A `pipeline_coordinator_map` event** registers each of its `coordinated_pipes_map` steps as a schema
+event and starts its `post_map_event` once **every run the steps started has finished**: the runs
+whose main input's `schema_provider_json` carries the map's `request_id`
+(`startPostMapWhenDone`, `jets/datatable/pipeline_coordinator.go`). A step starts one run per
+automated pipeline configuration on each of its source's domain keys, so two runs, or none; the map
+waits for all of them, and a map whose steps start no run starts its post map event when its
+registration ends. The map row is `registering` until its last step is registered, then
+`in_progress`, with `nbr_tasks` the number of runs started; a run that fails, or ends interrupted,
+fails the map and the post map event does not start. Until release 4.1.25 the post map event started
+when the number of finished runs reached the number of steps, so a step with two runs started it
+early and a step with none left it waiting for ever.
+
+**A run of the map has finished when its status update has recorded it**, as its
+`pipeline_coordinator_map_items` row, which the status update writes after registering the run's
+outputs. A run that registers its `db_table` with its own schema provider (`${REGISTER_DB_TABLE}`)
+starts, on that registration, a chained run of the same map, so the map waits for the chained run
+too. Until release 4.1.25 a run counted as finished once its status was written, before its outputs
+were registered, so when it was the map's last run, or a sibling finished in between, the post map
+event started before the chained run existed.
+
+**A map's rows go with the last of its sessions.** Its item rows go with their runs' sessions and
+its map row with the last of its items. The map's lock, taken once where the post map event starts
+or the failure is announced, goes with the session that took it; when that is the map's registration
+(`register_map`, a map whose steps started no run) or a step that failed to register
+(`register_step_N`), and for the map row of a map that recorded no item, they go when the deletion
+of a session the map touched leaves no item and no live registration naming the map's `request_id`
+(`finishedRequestsStmt`, `jets/sessionpurge/coordinator.go`). A map still `registering` is kept.
+Until release 4.1.25 those rows were never deleted. A map whose first step fails to register, having
+registered nothing, has no session to go with and is still kept.
 
 **4 — Every row is read before any is written.** `RegisterFileKeys`
 (`jets/datatable/register_file_key_action.go`) first passes every row of the request through

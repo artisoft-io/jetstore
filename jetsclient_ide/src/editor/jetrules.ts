@@ -61,6 +61,9 @@ const LOGICAL_OPERATORS = new Set(["and", "or", "not"]);
  * `support.type.property-name.jetrule` — the `$`-prefixed configuration keys. The
  * grammar enumerates them rather than matching `$\w+`, so an unknown `$foo` stays
  * unhighlighted and reads as the typo it probably is. That is worth preserving.
+ * They are the `$` tokens of `jets/compilerv2/compiler/JetRule.g4` the compiler
+ * accepts: `$max_rule_exec` is a token there and a compile error since jetstore#2672,
+ * so it is left out and reads as an unknown key.
  */
 const CONFIG_PROPERTIES = new Set([
   "base_classes",
@@ -69,7 +72,6 @@ const CONFIG_PROPERTIES = new Set([
   "grouping_properties",
   "as_table",
   "max_looping",
-  "max_rule_exec",
   "input_types",
   "main_rule_sets",
   "table_name",

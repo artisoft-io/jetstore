@@ -458,6 +458,17 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		}
 	}
 
+	// Register the run's outputs before the coordinator map counts the run as
+	// finished: an output registered with the run's schema provider
+	// (${REGISTER_DB_TABLE}) starts a chained run of the same map, whose row
+	// must exist before the map can see it has no run left (startPostMapWhenDone).
+	// The map is updated even when the registration fails, as it was before the
+	// registration, and the registration's error is returned after.
+	var registerErr error
+	if !isJetsLoader {
+		registerErr = ca.registerRunOutputs(sessionId, schemaProviderJson)
+	}
+
 	// Check if request_id of schema provider is linked to a pipeline_coordinator_map, if so
 	// update the coordination status in pipeline_coordinator_map tbl based on
 	// the status of the execution (failed, completed, etc).
@@ -471,49 +482,8 @@ func (ca *StatusUpdate) CoordinateWork() error {
 			return err
 		}
 	}
-
-	if !isJetsLoader {
-		// Check for pending tasks ready to start
-		ctx := NewDataTableContext(ca.Dbpool, ca.UsingSshTunnel, ca.UsingSshTunnel, nil, nil)
-		err = ctx.StartPendingTasks()
-		if err != nil {
-			log.Printf("%s Warning: while starting pending task: %v", sessionId, err)
-			err = nil
-		}
-		// Register outTables
-		outTables, err := GetOutputTables(ca.Dbpool, ca.PeKey)
-		if err != nil {
-			log.Printf("%s while getting output tables: %v", sessionId, err)
-			return err
-		}
-		// Register out tables
-		if outputsAreUsable(ca.Status) && len(outTables) > 0 && getOutputRecordCount(ca.Dbpool, ca.PeKey) > 0 {
-			err = ca.RegisterDomainTables()
-			if err != nil {
-				log.Printf("%s while registrying output tables: %v", sessionId, err)
-				return fmt.Errorf("while registrying out tables to input_registry: %v", err)
-			}
-		}
-		registerDbTable := ca.CpipesEnv["${REGISTER_DB_TABLE}"]
-		log.Println("Env var ${REGISTER_DB_TABLE}:", registerDbTable)
-		if registerDbTable != nil && outputsAreUsable(ca.Status) {
-			doIt, err := utils.ToIntWithEnv(registerDbTable, ca.CpipesEnv)
-			if err != nil {
-				err := fmt.Errorf("%s while parsing ${REGISTER_DB_TABLE} value '%v' to int: %v. Will skip registering db_table to input_registry", sessionId, registerDbTable, err)
-				log.Println(err)
-				return err
-			}
-			if doIt != 0 {
-				// Register db_table and session in input_registry
-				err = ca.RegisterDbTableInputSource(schemaProviderJson)
-				if err != nil {
-					log.Printf("%s while registering db_table to input_registry: %v", sessionId, err)
-					return fmt.Errorf("while registering db_table to input_registry: %v", err)
-				}
-			} else {
-				log.Printf("%s Skipping registering db_table to input_registry since ${REGISTER_DB_TABLE} is set to %v which is not a non zero int", sessionId, registerDbTable)
-			}
-		}
+	if registerErr != nil {
+		return registerErr
 	}
 
 	// Lock the session in session_registry
@@ -543,6 +513,53 @@ func (ca *StatusUpdate) CoordinateWork() error {
 	_, err = ca.Dbpool.Exec(context.Background(), stmt, ca.PeKey)
 	if err != nil {
 		log.Printf("Failed locking the session, must be already locked: %v (ignoring the error)", err)
+	}
+	return nil
+}
+
+// registerRunOutputs starts the pending tasks and registers a run's outputs in
+// input_registry, the domain tables of its process and, with
+// ${REGISTER_DB_TABLE}, its db_table, starting the automated pipelines each is
+// ready for. It is CoordinateWork's step for a run that is not a loader.
+func (ca *StatusUpdate) registerRunOutputs(sessionId, schemaProviderJson string) error {
+	// Check for pending tasks ready to start
+	ctx := NewDataTableContext(ca.Dbpool, ca.UsingSshTunnel, ca.UsingSshTunnel, nil, nil)
+	if err := ctx.StartPendingTasks(); err != nil {
+		log.Printf("%s Warning: while starting pending task: %v", sessionId, err)
+	}
+	// Register outTables
+	outTables, err := GetOutputTables(ca.Dbpool, ca.PeKey)
+	if err != nil {
+		log.Printf("%s while getting output tables: %v", sessionId, err)
+		return err
+	}
+	// Register out tables
+	if outputsAreUsable(ca.Status) && len(outTables) > 0 && getOutputRecordCount(ca.Dbpool, ca.PeKey) > 0 {
+		err = ca.RegisterDomainTables()
+		if err != nil {
+			log.Printf("%s while registrying output tables: %v", sessionId, err)
+			return fmt.Errorf("while registrying out tables to input_registry: %v", err)
+		}
+	}
+	registerDbTable := ca.CpipesEnv["${REGISTER_DB_TABLE}"]
+	log.Println("Env var ${REGISTER_DB_TABLE}:", registerDbTable)
+	if registerDbTable != nil && outputsAreUsable(ca.Status) {
+		doIt, err := utils.ToIntWithEnv(registerDbTable, ca.CpipesEnv)
+		if err != nil {
+			err := fmt.Errorf("%s while parsing ${REGISTER_DB_TABLE} value '%v' to int: %v. Will skip registering db_table to input_registry", sessionId, registerDbTable, err)
+			log.Println(err)
+			return err
+		}
+		if doIt != 0 {
+			// Register db_table and session in input_registry
+			err = ca.RegisterDbTableInputSource(schemaProviderJson)
+			if err != nil {
+				log.Printf("%s while registering db_table to input_registry: %v", sessionId, err)
+				return fmt.Errorf("while registering db_table to input_registry: %v", err)
+			}
+		} else {
+			log.Printf("%s Skipping registering db_table to input_registry since ${REGISTER_DB_TABLE} is set to %v which is not a non zero int", sessionId, registerDbTable)
+		}
 	}
 	return nil
 }

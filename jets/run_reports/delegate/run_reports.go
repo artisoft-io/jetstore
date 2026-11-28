@@ -337,24 +337,29 @@ func (c *outputRecordCounts) get() (int64, int64) {
 // report (reportProperties) and for a statement (statementProperties).
 // fileKeyComponents is the file key as runWhen reads it (runWhenComponents).
 //
-// A criterion that names a fileKeyComponent holds when the file key has that
-// component, the component equals hasValue if that is set, and differs from
-// hasNotValue if that is set. A criterion with hasOutputRecordsOnly also fails
-// when the session read records and wrote none. A criterion that names no
-// component checks only hasOutputRecordsOnly; one that names none and checks
-// nothing is a configuration error, refused before any report runs
-// (directives.ReportDirectives.CheckRunWhen), and fails here should it get
-// this far.
+// A criterion that names a fileKeyComponent holds when the component equals
+// hasValue if that is set, and differs from hasNotValue if that is set; one
+// that sets neither holds when the file key has the component. A criterion
+// with hasOutputRecordsOnly also fails when the session read records and wrote
+// none. A criterion that names no component checks only hasOutputRecordsOnly;
+// one that names none and checks nothing is a configuration error, refused
+// before any report runs (directives.ReportDirectives.CheckRunWhen), and fails
+// here should it get this far.
 //
 // A component that is not text is compared by its decimal text: year, month
 // and day are numbers once the file key is read (utils.SplitFileKeyIntoComponents),
 // and for a number hasValue and hasNotValue may carry leading zeros, so month 3
 // equals both "3" and "03". Text is compared exactly.
 //
-// year, month and day are judged by what the file key carries
-// (runWhenComponents): one the key does not carry has no value, so hasValue
-// does not hold and hasNotValue does. Any other component the key does not
-// carry fails the criterion, hasNotValue or not.
+// A component the file key does not carry has no value, so hasValue does not
+// hold and hasNotValue does: a criterion with only hasNotValue holds, and one
+// with hasValue, or with no value at all, fails. year, month and day are
+// judged by what the file key carries (runWhenComponents), so one the key does
+// not carry, or carries as something other than a number, is absent too.
+//
+// Until 2026-11-27 only year, month and day were read so: any other component
+// the key did not carry failed the criterion, hasNotValue included, so a
+// report guarded by hasNotValue on a component did not run for a key without it.
 func runWhenMet(criteria []RunWhenCriteria, fileKeyComponents map[string]interface{}, counts *outputRecordCounts) (bool, string) {
 	for i := range criteria {
 		c := &criteria[i]
@@ -380,9 +385,9 @@ func runWhenMet(criteria []RunWhenCriteria, fileKeyComponents map[string]interfa
 func componentMet(c *RunWhenCriteria, fileKeyComponents map[string]interface{}) (bool, string) {
 	value, ok := fileKeyComponents[c.FileKeyComponent]
 	if !ok {
-		// A date component the key does not carry has no value: it differs
-		// from any hasNotValue and equals no hasValue.
-		if isDefaultedComponent(c.FileKeyComponent) && len(c.HasValue) == 0 && len(c.HasNotValue) > 0 {
+		// A component the key does not carry has no value: it differs from
+		// any hasNotValue and equals no hasValue.
+		if len(c.HasValue) == 0 && len(c.HasNotValue) > 0 {
 			return true, ""
 		}
 		return false, fmt.Sprintf("the file key has no component %q", c.FileKeyComponent)
@@ -406,27 +411,32 @@ func componentMet(c *RunWhenCriteria, fileKeyComponents map[string]interface{}) 
 // does not carry instead (runWhenComponents).
 var defaultedComponents = []string{"year", "month", "day"}
 
-func isDefaultedComponent(name string) bool {
-	for _, d := range defaultedComponents {
-		if d == name {
-			return true
-		}
-	}
-	return false
-}
-
 // runWhenComponents is the file key as runWhen reads it: FileKeyComponents
 // without the defaulted year, month or day the file key does not carry
-// (utils.FileKeyCarries). FileKeyComponents itself is left as it is, since
-// the reports read their defaults.
+// (utils.FileKeyComponent), and without one it carries that is not a number.
+// FileKeyComponents itself is left as it is, since the reports read their
+// defaults.
 //
 // Until 2026-11-14 runWhen read FileKeyComponents, so a criterion on month
 // with hasValue "1" held for a key with no month at all.
+//
+// A year, month or day that is not a number (month=ab) is read by
+// utils.SplitFileKeyIntoComponents as 0, and until 2026-11-27 runWhen read it
+// so too: a criterion on month with hasValue "0" held for it, and one with
+// hasNotValue "0" failed. runWhen now treats it as absent, so hasValue does not
+// hold and hasNotValue does, and the run logs the value it set aside.
 func (ca *CommandArguments) runWhenComponents() map[string]interface{} {
 	var components map[string]interface{}
 	for _, name := range defaultedComponents {
-		if _, set := ca.FileKeyComponents[name]; !set || utils.FileKeyCarries(ca.FileKey, name) {
+		if _, set := ca.FileKeyComponents[name]; !set {
 			continue
+		}
+		text, carried := utils.FileKeyComponent(ca.FileKey, name)
+		if carried {
+			if _, err := strconv.Atoi(text); err == nil {
+				continue
+			}
+			log.Printf("runWhen reads file key component %s as absent: its value %q is not a number", name, text)
 		}
 		if components == nil {
 			components = make(map[string]interface{}, len(ca.FileKeyComponents))

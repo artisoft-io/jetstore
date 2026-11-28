@@ -71,8 +71,8 @@ func eventTypes(t *testing.T, pool *pgxpool.Pool, runId string) []string {
 	return out
 }
 
-// Criterion 16, first clause: a whole run is on the transcript, in order.
-func TestCriterion16_RunIsAuditableEndToEnd(t *testing.T) {
+// A whole run is on the transcript, in order.
+func TestRecorder_RunIsAuditableEndToEnd(t *testing.T) {
 	pool := testPool(t)
 	rec := newRun(t, pool)
 
@@ -103,7 +103,7 @@ func TestCriterion16_RunIsAuditableEndToEnd(t *testing.T) {
 		}
 	}
 
-	// The run row carries what it spent, which is what criterion 17 will read.
+	// The run row carries what it spent, which is what the budget reads.
 	var status string
 	var spend int
 	if err := pool.QueryRow(context.Background(),
@@ -116,11 +116,11 @@ func TestCriterion16_RunIsAuditableEndToEnd(t *testing.T) {
 	}
 }
 
-// Criterion 16, second clause and the point of the contract: the intent is
+// The point of the contract: the intent is
 // durable before anything acts. The model call is what "acting" means here, so
 // a client that panics on its first call stands in for the process dying at
 // exactly the worst moment.
-func TestCriterion16_IntentSurvivesAKillBeforeTheFirstCall(t *testing.T) {
+func TestRecorder_IntentSurvivesAKillBeforeTheFirstCall(t *testing.T) {
 	pool := testPool(t)
 	rec := newRun(t, pool)
 

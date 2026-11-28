@@ -313,8 +313,10 @@ def _walk_bindings(context: dict) -> tuple[list[tuple[str, object]], list[str]]:
     """`(scalar leaves, object-valued bindings)`, both as dotted paths.
 
     Cross-checked against a census, which counted these by hand from the same three
-    files: 1/3/21 scalars and 0/0/8 objects for `map_claim_load_stages`, `qc_metrics`
-    and `qc_report`. A traversal that disagrees with a count derived another way is
+    files: 1/3/24 scalars and 0/0/8 objects for `map_claim_load_stages`, `qc_metrics`
+    and `qc_report`. The census counted 21 for `qc_report`; the template has gained
+    three scalar sites since, and `tests_project.py` asserts the current counts and
+    says when each moved. A traversal that disagrees with a count derived another way is
     wrong until shown otherwise — the lesson of the first corpus walk, which handled
     one level of list nesting and reported zero `where` clauses where `grep -c` finds
     136.

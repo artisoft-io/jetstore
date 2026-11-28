@@ -188,30 +188,52 @@ def test_the_complement_branch_joins_every_occurrence_of_its_union():
         )
 
 
-def test_a_complement_token_is_in_no_bundle_and_that_is_deliberate():
-    """A bundle groups operators by what they are *for*, and nobody here knows.
+def test_a_complement_token_is_in_a_bundle_of_its_own():
+    """A site operator is in a bundle, and the bundle names none of them.
 
-    `test_every_admitted_operator_has_a_bundle` reads the discriminator mapping,
-    which a complement token is absent from by construction, so that rule stays
-    silent here rather than being satisfied. Saying so is the point: the silence
-    is a decision - a site operator's meaning belongs to the deployment that
-    wrote it, so no bundle in this repository can describe one - and not an
-    omission for someone to tidy up.
+    **Reversed 2026-11-27.** This test asserted the opposite, that a complement
+    token is in no bundle by decision: a site operator's meaning belongs to the
+    deployment that wrote it, so no bundle here could describe what it is for.
+    That much still holds, and the bundle does not try. What the old position cost
+    was `cpipes-contract bundles` failing on every live config that runs a site
+    operator, a check that exists to accept what JetStore runs refusing it. So the
+    complement token has a bundle of its own, which says only how such an operator
+    is configured, and covers every site token by being the complement rather than
+    by listing them. `test_every_admitted_operator_has_a_bundle` reads the
+    discriminator mapping, which a complement token is still absent from.
     """
-    bundled = {r["type_token"] for r in _rows("bundle_members.csv")}
+    kind = {r["bundle"]: r["applies_to"] for r in _rows("bundles.csv")}
+    bundle_of = {r["type_token"]: r["bundle"] for r in _rows("bundle_members.csv")}
     for row in _complement_rows():
-        assert row["type_token"] not in bundled
-        assert row["type_token"] not in DEFS[row["go_struct"]]["discriminator"]["mapping"]
+        token = row["type_token"]
+        assert token in bundle_of, f"{token} is in no bundle"
+        bundle = bundle_of[token]
+        assert kind[bundle] == row["go_struct"], bundle
+        assert token not in DEFS[row["go_struct"]]["discriminator"]["mapping"]
+        # The bundle's own schema is the complement branch's: a string naming none
+        # of the built-ins, not a constant.
+        assert DEFS[bundle]["properties"]["type"].get("not") == DEFS[row["defs_name"]][
+            "properties"
+        ]["type"]["not"], bundle
+        others = [r["bundle"] for r in _rows("bundle_members.csv") if r["bundle"] == bundle]
+        assert others == [bundle], f"{bundle} has members besides {token}"
 
 
 def test_every_bundle_admits_exactly_its_own_operator():
-    """A pipe bundle names one operator, so its discriminator is that token alone."""
+    """A pipe bundle names one operator, so its discriminator is that token alone.
+
+    The site bundle is the exception that proves the rule: its one member is the
+    complement token, so its discriminator is the complement rather than a constant
+    (`test_a_complement_token_is_in_a_bundle_of_its_own`).
+    """
     kind = {r["bundle"]: r["applies_to"] for r in _rows("bundles.csv")}
     for row in _rows("bundle_members.csv"):
         bundle = row["bundle"]
         if kind.get(bundle) != "TransformationSpec":
             continue
         assert bundle in DEFS, f"{bundle} is in no $defs"
+        if row["type_token"].startswith("~"):
+            continue
         const = DEFS[bundle]["properties"]["type"].get("const")
         assert const == row["type_token"], f"{bundle}: type const is {const!r}"
 
@@ -219,6 +241,37 @@ def test_every_bundle_admits_exactly_its_own_operator():
 def test_the_infer_family_fragments_validate_against_their_bundles():
     for bundle, doc in VALID.items():
         assert errors(bundle, doc) == [], f"{bundle}: {[e.message for e in errors(bundle, doc)]}"
+
+
+def test_the_infer_operator_takes_each_backend_s_api():
+    """`InferSpec.api` is the union of the two backends' routes.
+
+    `ResolveInferBackend` passes `api` to the operator its backend resolves to,
+    unchanged: `generate` and `chat` on ollama, `chat` and `completions` on vllm, each
+    checked by that operator's builder. The model allowed only the vllm pair until
+    2026-11-27, so a document asking ollama for `generate` - its own default - was
+    refused by the contract and accepted by JetStore.
+    """
+    for api in ("chat", "completions", "generate"):
+        doc = copy.deepcopy(VALID["InferPipe"])
+        doc["infer_config"]["api"] = api
+        assert errors("InferPipe", doc) == [], api
+    doc = copy.deepcopy(VALID["InferPipe"])
+    doc["infer_config"]["api"] = "embeddings"
+    assert errors("InferPipe", doc), "an api neither backend takes was accepted"
+
+
+def test_a_site_operator_validates_against_the_site_bundle():
+    """Any type the built-ins do not name, its own configuration under `site_config.config`."""
+    doc = {
+        "type": "a_deployment_operator",
+        "site_config": {"config": {"anything": ["the deployment's own"]}},
+        "output_channel": {"name": "o", "channel_spec_name": "c"},
+    }
+    assert errors("SitePipe", doc) == [], [e.message for e in errors("SitePipe", doc)]
+    builtin = copy.deepcopy(doc)
+    builtin["type"] = "map_record"
+    assert errors("SitePipe", builtin), "the site bundle admitted a built-in operator"
 
 
 def test_a_bundle_refuses_an_invented_field_name():

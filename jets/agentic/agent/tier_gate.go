@@ -18,9 +18,9 @@ import (
 //
 // # Two required tiers exist and only one is reachable from here
 //
-// Gap 7b's row is about `Remediation.autonomy_tier_required`
+// The remediation tier is `Remediation.autonomy_tier_required`
 // (`autonomy_tier_required`, tools/jets_agentic/jets_agentic/model.py:1009).
-// There is no remediation executor — criterion 47 records that as deliberate —
+// There is no remediation executor, deliberately,
 // so there is no call site for it. What *is* reachable at the loop's enforcement
 // point is the other one: `Signature.MinTier`
 // (`MinTier`, jets/agentic/tools/registry.go:30), carried from the start and

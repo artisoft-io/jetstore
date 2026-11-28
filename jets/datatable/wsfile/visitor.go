@@ -37,10 +37,16 @@ type WorkspaceNode struct {
 	CompiledView string `json:"compiled_view,omitempty"`
 	// ReadOnly is set on file nodes the IDE shows and does not save (IsReadOnly,
 	// sections.go), and omitted everywhere else. 2026-10-27.
-	ReadOnly    bool              `json:"read_only,omitempty"`
-	RoutePath   string            `json:"route_path"`
-	RouteParams map[string]string `json:"route_params"`
-	Children    *[]*WorkspaceNode `json:"children"`
+	ReadOnly bool `json:"read_only,omitempty"`
+	// Installed is set on a file JetStore installs into the workspace
+	// (markInstalledAssets, installed_assets.go), which stays editable, and
+	// InstalledNote says what the install does to it and what a save of it
+	// becomes. Both omitted otherwise. Added 2026-11-27 (JM-389).
+	Installed     bool              `json:"installed,omitempty"`
+	InstalledNote string            `json:"installed_note,omitempty"`
+	RoutePath     string            `json:"route_path"`
+	RouteParams   map[string]string `json:"route_params"`
+	Children      *[]*WorkspaceNode `json:"children"`
 }
 
 func VisitDirWrapper(root, dir, dirLabel string, filters *[]string, workspaceName string) (*WorkspaceNode, error) {
@@ -104,18 +110,18 @@ func visitChildren(root, relativeRoot, dir string, filters *[]string, workspaceN
 // Note: This function cannot be called recursively, otherwise it will interrupt WalDir
 //
 // A section directory that does not exist yields an empty section rather than an
-// error, and that is a deliberate change of failure mode (task F.0a, 2026-08-23).
+// error, and that is a deliberate change of failure mode (2026-08-23).
 //
 // The sections were hard-coded in workspace_data_table_action.go, one
 // VisitDirWrapper call each — they are WorkspaceSections in sections.go since
-// C.1, 2026-08-25 — and before this change a missing directory made
+// 2026-08-25 — and before this change a missing directory made
 // WalkDir invoke its callback with a stat error, which the callback returned,
 // which failed the whole workspace_file_structure request. **One absent folder
 // therefore emptied the IDE's entire file tree, not its own heading.** The
 // process_sequence removal earlier the same day had to be sequenced around that
 // blast radius, and its comment says so.
 //
-// It was not hypothetical by then: S.3 added the `user_flows` section, and no
+// It was not hypothetical by then: the `user_flows` section had been added, and no
 // workspace in the corpus has a `user_flows/` directory — all four lack one at
 // the commits this branch pins. The tree was
 // failing for every workspace, and it read as a server error rather than as a

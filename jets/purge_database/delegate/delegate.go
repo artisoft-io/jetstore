@@ -547,7 +547,7 @@ func listed(ids []string) string {
 // would otherwise encode it by its wall clock in its own location.
 //
 // A dry run deletes in a transaction it rolls back, so it counts what a real
-// run would delete and writes nothing (JM-349: it once deleted for real).
+// run would delete and writes nothing (it once deleted for real).
 func purgeRulesUnitTestRuns(dbpool *pgxpool.Pool, purgeFrom time.Time, dryRun bool) (runs, checks int64) {
 	err := ageTx(dbpool, dryRun, func(ctx context.Context, tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, `DELETE FROM jetsapi.rules_unit_test_check WHERE execution_key IN (

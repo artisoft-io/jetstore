@@ -35,7 +35,6 @@ func TestWorkspaceDBIsReproducible(t *testing.T) {
 	}
 	source := imports.String() + `
 main {
-  $max_rule_exec = 5000,
   $max_looping = 5,
   $input_types = [ex:Item]
 };
