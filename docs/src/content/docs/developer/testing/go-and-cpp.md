@@ -154,9 +154,8 @@ FAIL    github.com/artisoft-io/jetstore/jets/bridge [build failed]
 ```
 
 The `#cgo` directives in `jets/bridge/bridge.go` look for the library in `build/jets` of the
-checkout, then in `/usr/local/go/build/jets` and `/app/jets` (the second is where the builder image
-puts it, `dockerfiles/Dockerfile.cpipes_builder`), and then the
-linker looks in its default path (`ldconfig -p | grep libjets` shows what is there). **A checkout with
+checkout, then in `/app/jets` (where the builder image puts it, `dockerfiles/Dockerfile.cpipes_builder`),
+and then the linker looks in its default path (`ldconfig -p | grep libjets` shows what is there). **A checkout with
 no `build/jets` of its own, such as a git worktree, falls through to the last of these**, and links
 whatever `libjets.so` another checkout left there. The failure names the first function the old
 library lacks, not the library, so it reads like a bug in the code. Build the library in this

@@ -5,7 +5,7 @@
 #
 # Why it is needed. A Go package that imports jets/bridge links libjets through
 # cgo, and jets/bridge/bridge.go searches build/jets in this checkout, then the
-# image paths /usr/local/go/build/jets and /app/jets, then the linker's default
+# image path /app/jets, then the linker's default
 # path. A checkout with no build/jets of its own (a git worktree, typically) falls
 # through to that default path, and a libjets.so found there from an older
 # checkout links without a word until a newer function is missing:
