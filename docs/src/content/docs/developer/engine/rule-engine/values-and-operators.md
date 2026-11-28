@@ -312,9 +312,36 @@ pass for a case that fails a session, and every row of the cases above calls it 
 overloads that only gave null are gone. A grid of those operators over 33 operand values, each pair
 with a row, counts **3,641 cells that threw from a type mismatch and none now** (2026-10-24; 1,650
 in an earlier grid of 44 values over `+ - * /`, `lookup` and `multi_lookup`, 2026-10-23).
-**Other operators' catch-alls still throw in a session's rule**: `age_as_of` and
+~~**Other operators' catch-alls still throw in a session's rule**: `age_as_of` and
 `age_in_months_as_of` on anything but their dates, and `to_text` of a blank node, among those the
-grid counts. They are not arithmetic, and the change of 2026-10-24 did not name them.
+grid counts. They are not arithmetic, and the change of 2026-10-24 did not name them.~~ **Since
+2026-11-27 they are null too**, with a row or without: see *Undefined behaviour and the last
+throwing catch-alls* below.
+
+**Undefined behaviour and the last throwing catch-alls give null — 2026-11-27.** Six operations
+either were undefined behaviour in C++, so their result was whatever the compiler made of it, or
+threw and failed the session. Each now gives null, as the operations above do, so a rule's
+consequent sees no value. Only a value at a limit, or an operand the operator does not take,
+computes anything different; every other value computes as it did. The rows are in
+`expr_op_test.cc`:
+
+| Operation | Was | Rows |
+|---|---|---|
+| `+ - *` on two signed integers whose result does not fit the left operand's type (`int32` or `int64`): `INT32_MAX + 1`, `INT32_MIN - 1`, `65536 * 65536`, the minimum times -1, also through a mixed integer type | signed overflow, undefined behaviour; `INT32_MAX + 1` gave `INT32_MIN` on x86-64 | `ArithmeticTypes.SignedOverflowIsNull` |
+| `abs` of the minimum `int32` or `int64` | undefined behaviour; gave the minimum back | `ArithmeticTypes.AbsOfTheMinimumIntegerIsNull` |
+| a date or a datetime plus or minus a double that is NaN, an infinity or too large for a day count (1e300, 5e9) | the double was converted to an `int` by undefined behaviour | `ArithmeticTypes.DateArithmeticOutOfRangeIsNull` |
+| a date or a datetime plus or minus an integer whose day count does not fit an `int`, or that is the minimum `int32` or `int64` under a minus | an `int64` or `uint64` count was cut to an `int` silently (2^32 days was 0), a `uint32` above `INT32_MAX` became negative, and minus the minimum negated it by undefined behaviour | `ArithmeticTypes.DateArithmeticOutOfRangeIsNull` |
+| a date or a datetime plus or minus days that land outside 1400-01-01 to 9999-12-31, the dates the engine holds | a date boost could not print or compare reliably | `ArithmeticTypes.DateArithmeticOutOfRangeIsNull` |
+| `age_as_of` and `age_in_months_as_of` of anything but their dates (and, for `age_in_months_as_of`, text that does not read as a date), and `to_text` of a blank node | threw in a session's rule; text that is not a date threw with no row too | `ArithmeticTypes.AgeAndToTextOfWhatTheyDoNotTakeIsNull` |
+
+- **Unsigned integers still wrap**, modulo 2^32 or 2^64: `uint32 5 - 7` is 4294967294, as it was.
+  That is defined in C++ and is not changed here.
+- **A double day count is still truncated toward zero** (`date + 2.9` is two days on), a datetime
+  keeps its time of day, and a date or a datetime *minus* a double is still not an operation, and
+  null, as it was; *plus* a negative double moves back.
+- The helpers are `integer_sum`, `integer_difference`, `integer_product`, `integer_abs`,
+  `date_plus_days` and `datetime_plus_days` in `expr_op_arithmetics.h`; the age operators are in
+  `expr_op_others.h`.
 
 **Ties in `min_of`, `max_of` and `sorted_head`, and Go's `min_head_of` and `max_head_of`.**
 Among equal values the first met used to win, and the graph's iteration order varies from run to

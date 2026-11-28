@@ -168,12 +168,19 @@ struct MultiLookupRandVisitor: public boost::static_visitor<RDFTTYPE>, public No
 // AgeAsOfVisitor
 // Calculate the age (in years), typical use:  (dob age_as_of serviceDate)
 // where dob and serviceDate are date literals
+//
+// age_as_of and age_in_months_as_of of operands they do not take are null, with a row
+// or without (2026-11-27): anything but two dates, and for age_in_months_as_of also
+// text that does not read as a date. So are + - * / and abs of a type mismatch, and
+// to_int and to_double of what they cannot read (expr_op_arithmetics.h). Until then
+// each threw in a session's rule, which failed the session, and was null only with no
+// beta row; text that is not a date threw with no row too.
 // --------------------------------------------------------------------------------------
 struct AgeAsOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   AgeAsOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   AgeAsOfVisitor(): rs(nullptr), br(nullptr) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for age_as_of: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T, U)const{return rdf::Null();}   // a type mismatch
 
   RDFTTYPE operator()(rdf::LDate lhs, rdf::LDate rhs)const
   {
@@ -192,16 +199,13 @@ struct AgeInMonthsAsOfVisitor: public boost::static_visitor<RDFTTYPE>, public No
 {
   AgeInMonthsAsOfVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   AgeInMonthsAsOfVisitor(): rs(nullptr), br(nullptr) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for age_in_months_as_of: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T, U)const{return rdf::Null();}   // a type mismatch
 
   RDFTTYPE operator()(rdf::LString lhs, rdf::LDate rhs)const
   {
-    // try to parse lhs as date string first, if fail then return null
+    // text that does not read as a date is null
     auto birthday = rdf::parse_date(lhs.data);
-    if(birthday.is_not_a_date()) {
-      RETE_EXCEPTION("Invalid date string for age_in_months_as_of: ("<<lhs.data<<")");
-      return rdf::Null();
-    }
+    if(birthday.is_special()) return rdf::Null();
     auto asOf = rhs.data;
     int years = asOf.year() - birthday.year();
     int months = 0;
