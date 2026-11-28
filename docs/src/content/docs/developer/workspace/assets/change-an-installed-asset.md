@@ -55,3 +55,10 @@ survives until it is deleted. What breaks that is committing it: the commit acti
 and promotes the override into the repository, where the next install refuses it by name. So:
 override freely, commit deliberately. How overrides are stored and removed is in
 [Workspace overrides](/docs/developer/workspace/overrides/).
+
+**When the release with the fix ships, the override hides it**, since it is applied over the newly
+installed file. Since release 4.1.25 the save records the hash of the version it was made on, and
+each start compares it with the version installed now: an override JetStore has changed the asset
+under is listed in *Workspace Changes* as *JetStore asset updated since override*, and the start logs
+a warning naming it. Revert it then, and make the change again on the new version if it is still
+needed.

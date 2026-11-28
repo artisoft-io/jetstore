@@ -2956,9 +2956,9 @@
       {
         "columnName": "status",
         "dataType": "text",
-        "deprecated": true,
         "default": "''",
-        "isNotNull": true
+        "isNotNull": true,
+        "description": "Empty, except for an override of a JetStore-owned asset since release 4.1.25: whether JetStore has changed the asset since the override was saved (jets/datatable/wsfile/override_base.go), set by the save and at each apiserver start. Shown by the IDE's Workspace Changes list as Change Status."
       },
       {
         "columnName": "user_email",
@@ -2986,6 +2986,48 @@
       {
         "name": "workspace_changes_unique_cstraint",
         "definition": "CONSTRAINT workspace_changes_unique_cstraint UNIQUE (workspace_name, file_name)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
+    "tableName": "workspace_override_base",
+    "description": "One row per override of a JetStore-owned asset (a workspace_changes row whose file the last install recorded in its directory's jets_assets_manifest.json): the SHA-256 of the asset as installed when the override was first saved, its base. Each apiserver start compares the base with the asset installed now, and sets the override's workspace_changes.status to say when JetStore has changed the asset under it. change_key is the workspace_changes row's key: a re-save of the override keeps its base, a new override of the file takes a new one, and a row whose override is gone is deleted at the next start. Written by jets/datatable/wsfile (override_base.go). A few rows per workspace.",
+    "columns": [
+      {
+        "columnName": "workspace_name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "file_name",
+        "dataType": "text",
+        "isNotNull": true,
+        "description": "The workspace-relative path, as in workspace_changes."
+      },
+      {
+        "columnName": "change_key",
+        "dataType": "int",
+        "isNotNull": true,
+        "description": "The key of the workspace_changes row this base belongs to."
+      },
+      {
+        "columnName": "asset_sha256",
+        "dataType": "text",
+        "isNotNull": true,
+        "description": "The installed asset's SHA-256, in hex, as the manifest records it, when the override was first saved."
+      },
+      {
+        "columnName": "recorded_at",
+        "dataType": "timestamptz",
+        "default": "now()",
+        "isNotNull": true
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "workspace_override_base_file_uk",
+        "definition": "CONSTRAINT workspace_override_base_file_uk UNIQUE (workspace_name, file_name)"
       }
     ]
   },
