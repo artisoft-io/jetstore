@@ -10,6 +10,20 @@ The `jets/sqlscript` package decides where a statement in a workspace SQL file e
 SQL file when it is saved, and `run_reports` runs the SQL of a workspace's `reports/` directory as
 its `reports/config.json` directs. Its sections are dated, newest first.
 
+## 2026-11-27 — `runWhen` reads a `year`, `month` or `day` that is not a number as absent
+
+**A file key's `year`, `month` or `day` that is not a number now has no value in `runWhen`**, as if the
+key did not carry it: a criterion on it with `hasValue` does not hold, and one with only
+`hasNotValue` holds. `run_reports` logs the value it set aside. Until this date such a component
+(`month=ab`, or an empty `day=`) read as 0, which is what `utils.SplitFileKeyIntoComponents` sets, so
+a criterion with `hasValue: "0"` held for it and one with `hasNotValue: "0"` failed. A key that
+carries `month=00` carries a number, and still reads as 0. The reports themselves still read what
+`utils.SplitFileKeyIntoComponents` sets; only `runWhen` reads the key this way
+(`runWhenComponents`, `utils.FileKeyComponent`).
+
+A component other than the three that the key does not carry still fails every criterion on it,
+`hasNotValue` included: changing that would change which reports a workspace runs, and is left open.
+
 ## 2026-11-14 — a reports file is checked against its directives, and a runbook's SQL for what a step may run
 
 **A `.sql` file under `reports/` is now checked when it is saved against the `reports/config.json`
@@ -164,8 +178,9 @@ the other statements of its file run. Each skip is logged with the criterion tha
 exception: `year`, `month` and `day` are numbers once the file key is read
 (`utils.SplitFileKeyIntoComponents`), and they are compared by their decimal text with `hasValue`
 or `hasNotValue` written with or without leading zeros, so `month=03` in a key equals both `"3"`
-and `"03"`. One that is not a number reads as 0. **A key that does not carry one of the three has no
-value for it**, so `hasValue` does not hold and `hasNotValue` does: a criterion on `month` with
+and `"03"`. **A key that does not carry one of the three, or carries it as something other than a
+number, has no value for it** (*changed 2026-11-27*, the section above: one that is not a number read
+as 0 until then), so `hasValue` does not hold and `hasNotValue` does: a criterion on `month` with
 `hasValue: "1"` fails for a key with no `month=` part, and one with `hasNotValue: "1"` holds.
 *Changed 2026-11-14, in the section above:* until then `runWhen` read the three as
 `utils.SplitFileKeyIntoComponents` sets them, which is 1970, 1 and 1 for a key without them, so the

@@ -179,6 +179,50 @@ func TestRunWhenOnADateComponentTheKeyDoesNotCarry(t *testing.T) {
 	}
 }
 
+// A year, month or day the key carries as something other than a number is
+// read as absent. SplitFileKeyIntoComponents reads it as 0, and until
+// 2026-11-27 runWhen did too, so hasValue "0" held and hasNotValue "0" failed.
+func TestRunWhenOnADateComponentThatIsNotANumber(t *testing.T) {
+	fileKey := "client=Acme/object_type=Claim/year=2026/month=ab/day=/file.csv"
+	ca := &CommandArguments{
+		FileKey:           fileKey,
+		FileKeyComponents: utils.SplitFileKeyIntoComponents(map[string]any{}, &fileKey),
+	}
+	key := ca.runWhenComponents()
+	for _, tc := range []struct {
+		name string
+		c    RunWhenCriteria
+		want bool
+	}{
+		{"month not a number, hasValue 0", RunWhenCriteria{FileKeyComponent: "month", HasValue: "0"}, false},
+		{"month not a number, hasValue its text", RunWhenCriteria{FileKeyComponent: "month", HasValue: "ab"}, false},
+		{"month not a number, hasNotValue 0", RunWhenCriteria{FileKeyComponent: "month", HasNotValue: "0"}, true},
+		{"month not a number, hasNotValue other", RunWhenCriteria{FileKeyComponent: "month", HasNotValue: "12"}, true},
+		{"month not a number, component only", RunWhenCriteria{FileKeyComponent: "month"}, false},
+		{"day empty, hasValue 0", RunWhenCriteria{FileKeyComponent: "day", HasValue: "0"}, false},
+		{"day empty, hasNotValue 0", RunWhenCriteria{FileKeyComponent: "day", HasNotValue: "0"}, true},
+		{"year a number, hasValue", RunWhenCriteria{FileKeyComponent: "year", HasValue: "2026"}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, why := runWhenMet([]RunWhenCriteria{tc.c}, key, unreadCounts(t))
+			if got != tc.want {
+				t.Errorf("runWhenMet = %v (%s), want %v", got, why, tc.want)
+			}
+		})
+	}
+	// The reports still read what SplitFileKeyIntoComponents sets.
+	if ca.FileKeyComponents["month"] != 0 || ca.FileKeyComponents["day"] != 0 || ca.FileKeyComponents["year"] != 2026 {
+		t.Errorf("FileKeyComponents changed: year %v, month %v, day %v",
+			ca.FileKeyComponents["year"], ca.FileKeyComponents["month"], ca.FileKeyComponents["day"])
+	}
+	// A carried 0 is a number, and is read as one.
+	zero := "client=Acme/year=2026/month=00/day=1/file.csv"
+	ca = &CommandArguments{FileKey: zero, FileKeyComponents: utils.SplitFileKeyIntoComponents(map[string]any{}, &zero)}
+	if ok, why := runWhenMet([]RunWhenCriteria{{FileKeyComponent: "month", HasValue: "0"}}, ca.runWhenComponents(), unreadCounts(t)); !ok {
+		t.Errorf("month=00, hasValue 0: %s", why)
+	}
+}
+
 // A runWhen criterion that checks nothing is a configuration error, refused
 // before any report runs, in reportProperties and in statementProperties.
 func TestRunWhenThatChecksNothingIsRefused(t *testing.T) {

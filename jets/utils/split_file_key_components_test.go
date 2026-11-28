@@ -24,3 +24,24 @@ func TestFileKeyCarries(t *testing.T) {
 		t.Errorf("SplitFileKeyIntoComponents defaults changed: month %v, day %v", components["month"], components["day"])
 	}
 }
+
+// FileKeyComponent gives the text the key carries, before year, month and day
+// are typed.
+func TestFileKeyComponent(t *testing.T) {
+	key := "client=Acme/year=2026/month=ab/day=/file.csv"
+	for name, want := range map[string]struct {
+		text    string
+		carried bool
+	}{
+		"client": {"Acme", true},
+		"year":   {"2026", true},
+		"month":  {"ab", true},
+		"day":    {"", true},
+		"org":    {"", false},
+	} {
+		text, carried := FileKeyComponent(key, name)
+		if text != want.text || carried != want.carried {
+			t.Errorf("FileKeyComponent(%q) = %q, %v, want %q, %v", name, text, carried, want.text, want.carried)
+		}
+	}
+}

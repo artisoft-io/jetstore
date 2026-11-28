@@ -63,6 +63,20 @@ func SplitFileKeyIntoComponents(keyMap map[string]any, fileKey *string) map[stri
 // carries from one SplitFileKeyIntoComponents defaulted, which it does not
 // distinguish.
 func FileKeyCarries(fileKey, name string) bool {
-	_, ok := splitFileKey(map[string]any{}, &fileKey)[name]
+	_, ok := FileKeyComponent(fileKey, name)
 	return ok
+}
+
+// FileKeyComponent is the text the file key carries for the component name,
+// as SplitFileKeyIntoComponents reads the key before it types year, month and
+// day, and whether the key carries it at all. It is how a caller tells a year,
+// month or day that is not a number, which SplitFileKeyIntoComponents reads as
+// 0, from a 0 the key carries.
+func FileKeyComponent(fileKey, name string) (string, bool) {
+	v, ok := splitFileKey(map[string]any{}, &fileKey)[name]
+	if !ok {
+		return "", false
+	}
+	text, _ := v.(string)
+	return text, true
 }
