@@ -931,13 +931,19 @@ func (ctx *DataTableContext) ExecRawQueryMap(dataTableAction *DataTableAction, t
 // Delegates to InsertRows
 func (ctx *DataTableContext) InsertRawRows(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
 	httpStatus = http.StatusOK
-	// Copy Data so to re-use dataTableAction with different sets of Data
+	// Each request row carries one raw_rows buffer, and its parsed rows replace
+	// dataTableAction.Data for the InsertRows call that buffer makes. So the
+	// request rows are held here, by value: until release 4.1.25 this was a
+	// pointer to dataTableAction.Data, so a second request row was read from the
+	// first buffer's parsed rows (refused as missing raw_rows, or an index out of
+	// range when the first buffer had one row), and the process mapping's table
+	// was read from parsed row irow rather than from the buffer's first row.
 	requestTable := dataTableAction.FromClauses[0].Table
-	inData := &dataTableAction.Data
-	for irow := range *inData {
+	inData := dataTableAction.Data
+	for irow := range inData {
 
-		buf := (*inData)[irow]["raw_rows"]
-		userEmail := (*inData)[irow]["user_email"]
+		buf := inData[irow]["raw_rows"]
+		userEmail := inData[irow]["user_email"]
 		if buf == nil || userEmail == nil {
 			log.Printf("Error request is missing raw_rows or user_email from request with Table %s", requestTable)
 			httpStatus = http.StatusInternalServerError
@@ -1034,15 +1040,15 @@ func (ctx *DataTableContext) InsertRawRows(dataTableAction *DataTableAction, tok
 				httpStatus, err = RefusalFor(err2)
 				return
 			}
-			// Put the table name in each row
-			tableName, derived, err2 := processMappingTableName(dataTableAction.Data[irow])
+			// Put the table name in each row, from this buffer's first row
+			tableName, derived, err2 := processMappingTableName(dataTableAction.Data[0])
 			if err2 != nil {
 				httpStatus, err = http.StatusBadRequest, err2
 				return
 			}
 			if derived {
-				for irow := range dataTableAction.Data {
-					dataTableAction.Data[irow]["table_name"] = tableName
+				for _, row := range dataTableAction.Data {
+					row["table_name"] = tableName
 				}
 			}
 			// Remove existing rows in database
