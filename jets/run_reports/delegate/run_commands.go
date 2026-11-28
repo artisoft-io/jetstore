@@ -107,6 +107,74 @@ func copyBuckets(i int, cmd *compute_pipes.ReportCmdSpec, jetStoreBucket string)
 	return spec, nil
 }
 
+// reportCmdsPlan is what RunSchemaProviderReportsCmds hands its worker pool:
+// the tasks, in report_cmds order, and the size of the pool that runs them.
+type reportCmdsPlan struct {
+	tasks          []compute_pipes.S3CopyFileSpec
+	workerPoolSize int
+}
+
+// planReportCmds selects the report commands to run and prepares them, before
+// any of them starts.
+//
+// A command runs when it has no when expression or when its when expression
+// holds, evaluated against the schema provider's env as it always was
+// (compute_pipes.ExprBuilderContext, then compute_pipes.ToBool); a command
+// whose when does not hold is skipped, and nothing else about it is checked.
+// A when that cannot be built or evaluated stops the run. The worker pool is
+// sized from the commands selected, and so is each copy's default
+// worker_pool_size. Every selected command is then checked: a command of a
+// type other than s3_copy_file, or an s3_copy_file without its config, or
+// with a bucket copyBuckets refuses, stops the run with nothing copied. An
+// empty plan, with no error, means no command is to run.
+func planReportCmds(env map[string]any, cmds []compute_pipes.ReportCmdSpec, jetStoreBucket string) (reportCmdsPlan, error) {
+	var plan reportCmdsPlan
+	selected := make([]int, 0, len(cmds))
+	for i := range cmds {
+		if cmds[i].When != nil {
+			// Evaluate the when expression
+			builderContext := compute_pipes.ExprBuilderContext(env)
+			evaluator, err := builderContext.BuildExprNodeEvaluator("report_cmds", nil, cmds[i].When)
+			if err != nil {
+				return plan, fmt.Errorf("while building evaluator for report command %d: %v", i, err)
+			}
+			v, err := evaluator.Eval(env)
+			if err != nil {
+				return plan, fmt.Errorf("while evaluating report command %d when expression: %v", i, err)
+			}
+			if !compute_pipes.ToBool(v) {
+				continue
+			}
+		}
+		selected = append(selected, i)
+	}
+	if len(selected) == 0 {
+		return plan, nil
+	}
+	plan.workerPoolSize = min(len(selected), commandWorkerMaxPoolSize)
+	plan.tasks = make([]compute_pipes.S3CopyFileSpec, 0, len(selected))
+	for _, i := range selected {
+		cmd := &cmds[i]
+		switch cmd.Type {
+		case "s3_copy_file":
+			if cmd.S3CopyFileConfig == nil {
+				return plan, fmt.Errorf("error: report command 's3_copy_file' is missing s3_copy_file_config")
+			}
+			copyConfig, err := copyBuckets(i, cmd, jetStoreBucket)
+			if err != nil {
+				return plan, err
+			}
+			if copyConfig.WorkerPoolSize == 0 {
+				copyConfig.WorkerPoolSize = s3CopyFileTotalPoolSize / plan.workerPoolSize
+			}
+			plan.tasks = append(plan.tasks, copyConfig)
+		default:
+			return plan, fmt.Errorf("error: unknown report command type: %s", cmd.Type)
+		}
+	}
+	return plan, nil
+}
+
 // Run report commands specified by the schema provider of the main input source
 // Note the errCh will be closed by this func either synchronously or async when the worker pool completes
 func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, dbpool *pgxpool.Pool,
@@ -139,75 +207,35 @@ func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, db
 		errCh <- fmt.Errorf("while unmarshaling schema_provider_json: %s", err)
 		return
 	}
-	// Determine if there are report commands to execute
-	reportCommands := make([]*compute_pipes.ReportCmdSpec, 0, len(schemaProvider.ReportCmds))
-	for i := range schemaProvider.ReportCmds {
-		if schemaProvider.ReportCmds[i].When != nil {
-			// Evaluate the when expression
-			builderContext := compute_pipes.ExprBuilderContext(schemaProvider.Env)
-			evaluator, err := builderContext.BuildExprNodeEvaluator("report_cmds", nil, schemaProvider.ReportCmds[i].When)
-			if err != nil {
-				errCh <- fmt.Errorf("while building evaluator for report command %d: %v", i, err)
-				return
-			}
-			v, err := evaluator.Eval(schemaProvider.Env)
-			if err != nil {
-				errCh <- fmt.Errorf("while evaluating report command %d when expression: %v", i, err)
-				return
-			}
-			if !compute_pipes.ToBool(v) {
-				continue
-			}
-		}
-		reportCommands = append(reportCommands, &schemaProvider.ReportCmds[i])
+	// Select the report commands whose when holds, and resolve and check them
+	// before any copy starts, so a command that cannot be run stops the run with
+	// nothing copied. Only the selected commands are dispatched below.
+	plan, err := planReportCmds(schemaProvider.Env, schemaProvider.ReportCmds, awsi.JetStoreBucket())
+	if err != nil {
+		errCh <- err
+		return
 	}
-
-	if len(reportCommands) == 0 {
+	if len(plan.tasks) == 0 {
 		// No Report Command to Execute
 		log.Println("Schema provider has no Report Commands to execute, bailing out")
 		return
-	}
-	// Resolve every s3_copy_file command's buckets before any copy starts, so a
-	// command that cannot be run stops the run with nothing copied. The commands
-	// checked are the ones the loop below dispatches.
-	copySpecs := make([]compute_pipes.S3CopyFileSpec, len(schemaProvider.ReportCmds))
-	for i := range schemaProvider.ReportCmds {
-		cmd := &schemaProvider.ReportCmds[i]
-		if cmd.Type != "s3_copy_file" || cmd.S3CopyFileConfig == nil {
-			continue
-		}
-		copySpecs[i], err = copyBuckets(i, cmd, awsi.JetStoreBucket())
-		if err != nil {
-			errCh <- err
-			return
-		}
 	}
 	s3Client, err := awsi.NewS3Client()
 	if err != nil {
 		errCh <- err
 		return
 	}
-	log.Println("Starting the execution of the Schema Provider's report commands")
+	log.Printf("Starting the execution of the Schema Provider's report commands (%d of %d)",
+		len(plan.tasks), len(schemaProvider.ReportCmds))
 
 	// Create a channel to send work to worker pool
 	workersTaskCh := make(chan any)
 	defer close(workersTaskCh)
 	closeErrCh = false // the errCh will be closed in the go func below
 	done := make(chan struct{})
-	sendError := func(err error) {
-		errCh <- err
-		// Interrupt the process, avoid closing a closed channel
-		select {
-		case <-done:
-		default:
-			close(done)
-		}
-	}
 
 	// Create a pool of workers
-	workerPoolSize := min(len(schemaProvider.ReportCmds), commandWorkerMaxPoolSize)
-	// //*** TESTING
-	// workerPoolSize = 1
+	workerPoolSize := plan.workerPoolSize
 	go func() {
 		var wg sync.WaitGroup
 		for range workerPoolSize {
@@ -224,25 +252,11 @@ func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, db
 	}()
 
 	// Execute the report commands
-	for i := range schemaProvider.ReportCmds {
-		switch schemaProvider.ReportCmds[i].Type {
-		case "s3_copy_file":
-			if schemaProvider.ReportCmds[i].S3CopyFileConfig == nil {
-				sendError(fmt.Errorf("error: report command 's3_copy_file' is missing s3_copy_file_config"))
-				return
-			}
-			copyConfig := copySpecs[i]
-			if copyConfig.WorkerPoolSize == 0 {
-				copyConfig.WorkerPoolSize = s3CopyFileTotalPoolSize / workerPoolSize
-			}
-			select {
-			case workersTaskCh <- copyConfig:
-			case <-done:
-				log.Println("reportCommand pool worker interrupted")
-				return
-			}
-		default:
-			sendError(fmt.Errorf("error: unknown report command type: %s", schemaProvider.ReportCmds[i].Type))
+	for _, task := range plan.tasks {
+		select {
+		case workersTaskCh <- task:
+		case <-done:
+			log.Println("reportCommand pool worker interrupted")
 			return
 		}
 	}
