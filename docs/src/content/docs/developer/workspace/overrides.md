@@ -88,8 +88,19 @@ since the stash was taken is deleted** (`addedSinceStash`, `jets/datatable/wsfil
 the workspace has a stash, the stash has no copy, and the name is not one the stash leaves out on
 purpose (`.git`, `.github`, `.gitignore`, `lookup.db`, `workspace.db`). The confirmation before each
 revert says so. Any other file the stash does not hold is refused with a message, and its override
-is kept. In dev mode the apiserver takes no stash, so a revert is refused, and nothing is deleted,
-unless one was taken by hand under `$WORKSPACES_HOME/ws:stash/`. *Delete/Revert ALL Changes* keeps the
-compiled assets (`wsfile.CompiledAssets`: `workspace.db`, `lookup.db`, `workspace.tgz`, `reports.tgz`),
+is kept.
+
+**In dev mode the apiserver takes the stash afresh at every start, since release 4.1.25**
+(`wsfile.RefreshStash`): it clears `$WORKSPACES_HOME/ws:stash/<workspace>/` and copies the workspace
+again. On the stack each start is a new container, so `StashFiles` alone gives a fresh stash; a
+workstation keeps `WORKSPACES_HOME`, and a stash kept from an earlier start would bring back that
+start's file. Until then dev mode took no stash and every revert was refused. **On a workstation a
+revert returns the file to its state when the apiserver started**: the tree is the developer's own
+checkout and a dev start applies no override, so an edit saved before the start is in the stash and
+stays in the file, while the revert deletes its row. Take it back with git. The stash leaves out
+`.git`, `.github`, `.gitignore`, `lookup.db` and `workspace.db` rather than copying and deleting them.
+Where `WORKSPACES_HOME` is inside a repository, ignore `ws:stash/` there.
+
+*Delete/Revert ALL Changes* keeps the compiled assets (`wsfile.CompiledAssets`: `workspace.db`, `lookup.db`, `workspace.tgz`, `reports.tgz`),
 their rows and their files; until November 2026 it deleted their rows and put the start-up `.tgz` files
 back over the compiled ones.

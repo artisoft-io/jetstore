@@ -377,14 +377,21 @@ func (server *Server) checkWorkspaceVersion() error {
 	var err error
 	workspaceName := os.Getenv("WORKSPACE")
 
-	// Copy the workspace files to a stash location (needed when we delete/revert file changes)
-	// Skip when in globalDevMode
-	if !globalDevMode {
+	// Copy the workspace files to a stash location (needed when we delete/revert file changes).
+	//
+	// **In dev mode the stash is taken afresh, since 2026-11-27** (RefreshStash): a
+	// workstation keeps WORKSPACES_HOME across starts, so StashFiles alone would
+	// keep the first stash it ever took and a revert would bring back that start's
+	// file. Dev mode took no stash for that reason until then, and every revert was
+	// refused. The stack needs no clear: each start is a new container.
+	if globalDevMode {
+		err = wsfile.RefreshStash(workspaceName)
+	} else {
 		err = wsfile.StashFiles(workspaceName)
-		if err != nil {
-			//* TODO Log to a new workspace error table to report in UI
-			log.Printf("Error while stashing workspace file: %v", err)
-		}
+	}
+	if err != nil {
+		//* TODO Log to a new workspace error table to report in UI
+		log.Printf("Error while stashing workspace file: %v", err)
 	}
 
 	// Put the active workspace entry into workspace_registry table if ACTIVE_WORKSPACE_URI
