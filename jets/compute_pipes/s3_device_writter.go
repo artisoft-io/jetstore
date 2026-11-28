@@ -39,16 +39,41 @@ func (ctx *S3DeviceWriter) WritePartition(writer func(w io.Writer)) {
 	var cpErr, err error
 	if ctx.spec.PartitionWriterConfig.StreamDataOut {
 		// Stream the data directly to s3
+		//
+		// Until 2026-11-27 the upload's error was dropped, so a partition that
+		// failed to reach s3 was missing from a run that succeeded, and the
+		// writer goroutine stayed blocked on the pipe for the life of the
+		// process. A pipe cannot be read again, so the upload is not retried
+		// above the SDK (awsi.UploadToS3FromReader).
 		s3FileName := fmt.Sprintf("%s/%s", *ctx.s3BasePath, *ctx.fileName)
 		pin, pout := io.Pipe()
+		writerDone := make(chan struct{})
 
 		go func() {
+			defer close(writerDone)
 			writer(pout)
 			pout.Close()
 		}()
 
 		// Write to s3 from pin
-		awsi.UploadToS3FromReader(*ctx.externalBucket, s3FileName, pin)
+		if err = awsi.UploadToS3FromReader(*ctx.externalBucket, s3FileName, pin); err != nil {
+			// Fail the writer's next write, so that it returns, and wait for it:
+			// it reports its own error and may close doneCh.
+			pin.CloseWithError(err)
+			select {
+			case <-writerDone:
+			case <-ctx.doneCh:
+			}
+			cpErr = fmt.Errorf("while streaming partition to s3 key %s: %v", s3FileName, err)
+			log.Println(cpErr)
+			ctx.errCh <- cpErr
+			select {
+			case <-ctx.doneCh:
+			default:
+				close(ctx.doneCh)
+			}
+			return
+		}
 
 	} else {
 		// Write the data to a local temp file and then copy it to s3

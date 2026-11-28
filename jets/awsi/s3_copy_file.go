@@ -112,8 +112,10 @@ func MultiPartCopy(ctx context.Context, svc *s3.Client, maxPoolSize int,
 			copyInput.ServerSideEncryption = types.ServerSideEncryptionAwsKms
 			copyInput.SSEKMSKeyId = &kmsKeyArn
 		}
-		_, err = svc.CopyObject(ctx, copyInput)
-		return err
+		return RetrySend(ctx, fmt.Sprintf("copy to s3://%s/%s", destBucket, destKey), func() error {
+			_, err := svc.CopyObject(ctx, copyInput)
+			return err
+		})
 	}
 
 	// Copy using a multi-part copy action
