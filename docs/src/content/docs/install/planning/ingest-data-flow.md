@@ -109,7 +109,8 @@ as a field, so the S3 layout carries the metadata:
 
 `vendor` is also stored as `org`. A missing `year`, `month` or `day` is 1970, 1 or 1. **A value that
 is present and not a number is logged and becomes 0**, because `strconv.Atoi` returns 0 with its
-error. Either way the file is not refused: it lands in an
+error; the 0 is kept because the readers of a key's date (`utils.FileKeyDate`) tell a bad date from a
+real one by it. Either way the file is not refused: it lands in an
 unexpected source period. `doFileKey` then sets `size` from the S3 event.
 
 **A site handler can run here.** `JETS_REGISTER_KEY_LAMBDA_ENTRY` can point the Lambda at a site main
@@ -127,9 +128,12 @@ later, inside `RegisterFileKeys`, so a hook that matches on any of the three mus
 the S3 event names when the bucket is versioned, and reads it as one `SchemaProviderSpec` or a list
 of them. `RegisterSchemaEvent` (`jets/datatable/pipeline_execution.go`) sends a
 `pipeline_coordinator_map` event to its own path; any other becomes one row with `year`, `month` and
-`day` from its `file_date` (1970-01-01 when it has none or it does not parse), the event itself as
-`schema_provider_json`, and `request_id` from the event or its `${REQUEST_ID}` env entry. The action
-is marked `IsSchemaEvent`. **A schema event that registers nothing is an error**, naming the reason,
+`day` from its `file_date`, the event itself as `schema_provider_json`, and `request_id` from the event or its `${REQUEST_ID}` env entry. The action
+is marked `IsSchemaEvent`. **An event with no `file_date`, or one that does not parse, takes the date
+its `file_key` carries** as `year=`, `month=` and `day=` components (`utils.FileKeyDate`; month and day
+default to 1), and 1970-01-01 only when the key carries no valid date either; a `file_date` that does
+not parse is logged with its value. Until release 4.1.25 such an event registered under 1970-01-01
+whatever its key carried. **A schema event that registers nothing is an error**, naming the reason,
 where a file-key row that registers nothing is not.
 
 **4 — Every row is read before any is written.** `RegisterFileKeys`

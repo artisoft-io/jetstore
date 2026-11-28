@@ -138,23 +138,12 @@ func fileKeyClient(ctx context.Context, dbpool *pgxpool.Pool, fileKey string) st
 }
 
 // fileKeyPeriod is the file key's period as registration reads it, when the key
-// carries a year: year=, with month= and day= defaulting to 1. A key with no
-// year, or a date that does not exist (a month of 13, a component that is not a
-// number), gives today.
+// carries a year: year=, with month= and day= defaulting to 1. A key with no year,
+// or a date that does not exist (a month of 13, a component that is not a
+// number), gives today. See utils.FileKeyDate.
 func fileKeyPeriod(fileKey string, today time.Time) time.Time {
-	today = time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, time.UTC)
-	if fileKey == "" || !utils.FileKeyCarries(fileKey, "year") {
-		return today
+	if p, ok := utils.FileKeyDate(fileKey); ok {
+		return p
 	}
-	c := utils.SplitFileKeyIntoComponents(map[string]any{}, &fileKey)
-	year, _ := c["year"].(int)
-	month, _ := c["month"].(int)
-	day, _ := c["day"].(int)
-	p := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
-	// time.Date normalises a month of 13 into the next year; a date that does
-	// not survive the round trip is not the file's.
-	if year < 1 || p.Year() != year || int(p.Month()) != month || p.Day() != day {
-		return today
-	}
-	return p
+	return time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, time.UTC)
 }
