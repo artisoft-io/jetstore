@@ -138,35 +138,6 @@ type ComputePipesArgs struct {
 	ComputePipesCommonArgs
 }
 
-// Write the compute pipes arguments as json to s3 at location specified by s3Location
-// This is currently not used, needed for Distributed Map
-func WriteCpipesArgsToS3(cpa []ComputePipesNodeArgs, s3Location string) error {
-	cpJson, err := json.Marshal(cpa)
-	if err != nil {
-		return fmt.Errorf("while marshalling cpipes arg to json: %v", err)
-	}
-	f, err := os.CreateTemp("", "cp_args")
-	if err != nil {
-		return err
-	}
-	defer os.Remove(f.Name()) // clean up
-	if _, err := f.Write(cpJson); err != nil {
-		return err
-	}
-	_, err = f.Seek(0, 0)
-	if err != nil {
-		return err
-	}
-	err = awsi.UploadToS3(os.Getenv("JETS_BUCKET"), os.Getenv("JETS_REGION"), s3Location, f)
-	if err != nil {
-		return fmt.Errorf("while copying cpipes arg to s3: %v", err)
-	}
-	if err := f.Close(); err != nil {
-		return err
-	}
-	return nil
-}
-
 // This is currently not used, needed for Distributed Map (for testing purpose)
 func ReadCpipesArgsFromS3(s3Location string) ([]ComputePipesNodeArgs, error) {
 	f, err := os.CreateTemp("", "cp_args")

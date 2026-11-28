@@ -16,8 +16,10 @@ later worked.
 
 Every send of an object body or an S3-to-S3 copy goes through `awsi.RetrySend`
 (`jets/awsi/s3_send_retry.go`). This covers the partition writers' S3 worker (`S3DeviceWorker`), the
-`awsi.UploadToS3`, `UploadToS3FromReader` and `UploadBufToS3` uploads, and the single-part copy in
-`awsi.MultiPartCopy`. A failed send is tried again only when the error is one that may change:
+`awsi.UploadToS3`, `UploadToS3FromReader` and `UploadBufToS3` uploads, and the single-part copy and
+each part copy of `awsi.MultiPartCopy`. Until 2026-11-27 the part copy kept a retry of its own, four
+more attempts on any error, an access denied included. A failed send is tried again only when the
+error is one that may change:
 
 - S3 throttled it (`SlowDown` and the other throttling codes the SDK knows);
 - the SDK classes it as transient (a 500, 502, 503 or 504, a request timeout, a connection reset);

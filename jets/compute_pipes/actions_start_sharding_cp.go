@@ -305,7 +305,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	// }
 	// result.CpipesCommandsS3Key = fmt.Sprintf("%s/cpipesCommands/%s/shardingCommands.json", stagePrefix, args.SessionId)
 	// // Copy the cpipesCommands to S3 as a json file
-	// WriteCpipesArgsToS3(cpipesCommands, result.CpipesCommandsS3Key)
+	// // (as json, with awsi.UploadToS3: WriteCpipesArgsToS3, which did, was removed unused)
 
 	// Args for start_reducing_cp lambda
 	result.IsLastReducing = cpipesStartup.CpConfig.NbrComputePipes() == stepId+1

@@ -26,8 +26,9 @@
 // database (Name) and drop it when the test ends; DropRole drops a role the code
 // under test names. Main drops whatever still carries the package database's
 // name when the package ends. A cluster-wide role the code under test makes
-// under a fixed name, shared by several packages, is marked by SharedRoles and
-// dropped by the last package to finish.
+// under a fixed name, shared by several packages, is marked by SharedRoles, or
+// by Main for a package whose TestMain names it with Shared, and dropped by the
+// last package to finish.
 //
 // A test that runs its own test binary again in a child process, to watch it
 // crash or to isolate it, hands the child its environment, and the child's Main
@@ -89,6 +90,19 @@ func RolesOf(f func(database string) []string) Option {
 
 // rolesOf is the function RolesOf gave Main, if any.
 var rolesOf func(database string) []string
+
+// Shared names the cluster-wide roles the code under test makes under fixed
+// names, which several packages share: Main marks those that exist when the
+// package ends, as SharedRoles does when a test ends, so that whichever test
+// made them, the last package to finish drops them. It is for a package with
+// more than one way to make the roles, where a test that makes them without
+// calling SharedRoles would otherwise leave them on the server.
+func Shared(roles ...string) Option {
+	return func() { sharedRoles = append(sharedRoles, roles...) }
+}
+
+// sharedRoles is the roles Shared gave Main.
+var sharedRoles []string
 
 // created lists the databases CreateDatabase made in this process, whose roles
 // Main drops when the package ends.
@@ -216,7 +230,8 @@ func withDatabase(dsn, name string) (string, error) {
 
 // drop drops the package's database, closing any connection a test left open,
 // then the databases and roles its tests made under its name and did not drop,
-// then, when no other test database is left, the shared roles.
+// then marks the roles Shared names and, when no other test database is left,
+// drops the shared roles.
 func drop(ctx context.Context, dsn, name string) {
 	admin, err := connectAdmin(ctx, dsn)
 	if err != nil {
@@ -243,7 +258,18 @@ func drop(ctx context.Context, dsn, name string) {
 			fmt.Fprintf(os.Stderr, "dbtest: warning, the test role %s was not dropped: %v\n", role, err)
 		}
 	}
+	markShared(ctx, admin, sharedRoles)
 	dropSharedRoles(ctx, admin)
+}
+
+// markShared marks those of roles that exist as made by a test, for
+// dropSharedRoles.
+func markShared(ctx context.Context, conn *pgx.Conn, roles []string) {
+	for _, role := range roles {
+		if exists(conn, role) {
+			_, _ = conn.Exec(ctx, "COMMENT ON ROLE "+pgx.Identifier{role}.Sanitize()+" IS '"+sharedMarker+"'")
+		}
+	}
 }
 
 // roleNamesOf is the roles RolesOf names for databases, each once.
