@@ -37,10 +37,16 @@ type WorkspaceNode struct {
 	CompiledView string `json:"compiled_view,omitempty"`
 	// ReadOnly is set on file nodes the IDE shows and does not save (IsReadOnly,
 	// sections.go), and omitted everywhere else. 2026-10-27.
-	ReadOnly    bool              `json:"read_only,omitempty"`
-	RoutePath   string            `json:"route_path"`
-	RouteParams map[string]string `json:"route_params"`
-	Children    *[]*WorkspaceNode `json:"children"`
+	ReadOnly bool `json:"read_only,omitempty"`
+	// Installed is set on a file JetStore installs into the workspace
+	// (markInstalledAssets, installed_assets.go), which stays editable, and
+	// InstalledNote says what the install does to it and what a save of it
+	// becomes. Both omitted otherwise. Added 2026-11-27 (JM-389).
+	Installed     bool              `json:"installed,omitempty"`
+	InstalledNote string            `json:"installed_note,omitempty"`
+	RoutePath     string            `json:"route_path"`
+	RouteParams   map[string]string `json:"route_params"`
+	Children      *[]*WorkspaceNode `json:"children"`
 }
 
 func VisitDirWrapper(root, dir, dirLabel string, filters *[]string, workspaceName string) (*WorkspaceNode, error) {

@@ -9,6 +9,11 @@
  * buffer changes, and no save request is sent. A writable file beside it is the
  * control, so a Save button that is simply always disabled does not pass.
  *
+ * **A file JetStore installs is marked, and stays editable** (2026-11-27): the
+ * server sets `installed` and `installed_note` on its node, the tree shows a
+ * badge carrying the note, and opening the file shows the note. Save works as
+ * for any file, since a save of one is a local override.
+ *
  * The editor is replaced by a text box, as in `WorkspaceIde.closeTab.test.tsx`:
  * what the screen hands it is what is under test.
  */
@@ -44,8 +49,11 @@ afterEach(cleanup);
 
 const README = "README.md";
 const RULES = "jet_rules/a.jr";
+const INSTALLED = "pipes_config/jets_loader.pc.json";
+const INSTALLED_NOTE =
+  "Installed by JetStore, and replaced by every build. Saving it makes a local override.";
 
-function fileNode(name: string, readOnly: boolean) {
+function fileNode(name: string, readOnly: boolean, note?: string) {
   return {
     key: name,
     pageMatchKey: name,
@@ -53,6 +61,7 @@ function fileNode(name: string, readOnly: boolean) {
     size: 8,
     label: name,
     ...(readOnly ? { read_only: true } : {}),
+    ...(note ? { installed: true, installed_note: note } : {}),
     route_params: { workspace_name: "ws", file_name: encodeURIComponent(name) },
     children: null,
   };
@@ -82,7 +91,11 @@ function stubServer(saves: string[]) {
         return new Response(
           JSON.stringify({
             result_type: "workspace_file_structure",
-            result_data: [fileNode(RULES, false), fileNode(README, true)],
+            result_data: [
+              fileNode(RULES, false),
+              fileNode(README, true),
+              fileNode(INSTALLED, false, INSTALLED_NOTE),
+            ],
           }),
           { status: 200 },
         );
@@ -132,6 +145,26 @@ describe("a README in the Workspace IDE", () => {
     fireEvent.click(saveButton());
     fireEvent.keyDown(editor, { key: "s", ctrlKey: true });
     expect(saves).toEqual([]);
+  });
+
+  it("marks a file JetStore installs, says what a save becomes, and saves it", async () => {
+    const saves: string[] = [];
+    await mount(saves);
+    const badge = await screen.findByLabelText("Installed by JetStore");
+    expect(badge.getAttribute("title")).toBe(INSTALLED_NOTE);
+    // Only the installed file carries the badge.
+    expect(screen.getAllByLabelText("Installed by JetStore").length).toBe(1);
+
+    const editor = await open(INSTALLED);
+    expect(editor.readOnly).toBe(false);
+    expect(await screen.findByText(INSTALLED_NOTE)).toBeTruthy();
+    expect(screen.queryByText("Read only")).toBeNull();
+    expect(screen.getByText("Installed by JetStore").getAttribute("title")).toBe(INSTALLED_NOTE);
+
+    fireEvent.change(editor, { target: { value: "{}" } });
+    expect(saveButton().disabled).toBe(false);
+    fireEvent.keyDown(editor, { key: "s", ctrlKey: true });
+    await waitFor(() => expect(saves.length).toBe(1));
   });
 
   it("leaves a file the server does not mark writable, as before", async () => {

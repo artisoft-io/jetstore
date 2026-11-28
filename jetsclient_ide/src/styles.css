@@ -425,6 +425,17 @@ body {
   color: var(--accent-ink);
 }
 .tree-file.is-active .tree-size { color: var(--accent-ink); opacity: 0.8; }
+/* A file JetStore installs (`installed` on its node): a save is a local override. */
+.tree-badge {
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--ink-3);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 0 3px;
+}
+.tree-file.is-active .tree-badge { color: var(--accent-ink); border-color: currentColor; opacity: 0.8; }
 .tree-dir { color: var(--ink); font-weight: 550; }
 .tree-label { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tree-size {
