@@ -462,7 +462,17 @@ func (wg *WorkspaceGit) UpdateLocalWorkspace(userName, userEmail, gitUser, gitTo
 	return buf.String(), nil
 }
 
-func (wg *WorkspaceGit) CommitLocalWorkspace(gitProfile *user.GitProfile, wsCommitMessage string) (string, error) {
+// CommitLocalWorkspace stages the workspace's changes, commits and pushes them.
+//
+// **keepOut are workspace-relative paths left out of the commit**, since
+// 2026-11-27 (JM-032): the overrides of JetStore-owned assets
+// (wsfile.OwnedAssetOverrides). Committed, such a file is an edit of a path
+// JetStore owns, and the next image build's install refuses it by name
+// (workspace_assets.Install), so the commit would break the build. Left out, it
+// stays in the tree as an uncommitted change and in jetsapi.workspace_changes
+// as an override of this installation. They are excluded from `git add -A` by
+// literal pathspec, so a name with glob characters names only itself.
+func (wg *WorkspaceGit) CommitLocalWorkspace(gitProfile *user.GitProfile, wsCommitMessage string, keepOut ...string) (string, error) {
 	// Git off: skip the whole sequence, including the two 'git config' calls.
 	//
 	// **Those two are worth naming because they are the ones that would look
@@ -495,8 +505,8 @@ func (wg *WorkspaceGit) CommitLocalWorkspace(gitProfile *user.GitProfile, wsComm
 		return buf.String(), err
 	}
 
-	// Add all changes to git index
-	if _, err := wg.runGitBuf(&buf, workspacePath, "add", "-A"); err != nil {
+	// Add all changes to git index, but the paths left out
+	if err := wg.stageChanges(&buf, workspacePath, keepOut); err != nil {
 		buf.WriteString(fmt.Sprintf("\nGot error: %v", err))
 		return buf.String(), fmt.Errorf("error while trying to (git) add file contents to the index")
 	}
@@ -521,6 +531,24 @@ func (wg *WorkspaceGit) CommitLocalWorkspace(gitProfile *user.GitProfile, wsComm
 	buf.WriteString("\nChanges pushed to repository\n")
 
 	return buf.String(), nil
+}
+
+// stageChanges runs `git add -A` in the workspace at workspacePath, leaving
+// out the workspace-relative paths keepOut (CommitLocalWorkspace), and says in
+// buf which it left out.
+func (wg *WorkspaceGit) stageChanges(buf *strings.Builder, workspacePath string, keepOut []string) error {
+	addArgs := []string{"add", "-A"}
+	if len(keepOut) > 0 {
+		addArgs = append(addArgs, "--", ".")
+		for _, p := range keepOut {
+			addArgs = append(addArgs, ":(exclude,literal)"+p)
+		}
+		fmt.Fprintf(buf, "Left out of the commit, kept as overrides on this installation: %s\n"+
+			"(each overrides a file JetStore installs, which the next build would refuse in the repository)\n",
+			strings.Join(keepOut, ", "))
+	}
+	_, err := wg.runGitBuf(buf, workspacePath, addArgs...)
+	return err
 }
 
 func (wg *WorkspaceGit) PushOnlyWorkspace(gitUser, gitToken string) (string, error) {

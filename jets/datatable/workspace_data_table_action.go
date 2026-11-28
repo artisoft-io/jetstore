@@ -219,6 +219,7 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 					FeatureBranch:   dataTableAction.FeatureBranch,
 				})
 				var buf strings.Builder
+				var keepOut []string
 				// The commit pushes the local tree and then deletes every override, so
 				// the local tree must hold the overrides first (syncOverridesToLocal).
 				// Unlike the compile, a commit after a failed sync is refused: it would
@@ -227,17 +228,23 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 					buf.WriteString(syncLog)
 					buf.WriteString("Commit not done: the workspace overrides could not be written to the local workspace\n")
 					err = fmt.Errorf("commit not done: %s", strings.TrimSpace(syncLog))
+				} else if keepOut, err = wsfile.OwnedAssetOverrides(ctx.Dbpool, dataTableAction.WorkspaceName); err != nil {
+					buf.WriteString(fmt.Sprintf("Commit not done: %v\n", err))
 				} else {
-					// Commit and push workspace changes and update workspace_registry table
-					gitLog, err = workspaceGit.CommitLocalWorkspace(&gitProfile, wsCommitMessage)
+					// Commit and push workspace changes and update workspace_registry table.
+					// The overrides of JetStore-owned assets are left out of the commit
+					// and kept as overrides (JM-032): in the repository they would make
+					// the next build's install refuse the workspace.
+					gitLog, err = workspaceGit.CommitLocalWorkspace(&gitProfile, wsCommitMessage, keepOut...)
 					buf.WriteString(gitLog)
 					buf.WriteString("\n")
 				}
 				if err != nil {
 					status = "error"
 				} else {
-					// Delete all workspace overrides w/o restaure from stash
-					err = wsfile.DeleteAllFileChanges(ctx.Dbpool, dataTableAction.WorkspaceName, false, true)
+					// Delete all workspace overrides w/o restaure from stash, but those
+					// the commit left out
+					err = wsfile.DeleteAllFileChanges(ctx.Dbpool, dataTableAction.WorkspaceName, false, true, keepOut...)
 					if err != nil {
 						status = "error"
 					}

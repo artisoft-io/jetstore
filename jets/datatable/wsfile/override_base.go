@@ -245,3 +245,33 @@ func LogOverrideBases(assets []OverrideAsset) {
 			strings.Join(unknown, ", "))
 	}
 }
+
+// OwnedAssetOverrides lists the workspace's overrides of JetStore-owned assets
+// (workspace_assets.InstalledHash), by file name, sorted. Commit Workspace
+// leaves them out of the commit and keeps them as overrides (JM-032): in the
+// repository, an edited owned asset makes the next build's install refuse the
+// workspace. It reads workspace_changes and the manifests only, so it does not
+// need the base table.
+func OwnedAssetOverrides(dbpool *pgxpool.Pool, workspaceName string) ([]string, error) {
+	rows, err := dbpool.Query(context.Background(),
+		`SELECT file_name FROM jetsapi.workspace_changes WHERE workspace_name = $1 ORDER BY file_name`, workspaceName)
+	if err != nil {
+		return nil, fmt.Errorf("while reading the overrides of workspace %s: %w", workspaceName, err)
+	}
+	names, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return nil, fmt.Errorf("while reading the overrides of workspace %s: %w", workspaceName, err)
+	}
+	dir := workspaceDir(workspaceName)
+	var owned []string
+	for _, name := range names {
+		_, isOwned, err := workspace_assets.InstalledHash(dir, name)
+		if err != nil {
+			return nil, fmt.Errorf("while reading the installed version of %s: %w", name, err)
+		}
+		if isOwned {
+			owned = append(owned, name)
+		}
+	}
+	return owned, nil
+}

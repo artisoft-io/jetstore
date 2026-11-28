@@ -58,7 +58,7 @@ workspace and, when its folder does not exist yet, checks the branch out from th
 |---|---|
 | **Compile Workspace** | Compiles the selected workspace: the rules into `workspace.db`, the lookups into `lookup.db`, with the user flows and table documents checked. The status shows `in progress` until it finishes; **Refresh** to see it change. Only the active workspace can be compiled. |
 | **Rules Unit Tests** | Opens the [Rules Unit Tests](/docs/user/screens/flows/rules-unit-tests/) flow for the selected workspace. |
-| **Commit & Push Workspace** | Opens a dialog asking for a **Commit Message**, then commits the workspace's changes, the saved overrides included, to its branch and pushes them. Once pushed, the overrides are cleared, since the repository now holds them. |
+| **Commit & Push Workspace** | Opens a dialog asking for a **Commit Message**, then commits the workspace's changes, the saved overrides included, to its branch and pushes them. Once pushed, the overrides are cleared, since the repository now holds them. **A saved change to a file JetStore installs is left out** and stays an override of this installation, and the commit's log names it: JetStore replaces such a file on every build and the build refuses an edited copy in the repository. |
 | **Push Only** | Pushes commits already made, without compiling. Changes no commit carries, the overrides included, are not sent; the log says so. |
 | **Pull Workspace** | Opens the [Pull Workspace Changes](/docs/user/screens/flows/pull-workspace-changes/) flow. A workspace registered without a repository opens it too, with the URI empty. |
 | **Git Status** | Opens a dialog that runs `git status` in the installation's copy of the workspace. |

@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/artisoft-io/jetstore/jets/dbutils"
@@ -201,5 +202,49 @@ func TestNoBaseTableRecordsNothing(t *testing.T) {
 	}
 	if assets, err := CheckOverrideBases(pool, ws); err != nil || assets != nil {
 		t.Errorf("CheckOverrideBases = %+v, %v, want nothing", assets, err)
+	}
+}
+
+// Commit Workspace leaves out the overrides of owned assets and keeps their
+// rows (JM-032): OwnedAssetOverrides names them without the base table, and
+// the deletion after the commit keeps the rows it is given.
+func TestACommitKeepsTheOverridesOfOwnedAssets(t *testing.T) {
+	pool := changesDB(t)
+	bg := context.Background()
+	home := t.TempDir()
+	t.Setenv("WORKSPACES_HOME", home)
+	const ws = "test_ws"
+	installFlow(t, home, ws, "v1")
+	for _, name := range []string{ownedFile, "jet_rules/a.jr", "workspace.db"} {
+		fo := dbutils.FileDbObject{WorkspaceName: ws, FileName: name, ContentType: "x", UserEmail: "system"}
+		if _, err := fo.WriteObject(pool, []byte("edited")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	owned, err := OwnedAssetOverrides(pool, ws)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(owned) != 1 || owned[0] != ownedFile {
+		t.Fatalf("OwnedAssetOverrides = %v, want [%s]", owned, ownedFile)
+	}
+	if err := DeleteAllFileChanges(pool, ws, false, true, owned...); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := pool.Query(bg, "SELECT file_name FROM jetsapi.workspace_changes ORDER BY file_name")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var left []string
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		left = append(left, n)
+	}
+	rows.Close()
+	if strings.Join(left, ",") != ownedFile+",workspace.db" {
+		t.Errorf("rows left %v, want the owned asset's override and the compiled asset", left)
 	}
 }
