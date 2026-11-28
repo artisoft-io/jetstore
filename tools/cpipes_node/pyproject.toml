@@ -6,10 +6,10 @@ requires-python = ">=3.12"
 dependencies = [
     "cpipes_contract",
     "pydantic>=2.5",
-    # The parquet device writer. A dependency and not an extra: X3 asks
-    # for every table in CSV **and** Parquet by changing `device_writer_type`
+    # The parquet device writer. A dependency and not an extra: the node must write
+    # every table in CSV **and** Parquet by changing `device_writer_type`
     # alone, and a format that works only where somebody remembered an extra
-    # makes an exit criterion a function of the install. `writers.py` imports it
+    # makes a supported format a function of the install. `writers.py` imports it
     # at the call, so a csv-only pipeline pays nothing for it at cold start.
     "pyarrow>=17",
 ]

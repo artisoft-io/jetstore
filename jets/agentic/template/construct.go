@@ -17,8 +17,8 @@ import (
 // sentence until it is `prose.go` with a parser in front of it.
 //
 // **Every one is total**, and where totality costs something the entry says
-// here what it does instead of failing. That is what makes criterion 84 a
-// property of this table rather than a claim about the package: a construct
+// here what it does instead of failing. That is what makes "rendering cannot
+// fail" a property of this table rather than a claim about the package: a construct
 // that could fail would be a run-time failure the compiler cannot see.
 //
 // The functions are `jets/agentic/briefing/prose/filters.go`'s, and nine of the

@@ -131,7 +131,7 @@ func TestOptimizerComputesWhatTheAuthoredOrderComputes(t *testing.T) {
 	}
 	write("workspace_control.json", string(raw))
 	if out, err := workspace.CompileWorkspace(nil, "test_ws", "rbm-opt",
-		workspace.SkipAssetValidation("rules_benchmark optimizer test: test_ws has no user flows")); err != nil {
+		workspace.SkipAssetValidation("rule optimizer test: test_ws has no user flows")); err != nil {
 		t.Fatalf("compiling the scratch test_ws: %v\n%s", err, out)
 	}
 	engine, err := NewJetRulesFactory().NewJetRuleEngine(nil, optMainRuleFile, false)

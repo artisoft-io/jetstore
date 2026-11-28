@@ -1,6 +1,6 @@
 package compute_pipes
 
-// The shared inference plumbing (item 15a, plan §8): everything of an inference
+// The shared inference plumbing: everything of an inference
 // operator that is not backend-specific. The operator shell (Apply/Done/
 // Finally), the worker pool and its counters, the record processing with its
 // on_error policy, the prompt template compile/render (including the
@@ -226,7 +226,7 @@ func (pm *inferPoolManager) summary(prefix string) string {
 		avg, pm.promptTokens.Load(), pm.evalTokens.Load())
 	// Appended only when a provenance schema is configured, so every summary
 	// that existed before this stays byte-identical. The two numbers are the
-	// only instrument anybody has for the rate R-60 says nobody has: how often a
+	// only instrument anybody has for a rate nobody otherwise measures: how often a
 	// model's answer asserts something its input entity does not support.
 	// A run with no findings reports the zero rather than saying nothing: a
 	// clean guardrail and an absent one are otherwise the same silence.

@@ -365,8 +365,8 @@ func doJob(ctx context.Context, db *pgxpool.Pool, extent *triage.Extent, sum *su
 			"were already raised and were left alone", incidents, len(sessions), hypotheses, already)
 	}
 
-	// Say what the record now shows, in the same run that wrote it. Criterion 47
-	// asks for the audit record to show that nothing acted, and the cheapest way
+	// Say what the record now shows, in the same run that wrote it. The audit
+	// record must show that nothing acted, and the cheapest way
 	// for that to be true of an operator's console is for the writer to print it.
 	return doAttest(ctx, db, sum)
 }

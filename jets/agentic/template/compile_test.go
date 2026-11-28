@@ -8,12 +8,12 @@ import (
 // The twelve compile failures of the notation, one subtest each.
 //
 // **Every one of them is demonstrated by a failing *compile* rather than by a
-// render**, which is the whole of criterion 84: if any of these could be made
-// to fail at render time instead, the criterion would be false and this file is
-// where that would show.
+// render**, which is the whole of the claim that rendering cannot fail: if any
+// of these could be made to fail at render time instead, the claim would be
+// false and this file is where that would show.
 //
 // The fixtures are deliberately neutral - a catalogue of orders and items -
-// because criterion 81 is that nothing under this package names a domain, and a
+// because nothing under this package may name a domain, and a
 // test fixture is under this package.
 func TestCompileRefusals(t *testing.T) {
 	cases := []struct {

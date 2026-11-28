@@ -98,8 +98,8 @@ func TestReadIncidentRequiresAnId(t *testing.T) {
 
 // insertIncident writes one incident directly. The shadow writer did not yet
 // exist, so the fixture is SQL — and this test says so rather than implying the
-// rows came from anywhere else, which is criterion 43's fourth clause and the
-// reason it is graded not met.
+// rows came from anywhere else, such as from a pipeline that ran: none ran
+// here.
 func insertIncident(t *testing.T, pool *pgxpool.Pool, id, session, locus, classification, status string,
 	stepRef *string, shard *int64, confounders []string, detected time.Time) {
 	t.Helper()

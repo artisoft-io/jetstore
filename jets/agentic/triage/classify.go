@@ -851,7 +851,7 @@ func (c Classifier) perRecordFailuresUnreportable(ev *Evidence) Finding {
 // that no predicate over jetsapi can answer it. So section 9.5's "eight of the
 // nine are computable in SQL" is right that this one is not, and this package
 // says so in every report rather than omitting the row: a locus that is never
-// asked is not a locus that never fires, and criterion 44's denominators are
+// asked is not a locus that never fires, and the per-class denominators are
 // what would lose the difference.
 func (c Classifier) writtenNotArrived(ev *Evidence) Finding {
 	const locus = LocusWrittenNotArrived

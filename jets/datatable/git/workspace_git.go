@@ -465,7 +465,7 @@ func (wg *WorkspaceGit) UpdateLocalWorkspace(userName, userEmail, gitUser, gitTo
 // CommitLocalWorkspace stages the workspace's changes, commits and pushes them.
 //
 // **keepOut are workspace-relative paths left out of the commit**, since
-// 2026-11-27 (JM-032): the overrides of JetStore-owned assets
+// 2026-11-27: the overrides of JetStore-owned assets
 // (wsfile.OwnedAssetOverrides). Committed, such a file is an edit of a path
 // JetStore owns, and the next image build's install refuses it by name
 // (workspace_assets.Install), so the commit would break the build. Left out, it

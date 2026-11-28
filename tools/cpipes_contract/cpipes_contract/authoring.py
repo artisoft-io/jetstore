@@ -509,7 +509,7 @@ def from_model(
             value = json.loads(body["response"])
             # **`ok` means the fragment validates, not that JSON came back.** The first
             # version set it on a successful parse, and reported 9/9 and 1/1 while every
-            # fragment was invalid - a criterion-22 pass rate of 100% where the truth
+            # fragment was invalid - an authoring pass rate of 100% where the truth
             # was 0%. Ollama's `format` did not enforce this schema, so a parseable
             # response is no evidence at all and the check has to be ours.
             errors = sorted(

@@ -83,7 +83,7 @@ func TestPurgeRulesUnitTestRuns(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	// A dry run counts what a real run deletes and leaves every row (JM-349).
+	// A dry run counts what a real run deletes and leaves every row.
 	runs, checks := purgeRulesUnitTestRuns(pool, time.Now().Add(-30*24*time.Hour), true)
 	if runs != 2 || checks != 2 {
 		t.Errorf("the dry run counts %d runs and %d checks, want 2 and 2", runs, checks)
@@ -126,7 +126,7 @@ func TestPurgeDetectionRuns(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	// A dry run counts what a real run deletes and leaves every row (JM-349).
+	// A dry run counts what a real run deletes and leaves every row.
 	if n := purgeDetectionRuns(pool, time.Now().Add(-30*24*time.Hour), true); n != 2 {
 		t.Errorf("the dry run counts %d, want 2", n)
 	}

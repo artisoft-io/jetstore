@@ -3,7 +3,7 @@ package datatable
 // Rules unit test runs against a real PostgreSQL: the two tables migrate from
 // jets_schema.json, the rules_unit_test insert target queues or refuses a batch,
 // a compile and a test run exclude each other, and the start-up sweep clears what
-// a stopped apiserver left. Project rules_unit_test_harness, Phase 1, track AC.
+// a stopped apiserver left.
 //
 // Skipped unless JETS_TEST_DSN names a PostgreSQL. The tests create a database of
 // their own, rut_ac_datatable, and recreate their tables in it on every test, so
@@ -44,7 +44,7 @@ const (
 var rutTables = []string{"users", "roles", "role_capability", "workspace_registry",
 	"rules_unit_test_execution", "rules_unit_test_check"}
 
-// recordingExecutor stands in for AC.3's pool and records what it was handed.
+// recordingExecutor stands in for the executor pool and records what it was handed.
 type recordingExecutor struct {
 	mu   sync.Mutex
 	runs []RulesUnitTestRun
@@ -77,8 +77,8 @@ func rutDB(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
-// writeWorkspaceDb writes the compiled workspace's unit_tests table as track AD
-// records it (AD.1): path, test_name, process_name, legacy_mode, comment, findings.
+// writeWorkspaceDb writes the compiled workspace's unit_tests table as the compile
+// records it: path, test_name, process_name, legacy_mode, comment, findings.
 func writeWorkspaceDb(t *testing.T, home string) {
 	t.Helper()
 	dir := filepath.Join(home, rutActiveWorkspace)
@@ -355,7 +355,7 @@ func TestRulesUnitTestRefusals(t *testing.T) {
 	}
 }
 
-// The not-active refusal is one sentence for a test and a compile (I-4).
+// The not-active refusal is one sentence for a test and a compile.
 func TestActiveWorkspaceRefusalIsOneSentence(t *testing.T) {
 	f := newRutFixture(t)
 	_, _, testErr := f.startTests(t, f.adminToken, rutOtherWorkspace, rutTestA)
@@ -386,7 +386,7 @@ func TestCompileRefusesARowThatIsNotTheActiveWorkspace(t *testing.T) {
 }
 
 // A compile is refused while a test is queued or executing, and the claim is
-// written when nothing runs (AC.5).
+// written when nothing runs.
 func TestCompileExcludesRunningTests(t *testing.T) {
 	for _, running := range []string{RulesUnitTestQueued, RulesUnitTestExecuting} {
 		t.Run(running, func(t *testing.T) {
@@ -456,7 +456,7 @@ func TestCompileAndTestsNeverBothStart(t *testing.T) {
 	}
 }
 
-// Until AC.3's pool is installed, a queued run ends as an error at once.
+// Until the executor pool is installed, a queued run ends as an error at once.
 func TestUnstartedExecutorEndsRunsAsErrors(t *testing.T) {
 	f := newRutFixture(t)
 	SetRulesUnitTestExecutor(unstartedRulesUnitTestExecutor{})
@@ -474,7 +474,7 @@ func TestUnstartedExecutorEndsRunsAsErrors(t *testing.T) {
 }
 
 // The start-up sweep ends queued and executing runs from before the start as
-// interrupted (AC.7) and clears a stale "in progress" on the registry (I-5);
+// interrupted and clears a stale "in progress" on the registry;
 // anything after the start, and anything already finished, is left.
 func TestSweepInterruptedWork(t *testing.T) {
 	f := newRutFixture(t)
@@ -565,7 +565,7 @@ func (f *rutFixture) readWorkspace(t *testing.T, workspaceName, table string) (*
 
 // The test case table of another workspace answers with the sentence a test run
 // is refused with, not with sqlite's "unable to open database file"
-// (rules_unit_test_harness AG.1); the active workspace still reads; and a
+// (found by a browser pass); the active workspace still reads; and a
 // workspace.db read of another table is not refused by it, because the IDE
 // reads other workspaces' workspace.db through the same path.
 func TestUnitTestCasesReadOnlyFromTheActiveWorkspace(t *testing.T) {
@@ -667,8 +667,8 @@ func (f *rutFixture) registryLog(t *testing.T, key int) string {
 }
 
 // Pull with the compile option is refused, before anything is pulled, for a row
-// that is not the active workspace (I-16): the compile that follows a pull is of
-// the active workspace whichever row was pulled, which is I-4 by a second route.
+// that is not the active workspace: the compile that follows a pull is of the
+// active workspace whichever row was pulled, the same refusal by a second route.
 // It is refused with the sentence compile_workspace answers, whether the request
 // names the other workspace or names the active one with the other row's key.
 func TestPullWithCompileRefusesARowThatIsNotTheActiveWorkspace(t *testing.T) {

@@ -4,9 +4,9 @@
 // It is the **control** rather than the product. Every model arm of the
 // briefing experiments - the encoding experiment, the backend benchmark, the
 // one-call prose arm - is read against what this
-// package writes over the same fact set, which is what exit criterion 74 asks
-// for and what criterion 76 means by *the template and the model differ in the
-// renderer and in nothing else*.
+// package writes over the same fact set, so that *the template and the model
+// differ in the renderer and in nothing else*, which is what makes this
+// package a control.
 //
 // The specification is four elements in a stated order under a notice and a
 // rule, ten constructs, and an explicit empty case. Read it before changing
@@ -59,7 +59,7 @@
 // **That is a property of the encoder and it is shared with the prompt**: the
 // toon column the model arm reads is built by the same walk. Sorting here alone
 // would make the two arms differ in something other than the renderer, which is
-// exactly what criterion 76 forbids. The fix belongs in `extractAsEntity`, where
+// exactly what a control must not do. The fix belongs in `extractAsEntity`, where
 // it reaches both arms at once; until it lands, this renderer is a total
 // function of the entity map it is given and the map is what varies.
 //

@@ -33,7 +33,7 @@ import (
 // section's directory and compiled view, so a change to a section's Filters or
 // Label moves neither end.
 //
-// `runbooks=` added 2026-11-06 (runbooks Phase 1, `AA.4`), the tenth section:
+// `runbooks=` added 2026-11-06, the tenth section:
 // fnv1a32:b15ab833 became fnv1a32:d2805ee9. The copy in
 // jetsclient_ide/src/screens/sectionContract.ts moves with it. `docs=` added
 // 2026-11-13, the eleventh: fnv1a32:d2805ee9 became fnv1a32:1306f111.
@@ -138,7 +138,7 @@ func TestEverySectionIsWellFormedAndDistinct(t *testing.T) {
 // copy the row above.
 //
 // Measured 2026-08-25 across the corpus's four workspaces at the
-// commits jetstore_agentic_ai pins: seed the closure with workspace_control.json's
+// commits checked out that day: seed the closure with workspace_control.json's
 // `rule_sets`, follow `import`, and the reached directories are data_model,
 // jet_rules and lookups. pipes_config, process_config and reports are reached
 // zero times in all four.
@@ -252,7 +252,7 @@ func TestTheWireFieldIsNamedCompiledView(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// An empty workspace still emits every heading — that is F.0a's failure-mode
+	// An empty workspace still emits every heading — that is the visitor's failure-mode
 	// change, and it is what makes the section list a contract rather than a
 	// consequence of what somebody happened to author.
 	if len(decoded) != len(WorkspaceSections)+2 {
@@ -322,7 +322,7 @@ func TestTheRootFilesCarryTheirSize(t *testing.T) {
 // **The two lists are in different packages and nothing joined them until this
 // test.** `workspace_assets.AssetGroups` decides what is written into a
 // workspace; `WorkspaceSections` decides what the file tree shows. They agree by
-// convention, and on 2026-08-26 they did not: U.2 added `.apply.json` to the
+// convention, and on 2026-08-26 they did not: `.apply.json` was added to the
 // embed glob and not to the `user_flows` filters, so the fourth document of every
 // projected flow was installed and unopenable — 45 documents, 42 nodes.
 //
@@ -465,7 +465,7 @@ func TestReadmesAreListedReadOnly(t *testing.T) {
 	}
 }
 
-// The `runbooks` section (runbooks Phase 1, AA.4) lists a runbook and its
+// The `runbooks` section lists a runbook and its
 // steps' SQL in the runbook's own folder, and nothing else there: not a run's
 // result, which is never a workspace file, nor a stray file.
 func TestRunbooksAreListedWithTheirSql(t *testing.T) {

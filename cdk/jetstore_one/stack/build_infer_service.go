@@ -198,7 +198,7 @@ func (jsComp *JetStoreStackComponents) inferContainerEnvironment() *map[string]*
 		env["OLLAMA_CONTEXT_LENGTH"] = jsii.String(jsComp.InferEnvOrDefault("OLLAMA_CONTEXT_LENGTH", "98304"))
 
 	case InferBackendVllm:
-		// The second arm (item 15b). vLLM is started by cbooter, as jsuser and as a direct
+		// The second arm. vLLM is started by cbooter, as jsuser and as a direct
 		// child, exactly as Ollama is; what differs is that its bind address and its tuning
 		// are command-line arguments rather than environment the server reads for itself, so
 		// these variables are read by cbooter and translated (jets/cmds/cbooter/main.go,

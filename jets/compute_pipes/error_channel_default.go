@@ -57,7 +57,7 @@ package compute_pipes
 // without turning it off. Both are deployment-level. Whether a *particular*
 // operator opts out is an author's decision, would need a new .pc.json field and
 // therefore a new axis of the emitted contract, and is deliberately not offered
-// here -- that is the unreviewed extraction gap 2b exists to prevent.
+// here -- that is the unreviewed contract change the cpipes contract prevents.
 // See defaultErrorReportingEnabled and defaultErrorMaxCount.
 
 import (
@@ -249,8 +249,8 @@ func SynthesizeDefaultErrorChannels(cpConfig *ComputePipesConfig, pipeConfig []P
 			// contract marks output_table_key applicable on a channel of type sql
 			// alone (matrix/fields.csv, OutputChannelConfig/memory), and pointing
 			// the synthesised channel at its table that way would move an axis of
-			// that contract -- which A§9.2 names as the unreviewed extraction gap 2b
-			// exists to prevent, and as an argument for scoping rather than
+			// that contract -- the unreviewed change the cpipes contract exists
+			// to prevent, and an argument for scoping rather than
 			// skipping. The binding is carried by the spec name instead, which is a
 			// value rather than an axis.
 			ec := &OutputChannelConfig{

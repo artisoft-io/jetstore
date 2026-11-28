@@ -842,7 +842,7 @@ func (w *Writer) raiseAnchor(ctx context.Context, db DB, p *feedcondition.Placem
 // hypotheses for the locus — writes them and moves it to `diagnosed` with the
 // ranking's basis.
 //
-// # Where criterion 45's last clause goes
+// # Where the ranking's basis goes
 //
 // jetsapi.hypothesis has eight columns and **neither a basis nor a locus is one
 // of them**, which an assessment graded as *met for what the ranker emits and not
@@ -858,7 +858,7 @@ func (w *Writer) raiseAnchor(ctx context.Context, db DB, p *feedcondition.Placem
 //     which could not be evaluated, which classes can never be emitted and how
 //     many anomalies were read — and incident_event.transition_rationale is
 //     documented as *why, in the actor's words*, which is exactly what that
-//     string is. Criterion 45's last clause says *the ranking's basis*, and
+//     string is. The ranking's basis is what must be kept, and
 //     after this it is in the database.
 //   - **The locus and the basis are also columns**, decided by the
 //     user on 2026-09-04 while this task was running and applied before the first

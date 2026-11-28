@@ -3,7 +3,7 @@ package compute_pipes
 // vLLM operator: call a vLLM server's OpenAI-compatible api once per input record and
 // augment the record in place with values extracted from the model response.
 //
-// It is the ollama operator's second sibling rather than a fork of it (item 15b): the
+// It is the ollama operator's second sibling rather than a fork of it: the
 // operator shell, the worker pool, the prompt template, the response mapping, the retry
 // policy, the circuit breaker, the cost guard and the on_error handling are the shared
 // inference plumbing of pipe_transformation_infer.go, reached through the same

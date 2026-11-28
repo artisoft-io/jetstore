@@ -159,7 +159,7 @@ func createEntityChild(t *testing.T) {
 		list, check, outcome, found string
 	}{
 		{rulestest.KindExpected, `{"s": "jets:iState", "p": "jets:completed", "o": {"value": "1", "type": "int"}}`, rulestest.OutcomePass, "found"},
-		// Criterion 7: a subject made by create_entity, reached through a variable.
+		// A subject made by create_entity, reached through a variable.
 		{rulestest.KindExpected, `{"pattern": [
 			{"s": "?p", "p": "rdf:type", "o": {"value": "lp:Person", "type": "resource"}},
 			{"s": "?p", "p": "lp:name", "o": "person_2"}]}`, rulestest.OutcomePass, "3 matches: {?p="},

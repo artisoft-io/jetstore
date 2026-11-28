@@ -15,7 +15,7 @@ import (
 )
 
 // The three checks in this file need no database, and that is the point: they
-// are the half of criterion 47 that is a property of the code rather than of a
+// are the half of "nothing acts" that is a property of the code rather than of a
 // deployment.
 
 // TestActingStatusesAreTheUnreachableHalf recomputes the ceiling from the
@@ -94,7 +94,7 @@ func TestActingStatusesAreTheUnreachableHalf(t *testing.T) {
 // TestRemediationRefusesAnIrreversibleAction has to insert a remediation to
 // establish that the remediation validator rule is enforced by the CHECK — a test that
 // could not write the row could not test the refusal. So the claim this makes is
-// **no production writer**, which is what criterion 47 needs, and the test-file
+// **no production writer**, which is what "nothing acts" needs, and the test-file
 // count is logged so that a would-be executor hiding in a `_test.go` is visible
 // in the output instead of exempt from it.
 func TestNothingWritesTheRemediationTable(t *testing.T) {

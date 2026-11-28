@@ -496,7 +496,7 @@ def curate(parts: list[Part], thin_at: int = 4, per_shape: int = 2) -> tuple[lis
     root-type part carrying the runtime-only shape. The curation rule admits no exceptions.
 
     **Kept whole**: every part of a type with `thin_at` or fewer distinct parts. This is
-    the rule the criterion names, and it is the reason the library is not proportional -
+    the thin-type rule, and it is the reason the library is not proportional -
     the nine thin operators are where the differentiator lives and where the corpus has
     least to say, so they contribute everything they have.
 
@@ -532,7 +532,7 @@ def curate(parts: list[Part], thin_at: int = 4, per_shape: int = 2) -> tuple[lis
     for name, group in sorted(by_name.items()):
         # Thin by **corpus instances**, which is what the curation rule says and is not the
         # same as thin by distinct parts: a type can have three instances that are
-        # three different parts, or ten that are two. The criterion is about how little
+        # three different parts, or ten that are two. The rule is about how little
         # the corpus has to teach, so citations are the measure.
         if sum(p.instances for p in group) <= thin_at:
             kept.extend(group)
@@ -553,10 +553,10 @@ def curate(parts: list[Part], thin_at: int = 4, per_shape: int = 2) -> tuple[lis
     return kept, stats
 
 
-def criterion_24(before: list[Part], after: list[Part], types_csv: Path) -> list[str]:
+def thin_types_kept_whole(before: list[Part], after: list[Part], types_csv: Path) -> list[str]:
     """Every type with four or fewer corpus instances kept every part it had.
 
-    The criterion in one function, checked rather than argued. It is the half of
+    The rule in one function, checked rather than argued. It is the half of
     the library rule that a plausible-looking curation quietly breaks: trimming by count
     looks reasonable everywhere and is wrong exactly where the corpus is thinnest,
     which is where the differentiator lives.

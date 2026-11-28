@@ -7,8 +7,8 @@ import (
 )
 
 // Glossary renders one short paragraph per requested entity — a function,
-// not a file, because sections 5.1 and 5.6 both narrow per agent and a
-// static document cannot narrow (A3.1). Two description sources, one
+// not a file, because what an agent is shown narrows per agent and a
+// static document cannot narrow. Two description sources, one
 // emitter: the sidecar for schema-first entities, the workspace triples for
 // .jr-authored ones. An entity with neither is reported undocumented, not
 // omitted — the gap must be visible to whoever asks. A narrowed glossary

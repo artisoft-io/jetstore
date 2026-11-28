@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// The commit leaves out the paths it is told to (JM-032): the overrides of
+// The commit leaves out the paths it is told to: the overrides of
 // JetStore-owned assets stay in the tree, unstaged, and every other change is
 // staged as `git add -A` stages it. A path with glob characters names itself
 // only.

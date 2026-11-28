@@ -57,8 +57,8 @@ in `tools/cpipes_contract/templates/`. A third, `map_claim_load_stages`, was shi
 4.1.25 and is on `RetiredAssets` now: its wizard wrote one workspace's pipeline, in that workspace's
 classes, so the workspace keeps it as a flow of its own under a key of its own. A copy under the
 retired key would not survive: an install deletes it when the manifest says the last install left
-it, and refuses the build when no manifest entry does. The command above still writes its four
-files; delete them (see [Projections](/docs/developer/tools/cpipes-contract/projections/)).
+it, and refuses the build when no manifest entry does. Its template is marked `retired`, so the
+command above does not write it (see [Projections](/docs/developer/tools/cpipes-contract/projections/)).
 The four documents of a projection:
 
 | File | Whose schema | What it is |
@@ -113,9 +113,10 @@ the whole of the guard's evidence, as it is for `pipes_config`.
 ## No `--check`
 
 `jets-agentic generate --check` asserts that `data_model` holds what the generator would emit;
-there is no such command for this directory. `tools/cpipes_contract/tests_project.py` asserts it for
-the `qc_metrics` and `qc_report` sets, which are the two shipped. A full
-check is owed to `cpipes-contract` rather than to the installer. How to regenerate the projections is in
+there is no such command for this directory. `tools/cpipes_contract/tests_project.py` asserts it:
+`test_regenerating_the_asset_directory_writes_only_what_is_shipped` runs `templates --project` into
+a temporary directory and compares every file it writes with the committed one, and writes nothing
+a retired template would have. How to regenerate the projections is in
 [Regenerate the generated assets](/docs/developer/workspace/assets/regenerate-assets/).
 
 ## `qc_metrics.demonstrated.pc.json` is not here

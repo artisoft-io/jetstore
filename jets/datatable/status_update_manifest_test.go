@@ -125,7 +125,7 @@ func seedRun(t *testing.T, pool *pgxpool.Pool, sessionId string, workerStatuses 
 	return peKey
 }
 
-// TestOnlyACompletedRunLeavesAManifest is acceptance criterion 11.
+// TestOnlyACompletedRunLeavesAManifest: a run that does not complete leaves no manifest.
 func TestOnlyACompletedRunLeavesAManifest(t *testing.T) {
 	pool := widenedTestPool(t, manifestRunTables...)
 	ctx := context.Background()

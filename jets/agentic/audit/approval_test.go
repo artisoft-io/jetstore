@@ -1,4 +1,4 @@
-// Criterion 28 — an approval is durable, joined to the audit chain, and
+// An approval is durable, joined to the audit chain, and
 // survives restart — tested against a real Postgres. Needs JETS_TEST_DSN; see
 // the note at the head of audit_test.go.
 package audit

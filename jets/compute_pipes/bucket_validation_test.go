@@ -69,7 +69,7 @@ func TestValidateResolvedBucketsRefusesBareDollarForm(t *testing.T) {
 	}
 }
 
-// Criterion 15's negative controls. Both spellings of "the deployment's own
+// The bucket gate's negative controls. Both spellings of "the deployment's own
 // bucket" must pass: an engine that refused either would refuse most of the
 // corpus, and a gate nobody can run green is worse than no gate.
 func TestValidateResolvedBucketsAcceptsTheJetStoreBucket(t *testing.T) {

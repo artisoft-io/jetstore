@@ -1,6 +1,6 @@
 """The local driver: a node run without AWS, and the scope printed.
 
-**Why a driver at all.** Four of the seven exit criteria — the run-to-run, cell,
+**Why a driver at all.** Four of the node's acceptance checks — the run-to-run, cell,
 findings and cross-engine comparisons — compare corpora, and a comparison needs something executable to
 produce them. There is no docker-compose in this repository and no local
 JetStore; the alternative to this is a deployment per measurement. So the S3

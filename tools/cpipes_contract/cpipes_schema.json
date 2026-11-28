@@ -6969,7 +6969,7 @@
             }
           ],
           "default": null,
-          "description": "The route to call, passed to the backend: on vllm, chat (/v1/chat/completions) or completions (/v1/completions); on ollama, the ollama api, chat or generate. Engine default: chat (builder).",
+          "description": "The route to call, passed to the backend: on vllm, chat (/v1/chat/completions) or completions (/v1/completions); on ollama, the ollama api, chat or generate. Engine default: generate on ollama and chat on vllm (builder).",
           "title": "Api"
         },
         "backend": {

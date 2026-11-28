@@ -36,7 +36,7 @@ const confinedDoc = `{
   ]
 }`
 
-// Criterion 53's first clause, established about the contract rather than about
+// The confinement rule, established about the contract rather than about
 // one briefing: there is no field on which the model writes its own prose.
 func TestTheDeliveredContractHasNoProseSurface(t *testing.T) {
 	s, findings := ParseSchema(confinedDoc)
@@ -299,7 +299,7 @@ func TestTheLexiconFlagsRealDescriptionsAndNeverSeesThem(t *testing.T) {
 // agrees with the hand that wrote it. This one opens
 // `workspaces/jets_ws/provenance/patient_briefing.pv.json`, the file the save
 // path validates and the pipeline is configured against, and asks it the two
-// questions criterion 53 is graded on: does it carry a notice, and is there any
+// questions that decide whether it is confined: does it carry a notice, and is there any
 // field on which the model writes prose of its own.
 func TestTheWorkspaceContractIsConfined(t *testing.T) {
 	path := filepath.Join(workspaceRoot(t), "provenance", "patient_briefing.pv.json")

@@ -19,7 +19,7 @@ import (
 // report. And the manifest says what *this* workspace holds, which is what an
 // override replaces at a start, whichever release wrote it.
 //
-// It is what tells a stale override from a current one (JM-033): an override
+// It is what tells a stale override from a current one: an override
 // of an owned asset records hash when it is saved, and a later hash that
 // differs means JetStore has changed the asset under it since
 // (wsfile.CheckOverrideBases). It reads the manifest only; an unreadable

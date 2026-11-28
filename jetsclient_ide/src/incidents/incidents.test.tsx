@@ -519,9 +519,9 @@ describe("one incident", () => {
 });
 
 /**
- * Criterion 50's fourth clause: *over an incident **triage** wrote*.
+ * The screens must work *over an incident **triage** wrote*.
  *
- * **Every fixture above this line is hand-written, and that is what the clause
+ * **Every fixture above this line is hand-written, and that is what the requirement
  * objects to.** A fixture its author agreed with by construction is a familiar
  * shape arriving at the wire: the stub is shaped like the caller, so it passes
  * whatever the caller does. `triagedRow` even carries `severity: "high"`, which
@@ -539,8 +539,8 @@ describe("one incident", () => {
  *
  * **What it does not establish**: no browser has rendered this and no live
  * apiserver has served it. The distance between *the component renders under
- * jsdom* and *an operator read it* is the one criterion 31 spent two phases
- * crossing, and nothing here shortens it.
+ * jsdom* and *an operator read it* is a real one, and nothing here
+ * shortens it.
  */
 describe("an incident triage actually wrote", () => {
   // The verdict control over the golden payload. **This is the one
@@ -592,7 +592,7 @@ describe("an incident triage actually wrote", () => {
     expect(written.severity).toBe("info");
   });
 
-  // Criterion 45's last clause, on the screen. jetsapi.hypothesis has no basis
+  // The ranking's basis, on the screen. jetsapi.hypothesis has no basis
   // column and no locus column, so the ranker's account of what it considered
   // and dropped rides the `triaged -> diagnosed` transition. Without this
   // section the reasoning reaches the database and stops there.

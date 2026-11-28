@@ -395,7 +395,7 @@ func (server *Server) checkWorkspaceVersion() error {
 	}
 
 	// Say which overrides of JetStore-owned assets hide a change JetStore has made
-	// to the asset since the override was saved (JM-033): a start is when the
+	// to the asset since the override was saved: a start is when the
 	// installed version changes, a new image carrying a new install. The result is
 	// each override's status in the IDE's Workspace Changes list, and a warning
 	// here. Before the sync below on purpose: it reads the install's manifests,

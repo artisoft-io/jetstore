@@ -123,8 +123,8 @@ type JetStoreStackComponents struct {
 	// built by dockerfiles/Dockerfile.cpipes_python_lambda, and the third arm of
 	// ecsOrLambdaChoice that routes a reducing iteration to it.
 	//
-	// **Unset means the stack that is deployed today, and that is the whole of exit
-	// criterion 96 for this change.** Nothing outside the two `if jsComp.DeployCpipesPython`
+	// **Unset means the stack that is deployed today, and that is the whole of what
+	// this change must keep.** Nothing outside the two `if jsComp.DeployCpipesPython`
 	// blocks (build_cpipes_lambdas.go, build_cpipes_sm.go) moves, so a deployment that has
 	// never heard of DEPLOY_CPIPES_PYTHON synthesises the template it synthesises now --
 	// measured as a byte comparison of the synthesised output rather than claimed; see
@@ -331,7 +331,7 @@ const (
 //
 // Ollama is the default, so a stack that has never heard of this variable synthesises the
 // container definition it synthesised before — byte for byte, since the vLLM branch adds
-// its keys only when selected. Whether vLLM is ever promoted to the default is item 17's
+// its keys only when selected. Whether vLLM is ever promoted to the default is a separate
 // decision and is deliberately not taken here.
 //
 // It decides two things and only two: which block of environment the container definition

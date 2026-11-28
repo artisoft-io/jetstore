@@ -134,7 +134,7 @@ func (op *doublingOperator) Apply(input *[]any) error {
 func (op *doublingOperator) Done() error { op.doneCall++; return nil }
 func (op *doublingOperator) Finally()    {}
 
-// Criterion 94, first half: a registered site operator runs in a pipeline.
+// A registered site operator runs in a pipeline.
 //
 // It goes through BuildPipeTransformationEvaluator rather than calling the
 // factory: what is under test is the dispatch, the argument assembly and the
@@ -221,7 +221,7 @@ func TestRegisteredSiteOperatorRuns(t *testing.T) {
 	}
 }
 
-// Criterion 94, second half: an unknown name produces the message it produces
+// An unknown name produces the message it produces
 // today, and the *message* is the assertion rather than the fact of an error.
 // A registry that is consulted in `default:` is also the thing most likely to
 // change what an author sees when they mistype an operator, and this is the only
@@ -252,7 +252,7 @@ func TestUnregisteredOperatorProducesTheMessageItAlwaysDid(t *testing.T) {
 	}
 }
 
-// Criterion 95: a site operator cannot shadow a built-in, demonstrated rather
+// A site operator cannot shadow a built-in, demonstrated rather
 // than asserted.
 //
 // The demonstration is that the built-in is what comes back. Asserting that the

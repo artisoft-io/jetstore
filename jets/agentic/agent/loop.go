@@ -450,7 +450,7 @@ func (l *Loop) verify(ctx context.Context, task *Task, artifact json.RawMessage)
 // governance control produced a trail whose last word named a tool that was
 // never called. The wrapper is what lets Run tell a refusal from a failure and
 // say which it was — which is the same distinction the payload's kinds make one
-// level down, and criterion 51's last clause is worth nothing if the record
+// level down, and a refusal recorded in the audit is worth nothing if the record
 // then contradicts itself.
 type refusal struct {
 	// Kind matches the payload's kind, so the event and the returned error
@@ -549,7 +549,7 @@ func errorPayload(kind, message string) []byte {
 	return b
 }
 
-// tierRefusalPayload is criterion 51's last clause: the refusal, in the audit
+// tierRefusalPayload is the tier gate's refusal, in the audit
 // record, with both operands.
 //
 // **The kind is distinct from "capability" on purpose.** Both refusals stop a

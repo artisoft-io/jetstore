@@ -323,7 +323,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			"JETS_DOMAIN_KEY_SEPARATOR":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
 			"JETS_DOMAIN_KEY_HASH_ALGO":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
 			"JETS_DOMAIN_KEY_HASH_SEED":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
-			// Built-in error reporting (gap 26). Both are read by
+			// Built-in error reporting. Both are read by
 			// SynthesizeDefaultErrorChannels, which runs in the two starter lambdas and
 			// nowhere else: the node reads the synthesised configuration back out of
 			// cpipes_execution_status.cpipes_config_json rather than recomputing it, so
@@ -406,7 +406,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			"JETS_DOMAIN_KEY_SEPARATOR":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
 			"JETS_DOMAIN_KEY_HASH_ALGO":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
 			"JETS_DOMAIN_KEY_HASH_SEED":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
-			// Built-in error reporting (gap 26). Both are read by
+			// Built-in error reporting. Both are read by
 			// SynthesizeDefaultErrorChannels, which runs in the two starter lambdas and
 			// nowhere else: the node reads the synthesised configuration back out of
 			// cpipes_execution_status.cpipes_config_json rather than recomputing it, so

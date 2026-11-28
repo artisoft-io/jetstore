@@ -11,7 +11,7 @@ import (
 // **A residual gap, closed by a tripwire rather than by sharing the
 // fixtures.**
 //
-// Criterion 82 is checked in `jets/agentic/briefing/briefingtmpl`, against a
+// The template engine's equivalence is checked in `jets/agentic/briefing/briefingtmpl`, against a
 // **transcription** of this package's render cases: `section1106Entity` and
 // `TestRenderCases`' table are unexported helpers of this test binary, so no
 // other package can call them. That was accepted, naming what it cannot

@@ -109,7 +109,7 @@ func TestClaimSetSummaryHashesAsKeysetDoes(t *testing.T) {
 	}
 }
 
-// Criteria 138 to 140 on the fixture. The summaries a run computes carry no
+// The claim-set summary's three guarantees, on the fixture. The summaries a run computes carry no
 // member-level value; once written, a run with every claim row deleted
 // computes none and reaches the same verdicts, details and anomalies as the
 // run that read the rows, all five checks; and every overlap estimate is

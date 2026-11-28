@@ -53,7 +53,7 @@ func main() {
 	utils.UseJetStoreLogger()
 	flag.Parse()
 	// The memory ceiling comes first, before anything allocates in earnest: the
-	// apiserver shares its memory with every test it runs (definition R-8).
+	// apiserver shares its memory with every test it runs.
 	// RLIMIT_DATA, not RLIMIT_AS, which a Go process exceeds before loading
 	// anything.
 	limitErr := applyMemoryCeiling()
