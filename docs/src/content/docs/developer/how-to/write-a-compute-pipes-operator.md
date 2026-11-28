@@ -104,7 +104,9 @@ and a document using a token the contract does not have fails `cpipes-contract v
    cost 74 field rows.
 3. **`cpipes_model.py`**, the Pydantic model, which is the source of truth for the claim columns
    (applicable, required, default, values, description): add the new types, then run `reflect` to
-   write those columns back into `fields.csv`.
+   write those columns back into `fields.csv`. Then run `cpipes-contract generate`, which rewrites
+   the model from the matrix and puts the new classes and fields in its sorted order;
+   `generate --check` fails on a model the matrix does not emit.
 4. Regenerate the two artefacts: `cpipes-contract schema --out cpipes_schema.json` and
    `cpipes-contract gofile --out ../../jets/compute_pipes/cpipes_contract_data.go`. The second is
    checked in and carries one `TransformationSpec/<token>` entry per operator.
@@ -121,6 +123,7 @@ The contract checks, from `tools/cpipes_contract/` with the tool installed as
 ```bash
 .venv/bin/cpipes-contract check              # coherence of the three tables
 .venv/bin/cpipes-contract reflect --check    # the model and the matrix agree
+.venv/bin/cpipes-contract generate --check   # the matrix emits the committed model
 .venv/bin/cpipes-contract drift --code ../.. # the matrix's fields against pipes_model.go
 .venv/bin/cpipes-contract harness --code ../.. # a synthesised config per type, through ValidatePipeSpecConfig
 uv run --extra dev pytest -q

@@ -1,6 +1,6 @@
 ---
 title: Run the contract checks
-description: Install the compute pipes contract tooling and run its coherence, citation, corpus and harness checks, the review stamp, and its test suite.
+description: Install the compute pipes contract tooling and run its coherence, citation, model, corpus and harness checks, the review stamp, and its test suite.
 kind: how-to
 sidebar:
   order: 7
@@ -73,6 +73,45 @@ the `--code` root. Where that workspace is not in the checkout, the citation is 
 `check` prints how many it set aside, so a JetStore-only checkout reports the same problems as a
 full one. The test suite runs the same rule over every citation into the JetStore repository, so a
 change that moves a cited line fails `pytest` as well.
+
+## Check that the matrix still emits the model
+
+```bash
+.venv/bin/cpipes-contract reflect --check     # the model's claims are the matrix's
+.venv/bin/cpipes-contract generate --check    # the matrix emits the committed model
+```
+
+`cpipes_model.py` is where the contract is edited, and `reflect` writes an edit's claims into
+`fields.csv`. `generate` is the other direction: it emits the model from the matrix, and
+`--check` compares instead of writing, prints the diff, and exits non-zero when they differ.
+`tests_generate.py` makes the same comparison, so drift fails `pytest` too. Together the two
+checks say the model and the matrix carry the same contract, each recoverable from the other.
+
+Code the matrix has no column for is marked in the model as a **hand-written region**:
+
+```python
+# >>> hand-written: before TableSpec
+OUTPUT_TABLE_RDF_TYPES = (...)
+# <<< hand-written
+```
+
+The anchor says where `generate` puts the region back: `before <Name>` (above `class <Name>(` or
+`<Name> = `), `field <Class>.<key>` (in place of that field's line) or `end`. `generate` refuses a
+region whose anchor it does not emit, rather than dropping it. Everything outside the regions comes
+from the matrix, so an edit there that `reflect` does not carry (a type's docstring is `types.csv`'s
+`description`; class and field order is the emitter's sorted order) makes `--check` fail until the
+matrix says the same.
+
+Until 2026-11-27 nothing checked this direction, and the committed model had drifted from what the
+matrix emitted in class order, in three type descriptions, and by three blocks of code that a
+regeneration deleted. The emitter's own output did not vary: it is sorted throughout, and the
+test suite asserts it is identical under two hash seeds.
+
+After a change that `generate` writes, regenerate the schema as well:
+
+```bash
+.venv/bin/cpipes-contract generate && .venv/bin/cpipes-contract schema
+```
 
 ## Carry citations whose lines moved
 
@@ -173,6 +212,8 @@ uv run --extra dev pytest -q   # or let uv build one
 
 `tests_citations.py` runs `check --code`'s rule over every citation into the JetStore repository,
 so a change that moves a cited line fails it; `relocate` above carries the citations it can.
+`tests_generate.py` fails when `cpipes_model.py` is not what the matrix generates, as
+`generate --check` above does.
 Tests that read a named workspace's configuration skip unless the workspace is checked out beside
 `jetstore` and `CPIPES_CONTRACT_ALIASES` names the alias file.
 

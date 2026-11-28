@@ -32,8 +32,12 @@ Everything else stays authoritative in the CSV files:
 - the rows the model cannot express: the merged `ExpressionNode` and `ContextSpec` claims, and
   fields inapplicable on every token of their struct.
 
-The `generate` command is the bootstrap that first produced the model. Running it again overwrites
-model edits.
+The `generate` command is the bootstrap that first produced the model, and since 2026-11-27 it is
+also held to it: `generate --check` fails when the committed model is not what the matrix emits. So
+a model edit is reflected into the matrix before it is committed, and code the matrix has no column
+for (a validator, a closed list it reads, the runtime projection) is marked in the model as a
+hand-written region, which `generate` carries over rather than deleting. See
+[Run the contract checks](/docs/developer/tools/cpipes-contract/run-the-checks/#check-that-the-matrix-still-emits-the-model).
 
 ## Three tables, not one
 
