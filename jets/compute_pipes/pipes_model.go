@@ -602,7 +602,7 @@ type TransformationSpec struct {
 	// Type range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize,
 	// distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama,
 	// embed, vllm, infer, render, claim_set_summary
-	// Format takes precedence over SchemaProvider's Format (from OutputChannelConfig)
+	// Any other value names a site operator (site_operators.go).
 	Type                  string                           `json:"type,omitempty"`
 	NewRecord             bool                             `json:"new_record,omitzero"`
 	Columns               []TransformationColumnSpec       `json:"columns,omitempty"`
