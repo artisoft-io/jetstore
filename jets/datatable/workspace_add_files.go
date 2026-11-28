@@ -9,8 +9,9 @@ package datatable
 // jetsapi.workspace_changes row that every start of the apiserver applies over
 // the workspace, listed in the IDE's Workspace Changes until it is committed.
 // Its revert deletes it, since the workspace as deployed has no copy of it to
-// restore (wsfile.DeleteFileChange); with no stash, on a workstation in dev
-// mode, the revert is refused as it is for any file there.
+// restore (wsfile.DeleteFileChange); with no stash the revert is refused as it
+// is for any file. A workstation in dev mode has one since 2026-11-27
+// (wsfile.RefreshStash), taken at the apiserver's start.
 //
 // Two actions share this file:
 //

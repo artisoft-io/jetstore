@@ -36,8 +36,9 @@ var stashOmits = []string{".git", ".github", ".gitignore", "lookup.db", "workspa
 // addedSinceStash says whether fileName was added to the workspace after the
 // stash was taken: the workspace has a stash, the stash holds no copy of the
 // file, and the name is not one the stash leaves out on purpose. A workspace
-// with no stash at all (a workstation, where dev mode takes none) has every file
-// absent from it, so it answers false there and the revert is refused as before.
+// with no stash at all has every file absent from it, so it answers false there
+// and the revert is refused. (A workstation in dev mode had none until
+// 2026-11-27, when its start began taking one, RefreshStash.)
 func addedSinceStash(workspaceName, fileName string) (bool, error) {
 	stashRoot := filepath.Join(StashDir(), workspaceName)
 	if info, err := os.Stat(stashRoot); err != nil || !info.IsDir() {
