@@ -438,9 +438,8 @@ func rewriteManifest(t *testing.T, dir, group, name, hash string) {
 // `jetsclient_ide/src/cpipes/projectedFlow.test.tsx`, whose TEMPLATES is the same
 // list for the same reason.
 var projectedKeys = map[string]bool{
-	"map_claim_load_stages": true,
-	"qc_metrics":            true,
-	"qc_report":             true,
+	"qc_metrics": true,
+	"qc_report":  true,
 }
 
 // A flow's documents are read together and a set that lost one fails at load in

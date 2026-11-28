@@ -5,9 +5,9 @@
 // code**: `patient_profile_briefing.json` is a [template.Spec] in the notation
 // of the template engine, and everything that
 // makes it a *briefing* rather than a language lives in that file.
-// `jets/agentic/template` is the engine and names none of it, which is
-// criterion 81; this package names all of it and contains no logic, which is
-// the other half of the same line.
+// `jets/agentic/template` is the engine and names none of it; this package
+// names all of it and contains no logic. That line between the two is the
+// design, and each side holds half of it.
 //
 // # Why the document is a file in a package rather than a fixture
 //
@@ -43,8 +43,8 @@
 //
 // It is **not** where the `render` operator's caller behaviour is decided.
 // [Render] is the reference caller of the template design - the four lines that stay outside
-// the engine - and it exists so that criterion 82 has something to compare with
-// `prose.Render`. Whether the operator fails the row into its error channel or
+// the engine - and it exists so that the equivalence test has something to
+// compare with `prose.Render`. Whether the operator fails the row into its error channel or
 // writes the column and reports separately is the render operator's decision.
 package briefingtmpl
 
