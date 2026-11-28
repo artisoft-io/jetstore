@@ -63,6 +63,28 @@ removes its folders, innermost first, while each is empty and absent from the st
 2026-11-22 *Add File* created an empty file on disk and recorded nothing, so the next start of an
 installation lost it, and it emptied a file of the same name.
 
+**An override of a JetStore-owned asset says when JetStore changes the asset under it, since
+release 4.1.25** (`jets/datatable/wsfile/override_base.go`). An owned asset is a file directly in an
+asset group's directory (`data_model/`, `pipes_config/`, `user_flows/`, `table_configs/`) that the
+directory's `jets_assets_manifest.json` records (`workspace_assets.InstalledHash`). A save of one
+(`SaveContent`) records the manifest's hash of it, the version the override was made on, in
+`jetsapi.workspace_override_base`, keyed by the override's `workspace_changes` key. Each start
+(`checkWorkspaceVersion`, `CheckOverrideBases`) compares that base with the hash installed now and
+writes the result to the override's `workspace_changes.status`, a column nothing wrote before, which
+the Workspace Changes list shows as *Change Status*:
+
+| status | meaning |
+|---|---|
+| `overrides JetStore asset` | the installed asset is the one the override was made on |
+| `JetStore asset updated since override` | JetStore changed the asset since; the start logs a `*** WARNING` naming the file and the two hashes |
+| `overrides JetStore asset, base unknown` | saved before release 4.1.25, or with no base table; the start lists these in one log line |
+
+**The base is the override's, not the file's.** A re-save of the same override keeps its base, so an
+unrelated edit does not clear the warning; a revert deletes the row, and a new override of the file
+gets a new key and the version installed then. A base whose override is gone is deleted at the next
+start. `workspace_changes` keeps its schema (update_db does not touch it), so the base has its own
+table; on a database without it a save records nothing and a start flags nothing.
+
 **`DeleteAllFileChanges` takes two flags and the two call sites set them oppositely**,
 which is the clearest statement of what each is for:
 

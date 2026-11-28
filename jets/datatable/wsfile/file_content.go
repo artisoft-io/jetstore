@@ -122,6 +122,12 @@ func SaveContent(dbpool *pgxpool.Pool, workspaceName, fileName, fileContent, use
 		return fmt.Errorf("failed to save local workspace file %s in database: %v", fileName, err)
 	}
 	log.Println("uploaded", fo.FileName, "size", n, "bytes to database")
+	// An override of a JetStore-owned asset records the version it was made on,
+	// so that a start can say when JetStore changes the asset under it
+	// (override_base.go). The save has succeeded either way.
+	if err = RecordOverrideBase(dbpool, workspaceName, fileName, fo.Key); err != nil {
+		log.Printf("Error (ignored) while recording the base of the override of %s: %v", fileName, err)
+	}
 
 	// Write file to local workspace, making its folder when the file is the
 	// first in it: a file added from the IDE may be in a folder the workspace

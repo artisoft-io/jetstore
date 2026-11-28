@@ -394,6 +394,20 @@ func (server *Server) checkWorkspaceVersion() error {
 		log.Printf("Error while stashing workspace file: %v", err)
 	}
 
+	// Say which overrides of JetStore-owned assets hide a change JetStore has made
+	// to the asset since the override was saved (JM-033): a start is when the
+	// installed version changes, a new image carrying a new install. The result is
+	// each override's status in the IDE's Workspace Changes list, and a warning
+	// here. Before the sync below on purpose: it reads the install's manifests,
+	// which no override writes, and its result does not depend on the sync.
+	if workspaceName != "" {
+		if assets, err := wsfile.CheckOverrideBases(server.dbpool, workspaceName); err != nil {
+			log.Printf("Error (ignored) while checking the overrides of JetStore assets: %v", err)
+		} else {
+			wsfile.LogOverrideBases(assets)
+		}
+	}
+
 	// Put the active workspace entry into workspace_registry table if ACTIVE_WORKSPACE_URI
 	// is set, or if git is off for this deployment.
 	//

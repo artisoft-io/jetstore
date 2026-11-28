@@ -31,7 +31,8 @@
     },
     {
       "name": "status",
-      "label": "Change Status"
+      "label": "Change Status",
+      "tooltip": "For a change to a file JetStore installs: whether JetStore has updated that file since the change was saved"
     },
     {
       "name": "user_email",

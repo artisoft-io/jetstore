@@ -122,9 +122,10 @@ Markdown; other files, such as a lookup's CSV, show as plain text. A tab with un
 ![The status bar of an edited file: its path, its language, its size in characters, and Modified.](../../../../assets/screenshots/user/screens/workspace-ide/ide-status-modified.png)
 
 The status bar shows the file's path, its language, *Read only* when it cannot be edited, its size and
-whether it is saved. Files JetStore installs into every workspace are read-only: a workspace changes
-what one of them does by extending it, as
-[Workspace assets JetStore installs](/docs/developer/workspace/assets/) explains. A Markdown file,
+whether it is saved. Files JetStore installs into every workspace can be edited and saved, as an
+override, but JetStore replaces them on every build: a lasting change extends one instead, as
+[Workspace assets JetStore installs](/docs/developer/workspace/assets/) explains, and a change saved
+here is marked in *Workspace Changes* when a later JetStore release updates the file. A Markdown file,
 such as a `README.md` beside the pipelines, is read-only too, except a page under `docs/` and the
 workspace's own `README.md`, at the top of the tree. Saving that README makes no start of JetStore
 compile the workspace.
@@ -179,9 +180,15 @@ installation and not yet committed.
 | **Change OID** | The identifier of the stored content. |
 | **File Name** | The file's path in the workspace. |
 | **Content Type** | The kind of file. |
-| **Change Status** | The state of the change. |
+| **Change Status** | For a change to a file JetStore installs: *overrides JetStore asset*, or **JetStore asset updated since override** when a JetStore release has changed the file since the change was saved, or *overrides JetStore asset, base unknown* for a change saved before release 4.1.25. Empty for any other file. |
 | **User Email** | Who saved it. |
 | **Last Update** | When it was saved. |
+
+**A change marked *JetStore asset updated since override* hides that update**: the installation runs
+your saved version, not JetStore's new one. Compare the two, revert the change, which brings back
+JetStore's new version, and make your change again on it if it is still needed. Saving the change
+again does not clear the mark, since an edit may have nothing to do with the update. The mark is set
+when the change is saved and each time JetStore starts.
 
 **Delete/Revert Changes** reverts the selected overrides, and **Delete/Revert ALL Changes** reverts
 every one, each after a confirmation: the file in the image applies again. A file added since the
