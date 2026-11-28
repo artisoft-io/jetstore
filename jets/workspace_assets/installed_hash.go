@@ -1,6 +1,7 @@
 package workspace_assets
 
 import (
+	"io/fs"
 	"path"
 	"path/filepath"
 	"strings"
@@ -42,4 +43,56 @@ func InstalledHash(workspaceDir, fileName string) (hash string, owned bool, err 
 		return hash, owned && hash != "", nil
 	}
 	return "", false, nil
+}
+
+// InstalledFile is a workspace file the next install writes: an asset the
+// last install recorded, or a group's manifest.
+type InstalledFile struct {
+	// Group is the asset group whose directory holds the file.
+	Group AssetGroup
+	// Manifest is true for the group's ManifestName, which every install
+	// writes, recorded or not.
+	Manifest bool
+}
+
+// InstalledFiles returns the files of the workspace whose root is workspace
+// that the next install of JetStore's assets writes over, by
+// workspace-relative path (`user_flows/flow.uf.json`): every name a group's
+// manifest records, as InstalledHash reads it, and every group's manifest.
+// The workspace IDE marks them as installed by JetStore (JM-389, 2026-11-27,
+// wsfile.markInstalledAssets). They stay editable: a save is a local override,
+// as for any other file.
+//
+// **The manifest is the evidence, as for InstalledHash**, and not the embed:
+// a manifest records what the install wrote into this workspace, and the next
+// install replaces each name it records with the version it ships, or deletes
+// it when JetStore has retired it. A file of the workspace's own beside the
+// assets is in no manifest. A recorded file the workspace's repository has
+// changed is not written over: the install refuses it and the build stops.
+//
+// A workspace JetStore never installed into has no manifest, and nothing in
+// it is returned but the manifests' own paths.
+func InstalledFiles(workspace fs.FS) (map[string]InstalledFile, error) {
+	files := map[string]InstalledFile{}
+	for _, g := range AssetGroups {
+		files[g.Dir+"/"+ManifestName] = InstalledFile{Group: g, Manifest: true}
+		m, err := readManifestFS(workspace, g.Dir)
+		if err != nil {
+			return nil, err
+		}
+		for name, hash := range m.Assets {
+			if hash == "" || name == ManifestName || name == "." || name == ".." || name != path.Base(name) {
+				continue
+			}
+			files[g.Dir+"/"+name] = InstalledFile{Group: g}
+		}
+	}
+	return files, nil
+}
+
+// readManifestFS is readManifest for the group directory dir of the workspace
+// workspace.
+func readManifestFS(workspace fs.FS, dir string) (manifest, error) {
+	data, err := fs.ReadFile(workspace, path.Join(dir, ManifestName))
+	return decodeManifest(data, err)
 }

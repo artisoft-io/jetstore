@@ -532,6 +532,7 @@ func BuildWorkspaceFileStructure(root, workspaceName string) ([]*WorkspaceNode, 
 	}
 
 	resultData = append(resultData, visitRootNotes(root, workspaceName)...)
+	markInstalledAssets(root, resultData)
 
 	return resultData, nil
 }

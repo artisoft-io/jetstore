@@ -95,7 +95,9 @@ import (
 	"embed"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -584,9 +586,15 @@ func sum(data []byte) string {
 }
 
 func readManifest(targetDir string) (manifest, error) {
-	m := manifest{Assets: map[string]string{}}
 	data, err := os.ReadFile(filepath.Join(targetDir, ManifestName))
-	if os.IsNotExist(err) {
+	return decodeManifest(data, err)
+}
+
+// decodeManifest is readManifest's reading of a manifest's bytes, data, as
+// read with err, for readManifestFS too: an absent manifest is an empty one.
+func decodeManifest(data []byte, err error) (manifest, error) {
+	m := manifest{Assets: map[string]string{}}
+	if errors.Is(err, fs.ErrNotExist) {
 		return m, nil
 	}
 	if err != nil {

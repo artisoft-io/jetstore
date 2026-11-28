@@ -53,6 +53,15 @@ export interface WorkspaceNode {
    * refuses a save of one too, so this is what keeps the editor from offering it.
    */
   read_only?: boolean;
+  /**
+   * Set on a file JetStore installs into every workspace, absent otherwise
+   * (`wsfile.markInstalledAssets`, 2026-11-27). Such a file is editable: a save
+   * is a local override. `installed_note` says what the install does to it and
+   * what a save becomes, and the IDE shows it in the tree and when the file
+   * opens. The server writes the note, so the wording has one home.
+   */
+  installed?: boolean;
+  installed_note?: string;
   route_path: string;
   route_params: Record<string, string> | null;
   children: WorkspaceNode[] | null;

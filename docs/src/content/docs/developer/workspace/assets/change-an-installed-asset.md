@@ -46,6 +46,13 @@ Unlike a `.jr` extension, which imports the JetStore file and therefore tracks i
 `.pc.json` is a fork: it does not follow the original. That is the trade, and it is why the platform
 configurations are kept small.
 
+## Run a variant of a user flow or a table document
+
+Copy the flow's documents under a key of your own: its `.uf.json`, `.ua.json` and `.form.json`, and
+its `.apply.json` when it is a template's wizard, which are read together. A table document is copied
+under a key of your own in `table_configs/`, and your own flow's form names that key. As for a
+pipeline configuration, a copy does not follow the original.
+
 ## Change a user flow when you cannot wait for a release
 
 Edit it in the workspace IDE and leave it there. The save is recorded in `jetsapi.workspace_changes`
@@ -59,7 +66,16 @@ owned asset by literal pathspec, names them in the commit's log, and keeps their
 `workspace_changes` rows when it clears the others. The file stays a modified, uncommitted file in
 the installation's tree, so a later *Pull Workspace Changes* that brings a change to the same file
 fails, naming it, until the override is reverted. A change you mean to keep goes in a file of your own, as the
-sections above describe. How overrides are stored and removed is in
+sections above describe.
+
+**The Workspace IDE marks every file JetStore installs, since release 4.1.25**, so that a save is
+known to be an override before it is made: the tree's node for one carries `installed` and an
+`installed_note`, which the IDE shows as a *JetStore* badge, in the status bar and when the file
+opens (`markInstalledAssets`, `jets/datatable/wsfile/installed_assets.go`). The files are the names
+each group directory's `jets_assets_manifest.json` records (`workspace_assets.InstalledFiles`), which
+are the ones the next install writes over, or deletes when JetStore has retired them. A file of the
+workspace's own beside them is in no manifest and is not marked. Nothing is refused: the save goes
+through the same checks as any other. How overrides are stored and removed is in
 [Workspace overrides](/docs/developer/workspace/overrides/).
 
 **When the release with the fix ships, the override hides it**, since it is applied over the newly

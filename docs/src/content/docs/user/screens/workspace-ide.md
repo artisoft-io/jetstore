@@ -122,10 +122,16 @@ Markdown; other files, such as a lookup's CSV, show as plain text. A tab with un
 ![The status bar of an edited file: its path, its language, its size in characters, and Modified.](../../../../assets/screenshots/user/screens/workspace-ide/ide-status-modified.png)
 
 The status bar shows the file's path, its language, *Read only* when it cannot be edited, its size and
-whether it is saved. Files JetStore installs into every workspace can be edited and saved, as an
-override, but JetStore replaces them on every build: a lasting change extends one instead, as
-[Workspace assets JetStore installs](/docs/developer/workspace/assets/) explains, and a change saved
-here is marked in *Workspace Changes* when a later JetStore release updates the file. A Markdown file,
+whether it is saved. **Files JetStore installs into every workspace are marked**, since release
+4.1.25: the data model, pipeline configurations, user flows and table documents JetStore owns carry a
+*JetStore* badge in the tree, and opening one says what saving it does, as does *Installed by
+JetStore* in the status bar. They can be edited and saved, and the save is a **local override**:
+every build of the workspace replaces the installed file, and the override is applied over it again
+at every start of JetStore, so it is kept until you revert it. *Commit Workspace* leaves it out of the
+commit, and *Workspace Changes* marks it when a later JetStore release changes the file, since the
+override then hides that change. A lasting change goes in a file of the workspace's own instead, as
+[Change or extend an installed asset](/docs/developer/workspace/assets/change-an-installed-asset/)
+explains. A Markdown file,
 such as a `README.md` beside the pipelines, is read-only too, except a page under `docs/` and the
 workspace's own `README.md`, at the top of the tree. Saving that README makes no start of JetStore
 compile the workspace.
