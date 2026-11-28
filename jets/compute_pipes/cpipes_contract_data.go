@@ -471,7 +471,7 @@ var CpipesContract = map[string]map[string]ContractField{
 		"source":      {Values: []string{"response", "raw_response", "envelope", "thinking", "model_name"}},
 	},
 	"InferSpec/*": {
-		"api":                       {Values: []string{"chat", "completions"}},
+		"api":                       {Values: []string{"chat", "completions", "generate"}},
 		"backend":                   {},
 		"comment":                   {},
 		"connect_timeout_sec":       {},
