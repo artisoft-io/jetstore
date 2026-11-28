@@ -35,5 +35,6 @@ In the order they were recorded:
 - [A cumulative file, and why its flag is read at start](/docs/developer/compute-pipes/notes/cumulative-files/)
 - [A map column: empty, rejected and absent values](/docs/developer/compute-pipes/notes/map-column-values/)
 - [Reading a stage folder: the latest session, and the columns it was written with](/docs/developer/compute-pipes/notes/stage-session-reads/)
+- [Sending to S3: what is retried, and what cannot be](/docs/developer/compute-pipes/notes/s3-sends/)
 - The rule optimizer's statistics, 2026-10-24: a jetrules step can count, over its sessions, what
   the rule optimizer orders by; see [The rule optimizer's statistics](/docs/developer/compute-pipes/optimizer-statistics/).

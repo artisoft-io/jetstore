@@ -14,10 +14,13 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/ratelimit"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
@@ -299,14 +302,51 @@ type S3Object struct {
 	Size int64
 }
 
+// NewS3Client returns the process's S3 client for the deployment's region,
+// creating it on first use. An s3.Client is safe for concurrent use, and its
+// credentials refresh on their own.
+//
+// Until 2026-11-27 every call made a new client, and with it a new HTTP
+// transport. A transport keeps its idle connections open for 90 seconds after
+// its last request (the SDK's IdleConnTimeout), up to ten per host, and a
+// transport nobody holds any more is not closed when it is collected, so each
+// upload or download left its connections, and their file descriptors, open
+// for a minute and a half after it returned. A process sending many objects in
+// that time (a partition writer streaming each partition through
+// UploadToS3FromReader, say) could run out of file descriptors. One client
+// shares one connection pool.
+//
+// Sharing a client also shares the SDK's retry quota, a token bucket each
+// retry draws on and each failure empties faster; a burst of throttling
+// across all of a process's sends would empty one shared bucket sooner than
+// the separate ones it had, and the SDK would then stop retrying at all. So
+// the shared client's retryer has no quota (ratelimit.None): the SDK still
+// retries each request with its own backoff and attempt limit, and RetrySend
+// bounds the rest.
 func NewS3Client() (*s3.Client, error) {
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(jetstoreOwnRegion))
+	s3ClientMu.Lock()
+	defer s3ClientMu.Unlock()
+	if s3ClientShared != nil {
+		return s3ClientShared, nil
+	}
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(jetstoreOwnRegion),
+		config.WithRetryer(func() aws.Retryer {
+			return retry.NewStandard(func(o *retry.StandardOptions) { o.RateLimiter = ratelimit.None })
+		}))
 	if err != nil {
 		return nil, fmt.Errorf("while loading aws configuration: %v", err)
 	}
 	// Create a s3 client
-	return s3.NewFromConfig(cfg), nil
+	s3ClientShared = s3.NewFromConfig(cfg)
+	return s3ClientShared, nil
 }
+
+// s3ClientShared is the client NewS3Client returns, once made; a failure to
+// make it is not kept, so the next call tries again.
+var (
+	s3ClientMu     sync.Mutex
+	s3ClientShared *s3.Client
+)
 
 // GetObjectSize gets the size of the object in bytes
 // Does up to 4 attempts in case of failure
@@ -589,17 +629,68 @@ do_retry:
 }
 
 // upload object to S3, reading the obj from fileHd (from current position to EOF)
+//
+// The send is retried (RetrySend) from that position when fileHd can seek, as
+// a file opened for reading can, and made once when it cannot.
 func UploadToS3(bucket, region, objKey string, fileHd *os.File) error {
-	return UploadToS3FromReader(bucket, objKey, bufio.NewReader(fileHd))
+	s3Client, err := NewS3Client()
+	if err != nil {
+		return fmt.Errorf("while creating s3 client: %v", err)
+	}
+	body, canRetry := fileBody(fileHd)
+	return uploadToS3(s3Client, bucket, objKey, body, canRetry)
 }
 
 // upload object to S3, reading the obj from reader (from current position to EOF)
+//
+// The send is retried (RetrySend) from that position when reader is an
+// io.Seeker, as a bytes.Reader or a file is, and made once when it is not, as
+// with a pipe: a retry of a body already partly read would send the rest of it
+// as the whole object.
 func UploadToS3FromReader(externalBucket, objKey string, reader io.Reader) error {
 	s3Client, err := NewS3Client()
 	if err != nil {
 		return fmt.Errorf("while creating s3 client: %v", err)
 	}
+	body, canRetry := readerBody(reader)
+	return uploadToS3(s3Client, externalBucket, objKey, body, canRetry)
+}
 
+// fileBody is the body UploadToS3 sends: fileHd from its current position,
+// rewound to it before each attempt when fileHd can seek.
+func fileBody(fileHd *os.File) (body func() (io.Reader, error), canRetry bool) {
+	start, err := fileHd.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return func() (io.Reader, error) { return bufio.NewReader(fileHd), nil }, false
+	}
+	return func() (io.Reader, error) {
+		if _, err := fileHd.Seek(start, io.SeekStart); err != nil {
+			return nil, err
+		}
+		return bufio.NewReader(fileHd), nil
+	}, true
+}
+
+// readerBody is the body UploadToS3FromReader sends: reader from its current
+// position, rewound to it before each attempt when reader is an io.Seeker.
+func readerBody(reader io.Reader) (body func() (io.Reader, error), canRetry bool) {
+	if seeker, ok := reader.(io.Seeker); ok {
+		if start, err := seeker.Seek(0, io.SeekCurrent); err == nil {
+			return func() (io.Reader, error) {
+				if _, err := seeker.Seek(start, io.SeekStart); err != nil {
+					return nil, err
+				}
+				return reader, nil
+			}, true
+		}
+	}
+	return func() (io.Reader, error) { return reader, nil }, false
+}
+
+// uploadToS3 puts the object body returns at objKey. body is called once per
+// attempt and returns the body from its start; canRetry says whether it can be
+// called more than once.
+func uploadToS3(s3Client *s3.Client, externalBucket, objKey string, body func() (io.Reader, error), canRetry bool) error {
 	// check if we write to an external bucket
 	if IsJetStoreBucket(externalBucket) {
 		externalBucket = jetstoreOwnBucket
@@ -610,28 +701,34 @@ func UploadToS3FromReader(externalBucket, objKey string, reader io.Reader) error
 		o.PartSizeBytes = 64 * 1024 * 1024
 		o.Concurrency = 10
 	})
-	retry := 0
-do_retry:
-	putObjInput := &transfermanager.UploadObjectInput{
-		Bucket: &externalBucket,
-		Key:    &objKey,
-		Body:   reader,
-	}
-	if len(kmsKeyArn) > 0 {
-		putObjInput.ServerSideEncryption = types.ServerSideEncryptionAwsKms
-		putObjInput.SSEKMSKeyID = &kmsKeyArn
-	}
-	_, err = uploader.UploadObject(context.TODO(), putObjInput, func(o *transfermanager.Options) {
-		o.PartSizeBytes = 64 * 1024 * 1024
-		o.Concurrency = 10
-	})
-	if err != nil {
-		if retry < 6 {
-			retry++
-			time.Sleep(time.Duration(500*retry) * time.Millisecond)
-			goto do_retry
+	send := func() error {
+		reader, err := body()
+		if err != nil {
+			return fmt.Errorf("while rewinding the body to send: %w", err)
 		}
-		return fmt.Errorf("failed to upload file to s3 bucket '%s': %v", externalBucket, err)
+		putObjInput := &transfermanager.UploadObjectInput{
+			Bucket: &externalBucket,
+			Key:    &objKey,
+			Body:   reader,
+		}
+		if len(kmsKeyArn) > 0 {
+			putObjInput.ServerSideEncryption = types.ServerSideEncryptionAwsKms
+			putObjInput.SSEKMSKeyID = &kmsKeyArn
+		}
+		_, err = uploader.UploadObject(context.TODO(), putObjInput, func(o *transfermanager.Options) {
+			o.PartSizeBytes = 64 * 1024 * 1024
+			o.Concurrency = 10
+		})
+		return err
+	}
+	var err error
+	if canRetry {
+		err = RetrySend(context.TODO(), fmt.Sprintf("s3://%s/%s", externalBucket, objKey), send)
+	} else {
+		err = send()
+	}
+	if err != nil {
+		return fmt.Errorf("failed to upload file to s3 bucket '%s': %w", externalBucket, err)
 	}
 	return nil
 }
