@@ -30,6 +30,9 @@ type JetRuleEngineNative struct {
 
 type RdfNodeNative struct {
 	node *bridge.Resource
+	// err is why the engine did not create the node (NodeCreationError), and
+	// node is nil; nil for a node it created
+	err error
 }
 
 type JetResourceManagerNative struct {
