@@ -66,8 +66,8 @@ working directory, so run Go commands from inside the repository. A checkout nes
 repository that has a `go.work` of its own resolves differently from above this one.
 
 **The packages that link the engine look for it in `build/jets` first.** The cgo directives in
-`jets/bridge/bridge.go` put `-L${SRCDIR}/../../build/jets` ahead of the image paths (`/usr/local/go/build/jets`,
-`/app/jets`), so a release build at `build/` is found with no flag. Built anywhere else, say where:
+`jets/bridge/bridge.go` put `-L${SRCDIR}/../../build/jets` ahead of the image path (`/app/jets`), so a
+release build at `build/` is found with no flag. Built anywhere else, say where:
 
 ```bash
 CGO_LDFLAGS="-L/path/to/cmake-build/jets" go build ./...
