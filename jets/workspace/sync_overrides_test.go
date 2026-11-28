@@ -12,12 +12,21 @@ import (
 )
 
 // An override of a page of the workspace guide, or of its settings file, or of
-// the workspace's root README (since 2026-11-14), does not make the
-// apiserver's start-up compile the workspace; every other override still does,
-// including one whose path only names docs/ on the way elsewhere, and another
-// README.
-func TestOnlyTheWorkspaceGuideAndRootReadmeAreExemptFromTheCompile(t *testing.T) {
+// the workspace's root README (since 2026-11-14), or of a runbook or its SQL
+// (since 2026-11-27), does not make the apiserver's start-up compile the
+// workspace; every other override still does, including one whose path only
+// names docs/ or runbooks/ on the way elsewhere, and another README.
+func TestOnlyUncompiledFilesAreExemptFromTheCompile(t *testing.T) {
 	for fileName, want := range map[string]bool{
+		"runbooks/phase2.rb.json":              false,
+		"runbooks/phase2/01_counts.sql":        false,
+		"runbooks/README.md":                   false,
+		"runbooks/../jet_rules/main_rules.jr":  true,
+		"myrunbooks/phase2.rb.json":            true,
+		"user_flows/flow.uf.json":              true,
+		"table_configs/table.tc.json":          true,
+		"provenance/claim.pv.json":             true,
+		"pipes_config/loader.pc.json":          true,
 		"README.md":                            false,
 		"readme.md":                            false,
 		"./README.md":                          false,

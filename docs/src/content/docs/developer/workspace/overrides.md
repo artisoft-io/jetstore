@@ -11,8 +11,12 @@ sidebar:
 **Any file saved through the IDE becomes a row in `jetsapi.workspace_changes`**, synced
 onto the container at startup after the workspace is stashed. Each one logs
 `*** compilation required due to override of file …` and forces a recompile on every
-boot on a new image, except an override of a page of the workspace guide under `docs/` and, since
-2026-11-14, of the workspace's root `README.md`, which nothing compiles. **They persist across deployments and outrank the image**, so a pipeline can be
+boot on a new image, except an override of a page of the workspace guide under `docs/`, of the
+workspace's root `README.md` (since 2026-11-14) and of a runbook or its SQL under `runbooks/` (since
+release 4.1.25), which nothing compiles or archives (`overrideRequiresCompile`,
+`jets/workspace/compile_workspace_utils.go`). The other directories stay in: `pipes_config/`,
+`provenance/` and `reports/` are archived by the compile into `workspace.tgz` or `reports.tgz`, and
+`user_flows/` and `table_configs/` are checked by it. **They persist across deployments and outrank the image**, so a pipeline can be
 running a version that is in neither the image nor the repository — we found a
 `patient_profile.pc.json` override five weeks old on a freshly deployed container.
 

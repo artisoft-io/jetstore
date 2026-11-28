@@ -71,7 +71,9 @@ when it **finished**, the **environment** (the JetStore release and the workspac
 on), its **parameters**, the **revisions** of the runbook files it ran under, each with its hash,
 when and by whom it was **released**, and the **last error**. **Edit future steps** opens the runbook
 file in the [Workspace IDE](/docs/user/screens/workspace-ide/): a step that has already run cannot
-change, and *Continue* runs the edited version of the steps still to come.
+change, and *Continue* runs the edited version of the steps still to come. A saved runbook is an
+override like any saved file, but nothing compiles it, so it makes no start of JetStore compile the
+workspace.
 
 ### The steps
 
