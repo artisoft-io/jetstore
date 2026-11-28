@@ -147,10 +147,22 @@ def main(argv: list[str] | None = None) -> int:
     )
     generate_cmd.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
     generate_cmd.add_argument(
-        "--out",
+        "--model",
         type=Path,
         default=DEFAULT_MATRIX.parent / "cpipes_model.py",
-        help="destination of the generated model",
+        help="the model whose hand-written regions are carried, and the default "
+        "destination",
+    )
+    generate_cmd.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="destination of the generated model (default: --model)",
+    )
+    generate_cmd.add_argument(
+        "--check",
+        action="store_true",
+        help="write nothing; exit 1 when --model is not what the matrix generates",
     )
 
     stamp_cmd.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)

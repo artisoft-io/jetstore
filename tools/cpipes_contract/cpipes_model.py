@@ -8,9 +8,15 @@ audit/Go-binding record, regenerated FROM this file:
     python -m cpipes_contract reflect          # sync the matrix claim columns
     python -m cpipes_contract reflect --check  # the divergence guard (CI)
 
-The `generate` command is the bootstrap projection that first produced this
-file from the reviewed matrix - running it again OVERWRITES edits made
-here. Engine-applied defaults are noted in the descriptions and deliberately
+`generate` emits this file from the matrix, and carries over from it the
+regions marked `# >>> hand-written` (code the matrix has no column for).
+`generate --check` (and tests_generate.py) fail when this file is not what it
+emits, so an edit here is reflected into the matrix before it is committed:
+
+    python -m cpipes_contract reflect           # the edit, into the matrix
+    python -m cpipes_contract generate --check  # the matrix still emits this file
+
+Engine-applied defaults are noted in the descriptions and deliberately
 NOT materialised as Pydantic defaults, so a dumped document stays minimal and
 the wire format unchanged.
 """
@@ -1271,6 +1277,7 @@ class TableColumnSpec(_Base):
     rdf_type: str | None = Field(default=None, description="The column's rdf type.")
 
 
+# >>> hand-written: before TableSpec
 # The column types an output table may name: `schema.PgTypeNames`, the keys of
 # `pgTypes` in jets/schema/schema.go, which the engine refuses anything outside
 # (`ToPgType`, and `validateOutputTableColumnTypes` in jets/compute_pipes). The
@@ -1296,13 +1303,16 @@ def _output_table_rdf_types(columns):
                 f"it must be one of {', '.join(OUTPUT_TABLE_RDF_TYPES)}"
             )
     return columns
+# <<< hand-written
 
 
 class TableSpec(_Base):
     """Shared configuration to load the pipeline output in JetStore DB (postgres)"""
     channel_spec_name: str | None = Field(default=None, description="ChannelSpecName specify the channel spec. Column provides metadata info")
     check_schema_changed: bool | None = Field(default=None, description="Verify whether the table schema changed before the load.")
+    # >>> hand-written: field TableSpec.columns
     columns: Annotated[list[TableColumnSpec] | None, AfterValidator(_output_table_rdf_types)] = Field(default=None, description="Column metadata of the table.", json_schema_extra={"items": {"properties": {"rdf_type": {"enum": list(OUTPUT_TABLE_RDF_TYPES)}}}})
+    # <<< hand-written
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
     key: str = Field(description="Key is the table key for reference by compute pipes steps")
     name: str = Field(description="Name is the table name for reference by compute pipes steps, env var replacement used for table name (e.g., ${CLIENT}_${OBJECT_TYPE})")
@@ -1689,12 +1699,14 @@ class VllmSpec(_Base):
 
 
 AnonymizeSpec = Annotated[Union[AnonymizeSpecAnonymization, AnonymizeSpecDeIdentification], Field(discriminator="mode"), BeforeValidator(_tag_default("mode", "anonymization"))]
+# >>> hand-written: before Element
 # Element is the one union here with no discriminator field: a paragraph and a
 # group are told apart by which of `text` and `elements` is present, which the
 # matrix records as the two rows' `variant_when`. `extra="forbid"` on both
 # branches is what makes the plain Union exact rather than permissive - an
 # element carrying both matches neither branch, and one carrying neither fails
 # both branches' required field.
+# <<< hand-written
 Element = Annotated[Union[ElementParagraph, ElementGroup], Field(union_mode="left_to_right")]
 CsvSourceSpec = Annotated[Union[CsvSourceSpecCpipes, CsvSourceSpecCsvFile], Field(discriminator="type")]
 FunctionTokenNode = Annotated[Union[FunctionTokenNodeParseDate, FunctionTokenNodeParseDouble, FunctionTokenNodeParseText], Field(discriminator="type")]
@@ -1857,6 +1869,7 @@ for _m in _MODELS:
     _m.model_rebuild()
 
 
+# >>> hand-written: end
 # ---------------------------------------------------------------------------
 # The runtime document
 # ---------------------------------------------------------------------------
@@ -1906,3 +1919,4 @@ class ComputePipesRuntimeConfig(ComputePipesConfig):
 
 ClusterSpecRuntime.model_rebuild()
 ComputePipesRuntimeConfig.model_rebuild()
+# <<< hand-written
