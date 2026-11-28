@@ -102,9 +102,10 @@ func TestShippingFlowsValidate(t *testing.T) {
 	// Ten since 2026-10-01, when registerFileKeyUF was retired.
 	// Fourteen since 2026-10-11, with
 	// rulesUnitTestUF, written rather than
-	// ported.
-	if len(files) != 14 {
-		t.Fatalf("expected the app's ten remaining flows, rulesUnitTestUF and three projections, found %d", len(files))
+	// ported. Thirteen since 2026-11-27, when the map_claim_load_stages
+	// projection was retired from the shipped assets.
+	if len(files) != 13 {
+		t.Fatalf("expected the app's ten remaining flows, rulesUnitTestUF and two projections, found %d", len(files))
 	}
 	for _, path := range files {
 		t.Run(strings.TrimSuffix(filepath.Base(path), ".uf.json"), func(t *testing.T) {
