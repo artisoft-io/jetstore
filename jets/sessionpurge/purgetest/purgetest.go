@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/dbtest"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -66,9 +67,10 @@ func HistoryViewStatement(t testing.TB) string {
 	return stmt
 }
 
-// DB returns a pool on a fresh database named name: the jetsapi tables of
-// jets_schema.json, the view pipeline_execution_history, an empty public schema
-// for domain tables, and one source_period row, key 1.
+// DB returns a pool on a fresh database, named under the package's test
+// database from name and dropped when the test ends (jets/dbtest): the jetsapi
+// tables of jets_schema.json, the view pipeline_execution_history, an empty
+// public schema for domain tables, and one source_period row, key 1.
 func DB(t *testing.T, name string) *pgxpool.Pool {
 	t.Helper()
 	dsn := os.Getenv("JETS_TEST_DSN")
@@ -76,19 +78,7 @@ func DB(t *testing.T, name string) *pgxpool.Pool {
 		t.Skip("JETS_TEST_DSN is not set; see the header of jets/sessionpurge/purgetest")
 	}
 	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var n int
-	_ = admin.QueryRow(ctx, "SELECT count(*) FROM pg_database WHERE datname = $1", name).Scan(&n)
-	if n == 0 {
-		if _, err = admin.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{name}.Sanitize()); err != nil {
-			admin.Close()
-			t.Fatal(err)
-		}
-	}
-	admin.Close()
+	name = dbtest.CreateDatabase(t, name)
 	u, err := url.Parse(dsn)
 	if err != nil {
 		t.Fatal(err)

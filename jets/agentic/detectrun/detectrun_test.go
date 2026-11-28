@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/dbtest"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -34,22 +35,12 @@ func freshDB(t *testing.T) *pgxpool.Pool {
 		t.Skip("JETS_TEST_DSN not set; needs a throwaway Postgres")
 	}
 	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := admin.Exec(ctx, "DROP DATABASE IF EXISTS "+testDB+" WITH (FORCE)"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := admin.Exec(ctx, "CREATE DATABASE "+testDB); err != nil {
-		t.Fatal(err)
-	}
-	admin.Close()
+	name := dbtest.CreateDatabase(t, testDB)
 	u, err := url.Parse(dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
-	u.Path = "/" + testDB
+	u.Path = "/" + name
 	pool, err := pgxpool.New(ctx, u.String())
 	if err != nil {
 		t.Fatal(err)

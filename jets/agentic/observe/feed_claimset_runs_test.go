@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/artisoft-io/jetstore/jets/agentic/observe/feedfixture"
+	"github.com/artisoft-io/jetstore/jets/dbtest"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -87,20 +88,9 @@ func TestClaimSetSessionOfPicksTheRun(t *testing.T) {
 	}
 	ctx := context.Background()
 	const database = "observe_claimset_session_of_test"
-	admin, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	name := pgx.Identifier{database}.Sanitize()
-	if _, err = admin.Exec(ctx, "DROP DATABASE IF EXISTS "+name+" WITH (FORCE)"); err == nil {
-		_, err = admin.Exec(ctx, "CREATE DATABASE "+name)
-	}
-	admin.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
+	name := dbtest.CreateDatabase(t, database)
 	u, _ := url.Parse(dsn)
-	u.Path = "/" + database
+	u.Path = "/" + name
 	pool, err := pgxpool.New(ctx, u.String())
 	if err != nil {
 		t.Fatal(err)

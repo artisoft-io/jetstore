@@ -24,6 +24,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/audit"
 	"github.com/artisoft-io/jetstore/jets/agentic/feedprofile"
 	"github.com/artisoft-io/jetstore/jets/agentic/observe/feedfixture"
+	"github.com/artisoft-io/jetstore/jets/dbtest"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -38,24 +39,12 @@ func feedProcessDB(t *testing.T) *pgxpool.Pool {
 		t.Skip("JETS_TEST_DSN not set; needs a throwaway Postgres")
 	}
 	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	name := pgx.Identifier{feedProcessTestDatabase}.Sanitize()
-	_, err = admin.Exec(ctx, "DROP DATABASE IF EXISTS "+name+" WITH (FORCE)")
-	if err == nil {
-		_, err = admin.Exec(ctx, "CREATE DATABASE "+name)
-	}
-	admin.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
+	name := dbtest.CreateDatabase(t, feedProcessTestDatabase)
 	u, err := url.Parse(dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
-	u.Path = "/" + feedProcessTestDatabase
+	u.Path = "/" + name
 	pool, err := pgxpool.New(ctx, u.String())
 	if err != nil {
 		t.Fatal(err)

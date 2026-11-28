@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/artisoft-io/jetstore/jets/dbtest"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -62,18 +63,7 @@ func outputTableDB(t *testing.T) *pgxpool.Pool {
 		t.Skip("JETS_TEST_DSN is not set; see the header of this file")
 	}
 	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer admin.Close()
-	const name = "cp_output_table_types"
-	if _, err = admin.Exec(ctx, "DROP DATABASE IF EXISTS "+name+" WITH (FORCE)"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = admin.Exec(ctx, "CREATE DATABASE "+name); err != nil {
-		t.Fatal(err)
-	}
+	name := dbtest.CreateDatabase(t, "cp_output_table_types")
 	u, err := url.Parse(dsn)
 	if err != nil {
 		t.Fatal(err)

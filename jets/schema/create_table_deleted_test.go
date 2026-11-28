@@ -21,6 +21,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/artisoft-io/jetstore/jets/dbtest"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -43,20 +44,7 @@ func schemaTestPool(t *testing.T, dbName string) *pgxpool.Pool {
 		t.Skip("JETS_TEST_DSN not set; needs a throwaway Postgres")
 	}
 	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, base)
-	if err != nil {
-		t.Fatalf("connecting to the maintenance database: %v", err)
-	}
-	if _, err := admin.Exec(ctx, "DROP DATABASE IF EXISTS "+dbName+" WITH (FORCE)"); err != nil {
-		admin.Close()
-		t.Fatalf("dropping %s: %v", dbName, err)
-	}
-	if _, err := admin.Exec(ctx, "CREATE DATABASE "+dbName); err != nil {
-		admin.Close()
-		t.Fatalf("creating %s: %v", dbName, err)
-	}
-	admin.Close()
-
+	dbName = dbtest.CreateDatabase(t, dbName)
 	u, err := url.Parse(base)
 	if err != nil {
 		t.Fatalf("parsing JETS_TEST_DSN: %v", err)

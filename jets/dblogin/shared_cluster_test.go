@@ -20,6 +20,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/dblogin"
 	"github.com/artisoft-io/jetstore/jets/dblogin/dblogintest"
+	"github.com/artisoft-io/jetstore/jets/dbtest"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -74,7 +75,7 @@ func TestEnsureLoginToleratesAConcurrentCreate(t *testing.T) {
 	if _, err := rand.Read(suffix); err != nil {
 		t.Fatal(err)
 	}
-	group := "dbl_race_" + hex.EncodeToString(suffix)
+	group := dbtest.Name(t, "dbl_race_"+hex.EncodeToString(suffix))
 	login1, login2 := group+"_1", group+"_2"
 	t.Cleanup(func() {
 		for _, role := range []string{login1, login2, group} {
@@ -113,7 +114,7 @@ func TestEnsureLoginToleratesAConcurrentCreate(t *testing.T) {
 	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
 		var n int
 		if err = db1.QueryRow(ctx, `SELECT count(*) FROM pg_stat_activity
-			WHERE datname = 'dbl_shared_2' AND wait_event_type = 'Lock'`).Scan(&n); err != nil {
+			WHERE datname = $1 AND wait_event_type = 'Lock'`, dbtest.Name(t, "dbl_shared_2")).Scan(&n); err != nil {
 			t.Fatal(err)
 		}
 		if waiting = n > 0; waiting {
@@ -151,7 +152,7 @@ func TestEnsureLoginToleratesAConcurrentCreate(t *testing.T) {
 // fixes it; before 16, CREATEROLE may grant any role that is not a superuser,
 // and Ensure succeeds.
 func TestEnsureWithoutAdminOptionOnTheGroups(t *testing.T) {
-	const user, database = "dbl_noadmin", "dbl_noadmin"
+	user, database := dbtest.Name(t, "dbl_noadmin"), dbtest.Name(t, "dbl_noadmin")
 	ctx := context.Background()
 	admin := superuser(t)
 	// The group roles exist, created by another database's apiserver: here, by
@@ -163,7 +164,7 @@ func TestEnsureWithoutAdminOptionOnTheGroups(t *testing.T) {
 			END IF;
 		END $$`)
 	}
-	pool := dblogintest.Apiserver(t, user, database)
+	pool := dblogintest.Apiserver(t, "dbl_noadmin", "dbl_noadmin")
 	// Apiserver gives its user ADMIN OPTION on the groups, which is what this
 	// test is about not having, and makes it a superuser when asked to.
 	// CASCADE: an earlier run's grants made with that option go too.

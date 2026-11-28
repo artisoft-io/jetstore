@@ -18,13 +18,16 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/artisoft-io/jetstore/jets/dbtest"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// cgDB creates the database name owned by the login role name with attrs, and
-// returns a pool connected as that role, and one connected as the superuser
-// of JETS_TEST_DSN to the same database.
+// cgDB creates a database owned by a login role with attrs, both named under
+// the package's test database from name (dbtest.Name) and dropped when the test
+// ends with the database's restricted logins, and returns a pool connected as
+// that role, and one connected as the superuser of JETS_TEST_DSN to the same
+// database.
 func cgDB(t *testing.T, name, attrs string) (apiserver, super *pgxpool.Pool) {
 	t.Helper()
 	dsn := os.Getenv("JETS_TEST_DSN")
@@ -37,15 +40,14 @@ func cgDB(t *testing.T, name, attrs string) (apiserver, super *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 	defer admin.Close()
+	suffix := name
+	name = dbtest.CreateRole(t, suffix, "LOGIN PASSWORD 'pw' "+attrs)
+	dbtest.SharedRoles(t, Reader, IDE)
+	for _, group := range []string{Reader, IDE} {
+		dbtest.DropRole(t, loginName(group, name))
+	}
+	dbtest.CreateDatabase(t, suffix, "OWNER "+name)
 	for _, s := range []string{
-		"DROP DATABASE IF EXISTS " + name + " WITH (FORCE)",
-		`DO $$ BEGIN
-			IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '` + name + `') THEN
-				CREATE ROLE ` + name + ` LOGIN PASSWORD 'pw';
-			END IF;
-		END $$`,
-		"ALTER ROLE " + name + " " + attrs,
-		"CREATE DATABASE " + name + " OWNER " + name,
 		// Another test may have created the cluster-wide roles: give this
 		// apiserver the standing a deployment's master user has over them.
 		`DO $$ DECLARE r text; BEGIN
@@ -377,7 +379,7 @@ func TestCodeGuardFallsBackWhenItCannotBeInstalled(t *testing.T) {
 	})
 
 	t.Run("the switch empties the function when it may not touch the trigger", func(t *testing.T) {
-		cgExec(t, super, "ALTER FUNCTION "+CodeGuardFunction+"() OWNER TO cg_plain")
+		cgExec(t, super, "ALTER FUNCTION "+CodeGuardFunction+"() OWNER TO "+dbtest.Name(t, "cg_plain"))
 		t.Setenv(CodeGuardSwitch, "off")
 		st, err := EnsureStatus(ctx, apiserver)
 		if err != nil || st.CodeGuard || st.Removal != "emptied its function" {

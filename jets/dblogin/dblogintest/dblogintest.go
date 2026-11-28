@@ -41,6 +41,7 @@ import (
 	"testing"
 
 	"github.com/artisoft-io/jetstore/jets/dblogin"
+	"github.com/artisoft-io/jetstore/jets/dbtest"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -58,10 +59,16 @@ func Superuser() bool {
 	return on
 }
 
-// Apiserver drops and recreates database, owned by the login role, which it
-// creates if need be and gives the attributes SuperuserVar asks for, and
-// returns a pool on database connected as role. role also gets ADMIN OPTION on
-// every restricted role and login that exists.
+// Apiserver creates a database owned by a login role, which it creates if need
+// be and gives the attributes SuperuserVar asks for, and returns a pool on the
+// database connected as the role. The role also gets ADMIN OPTION on every
+// restricted role and login that exists.
+//
+// role and database are suffixes: the role and the database are named under
+// the package's test database, dbtest.Name(t, role) and dbtest.Name(t,
+// database), and are dropped when the test ends, with the database's restricted
+// logins. The restricted group roles, which every database shares, are marked
+// for the last test package to drop (dbtest.SharedRoles).
 func Apiserver(t *testing.T, role, database string) *pgxpool.Pool {
 	t.Helper()
 	dsn := os.Getenv("JETS_TEST_DSN")
@@ -78,7 +85,21 @@ func Apiserver(t *testing.T, role, database string) *pgxpool.Pool {
 		t.Fatal(err)
 	}
 	defer admin.Close()
-	r, db := pgx.Identifier{role}.Sanitize(), pgx.Identifier{database}.Sanitize()
+	role, dbName := dbtest.Name(t, role), dbtest.Name(t, database)
+	// A role made by an earlier call in this test owns that call's database,
+	// and is dropped after it.
+	var made int
+	if err = admin.QueryRow(ctx, "SELECT count(*) FROM pg_roles WHERE rolname = $1", role).Scan(&made); err != nil {
+		t.Fatal(err)
+	}
+	if made == 0 {
+		dbtest.DropRole(t, role)
+	}
+	dbtest.SharedRoles(t, dblogin.Reader, dblogin.IDE)
+	for _, login := range Logins(dbName) {
+		dbtest.DropRole(t, login)
+	}
+	r := pgx.Identifier{role}.Sanitize()
 	for _, s := range []string{
 		`DO $$ BEGIN
 			IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '` + strings.ReplaceAll(role, "'", "''") + `') THEN
@@ -86,26 +107,50 @@ func Apiserver(t *testing.T, role, database string) *pgxpool.Pool {
 			END IF;
 		END $$`,
 		"ALTER ROLE " + r + " LOGIN PASSWORD '" + password + "' " + attrs,
-		"DROP DATABASE IF EXISTS " + db + " WITH (FORCE)",
-		"CREATE DATABASE " + db + " OWNER " + r,
 	} {
 		if _, err = admin.Exec(ctx, s); err != nil {
 			t.Fatalf("%v\n%s", err, s)
 		}
 	}
+	dbtest.CreateDatabase(t, database, "OWNER "+r)
 	adoptRestrictedRoles(t, admin, role)
 	u, err := url.Parse(dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
 	u.User = url.UserPassword(role, password)
-	u.Path = "/" + database
+	u.Path = "/" + dbName
 	pool, err := pgxpool.New(ctx, u.String())
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
 	return pool
+}
+
+// Logins is the restricted logins dblogin.Ensure makes for database. A package
+// whose tests run Ensure passes it to its TestMain, so that the logins of every
+// database its tests made go with them:
+//
+//	func TestMain(m *testing.M) { dbtest.Main(m, dbtest.RolesOf(dblogintest.Logins)) }
+func Logins(database string) []string {
+	var logins []string
+	for _, group := range []string{dblogin.Reader, dblogin.IDE} {
+		login, _ := dblogin.LoginName(context.Background(), databaseName(database), group)
+		logins = append(logins, login)
+	}
+	return logins
+}
+
+// databaseName answers dblogin.LoginName's query for the current database with
+// its own name, so the logins of a database are known before it exists.
+type databaseName string
+
+func (d databaseName) QueryRow(context.Context, string, ...any) pgx.Row { return d }
+
+func (d databaseName) Scan(dest ...any) error {
+	*dest[0].(*string) = string(d)
+	return nil
 }
 
 // restrictedRoles matches the names of the restricted group roles and of their

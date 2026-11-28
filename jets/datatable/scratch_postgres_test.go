@@ -36,6 +36,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/artisoft-io/jetstore/jets/dbtest"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -103,29 +104,14 @@ func createTablesFromSchema(t *testing.T, names ...string) *pgxpool.Pool {
 	return pool
 }
 
-// scratchDatabase returns a pool on the database dbName beside the one
-// JETS_TEST_DSN names, creating it when it does not exist. It is kept between
-// runs, so a suite recreates the tables it uses in it.
+// scratchDatabase returns a pool on a fresh database beside the one
+// JETS_TEST_DSN names, named under it from dbName and dropped when the test
+// ends (jets/dbtest).
 func scratchDatabase(t *testing.T, dbName string) *pgxpool.Pool {
 	t.Helper()
 	dsn := scratchDSN(t)
 	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Fatalf("connecting: %v", err)
-	}
-	var n int
-	if err = admin.QueryRow(ctx, "SELECT count(*) FROM pg_database WHERE datname = $1", dbName).Scan(&n); err != nil {
-		admin.Close()
-		t.Fatalf("looking for the test database %s: %v", dbName, err)
-	}
-	if n == 0 {
-		if _, err = admin.Exec(ctx, "CREATE DATABASE "+dbName); err != nil {
-			admin.Close()
-			t.Fatalf("creating the test database %s: %v", dbName, err)
-		}
-	}
-	admin.Close()
+	dbName = dbtest.CreateDatabase(t, dbName)
 	u, err := url.Parse(dsn)
 	if err != nil {
 		t.Fatalf("parsing JETS_TEST_DSN: %v", err)
