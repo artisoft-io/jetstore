@@ -4896,7 +4896,7 @@
     },
     "ElementGroup": {
       "additionalProperties": false,
-      "description": "Element: a group of a text template document - children emitted in array order, with a fallback for the case where none of them emitted.",
+      "description": "A group of a text template document: children emitted in array order, with a fallback for the case where none of them emitted.",
       "properties": {
         "comment": {
           "anyOf": [
@@ -4961,7 +4961,7 @@
     },
     "ElementParagraph": {
       "additionalProperties": false,
-      "description": "Element: a paragraph of a text template document - one block of markup, wrapped to the document's width.",
+      "description": "A paragraph of a text template document: one block of markup, wrapped to the document width.",
       "properties": {
         "comment": {
           "anyOf": [

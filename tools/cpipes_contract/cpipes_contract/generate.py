@@ -1,8 +1,22 @@
 """Generate `cpipes_model.py` — the Pydantic v2 model — from the reviewed matrix.
 
-Since the source-of-truth flip this is the BOOTSTRAP direction only: the model is the source of
-truth and `reflect` regenerates the matrix from it. Running `generate` again
-overwrites edits made in the model — it exists to re-bootstrap, not to sync.
+Since the source-of-truth flip the model is the source of truth and `reflect`
+regenerates the matrix from it. `generate` is the other direction, and since
+2026-11-27 the two are held to each other: `generate --check` fails when the
+committed model is not what the matrix emits, so a model edit the matrix cannot
+carry is caught rather than lost at the next bootstrap. Code the matrix has no
+column for lives in the model's hand-written regions, which `generate` carries
+over (see "hand-written regions" below).
+
+**It had drifted for three months before that check existed.** Nothing ran
+`generate` after the flip, and by 2026-11-27 its output differed from the
+committed model in four ways: classes and fields added by hand out of the
+emitter's sorted order, the merged `ContextSpec` described by whichever token
+sorted first in types.csv, two hand-written docstrings on `Element` that differ
+from types.csv, and three blocks of code (a closed list and its validator, a
+comment on a union, and the runtime projection) that the emitter deleted. The
+emitter's own order was never the cause: everything it emits is sorted, and its
+output is identical across hash seeds.
 
 The design: a base class per discriminated struct carrying
 the fields applicable to every token, one subclass per `type` token carrying
@@ -30,8 +44,9 @@ the source of truth to the Python model and regenerates the CSV from it.
 from __future__ import annotations
 
 import argparse
+import difflib
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 
 from .matrix_schema import (
@@ -56,6 +71,20 @@ MERGED_DOC = {
     "ExpressionNode": (
         "An expression tree node - one class, several structural shapes: a unary operator node (op + arg), a binary operator node (lhs + op + rhs), or a typed leaf (type: select, value, expr_proxy, function, static_list); unary and binary operator nodes carry no type. Self-referential through arg, lhs, rhs, function_arguments, and default. JSON Schema cannot bound the recursion, so the depth budget lives with the caller: the deepest live expression in the corpus is 8 levels, and prompts should bound generation at 12."
     ),
+    # Written into MERGED_DOC on 2026-11-27 as the model states it. Until then
+    # the merged class took its first token's description, and when
+    # `default_value` was added ahead of `file_key_component` in types.csv the
+    # bootstrap's docstring changed under the model without anyone running it.
+    "ContextSpec": (
+        "ContextSpec: Define env var sourced from the pipeline main file key directory name with pattern expr=value"
+    ),
+}
+
+# The discriminator of a merged class whose description is not its rows':
+# ExpressionNode's `type` is optional because an operator node carries none,
+# which no single row says. Every other merged class takes its rows' own.
+MERGED_DISC_DOC = {
+    "ExpressionNode": "The node shape; unary and binary operator nodes carry no type.",
 }
 
 # Virtual tokens (the `~` prefix) carry no literal tag and never join a union.
@@ -108,9 +137,15 @@ audit/Go-binding record, regenerated FROM this file:
     python -m cpipes_contract reflect          # sync the matrix claim columns
     python -m cpipes_contract reflect --check  # the divergence guard (CI)
 
-The `generate` command is the bootstrap projection that first produced this
-file from the reviewed matrix - running it again OVERWRITES edits made
-here. Engine-applied defaults are noted in the descriptions and deliberately
+`generate` emits this file from the matrix, and carries over from it the
+regions marked `# >>> hand-written` (code the matrix has no column for).
+`generate --check` (and tests_generate.py) fail when this file is not what it
+emits, so an edit here is reflected into the matrix before it is committed:
+
+    python -m cpipes_contract reflect           # the edit, into the matrix
+    python -m cpipes_contract generate --check  # the matrix still emits this file
+
+Engine-applied defaults are noted in the descriptions and deliberately
 NOT materialised as Pydantic defaults, so a dumped document stays minimal and
 the wire format unchanged.
 """
@@ -505,11 +540,13 @@ class Emitter:
         if not merged and not doc:
             out.append("    pass")
         for key in sorted(merged):
-            row = merged[key]
+            row = self.merged_row(struct, tokens, key)
             if disc and key == disc and len(tokens) > 1:
                 opts = ", ".join(f'"{v}"' for v in literal_values)
+                desc = MERGED_DISC_DOC.get(struct) or (row.description or "").strip()
+                desc = desc.replace("\\", "\\\\").replace('"', '\\"')
                 out.append(
-                    f'    {key}: Literal[{opts}] | None = Field(default=None, description="The node shape; unary and binary operator nodes carry no type.")'
+                    f'    {key}: Literal[{opts}] | None = Field(default=None, description="{desc}")'
                 )
                 continue
             if key in optional and row.required is Required.YES:
@@ -526,6 +563,26 @@ class Emitter:
             out.append(self.field_line(row))
         out.append("")
         out.append("")
+
+    def merged_row(self, struct: str, tokens: list[TypeRow], key: str) -> FieldRow:
+        """The row a merged class's field is emitted from: the first one carrying
+        the description most of the struct's tokens give it.
+
+        Taking the first token's row made the emitted description depend on the
+        order of types.csv: ContextSpec's `expr` reads "The extraction pattern
+        (expr=value) or the literal value." on three tokens and something else
+        on `default_value`, which sorts first, so the bootstrap described the
+        field by its one exception.
+        """
+        rows = [
+            f
+            for t in tokens
+            for f in self.fields[(struct, t.type_token)]
+            if f.applicable is YesNo.YES and f.json_key == key
+        ]
+        counts = Counter((r.description or "").strip() for r in rows)
+        best = max(counts.values())
+        return next(r for r in rows if counts[(r.description or "").strip()] == best)
 
     def type_doc(self, t: TypeRow, base: bool = False) -> str:
         desc = (t.description or "").strip()
@@ -660,8 +717,148 @@ def literal_token_default(row: FieldRow, token: str) -> str:
     return ""
 
 
-def run_with_matrix(args: argparse.Namespace, matrix: Matrix) -> int:
+# -- hand-written regions -----------------------------------------------------
+#
+# **The model is edited by hand, and most of what is edited flows back through
+# the matrix.** A field's claims and description are reflected into fields.csv
+# (`reflect`), so emitting from the matrix reproduces them. What the matrix has
+# no column for is code: a validator, a closed list a validator reads, the
+# runtime projection defined after `_MODELS`, a comment explaining a union.
+# Until 2026-11-27 that code lived only in the model, so running `generate`
+# deleted it, and nothing ran `generate` to notice. It is now marked in the
+# model and carried through:
+#
+#     # >>> hand-written: before TableSpec
+#     ...
+#     # <<< hand-written
+#
+# The anchor says where the region goes in the emitted text:
+#
+#     before <Name>          directly above `class <Name>(` or `<Name> = `
+#     field <Class>.<key>    in place of that field's emitted line
+#     end                    after the emitted text
+#
+# A region whose anchor names nothing the emitter writes is refused rather than
+# dropped: a region that silently stops being emitted is the deletion this
+# exists to prevent.
+
+REGION_OPEN = "# >>> hand-written:"
+REGION_CLOSE = "# <<< hand-written"
+
+
+class RegionError(ValueError):
+    pass
+
+
+def hand_regions(text: str) -> list[tuple[str, list[str]]]:
+    """The hand-written regions of a model, each as (anchor, lines), markers included."""
+    regions: list[tuple[str, list[str]]] = []
+    current: list[str] | None = None
+    anchor = ""
+    for n, line in enumerate(text.split("\n"), 1):
+        bare = line.strip()
+        if bare.startswith(REGION_OPEN):
+            if current is not None:
+                raise RegionError(f"line {n}: a hand-written region opens inside another")
+            anchor = bare[len(REGION_OPEN):].strip()
+            current = [line]
+        elif bare == REGION_CLOSE:
+            if current is None:
+                raise RegionError(f"line {n}: a hand-written region closes without opening")
+            current.append(line)
+            regions.append((anchor, current))
+            current = None
+        elif current is not None:
+            current.append(line)
+    if current is not None:
+        raise RegionError(f"the hand-written region `{anchor}` never closes")
+    return regions
+
+
+def splice(text: str, regions: list[tuple[str, list[str]]]) -> str:
+    """The emitted text with each hand-written region placed at its anchor."""
+    lines = text.split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+    tail: list[str] = []
+    for anchor, region in regions:
+        kind, _, name = anchor.partition(" ")
+        if kind == "end" and not name:
+            tail += ["", ""] + region
+            continue
+        if kind == "before" and name:
+            at = [
+                i for i, l in enumerate(lines)
+                if l.startswith(f"class {name}(") or l.startswith(f"{name} = ")
+            ]
+            if len(at) != 1:
+                raise RegionError(f"hand-written region `{anchor}`: generate emits no `{name}` to place it above")
+            i = at[0]
+            blank = 0
+            while blank < i and lines[i - 1 - blank] == "":
+                blank += 1
+            lines[i:i] = region + [""] * blank
+            continue
+        if kind == "field" and "." in name:
+            cls, key = name.split(".", 1)
+            start = next(
+                (i for i, l in enumerate(lines) if l.startswith(f"class {cls}(")), None
+            )
+            hit = None
+            if start is not None:
+                for i in range(start + 1, len(lines)):
+                    if lines[i] and not lines[i].startswith(" "):
+                        break
+                    if lines[i].startswith(f"    {key}:"):
+                        hit = i
+                        break
+            if hit is None:
+                raise RegionError(f"hand-written region `{anchor}`: generate emits no field `{key}` on `{cls}`")
+            lines[hit:hit + 1] = region
+            continue
+        raise RegionError(
+            f"hand-written region `{anchor}`: the anchor is `before <Name>`, `field <Class>.<key>` or `end`"
+        )
+    return "\n".join(lines + tail) + "\n"
+
+
+def render(matrix: Matrix, model: Path | None) -> str:
+    """The model as the matrix emits it, with `model`'s hand-written regions carried."""
     text = Emitter(matrix).emit()
-    args.out.write_text(text)
-    print(f"wrote {args.out}")
+    if model is None or not model.is_file():
+        return text
+    return splice(text, hand_regions(model.read_text()))
+
+
+def run_with_matrix(args: argparse.Namespace, matrix: Matrix) -> int:
+    model = args.model
+    try:
+        text = render(matrix, model)
+    except RegionError as err:
+        print(f"generate: {model}: {err}")
+        return 1
+    if args.check:
+        have = model.read_text() if model.is_file() else ""
+        if have == text:
+            print(f"generate --check: {model} is what the matrix generates")
+            return 0
+        diff = list(
+            difflib.unified_diff(
+                have.splitlines(), text.splitlines(),
+                f"{model.name} (committed)", f"{model.name} (generated)", lineterm="", n=1,
+            )
+        )
+        print(f"generate --check: {model} differs from what the matrix generates:")
+        for line in diff[:80]:
+            print(line)
+        if len(diff) > 80:
+            print(f"... {len(diff) - 80} more diff line(s)")
+        print(
+            "Reflect a model edit into the matrix (`reflect`), mark code the matrix "
+            "cannot carry as a hand-written region, then `generate`."
+        )
+        return 1
+    out = args.out or model
+    out.write_text(text)
+    print(f"wrote {out}")
     return 0
