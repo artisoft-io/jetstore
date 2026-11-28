@@ -29,8 +29,8 @@ import (
 //     column_encodings entry with no column, a text template that does not
 //     compile or a duplicate template key, a writer setting on an input
 //     channel, latest_session_only off a staged file_key read, the retired Go
-//     rule engine, and an output table column whose rdf_type is outside
-//     schema.PgTypeNames. Each reads the document and nothing else: not the
+//     rule engine, a distinct operator with no distinct_on (2026-11-27), and
+//     an output table column whose rdf_type is outside schema.PgTypeNames. Each reads the document and nothing else: not the
 //     env, not a step's when, not the schema event. Both start paths call
 //     ValidatePipeSpecConfig before a step runs and neither succeeds without
 //     it, so a document failing one fails at every start (2026-11-14; until
@@ -178,6 +178,7 @@ var configDocumentChecks = []struct {
 	{"cpipes_config_input_writer_field", validateInputChannelsCarryNoWriterFields},
 	{"cpipes_config_latest_session_only", validateLatestSessionOnly},
 	{"cpipes_config_go_engine", validateNoGoEngine},
+	{"cpipes_config_distinct_on", validateDistinctOn},
 }
 
 // validateConditionalStepsHavePipes is ValidatePipeSpecConfig's first check.

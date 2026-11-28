@@ -111,6 +111,13 @@ func (ctx *BuilderContext) NewDistinctTransformationPipe(source *InputChannel, o
 	if spec == nil || spec.DistinctConfig == nil {
 		return nil, fmt.Errorf("error: Distinct Pipe Transformation spec is missing distinct_config element")
 	}
+	if len(spec.DistinctConfig.DistinctOn) == 0 {
+		// With no key every record has the same, empty, key, and the operator
+		// would keep only the first record of its input. The start refuses this
+		// first (validateDistinctOn); this is for a spec that did not pass there.
+		return nil, fmt.Errorf("configuration error: the distinct operator reading channel '%s' has an empty "+
+			"distinct_config.distinct_on: name the columns its records are distinct on", source.Name)
+	}
 	// Make the composite key
 	compositeKey := make([]int, 0, len(spec.DistinctConfig.DistinctOn))
 	for _, column := range spec.DistinctConfig.DistinctOn {
@@ -132,4 +139,57 @@ func (ctx *BuilderContext) NewDistinctTransformationPipe(source *InputChannel, o
 		env:          ctx.env,
 		doneCh:       ctx.done,
 	}, nil
+}
+
+// validateDistinctOn refuses a distinct operator with no distinct_on, naming its
+// step: with no key every record has the same, empty, key, and the operator
+// would keep only the first record of its input, which no configuration means.
+// ValidatePipeSpecConfig makes this check at every start, and the .pc.json save
+// makes it too (configDocumentChecks), so the workspace IDE refuses the save.
+//
+// A conditional_config override is read with its host, as MergeTransformationSpec
+// applies it: an override with a type replaces the host, and one without a type
+// replaces the host's distinct_config when it sets one. So a host of type
+// distinct may leave distinct_config to its overrides, since a when cannot be
+// decided before the run (forEachTransformation), and is refused only when no
+// override could supply it; an override that would make the step a distinct
+// with no distinct_on is refused whatever its when.
+func validateDistinctOn(cpConfig *ComputePipesConfig) error {
+	return forEachTransformation(cpConfig, func(site transformationSite, spec *TransformationSpec) error {
+		if site.override >= 0 {
+			// read with its host, below
+			return nil
+		}
+		hostIsDistinct := spec.Type == "distinct"
+		suppliedByOverride := false
+		for k, conditional := range spec.ConditionalConfig {
+			if conditional == nil {
+				continue
+			}
+			then := &conditional.Then
+			becomesDistinct := then.Type == "distinct" || (then.Type == "" && hostIsDistinct)
+			setsConfig := then.Type != "" || then.DistinctConfig != nil
+			if becomesDistinct && setsConfig && !hasDistinctOn(then.DistinctConfig) {
+				return emptyDistinctOnError(fmt.Sprintf("%s, conditional_config[%d]", site.where, k))
+			}
+			if becomesDistinct && setsConfig {
+				// an override that makes the step another operator supplies
+				// nothing: when its when is false the host runs as it is
+				suppliedByOverride = true
+			}
+		}
+		if hostIsDistinct && !hasDistinctOn(spec.DistinctConfig) && !suppliedByOverride {
+			return emptyDistinctOnError(site.where)
+		}
+		return nil
+	})
+}
+
+func hasDistinctOn(config *DistinctSpec) bool {
+	return config != nil && len(config.DistinctOn) > 0
+}
+
+func emptyDistinctOnError(where string) error {
+	return fmt.Errorf("configuration error: %s is a distinct operator with no distinct_config.distinct_on; "+
+		"name the columns its records are distinct on", where)
 }

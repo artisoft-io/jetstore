@@ -364,7 +364,7 @@ class DateFormatLookupSpec(_Base):
 class DistinctSpec(_Base):
     """Configuration for the distinct transformation operator: specify the composite key."""
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
-    distinct_on: list[str] | None = Field(default=None, description="Columns forming the composite key rows are distinct on.")
+    distinct_on: list[str] = Field(description="Columns forming the composite key rows are distinct on.")
 
 
 class DomainKeyInfo(_Base):

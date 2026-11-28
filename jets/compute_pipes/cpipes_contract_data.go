@@ -292,7 +292,7 @@ var CpipesContract = map[string]map[string]ContractField{
 	},
 	"DistinctSpec/*": {
 		"comment":     {},
-		"distinct_on": {},
+		"distinct_on": {Required: true},
 	},
 	"DomainKeyInfo/*": {
 		"key_expr":    {Required: true},
