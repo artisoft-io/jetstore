@@ -1,6 +1,5 @@
 // Package workspace_assets installs the JetStore-owned workspace assets into a
-// client workspace, and refuses to do it silently over a local edit (A21.2,
-// A21.3; plan section 3.9).
+// client workspace, and refuses to do it silently over a local edit.
 //
 // The assets are committed under data_model/, pipes_config/, user_flows/ and
 // table_configs/ — the data-model generator itself stays off the deployment
@@ -33,7 +32,7 @@
 // # The guard
 //
 // A client workspace commits its copy of these files, because a knowledge
-// engineer running compile_workspace locally needs them present (section 3.9.4).
+// engineer running compile_workspace locally needs them present.
 // Committed and overwritten at build time is the whole arrangement: the copy is
 // for ergonomics, the install is for authority. That leaves three states an
 // existing file can be in, and they must not be treated alike:
@@ -50,8 +49,8 @@
 // carried a four-line `iWorkBook` extension appended in place, load-bearing in
 // three rule trees; an install that overwrote it would have produced a compile
 // failure on an undeclared resource somewhere far from the cause. That is the
-// outcome this guard exists to prevent, and A21.5 is the migration that answers
-// it — the extension moves to a client-owned file that imports the JetStore one.
+// outcome this guard exists to prevent, and the migration that answers it moves
+// the extension to a client-owned file that imports the JetStore one.
 //
 // In data_model, a file with no ownership token in it is diagnosed differently
 // from one that has the token but unexpected content: the first was never
@@ -106,7 +105,7 @@ import (
 
 // The glob deliberately does not embed README.md: what is in a directory and
 // what is installed into a workspace are not the same set, and each README is
-// JetStore's own documentation of the convention (A21.4).
+// JetStore's own documentation of the convention.
 //
 // user_flows names its four suffixes rather than taking *.json, and that is the
 // same rule one step further on: the directory is where a generator writes, so
@@ -245,7 +244,7 @@ const (
 	ManifestName = "jets_assets_manifest.json"
 
 	// OwnershipToken is planted in every data_model asset by the emitters'
-	// header (A21.4, tools/jets_agentic/jets_agentic/header.py). Its absence
+	// header (tools/jets_agentic/jets_agentic/header.py). Its absence
 	// from a file at a reserved path in a TokenedAssets group means JetStore
 	// never put that file there.
 	OwnershipToken = "jetstore-owned-asset"
@@ -285,15 +284,15 @@ var RetiredAssets = []RetiredAsset{
 	// Retired 2026-10-01. The flow submitted a schema
 	// event with a file key the user typed; the Pipeline Status table's *Put
 	// Schema Event* dialog does it now, with the key decided by the server.
-	{Dir: "user_flows", Name: "registerFileKeyUF.uf.json", Why: "2026-10-01, D01: Put Schema Event on Pipeline Status"},
-	{Dir: "user_flows", Name: "registerFileKeyUF.ua.json", Why: "2026-10-01, D01: Put Schema Event on Pipeline Status"},
-	{Dir: "user_flows", Name: "registerFileKeyUF.form.json", Why: "2026-10-01, D01: Put Schema Event on Pipeline Status"},
+	{Dir: "user_flows", Name: "registerFileKeyUF.uf.json", Why: "2026-10-01: Put Schema Event on Pipeline Status replaces it"},
+	{Dir: "user_flows", Name: "registerFileKeyUF.ua.json", Why: "2026-10-01: Put Schema Event on Pipeline Status replaces it"},
+	{Dir: "user_flows", Name: "registerFileKeyUF.form.json", Why: "2026-10-01: Put Schema Event on Pipeline Status replaces it"},
 	// Retired 2026-10-01. The three option tables of the
 	// add-or-edit steps a UI change removed: Clients & Vendors, Source Configuration and
 	// Pipeline Configuration open on their table now, with a + Add button on it.
-	{Dir: "table_configs", Name: "ufClientOrVendorOption.tc.json", Why: "2026-10-01, D06: Clients & Vendors opens on the client table"},
-	{Dir: "table_configs", Name: "scAddOrEditSourceConfigOption.tc.json", Why: "2026-10-01, D06: Source Configuration opens on its table"},
-	{Dir: "table_configs", Name: "pcAddOrEditPipelineConfigOption.tc.json", Why: "2026-10-01, D06: Pipeline Configuration opens on its table"},
+	{Dir: "table_configs", Name: "ufClientOrVendorOption.tc.json", Why: "2026-10-01: Clients & Vendors opens on the client table"},
+	{Dir: "table_configs", Name: "scAddOrEditSourceConfigOption.tc.json", Why: "2026-10-01: Source Configuration opens on its table"},
+	{Dir: "table_configs", Name: "pcAddOrEditPipelineConfigOption.tc.json", Why: "2026-10-01: Pipeline Configuration opens on its table"},
 	// Release 4.0.4. Start Pipeline no longer chooses merged or historical
 	// (injected) data sources: the pipeline configuration names them, with their
 	// lookback periods. The step that chose merged sources drew the first two, and
@@ -301,6 +300,15 @@ var RetiredAssets = []RetiredAsset{
 	{Dir: "table_configs", Name: "mergeProcessInputTable.tc.json", Why: "2026-10-15, 4.0.4: Start Pipeline no longer chooses merged sources"},
 	{Dir: "table_configs", Name: "merged_input_registry_keys.tc.json", Why: "2026-10-15, 4.0.4: Start Pipeline no longer chooses merged sources"},
 	{Dir: "table_configs", Name: "spInjectedProcessInput.tc.json", Why: "2026-10-15, 4.0.4: Start Pipeline no longer lists historical sources"},
+	// Release 4.1.25. The wizard projected from the map_claim_load_stages
+	// template wrote one workspace's pipeline, in that workspace's classes, and
+	// had fallen behind its template. It is that workspace's asset now, kept
+	// under a key of its own: a copy under this key would be deleted here, or
+	// refused when no manifest says the last install left it.
+	{Dir: "user_flows", Name: "map_claim_load_stages.uf.json", Why: "4.1.25: a single workspace's wizard, kept by that workspace under its own key"},
+	{Dir: "user_flows", Name: "map_claim_load_stages.ua.json", Why: "4.1.25: a single workspace's wizard, kept by that workspace under its own key"},
+	{Dir: "user_flows", Name: "map_claim_load_stages.form.json", Why: "4.1.25: a single workspace's wizard, kept by that workspace under its own key"},
+	{Dir: "user_flows", Name: "map_claim_load_stages.apply.json", Why: "4.1.25: a single workspace's wizard, kept by that workspace under its own key"},
 }
 
 // IsRetired reports whether the workspace-relative fileName is a path in

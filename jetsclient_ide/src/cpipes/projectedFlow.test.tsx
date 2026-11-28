@@ -19,10 +19,10 @@
  *
  * ## What this file demonstrates, and what it still cannot
  *
- * It reads the twelve documents **off the asset directory** rather than from a fixture, so
+ * It reads the eight documents **off the asset directory** rather than from a fixture, so
  * what is exercised is what the installer copies. Then two levels:
  *
- * 1. **`FlowStore.load` accepts all three projected sets** against `productionRegistry` —
+ * 1. **`FlowStore.load` accepts both projected sets** against `productionRegistry` —
  *    six checks deep, ending at escape resolution. The same load against `emptyRegistry`
  *    fails, which is what makes the registration load-bearing rather than decorative.
  * 2. **The runner drives one end to end in a DOM**: `/flow/qc_report` renders, every
@@ -89,7 +89,7 @@ function assetDir(): string {
 
 const ASSETS = assetDir();
 
-const TEMPLATES = ["map_claim_load_stages", "qc_metrics", "qc_report"] as const;
+const TEMPLATES = ["qc_metrics", "qc_report"] as const;
 const SUFFIXES = [".uf.json", ".ua.json", ".form.json", ".apply.json"] as const;
 
 /** The workspace a stub apiserver serves, keyed the way `FlowStore` asks for them. */
@@ -179,7 +179,7 @@ async function client(saveAnswer?: { status: number; body: unknown }) {
 }
 
 describe("a projected document set, where the installer puts it", () => {
-  it("loads through FlowStore for all three shipped templates", async () => {
+  it("loads through FlowStore for both shipped templates", async () => {
     const { api } = await client();
     const store = new FlowStore(new WorkspaceApi(api), {
       workspaceName: "jets_ws",
@@ -194,7 +194,7 @@ describe("a projected document set, where the installer puts it", () => {
       expect(Object.keys(loaded.forms.forms).length).toBeGreaterThan(0);
       // No projected flow carries a `dataTable` field, so nothing is fetched from
       // `table_configs/`. Asserted rather than assumed: it is the reason the stub
-      // above serves twelve files and not more.
+      // above serves eight files and not more.
       expect(loaded.tables).toEqual({});
     }
   });

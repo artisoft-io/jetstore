@@ -142,9 +142,10 @@ func TestShippingDocumentsPassTheSaveCheck(t *testing.T) {
 	}
 	// Ten flows since 2026-10-01, when registerFileKeyUF was retired by
 	// jetstore_maintenance_02 (Q-6, task AD.4). Fourteen since 2026-10-11, with
-	// rulesUnitTestUF (rules_unit_test_harness, task AD.4).
-	if checked != 14 {
-		t.Errorf("expected the app's ten remaining flows, rulesUnitTestUF and three projections, checked %d", checked)
+	// rulesUnitTestUF. Thirteen since 2026-11-27, when the map_claim_load_stages
+	// projection was retired from the shipped assets.
+	if checked != 13 {
+		t.Errorf("expected the app's ten remaining flows, rulesUnitTestUF and two projections, checked %d", checked)
 	}
 }
 

@@ -23,6 +23,13 @@ The generator writes there:
 python -m cpipes_contract templates --project ../../jets/workspace_assets/user_flows
 ```
 
+**It writes every template's projection, and one of them is not shipped.** Since release 4.1.25
+`map_claim_load_stages` is retired from the asset directory (`RetiredAssets` in
+`jets/workspace_assets/install.go`): its wizard wrote a single workspace's pipeline, and that
+workspace keeps it as its own flow. Its template stays here, and the tests still project it. Delete
+the four `map_claim_load_stages.*` files a regeneration writes into the asset directory; if you do
+not, `go test ./jets/workspace_assets/` fails naming them, and an install refuses to run.
+
 **Why they cannot live here.** `//go:embed` cannot reach outside its own package directory, so an
 asset group's files have to live under `jets/workspace_assets/`. Keeping a second copy here would
 make the generator's output ambiguous: two directories, one source of truth, and nothing saying which
@@ -32,7 +39,7 @@ one the installer read.
 
 | Template | States | Longest walk | What the walk is |
 |---|---:|---:|---|
-| `map_claim_load_stages` | 10 | 10 | one binding step, then three load stages, each a `ConditionalPipeSpec` and its nested channel |
+| `map_claim_load_stages` (not shipped) | 10 | 10 | one binding step, then three load stages, each a `ConditionalPipeSpec` and its nested channel |
 | `qc_metrics` | 119 | 34 | one binding step, nine column mappings, each a variant choice and its form, and the partition writer |
 | `qc_report` | 1 | 1 | its bindings, and nothing else: all eleven of its holes are loops, so it asks a filler for nothing |
 

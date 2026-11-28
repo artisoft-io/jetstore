@@ -424,8 +424,8 @@ func TestAGroundedBriefingReportsNothing(t *testing.T) {
 func TestAnUngroundedBriefingIsReportedAndTheRecordIsDelivered(t *testing.T) {
 	writeTestWorkspace(t, map[string]string{"briefing": testProvenanceSchema("briefing")})
 	// A code the claim data does not carry, and a count that is not the number
-	// of events. Both are what A section 8.3 means by a statement with no
-	// corresponding event in the input entity.
+	// of events. Both are statements with no corresponding event in the input
+	// entity, which is what an ungrounded briefing means.
 	server, _ := ollamaTestServer(t, []ollamaTestResponse{
 		{body: `{"conditions":[{"code":"E119"},{"code":"C349"}],"event_count":7}`},
 	})
