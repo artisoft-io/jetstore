@@ -16,7 +16,7 @@ import (
 )
 
 // An override of a JetStore-owned asset, and whether JetStore has changed the
-// asset under it since (JM-033, 2026-11-27).
+// asset under it since (2026-11-27).
 //
 // **An override outranks the image for as long as it exists.** A user flow
 // fixed in the IDE while a JetStore release was pending is written back over
@@ -248,7 +248,7 @@ func LogOverrideBases(assets []OverrideAsset) {
 
 // OwnedAssetOverrides lists the workspace's overrides of JetStore-owned assets
 // (workspace_assets.InstalledHash), by file name, sorted. Commit Workspace
-// leaves them out of the commit and keeps them as overrides (JM-032): in the
+// leaves them out of the commit and keeps them as overrides: in the
 // repository, an edited owned asset makes the next build's install refuse the
 // workspace. It reads workspace_changes and the manifests only, so it does not
 // need the base table.

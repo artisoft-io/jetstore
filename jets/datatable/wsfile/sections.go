@@ -24,7 +24,7 @@ import (
 // showed by composing `"workspace.<dir>.form"` and looking it up in its own
 // registry — so "this section has no compiled view" and "the lookup failed" were
 // the same event at both ends, and the second was a throw inside an async menu
-// delegate. Task C.1 of the ui_refresh project, 2026-08-25.
+// delegate. This table replaced them on 2026-08-25.
 
 // CompiledView names the view of `workspace.db` a section's heading shows, and
 // the empty value means the section has none.
@@ -92,7 +92,7 @@ type Section struct {
 var WorkspaceSections = []Section{
 	{
 		// **`.meta.json` and `.schema.json` are the agentic model's two emitted
-		// companions**, installed beside `jets_agentic.jr` by U.2's predecessor and
+		// companions**, installed beside `jets_agentic.jr` by the agentic assets and
 		// invisible here until 2026-08-26 — the same defect as the missing
 		// `.apply.json` below, found by the same test on the same run, in a
 		// directory neither project had reason to look at.
@@ -141,20 +141,20 @@ var WorkspaceSections = []Section{
 	{
 		// Declared here, and not built in the Flutter client. That is the state
 		// this table exists to make sayable: the view is possible and absent,
-		// rather than impossible. **It was built in React on 2026-08-25** by
-		// ui_refresh's C.3a — jetsclient_ide/src/screens/views/lookups.view.json
-		// and two authored table documents — rather than in jetsclient, because
-		// track X deletes that app and a view built there is discarded by
-		// construction (their I-45, decided 2026-08-23 by the user).
+		// rather than impossible. **It was built in React on 2026-08-25**
+		// (jetsclient_ide/src/screens/views/lookups.view.json
+		// and two authored table documents) rather than in the Flutter client,
+		// because that app was being retired and a view built there would have
+		// been discarded with it (decided 2026-08-23).
 		//
-		// This comment said "it is scheduled as C.3a" until C.3a corrected it.
-		// A note naming a future trigger goes silent when the trigger passes, so
-		// the task that fires it is the only reader that can be relied on.
+		// This comment said the view was scheduled until the work that built it
+		// corrected it. A note naming a future trigger goes silent when the trigger
+		// passes, so the task that fires it is the only reader that can be relied on.
 		Dir: "lookups", Label: "Lookups",
 		Filters: []string{".jr", ".csv"}, CompiledView: LookupsView,
 	},
 	{
-		// **`.md` since 2026-10-27** (jetstore_maintenance_02 `AL.1`): the one
+		// **`.md` since 2026-10-27**: the one
 		// section directory where a workspace keeps a README, measured that day
 		// over the four workspaces' tracked files. The other sections hold none,
 		// so they do not list `.md`; adding it to one is one filter. A README is
@@ -163,7 +163,7 @@ var WorkspaceSections = []Section{
 		Filters: []string{".pc.json", ".md"}, CompiledView: NoCompiledView,
 	},
 	{
-		// **Added 2026-10-27** (jetstore_maintenance_02 `AL.2`): the briefing
+		// **Added 2026-10-27**: the briefing
 		// provenance schemas, `provenance/<key>.pv.json` by the convention
 		// briefing.DocumentSuffix describes. The save path has validated them
 		// since 2026-09-05 and no section listed them, so they could be saved
@@ -179,13 +179,13 @@ var WorkspaceSections = []Section{
 	{
 		// **This entry is the whole of making a new file type visible**, which is
 		// worth saying because a workspace directory that no Section names does
-		// not appear in the IDE at all. S.3 created `user_flows/` and would have
+		// not appear in the IDE at all. `user_flows/` was created and would have
 		// shipped it invisible without a row. All four suffixes are listed
 		// because a flow, its actions and its form are edited together.
 		//
 		// **`.apply.json` is the fourth and it was missing for a day**, which is
-		// the same failure as the missing row, one level down: agentic_ai's U.2
-		// added a fourth document kind to this directory and the *embed glob*
+		// the same failure as the missing row, one level down: the template
+		// projection added a fourth document kind to this directory and the *embed glob*
 		// learned about it — `install.go` names four suffixes — while this filter
 		// list did not. So every projected flow shipped with three of its four
 		// documents visible and the fourth installed and unopenable. Found
@@ -200,7 +200,7 @@ var WorkspaceSections = []Section{
 		Filters: []string{".uf.json", ".ua.json", ".form.json", ".apply.json"}, CompiledView: NoCompiledView,
 	},
 	{
-		// The fifth authored document type (task I.3, 2026-08-23). It sits in its
+		// The fifth authored document type (2026-08-23). It sits in its
 		// own directory rather than beside the flows because a table
 		// configuration is *shared*: two flows may name the same table, so it is
 		// keyed by table rather than by flow — which is also why the client
@@ -221,7 +221,7 @@ var WorkspaceSections = []Section{
 		Filters: []string{".sql", ".json", "config.json"}, CompiledView: NoCompiledView,
 	},
 	{
-		// **Added 2026-11-06** (runbooks Phase 1, `AA.4`): a runbook,
+		// **Added 2026-11-06**: a runbook,
 		// `runbooks/<name>.rb.json`, and its steps' SQL, one file per step under
 		// `runbooks/<name>/` by default (jets/runbook). Both suffixes are
 		// listed because a runbook and its SQL are edited together, as a flow
@@ -275,7 +275,7 @@ var workspaceRootFiles = []struct {
 
 // RootNoteSuffix is the suffix of the notes listed at the tree's root, after the
 // two root files: the workspace's own README, which every one of the four
-// workspaces has (2026-10-27, jetstore_maintenance_02 `AL.1`). Unlike the two
+// workspaces has (2026-10-27). Unlike the two
 // root files they are found by listing the root rather than named, because a
 // workspace may have none or several. Only the root itself is listed; its
 // subdirectories are sections or are not shown.
@@ -287,8 +287,8 @@ const RootNoteSuffix = ".md"
 // (checkWorkspaceFile, jets/datatable/workspace_file_validators.go).
 //
 // **`.md` is read-only because nothing checks it and a save would make it an
-// override.** The plan that added it (jetstore_maintenance_02 `AL.1`,
-// 2026-10-27) made a README read-only unless the validator table has a row for
+// override.** The change that added it (2026-10-27) made a README read-only
+// unless the validator table has a row for
 // it, and a test in package datatable fails if a read-only suffix gains one,
 // since the two would then contradict each other. A root README could not be
 // saved anyway until 2026-11-14: SaveContent took the database content type

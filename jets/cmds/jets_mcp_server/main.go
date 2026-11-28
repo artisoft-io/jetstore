@@ -1,7 +1,7 @@
 // jets_mcp_server serves the agentic tool registry over stdio MCP — the
-// second exposure of the one Go registry (plan section 6). Spawned as a
-// subprocess by its client (Claude Code, criterion 12); it is not how the
-// Phase-1 loop reaches a tool.
+// second exposure of the one Go registry. Spawned as a
+// subprocess by its client (Claude Code, for example); it is not how the
+// agent loop reaches a tool.
 //
 // Usage:
 //

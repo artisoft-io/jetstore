@@ -162,7 +162,7 @@ func restoreFileFromStash(workspaceName, fileName, destination string) error {
 // if keepWorkspaceAndLookupDb is true, then don't remove files 'workspace.db', 'lookup.db', 'workspace.tgz', 'reports.tgz' from the overrides
 //
 // keepFiles are further rows kept, by file name: the overrides a commit left
-// out (JM-032, 2026-11-27), which stay overrides of this installation. Only the
+// out (2026-11-27), which stay overrides of this installation. Only the
 // rows are kept; with restaureFromStash the files are restored all the same, so
 // the commit passes none of them with it.
 func DeleteAllFileChanges(dbpool *pgxpool.Pool, workspaceName string, restaureFromStash, keepWorkspaceAndLookupDb bool, keepFiles ...string) error {

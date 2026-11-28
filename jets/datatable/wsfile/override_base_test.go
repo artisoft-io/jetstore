@@ -1,7 +1,7 @@
 package wsfile
 
 // An override of a JetStore-owned asset records the version it was made on,
-// and a start says when JetStore has changed the asset under it (JM-033).
+// and a start says when JetStore has changed the asset under it.
 // Needs JETS_TEST_DSN (revertDB, delete_changes_test.go).
 
 import (
@@ -206,7 +206,7 @@ func TestNoBaseTableRecordsNothing(t *testing.T) {
 }
 
 // Commit Workspace leaves out the overrides of owned assets and keeps their
-// rows (JM-032): OwnedAssetOverrides names them without the base table, and
+// rows: OwnedAssetOverrides names them without the base table, and
 // the deletion after the commit keeps the rows it is given.
 func TestACommitKeepsTheOverridesOfOwnedAssets(t *testing.T) {
 	pool := changesDB(t)

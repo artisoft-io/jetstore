@@ -9,11 +9,11 @@
 //
 // # Nothing here knows what it is rendering
 //
-// The package names no property of any entity, no domain and no pipeline. That
-// is criterion 81 and it is the whole of what this package is for: everything
+// The package names no property of any entity, no domain and no pipeline, and
+// that is the whole of what this package is for: everything
 // `jets/agentic/briefing/prose/` knows about a briefing becomes a document, and
 // what is left is a language. A grep for a property name in this directory
-// finding nothing is the criterion.
+// finding nothing is the test of it (`TestNothingHereNamesADomain`).
 //
 // # Every failure this package admits is a compile failure
 //
@@ -23,7 +23,7 @@
 // data, and an arm that can fail for reasons of its own is not a control
 // (`prose.go:17`). This package's subject is a product operator with no experiment
 // to keep clean, so the premise is gone - but the property it protected is not,
-// and it is restated as criterion 84.
+// and it is restated here: every failure is a compile failure.
 //
 // The mechanism is `compileInferPromptTemplate`'s
 // (`compileInferPromptTemplate`, `jets/compute_pipes/pipe_transformation_infer.go:529`):

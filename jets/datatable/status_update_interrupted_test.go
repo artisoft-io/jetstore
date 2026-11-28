@@ -44,8 +44,8 @@ func withNoManifestUpload(t *testing.T) {
 	t.Cleanup(func() { compute_pipes.RunManifestUploader = restore })
 }
 
-// TestAnInterruptedLoadIsRecordedInterruptedAndRegistersNothing is acceptance
-// criterion 30: the loader path, which records input_loader_status and
+// TestAnInterruptedLoadIsRecordedInterruptedAndRegistersNothing covers the
+// loader path, which records input_loader_status and
 // registers the loaded file in input_registry.
 func TestAnInterruptedLoadIsRecordedInterruptedAndRegistersNothing(t *testing.T) {
 	pool := widenedTestPool(t, append(manifestRunTables, "input_loader_status")...)

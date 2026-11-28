@@ -23,12 +23,16 @@ The generator writes there:
 python -m cpipes_contract templates --project ../../jets/workspace_assets/user_flows
 ```
 
-**It writes every template's projection, and one of them is not shipped.** Since release 4.1.25
+**It writes the projection of every template that is shipped, and only those.** Since release 4.1.25
 `map_claim_load_stages` is retired from the asset directory (`RetiredAssets` in
 `jets/workspace_assets/install.go`): its wizard wrote a single workspace's pipeline, and that
-workspace keeps it as its own flow. Its template stays here, and the tests still project it. Delete
-the four `map_claim_load_stages.*` files a regeneration writes into the asset directory; if you do
-not, `go test ./jets/workspace_assets/` fails naming them, and an install refuses to run.
+workspace keeps it as its own flow. Its template stays here, marked with a top-level `retired`
+key (the date and the reason), and the tests still project it. `templates --project` skips a
+template marked `retired` and says so (`retired (...); not projected`), so a regeneration of the
+asset directory is clean. `tests_project.py` checks that a template is marked `retired` exactly
+when its four documents are on `RetiredAssets`, and that the command writes the shipped
+projections byte for byte and nothing else. To retire another template, add its four documents
+to `RetiredAssets` and its `retired` key in the same change.
 
 **Why they cannot live here.** `//go:embed` cannot reach outside its own package directory, so an
 asset group's files have to live under `jets/workspace_assets/`. Keeping a second copy here would

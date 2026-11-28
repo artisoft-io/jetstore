@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-// --- criterion 20: what the report may and may not say --------------------
+// --- what the report may and may not say -----------------------------------
 
 func TestReport_RefusesToPublishWithoutAnEra(t *testing.T) {
 	r := &Report{

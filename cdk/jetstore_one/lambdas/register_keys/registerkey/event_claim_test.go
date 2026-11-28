@@ -139,7 +139,7 @@ func TestEventClaimFailedRegistrationMarksFailed(t *testing.T) {
 	}
 }
 
-// A failed registration is recorded once per event (R-213): a retry that takes
+// A failed registration is recorded once per event: a retry that takes
 // over an event already failed records nothing, whatever it does; a takeover of
 // an event whose invocation died started, which recorded nothing, records; an
 // event the duplicate check cannot track records each time; a registration that

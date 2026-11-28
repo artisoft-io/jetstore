@@ -1,6 +1,7 @@
 {
   "name": "map_claim_load_stages",
   "description": "The map_claim pipeline, with its three near-identical 'Load X to DB' stages left as one repeating hole. Each maps an entity onto its own domain table and writes it. Every other stage is carried verbatim, so expanding against the target regenerates a live config exactly.",
+  "retired": "4.1.25: a single workspace's wizard, kept by that workspace under its own key",
   "holes": [
     {
       "name": "load_stages",

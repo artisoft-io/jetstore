@@ -46,7 +46,7 @@ func Check(s *Schema, entity, brief map[string]any) (*Result, error) {
 	}
 
 	// The closure. Every populated leaf the rules did not reach is an assertion
-	// nobody declared an obligation for, which is what criterion 52 refuses.
+	// nobody declared an obligation for, which is what the check refuses.
 	var found []Located
 	leaves(brief, "", &found)
 	for _, l := range found {

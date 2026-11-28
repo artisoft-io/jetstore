@@ -33,10 +33,10 @@ type element struct {
 // Compile reads a template document and returns a template that cannot fail.
 //
 // **It is the only function in this package that returns an error**, and that
-// is R-108's mitigation rather than a house rule: [Template.Render] has no
+// is the mitigation of a known risk rather than a house rule: [Template.Render] has no
 // error to return, so a later maintainer cannot introduce a render-time failure
-// without changing a signature and every call site. Criterion 84 is enforced by
-// the compiler.
+// without changing a signature and every call site. That rendering cannot fail
+// is enforced by the compiler.
 //
 // The twelve failures it admits are §10.8's C1 to C12. Each names the construct
 // and its position, on `compileInferPromptTemplate`'s precedent

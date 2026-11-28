@@ -66,7 +66,7 @@ func allNames(t *testing.T) map[string][]string {
 	return out
 }
 
-// A21.4: the guard's cheap case — "not installed by JetStore" — only works if
+// The guard's cheap case — "not installed by JetStore" — only works if
 // every asset in a TokenedAssets group actually carries the token. The other
 // groups are asserted not to be checked that way, which is the point of the
 // flag: a .pc.json carries no header, so the manifest is the whole evidence.
@@ -182,7 +182,7 @@ func TestStalePipelineConfigIsUpdated(t *testing.T) {
 	}
 }
 
-// A21.3, first clause: a JetStore file edited in place stops the build.
+// A JetStore file edited in place stops the build.
 func TestLocallyModifiedAssetIsRefused(t *testing.T) {
 	dir := newWorkspace(t)
 	if _, err := Install(dir, Options{}); err != nil {
@@ -250,7 +250,7 @@ func TestModifiedPipelineConfigIsRefusedAndDiagnosedFromTheManifest(t *testing.T
 	}
 }
 
-// A21.3, second clause and the reason it exists: a client workspace's jets_model.jr, a
+// The reason the guard exists: a client workspace's jets_model.jr, a
 // client file at a path JetStore has since claimed. It carries no ownership
 // header, so it is diagnosed as never-installed rather than as edited — and
 // nothing else is installed either, in either directory, so the workspace is

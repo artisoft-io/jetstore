@@ -95,6 +95,14 @@ class Template(BaseModel):
         description="Top-level bindings a projected flow offers with a label, help and default.",
     )
     body: dict = Field(description="A ComputePipesConfig shape carrying `{\"$hole\": \"<name>\"}` markers.")
+    retired: str | None = Field(
+        default=None,
+        description="Set when the template's projection is no longer a shipped asset: the "
+        "date and the reason, as its `RetiredAssets` entries in jets/workspace_assets give "
+        "them. `templates --project` does not project a retired template, so a regeneration "
+        "into the asset directory cannot bring its documents back. The template itself "
+        "stays: it is still checked, expanded and projected by the tests.",
+    )
 
     def item_reads(self) -> set[str]:
         """The fields of the top-level `$item` the body reads outside every hole.
@@ -279,7 +287,7 @@ def check(
             notes.append(
                 f"hole {hole.name!r} fills {hole.schema_ref}, whose prompt is ~{tokens} tokens "
                 f"against a {budget} budget - it can be recovered into but **not authored** "
-                f"(criterion 22 is unreachable for this hole; name a bundle instead)"
+                f"(a model cannot author this hole; name a bundle instead)"
             )
         elif verdict == "unclear":
             # **Reported rather than rounded.** The estimate carries a few per cent of

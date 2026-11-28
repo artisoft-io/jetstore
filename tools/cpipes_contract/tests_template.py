@@ -252,13 +252,13 @@ def _round_trip():
     return tpl, target, cfg, findings
 
 
-def test_criterion_21_the_template_is_clean_and_expands():
+def test_the_map_claim_template_is_clean_and_expands():
     tpl, _, _, findings = _round_trip()
     assert check(tpl, SCHEMA, None, HERE / "matrix")[0] == []
     assert findings == []
 
 
-def test_criterion_21_the_expansion_validates_under_the_2b_schema():
+def test_the_map_claim_expansion_validates_under_the_contract_schema():
     import jsonschema
 
     _, _, cfg, _ = _round_trip()
@@ -268,21 +268,21 @@ def test_criterion_21_the_expansion_validates_under_the_2b_schema():
     assert list(v.iter_errors(cfg)) == []
 
 
-def test_criterion_21_the_expansion_regenerates_its_target_exactly():
-    """The round trip is what makes the criterion checkable rather than plausible.
+def test_the_map_claim_expansion_regenerates_its_target_exactly():
+    """The round trip is what makes the claim checkable rather than plausible.
 
     A template derived from a live config, expanded with payload recovered from that
     same config, must reproduce it byte for byte. Anything less and the mechanism is
     losing or inventing something, and no amount of validating would show which.
 
-    `ValidatePipeSpecConfig` is the criterion's other half and is not run from here -
+    `ValidatePipeSpecConfig` is the other half of the check and is not run from here -
     it needs the Go harness. Both the expansion and the target return
     `{"ok": true, "steps": 8}`, checked 2026-08-20 and again 2026-11-27:
 
         go run ./tools/cpipes_contract/harness < cases.json
 
     **The target is the live configuration, not a snapshot of it, and that is the
-    criterion rather than a convenience.** It says the mechanism holds *on a live
+    point rather than a convenience.** It says the mechanism holds *on a live
     config*, so when the workspace's configuration changes this test fails, and the
     repair is to re-derive the template's body from the configuration as it now is
     (every step but the repeated load stages, verbatim), not to pin the target. It
@@ -438,7 +438,7 @@ def test_the_reproduction_binds_the_notification_keys_from_the_config():
     assert [c["key"] for c in cfg["context"]] == [c["key"] for c in target["context"]]
 
 
-def test_criterion_23_two_of_the_five_non_exact_reproduce_exactly():
+def test_two_of_the_five_non_exact_qc_configs_reproduce_exactly():
     """An earlier experiment left five `qc_*` configs short of byte-for-byte. Two now are.
 
     The test asks for one. `qc_participation` (14 diffs at first) and
@@ -594,7 +594,7 @@ def test_the_status_filter_carries_its_substring_rather_than_deriving_it():
 
     **The binding here is written out rather than read from `workspaces/`**, so this
     asserts a property of the template and not a count in a repository this one does not
-    control; `test_criterion_23_two_of_the_five_non_exact_reproduce_exactly` is where the
+    control; `test_two_of_the_five_non_exact_qc_configs_reproduce_exactly` is where the
     live configs have their say.
     """
     target = _corpus_config(f"{QC}/qc_participation.pc.json")

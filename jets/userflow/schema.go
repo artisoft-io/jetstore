@@ -17,7 +17,7 @@ var messagePrinter = message.NewPrinter(language.English)
 
 // The emitted schemas, committed here so //go:embed can reach them.
 //
-// **They are copies, and the copy is deliberate — see I-16.** The source of
+// **They are copies, and the copy is deliberate.** The source of
 // truth is TypeScript, in jetsclient_ide/src/{userflow,actions}, which emits the
 // JSON Schema beside itself. //go:embed refuses any path outside its own
 // directory, so Go needs the artifact under jets/. A build-time copy would work

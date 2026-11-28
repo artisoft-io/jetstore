@@ -153,14 +153,14 @@ func prefixedKey(entity map[string]any) string {
 //
 // **They stay as local names rather than being inlined at the call sites**, and
 // that is a smaller change on purpose: `prose.go` and `filters.go` are the
-// renderer criterion 82 compares against, and a diff that touched thirty lines
+// renderer the template engine's equivalence test compares against, and a diff that touched thirty lines
 // of them to save three here would put the control arm's text in the way of
 // reading what actually changed.
 //
 // **What is not delegated is `filters.go`'s ten functions**, which are copied
 // into the engine and stay copied, and the argument for it is
 // the opposite of this one: a filter is named by the template document, so two
-// implementations that disagree are a difference criterion 82 is meant to see.
+// implementations that disagree are a difference the equivalence test is meant to see.
 // A value reader is named by neither document.
 func scalar(v any) string { return briefing.ValueText(v) }
 

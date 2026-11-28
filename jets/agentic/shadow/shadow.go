@@ -3,9 +3,9 @@
 // jetsapi.incident and jetsapi.hypothesis, a supervision screen reads them, and
 // **nothing acts**.
 //
-// # The hard half of criterion 47 is the second clause
+// # The hard half of "nothing acts" is the second clause
 //
-// The criterion reads *"Nothing acts: no remediation executes, and the audit
+// The requirement reads *"Nothing acts: no remediation executes, and the audit
 // record shows it."* The first clause is cheap — this repository contains no
 // executor, so nothing could have executed — and the second is not. *No
 // remediation ran* and *the record demonstrates that no remediation ran* are
@@ -136,7 +136,7 @@ func IsShadowStatus(s string) bool { return slices.Contains(ShadowStatuses, s) }
 
 // ErrWouldAct is returned when something asks this wiring to move an incident
 // past the ceiling. It is a distinct type because it is the one error in this
-// package that means criterion 47 was about to be broken rather than that a
+// package that means "nothing acts" was about to be broken rather than that a
 // database was unhappy, and a caller that swallowed it would be swallowing the
 // phase's deployment posture.
 type ErrWouldAct struct {

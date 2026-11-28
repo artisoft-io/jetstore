@@ -1,13 +1,13 @@
 package briefingtmpl_test
 
-// **This is criterion 82 and it is a byte comparison per fixture.**
+// **This is the equivalence test, and it is a byte comparison per fixture.**
 //
 // The requirement is that the seventeen tests of `jets/agentic/briefing/prose` run
 // unchanged against the configured engine. They do - they are untouched and
 // they still pass - and what this file adds is the comparison those tests
 // cannot make themselves: the same input through `prose.Render` and through
-// [briefingtmpl.Render], byte for byte, so that criterion 82 is checked on
-// every run rather than asserted once.
+// [briefingtmpl.Render], byte for byte, so that the two renderings agreeing is
+// checked on every run rather than asserted once.
 //
 // # The fixtures are transcribed, and that is the one weakness worth naming
 //
@@ -122,7 +122,7 @@ Medications: lisinopril, a maintenance medication, three fills, most recently
 // **It compares the error as a state and the output as bytes**, which is the
 // only honest comparison available: the two callers refuse the same inputs and
 // say so in their own words - `prose.Render` in a sentence it composes, this
-// one by reporting the template's own `require` message - and criterion 82 is
+// one by reporting the template's own `require` message - and the equivalence is
 // about the artefact rather than about the diagnosis. Where the diagnosis
 // matters the case asserts it by hand.
 func agree(t *testing.T, entity map[string]any) (string, error) {

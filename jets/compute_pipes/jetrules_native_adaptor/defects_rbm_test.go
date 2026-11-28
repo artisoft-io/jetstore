@@ -29,7 +29,7 @@ import (
 // rbmMainRuleFile is the rule file the tests add to their scratch copy of test_ws.
 const rbmMainRuleFile = "jet_rules/rbm_defects_main.jr"
 
-const rbmModel = `# Data model for the rules_benchmark defect tests (defects_rbm_test.go).
+const rbmModel = `# Data model for the rule engine defect tests (defects_rbm_test.go).
 class rbm:Item {
   $base_classes = [jets:Entity],
   $data_properties = [
@@ -48,7 +48,7 @@ class rbm:Item {
 // The patterns are the five production rules' that use literal_regex: one client
 // workspace's zip-code prefix rule, used in three of its processes, and another's
 // two name splitters.
-const rbmRules = `# Main rule file for the rules_benchmark defect tests (defects_rbm_test.go).
+const rbmRules = `# Main rule file for the rule engine defect tests (defects_rbm_test.go).
 import "data_model/jets_model.jr"
 import "data_model/rbm_defects_model.jr"
 
@@ -104,7 +104,7 @@ func rbmScratchWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 	if out, err := workspace.CompileWorkspace(nil, "test_ws", "rbm",
-		workspace.SkipAssetValidation("rules_benchmark defect tests: test_ws has no user flows")); err != nil {
+		workspace.SkipAssetValidation("rule engine defect tests: test_ws has no user flows")); err != nil {
 		t.Fatalf("compiling the scratch test_ws: %v\n%s", err, out)
 	}
 }

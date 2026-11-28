@@ -10,7 +10,7 @@ import (
 	"unsafe"
 )
 
-// #cgo CFLAGS: -I${SRCDIR}/.. -I/usr/local/go/src/jetstore/jets -I/app/jets
+// #cgo CFLAGS: -I${SRCDIR}/.. -I/app/jets
 // #cgo LDFLAGS: -L${SRCDIR}/../../build/jets -L/app/jets -ljets -lsqlite3
 // #cgo LDFLAGS: -labsl_city -labsl_raw_hash_set
 // #include "rete/jets_rete_cwrapper.h"

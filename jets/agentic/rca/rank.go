@@ -452,7 +452,7 @@ func sortHypotheses(hs []Hypothesis) {
 	})
 }
 
-// rankBasis is criterion 45's last clause for one hypothesis: why it ranks
+// rankBasis is the ranking's basis for one hypothesis: why it ranks
 // where it does, in numbers a reader can check by counting the two lists.
 func rankBasis(h *Hypothesis, total int) string {
 	sup, con := len(h.SupportingEvidence), len(h.ContradictingEvidence)

@@ -12,7 +12,7 @@ import (
 // **These two tests are a pair and neither means much alone.** The first says a
 // revert works when the stash was taken from the pristine tree. The second says
 // it stops working, without failing, when the stash is re-taken after the tree
-// has been edited. That second case is the one Phase 6 met: `pullWorkspaceAction`
+// has been edited. That second case is the one met in practice: `pullWorkspaceAction`
 // used to clear the stash and re-take it on every pull, which is right when a
 // pull has just put the tree at the remote's content and wrong when there was no
 // pull, because the tree then still carries the database overrides. It is now
@@ -20,7 +20,7 @@ import (
 // rather than tidy.
 //
 // Written 2026-09-08 with the revert buttons re-enabled for a deployment with no
-// repository (Q-89). Re-enabling them is only defensible while the first test
+// repository. Re-enabling them is only defensible while the first test
 // passes, so it is here rather than in a plan.
 
 // stashScenario builds a workspace tree under a temporary WORKSPACES_HOME and

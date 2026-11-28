@@ -40,7 +40,7 @@ func envFor(t *testing.T, providerEnv map[string]any, context []ContextSpec) map
 	return env
 }
 
-// Criterion 16, first half: it supplies a value the schema event omitted.
+// default_value, first half: it supplies a value the schema event omitted.
 func TestContextDefaultValueSuppliesWhatTheEventOmitted(t *testing.T) {
 	env := envFor(t, map[string]any{}, []ContextSpec{
 		{Type: "default_value", Key: "${CORPUS_OUT_BUCKET}", Expr: "jetstore_bucket"},
@@ -50,7 +50,7 @@ func TestContextDefaultValueSuppliesWhatTheEventOmitted(t *testing.T) {
 	}
 }
 
-// Criterion 16, second half, and the half that makes the type worth having: the
+// default_value, second half, and the half that makes the type worth having: the
 // deployment wins. A default_value that overwrote would be `value` with a
 // longer name.
 func TestContextDefaultValueDoesNotOverwriteTheEvent(t *testing.T) {

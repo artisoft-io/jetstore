@@ -141,7 +141,7 @@ def test_a_refusal_is_visible():
       assert any("not editable here" in text for text in labels)
 
 
-def test_the_bindings_walk_agrees_with_the_M1_census():
+def test_the_bindings_walk_agrees_with_a_hand_count():
     """1/3/~~21~~ ~~22~~ 24 scalar sites and 0/0/8 object sites, counted by hand.
 
     **A traversal is worth what a second count says it is.** The first corpus walk
@@ -424,6 +424,51 @@ def test_the_installed_qc_documents_are_the_projection():
         with tempfile.TemporaryDirectory() as out:
             for path in projection(name).write(Path(out)):
                 assert path.read_bytes() == (installed / path.name).read_bytes(), path.name
+
+
+def _retired_user_flows() -> set[str]:
+    """The `user_flows` names on `RetiredAssets`, read from the Go source that declares them."""
+    import re
+
+    source = (HERE.parent.parent / "jets" / "workspace_assets" / "install.go").read_text()
+    return set(re.findall(r'\{Dir: "user_flows", Name: "([^"]+)"', source))
+
+
+def test_a_template_is_retired_exactly_when_its_documents_are_retired_assets():
+    """`retired` on a template and `RetiredAssets` in Go say the same thing, or a
+    regeneration ships what an install deletes (or leaves out what it ships)."""
+    retired = _retired_user_flows()
+    suffixes = (".uf.json", ".form.json", ".ua.json", ".apply.json")
+    for name in TEMPLATES:
+        tpl = tmod.load(HERE / "templates" / f"{name}.template.json")
+        documents = {f"{name}{s}" for s in suffixes}
+        if tpl.retired:
+            assert documents <= retired, f"{name} is retired; RetiredAssets lacks {sorted(documents - retired)}"
+        else:
+            assert not documents & retired, f"{name} is shipped; RetiredAssets has {sorted(documents & retired)}"
+
+
+def test_regenerating_the_asset_directory_writes_only_what_is_shipped():
+    """`templates --project` writes the shipped projections, byte for byte, and nothing else.
+
+    It is the command the asset directory is regenerated with, so a retired template it
+    still projected would bring back four documents an install refuses to run beside.
+    """
+    import contextlib
+    import io
+    import tempfile
+
+    from cpipes_contract.main import main
+
+    installed = HERE.parent.parent / "jets" / "workspace_assets" / "user_flows"
+    with tempfile.TemporaryDirectory() as out:
+        with contextlib.redirect_stdout(io.StringIO()):
+            assert main(["templates", "--project", out]) == 0
+        written = sorted(p.name for p in Path(out).iterdir())
+        assert written, "nothing projected"
+        assert not set(written) & _retired_user_flows(), written
+        for name in written:
+            assert (Path(out) / name).read_bytes() == (installed / name).read_bytes(), name
 
 
 if __name__ == "__main__":

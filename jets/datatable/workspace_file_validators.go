@@ -22,14 +22,14 @@ import (
 
 // The per-suffix validator table the save path dispatches through.
 //
-// **A table rather than a chain of ifs, agreed with the agentic_ai stream before
-// either side wrote it** — recorded as Q-3 in the ui_refresh project's tracking.
+// **A table rather than a chain of ifs, agreed by the two parties adding rows
+// before either side wrote it.**
 // `.uf.json` was the second structured file type and `.pc.json` was a known
 // third; two ifs would have been tolerable and three is where it should have
 // been a table.
 //
-// Adding a row is the whole of adding a file type, and `.tc.json` (task I.3,
-// 2026-08-23) is the fourth — added by editing this table and nothing else,
+// Adding a row is the whole of adding a file type, and `.tc.json`
+// (2026-08-23) is the fourth — added by editing this table and nothing else,
 // which is the claim the sentence above was making and this is the test of it.
 //
 // The `.pc.json` row was reserved here for the step-by-step startup validator
@@ -43,14 +43,14 @@ import (
 // ValidateConfigDocument's comment says exactly why. A note naming a future
 // trigger goes silent when the trigger passes, which is what this one did.
 //
-// `.pv.json` is the fifth (agentic_ai's `AK.2`, 2026-09-05): a briefing
+// `.pv.json` is the fifth (2026-09-05): a briefing
 // provenance schema, the document that says what each field of a generated
 // briefing is allowed to assert. It is a row and nothing else, again — the
 // validator is `briefing.ValidateProvenanceDocument` and it existed before this
 // row did, because `ParseSchema` was written to return `wsvalidate.Finding`
 // for exactly this reason. **This is the second extension by a party that did
-// not write the table**, after ui_refresh's `.tc.json`, and the first by the
-// stream the table's comment was addressed to.
+// not write the table**, after `.tc.json`, and the first by the
+// agentic tooling the table's comment was addressed to.
 //
 // `.sql` is the sixth (2026-09-12) and **it is the first row that is not a row
 // and nothing else**, which is worth saying because five predecessors had made
@@ -75,7 +75,7 @@ import (
 // become true** — see the `jet_rules` row in `wsfile/sections.go`, which
 // filtered on a second `.sql` suffix this row would have matched.
 //
-// `.rb.json` is the eighth (runbooks Phase 1, `AA.4`, 2026-11-06): a workspace
+// `.rb.json` is the eighth (2026-11-06): a workspace
 // runbook, `runbooks/<name>.rb.json`. The save check has the file alone, so it
 // checks everything but what needs the file's name or its SQL files, which
 // the executor checks with both when a run starts (runbook.Load). A runbook's
@@ -374,7 +374,7 @@ func saveCheckedWorkspaceFile(wsFileName any, fileName, content string, workspac
 //
 // Every finding carries its coordinate where it has one, because the editor
 // showing this message is the one that could put a cursor on the offence — and
-// because the agentic_ai stream's repair prompts need *where* rather than only
+// because the agentic repair prompts need *where* rather than only
 // *what*. A JSON Pointer for a document, a line for a file whose positions are
 // lines; a finding carrying both would print `/a/b:12`, which no validator
 // produces today and which reads correctly if one ever does.

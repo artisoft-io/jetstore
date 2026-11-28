@@ -3,7 +3,7 @@
 //
 // # What "over data a real pipeline wrote" means here, exactly
 //
-// Criterion 34 asks for two detectors emitting a persisted Anomaly over
+// The requirement is two detectors emitting a persisted Anomaly over
 // execution data a real pipeline wrote. Four of the five layers below are the
 // production ones and the fifth is not, and the difference is stated here
 // rather than left to be assumed:
@@ -506,7 +506,7 @@ func TestInsertAnomalyIfNewIsIdempotentAcrossRuns(t *testing.T) {
 	}
 }
 
-// Criterion 34, end to end: both detectors, over rows the worker's own writers
+// End to end: both detectors, over rows the worker's own writers
 // produced, each emitting an Anomaly that persists and reads back.
 func TestBothDetectorsEmitAPersistedAnomaly(t *testing.T) {
 	pool := testPool(t)

@@ -78,7 +78,7 @@ func describesEveryDeclaration(cfg *ComputePipesConfig, m *CpipesRunManifest) er
 	return nil
 }
 
-// TestManifestIsWholeNeverSliced is acceptance criterion 10, and it is written
+// TestManifestIsWholeNeverSliced is written
 // so that it proves itself: the same assertion that passes on the manifest a
 // two-table run produces must fail on a manifest describing one of them.
 func TestManifestIsWholeNeverSliced(t *testing.T) {
@@ -205,8 +205,8 @@ func TestDeclaredButNotWritten(t *testing.T) {
 	}
 }
 
-// TestUnresolvedBucketRefusesTheManifest is acceptance criterion 12's half.
-// Recording the location would produce a document naming a bucket nobody can
+// TestUnresolvedBucketRefusesTheManifest: a bucket that does not resolve refuses
+// the manifest. Recording the location would produce a document naming a bucket nobody can
 // open, asserted by the one artefact a consumer cannot check.
 func TestUnresolvedBucketRefusesTheManifest(t *testing.T) {
 	cfg := &ComputePipesConfig{OutputFiles: []OutputFileSpec{{Key: "export"}}}

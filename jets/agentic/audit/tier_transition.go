@@ -70,7 +70,7 @@ import (
 // author.
 //
 // **No executor, and nothing acts.** This raises an authority; it does not use
-// one. `Remediation` remains tabled with no executor (criterion 47), and a
+// one. `Remediation` remains tabled with no executor, deliberately, and a
 // transition is an authority change rather than an execution.
 //
 // # No endpoint, and that is the transcript's argument rather than an omission

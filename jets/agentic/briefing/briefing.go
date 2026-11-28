@@ -10,7 +10,7 @@
 //
 // # Why this is a rule table and not a rete session
 //
-// Gap 16 names the mechanism - *minimum-necessary projection + output
+// The design names the mechanism - *minimum-necessary projection + output
 // validation as jetrules* - and the phrase binds two halves to one engine.
 // **Only the first half can have it.** The projection runs inside the rule
 // session that builds the entity, on working memory, which is what jetrules is
@@ -37,7 +37,7 @@
 // because the data lived in a table it cannot read, here because the data has
 // been flattened into a literal on its way past.
 //
-// What is *not* ruled out is rules. Criterion 52's contrast is a rule against a
+// What is *not* ruled out is rules. The contrast that matters is a rule against a
 // prompt, not a rete session against a `switch`, and what this package
 // evaluates is a declared table of per-field obligations that an author writes
 // and a machine checks. `jets/agentic/triage`'s nine predicates and

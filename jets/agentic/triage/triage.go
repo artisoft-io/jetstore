@@ -92,7 +92,7 @@
 //
 // # Classify returns every verdict, not the ones that fired
 //
-// Criterion 44 asks for triage reported per class with denominators and no
+// Triage is reported per class with denominators and no
 // aggregate. A classifier that returns only what fired supplies numerators and
 // no denominators — the count of sessions in which a locus was *evaluated and
 // did not fire* is not recoverable from a list of hits. So Classify emits one
@@ -337,7 +337,7 @@ type Report struct {
 	SessionId string
 	Findings  []Finding
 	// Evaluable counts the findings that are not NotEvaluable. It is the
-	// denominator criterion 44 asks for, at the grain of one run.
+	// denominator a per-class report needs, at the grain of one run.
 	Evaluable int
 	// Job reports that the session's header is a job's row (RunHeader.Job),
 	// so only job_failed was evaluated and the run loci say nothing about it.

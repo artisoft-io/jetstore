@@ -13,11 +13,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Criterion 18: the kill switch is real. Revoking the agent identity's
+// The kill switch is real. Revoking the agent identity's
 // capability stops the next run before its first model call, and the refusal is
 // an error event naming the capability.
 
-func TestCriterion18_RevokedIdentityIsStoppedBeforeTheFirstCall(t *testing.T) {
+func TestKillSwitch_RevokedIdentityIsStoppedBeforeTheFirstCall(t *testing.T) {
 	in := &stubInfer{answers: []string{`{"a":1}`}}
 	rec := &recorder{}
 	l := &Loop{
@@ -51,7 +51,7 @@ func TestCriterion18_RevokedIdentityIsStoppedBeforeTheFirstCall(t *testing.T) {
 
 // The refusal happens before the run is recorded. A run that was never allowed
 // to start should not leave a record suggesting it did.
-func TestCriterion18_RefusalPrecedesTheRunRecord(t *testing.T) {
+func TestKillSwitch_RefusalPrecedesTheRunRecord(t *testing.T) {
 	started := false
 	l := &Loop{
 		Infer: &stubInfer{}, Registry: &stubRegistry{}, Audit: &recorder{},
@@ -118,7 +118,7 @@ func TestPgGuard_NoCapabilityConfiguredIsAnError(t *testing.T) {
 }
 
 // The real query, against a real database: granted, then revoked.
-func TestCriterion18_PgGuardAgainstPostgres(t *testing.T) {
+func TestKillSwitch_PgGuardAgainstPostgres(t *testing.T) {
 	pool := testPool(t)
 	ctx := context.Background()
 	seedIdentity(t, pool)

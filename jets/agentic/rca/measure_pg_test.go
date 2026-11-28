@@ -34,8 +34,8 @@
 //
 // # What the population is, and it is not a deployment's
 //
-// The five sessions below were built by this file. **No pipeline ran** — the
-// same sentence criterion 43's fourth clause turns on — so every count
+// The five sessions below were built by this file. **No pipeline ran** — a
+// fixture is not a run, and nothing here pretends otherwise — so every count
 // here is a property of a fixture and of the code that read it, and none of them
 // is a base rate for how JetStore pipelines fail. The shapes were chosen
 // to exercise the loci rather than sampled from anything, which is the whole of
@@ -72,7 +72,7 @@ const configWithErrorChannel = `{"pipes_config":[{"type":"fan_out","input_channe
   "apply":[{"type":"jetrules","jetrules_config":{"error_channel":{"name":"process_errors.out"}},
             "output_channel":{"name":"ruled"}}]}]}`
 
-// ad1Census writes five runs of different shapes into one database and returns
+// fixtureCensus writes five runs of different shapes into one database and returns
 // their session ids in a stable order.
 //
 // **The shapes are chosen and that is the population's whole provenance.** Worker
@@ -80,7 +80,7 @@ const configWithErrorChannel = `{"pipes_config":[{"type":"fan_out","input_channe
 // triage's suite gives; headers, process_errors rows and stored configurations
 // are composed here, because their production writers need S3, a compiled
 // workspace and a state machine.
-func ad1Census(t *testing.T, pool *pgxpool.Pool) []string {
+func fixtureCensus(t *testing.T, pool *pgxpool.Pool) []string {
 	t.Helper()
 	ctx := context.Background()
 
@@ -137,11 +137,11 @@ func ad1Census(t *testing.T, pool *pgxpool.Pool) []string {
 	return []string{"s-ad1-multi", "s-ad1-notstarted", "s-ad1-stall", "s-ad1-perrecord", "s-ad1-clean"}
 }
 
-// The two censuses criterion 44 asks for, with the denominators that make them
+// The two censuses, per locus and per class, with the denominators that make them
 // readable and no rate anywhere.
 func TestTheLocusAndClassCensusesCarryTheirDenominators(t *testing.T) {
 	pool := freshDB(t, "rca_ad1")
-	sessions := ad1Census(t, pool)
+	sessions := fixtureCensus(t, pool)
 
 	locusCensus := map[string]map[triage.Verdict]int{}
 	for _, l := range triage.Loci {
@@ -169,7 +169,7 @@ func TestTheLocusAndClassCensusesCarryTheirDenominators(t *testing.T) {
 	}
 
 	// The denominator is the population, per locus, and it is the same number
-	// for every locus by construction. That is the property criterion 44 needs
+	// for every locus by construction. That is the property a per-class report needs
 	// and it is asserted rather than assumed.
 	t.Logf("locus census over %d run(s) this file created; no pipeline ran", len(sessions))
 	t.Logf("%-38s %8s %8s %14s %8s", "locus", "present", "absent", "not_evaluable", "denom")
@@ -267,7 +267,7 @@ func TestTheModelAgainstTheDeterministicLocus(t *testing.T) {
 		t.Skip("JETS_RCA_MODEL not set; needs an inference server and a named model")
 	}
 	pool := freshDB(t, "rca_ad1_model")
-	sessions := ad1Census(t, pool)
+	sessions := fixtureCensus(t, pool)
 
 	host := os.Getenv("JETS_INFER_HOST")
 	if host == "" {

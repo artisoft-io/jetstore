@@ -3,9 +3,9 @@ package datatable
 // Rules unit tests: queueing a run, keeping a run and a compile of the same
 // workspace apart, and clearing what a stopped apiserver left behind.
 //
-// Project rules_unit_test_harness, Phase 1, track AC (tasks AC.2, AC.5, AC.7 and
-// AC.8). The executor pool that runs the harness process is AC.3 and lands
-// separately; until it does, the post-hook hands the queued rows to
+// The executor pool that runs the harness process is installed by the apiserver
+// at start (NewRulesUnitTestPool, SetRulesUnitTestExecutor); until it is, the
+// post-hook hands the queued rows to
 // unstartedRulesUnitTestExecutor, which records each one as an error rather than
 // leaving it queued with nothing to run it.
 //
@@ -133,7 +133,7 @@ func activeTestCount(ctx context.Context, q interface {
 //
 // rowKey is the registry row the request names, or nil when it names the
 // workspace only (compile_workspace_by_name). **The row must be the active
-// workspace's** (I-4): a request naming one row and another workspace is refused
+// workspace's**: a request naming one row and another workspace is refused
 // with the same sentence as a request naming another workspace, because the
 // compile would be reported on that row and done to the active one.
 func claimCompile(dbpool *pgxpool.Pool, workspaceName string, rowKey any) (int, error) {
@@ -206,7 +206,7 @@ func claimCompileAs(dbpool *pgxpool.Pool, workspaceName string, rowKey any, stat
 }
 
 // RulesUnitTestCase is one test case as the compile recorded it in the
-// workspace's workspace.db, table unit_tests (track AD, AD.1).
+// workspace's workspace.db, table unit_tests.
 type RulesUnitTestCase struct {
 	Path       string
 	TestName   string
@@ -287,7 +287,7 @@ type RulesUnitTestRun struct {
 }
 
 // RulesUnitTestExecutor runs queued rules unit tests. One per apiserver process
-// (AC.3); Submit must not block on the runs themselves.
+// (NewRulesUnitTestPool); Submit must not block on the runs themselves.
 type RulesUnitTestExecutor interface {
 	Submit(dbpool *pgxpool.Pool, runs []RulesUnitTestRun)
 }
@@ -316,7 +316,7 @@ func currentRulesUnitTestExecutor() RulesUnitTestExecutor {
 // ReasonNoExecutor is recorded by unstartedRulesUnitTestExecutor.
 const ReasonNoExecutor = "no rules unit test executor is installed in this apiserver"
 
-// unstartedRulesUnitTestExecutor is the executor until AC.3's pool is installed.
+// unstartedRulesUnitTestExecutor is the executor until the pool is installed.
 // It ends each run as an error at once, because a row left queued with nothing to
 // run it would read as a wait.
 type unstartedRulesUnitTestExecutor struct{}
@@ -421,11 +421,11 @@ func (ctx *DataTableContext) queueRulesUnitTests(dataTableAction *DataTableActio
 // left to read as running for ever.
 //
 //   - Every rules unit test run queued or executing since before startedAt ends
-//     error, reason interrupted (AC.7). The executor pool lived in the process
+//     error, reason interrupted. The executor pool lived in the process
 //     that stopped, so nothing will finish them.
 //   - Every workspace_registry row whose status says a compile or a client
 //     config load is in progress since before startedAt ends error, with a line
-//     saying so appended to its log (I-5). Those statuses disable Open and
+//     saying so appended to its log. Those statuses disable Open and
 //     Compile Workspace on the row, and only the goroutine that stopped would
 //     have cleared them.
 //

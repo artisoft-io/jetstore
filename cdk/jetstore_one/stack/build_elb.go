@@ -135,7 +135,7 @@ func (jsComp *JetStoreStackComponents) BuildELB(scope constructs.Construct, stac
 		// A single path that suits both would be better and one may exist: GET /v1/models
 		// returns 200 on Ollama (measured 2026-09-04 against ollama 0.31.1 locally, not
 		// against the deployed 0.32.5) and is part of vLLM's OpenAI surface. It is not taken
-		// here because the vLLM half is unverified — there is no vLLM to ask (R-29) — and the
+		// here because the vLLM half is unverified — there is no vLLM to ask — and the
 		// Ollama arm is what production runs today. Changing the live arm's health check on
 		// an untested premise is the wrong side to be wrong on; the backend comparison can
 		// settle it with one request.

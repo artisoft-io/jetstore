@@ -8,7 +8,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/agentic/audit"
 )
 
-// TestTheRecordShowsNothingActed is criterion 47's second clause, and its four
+// TestTheRecordShowsNothingActed is "the audit record shows that nothing acted", and its four
 // negative controls are the reason it is worth anything.
 //
 // **A negative that has never been seen to fail is a negative nobody has

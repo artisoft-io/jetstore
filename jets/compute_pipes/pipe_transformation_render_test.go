@@ -169,7 +169,7 @@ func mustJson(t *testing.T, doc map[string]any) string {
 // A record rendering
 // ---------------------------------------------------------------------------
 
-// TestRenderWritesTheColumnInPlace is criterion 83's unit: a serialised entity
+// TestRenderWritesTheColumnInPlace is the operator's unit test: a serialised entity
 // column goes in, the rendered text comes out on another column of the same
 // record, and every other column is untouched.
 func TestRenderWritesTheColumnInPlace(t *testing.T) {
@@ -245,7 +245,7 @@ func TestRenderTakesTheEncodingFromTheChannel(t *testing.T) {
 	}
 }
 
-// TestRenderMissingPathRendersTheEmptyForm is criterion 84's second sentence:
+// TestRenderMissingPathRendersTheEmptyForm is the other half of the compile-only failure rule:
 // **a path resolving to nothing at run time is not a failure.** The document
 // carries no `Events`, the count renders as zero, and no error of any kind is
 // produced -- which is the property that makes every other failure in this file
@@ -629,7 +629,7 @@ func buildRenderPipe(t *testing.T, cpConfig *ComputePipesConfig, config *RenderS
 	return err
 }
 
-// TestRenderBuildFailures is criterion 84 from the operator's side: every
+// TestRenderBuildFailures is the compile-only failure rule from the operator's side: every
 // question about how the step and its template are spelled is answered before a
 // record arrives.
 func TestRenderBuildFailures(t *testing.T) {
@@ -754,10 +754,10 @@ func TestRenderRefusesMismatchedChannels(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Criterion 85 — a text_templates array reaches a worker node
+// A text_templates array reaches a worker node
 // ---------------------------------------------------------------------------
 
-// TestTextTemplatesReachAWorkerNode is criterion 85, and it asserts the two
+// TestTextTemplatesReachAWorkerNode asserts the two
 // halves separately because they fail separately.
 //
 // **A build error on a worker is the failure it exists to prevent**, and that failure has already
@@ -848,10 +848,10 @@ func TestTextTemplateSpecCarriesTheDocument(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Criterion 86 — the six sites, and the pair that must agree
+// The six sites, and the pair that must agree
 // ---------------------------------------------------------------------------
 
-// TestRenderIsWiredIntoTheErrorChannelSynthesis asserts the half of criterion 86
+// TestRenderIsWiredIntoTheErrorChannelSynthesis asserts the half of that wiring
 // a test can assert: `reportsRowLevelFailures` and `errorChannelConfig` name the
 // same operator, and the synthesis places a channel a render operator can find.
 //

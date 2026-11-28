@@ -91,7 +91,7 @@ func Run(ctx context.Context, reg *tools.Registry, ws *tools.Workspace) error {
 
 // relaxExternalRefs makes a generated signature self-contained for the
 // wire: a cross-file `$ref` (the emitter's typed truth — for example
-// validate_cpipes_config's payload referencing the item-2b schema) cannot
+// validate_cpipes_config's payload referencing the cpipes contract schema) cannot
 // be resolved by an MCP client, so it is replaced by a permissive object
 // schema whose description names the authoritative schema file. Internal
 // `#/...` refs pass through untouched.

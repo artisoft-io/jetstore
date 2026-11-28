@@ -43,7 +43,7 @@ func TestCoverAcceptsATotalSchema(t *testing.T) {
 	}
 }
 
-// The half that makes criterion 52 a property of the briefing rather than of a
+// The half that makes the closure rule a property of the briefing rather than of a
 // run: a field the response_format can produce and no rule covers is refused
 // when the document is saved, not when a model happens to populate it.
 func TestCoverRefusesAFieldWithNoRule(t *testing.T) {
@@ -184,7 +184,7 @@ func TestSelectorCanonicalIsWhatCoverCompares(t *testing.T) {
 // This is the shape a rule session would express naturally and the table does
 // not: a rule matching (medication, fill) pairs is what a rete join is for. It
 // is recorded rather than remedied, because the checker's closure is what
-// carries criterion 52 and widening it here would be widening the checker to fit the schema.
+// carries the closure rule and widening it here would be widening the checker to fit the schema.
 func TestDerivedCannotPairElementsOfAnArray(t *testing.T) {
 	doc := `{"key":"b","rules":[
 	  {"field":"medications[].flag","kind":"derived","sources":["fills[].flag[]"]}]}`

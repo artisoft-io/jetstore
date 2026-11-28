@@ -12,10 +12,10 @@ import (
 // The failure this file exists for: a workspace section whose directory is not
 // there used to fail the *whole* workspace_file_structure request rather than
 // its own heading, because fs.WalkDir calls its callback with a stat error and
-// the callback returned it (task F.0a, 2026-08-23).
+// the callback returned it (until 2026-08-23).
 //
 // It was live rather than hypothetical. `user_flows` has been in the section list
-// since S.3 and no workspace in the corpus has the directory, so the IDE's file
+// since it was added and no workspace in the corpus has the directory, so the IDE's file
 // tree was answering 500 for every workspace — and the symptom names the server,
 // not the folder.
 

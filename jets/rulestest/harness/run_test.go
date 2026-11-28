@@ -289,7 +289,7 @@ func runOnTestWsChild(t *testing.T) {
 	root := compileInChild(t, "test_ws")
 	u := "jet_rules/unit_tests/lp/"
 
-	// Criterion 4's content: a result with its engine, mode, timings and checks.
+	// A result with its engine, mode, timings and checks.
 	r := runTest(root, u+"pass.tst.json")
 	wantResult(t, r, rulestest.StatusPass, "")
 	if r.Engine != rulestest.EngineNative || r.LegacyMode != rulestest.LegacyModeFixed || r.Sessions != 1 ||
@@ -304,7 +304,7 @@ func runOnTestWsChild(t *testing.T) {
 
 	wantResult(t, runTest(root, u+"fail.tst.json"), rulestest.StatusFail, "1 of 4 checks failed")
 
-	// Criterion 6: a misspelt column names the closest property; a short row is refused.
+	// A misspelt column names the closest property; a short row is refused.
 	wantResult(t, runTest(root, u+"badcol.tst.json"), rulestest.StatusError,
 		"input file persons_badcol.csv: column 'lp:nme' is not a data property of the workspace; did you mean 'lp:name'?")
 	wantResult(t, runTest(root, u+"badcell.tst.json"), rulestest.StatusError, "wrong number of fields")
@@ -326,7 +326,7 @@ func runOnTestWsChild(t *testing.T) {
 	wantResult(t, runTest(root, u+"local_blankkey.tst.json"), rulestest.StatusError,
 		"column '_0:score' has a value and jets:key is blank")
 
-	// Criterion 10: the engine is C++, use_jet_rules_native names it, and a harness
+	// The engine is C++, use_jet_rules_native names it, and a harness
 	// without it refuses rather than running anything in its place.
 	wantResult(t, runTest(root, u+"native.tst.json"), rulestest.StatusPass, "")
 	r = Run(Options{WorkspaceRoot: root, TestPath: u + "pass.tst.json"})
@@ -369,7 +369,7 @@ func runOnTestWsChild(t *testing.T) {
 	wantResult(t, runTest(root, u+"no_process.tst.json"), rulestest.StatusError, "jet_rules/nothing.jr")
 	wantResult(t, runTest(root, u+"bad_check.tst.json"), rulestest.StatusError, "cannot be evaluated")
 
-	// Criterion 9: expect turns the expected error into a pass, and a run that
+	// `expect` turns the expected error into a pass, and a run that
 	// terminates into a fail; another error stays an error.
 	r = runTest(root, u+"loop_expect.tst.json")
 	wantResult(t, r, rulestest.StatusPass, "the expected error occurred")

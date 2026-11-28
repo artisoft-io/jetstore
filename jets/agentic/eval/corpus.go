@@ -35,7 +35,7 @@ type Instance struct {
 	// because `apply` arrays also occur inside conditional overrides and nested
 	// pipes. A flat walk undercounts by 44% and, worse, reports ten operators
 	// as untested when they have instances, which is precisely the failure
-	// criterion 20's denominators exist to prevent.
+	// the report's denominators exist to prevent.
 	Path  []Step
 	Index int
 }

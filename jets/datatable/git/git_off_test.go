@@ -10,8 +10,8 @@ import (
 	"github.com/artisoft-io/jetstore/jets/user"
 )
 
-// The tests in this file grade criterion 58 -- **no git process is started when
-// git is off** -- and the git-on half of criterion 62.
+// The tests in this file check that **no git process is started when
+// git is off**, and that with git on a non-repository is still an error.
 //
 // # Why the return value is not the assertion
 //
@@ -89,7 +89,7 @@ func newTestWorkspace(t *testing.T) *WorkspaceGit {
 	}
 }
 
-// TestGitOffStartsNoGitProcess is criterion 58. It calls every operation the
+// TestGitOffStartsNoGitProcess: no git process when git is off. It calls every operation the
 // switch covers and asserts, once at the end, that nothing on PATH named git was
 // executed by any of them.
 func TestGitOffStartsNoGitProcess(t *testing.T) {
@@ -314,7 +314,7 @@ func TestGitOffHeadCommitIsNotAlarming(t *testing.T) {
 	}
 }
 
-// TestGitOnStillErrorsOnANonRepository is the git-on half of criterion 62: with
+// TestGitOnStillErrorsOnANonRepository is the git-on half: with
 // the variable absent and git on PATH, a workspace directory that is not a
 // repository fails GetStatus exactly as it does today. Nothing about the switch
 // is allowed to turn that into a status string.

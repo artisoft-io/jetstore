@@ -233,7 +233,7 @@ type Hypothesis struct {
 	// 20 of 29 on its model arm. Without the column such a row is
 	// indistinguishable from a sound one once written.
 	Locus string
-	// Basis is the `basis` column: criterion 45's last clause, persisted.
+	// Basis is the `basis` column: why the hypothesis ranks where it does, persisted.
 	Basis HypothesisBasis
 }
 
@@ -298,7 +298,7 @@ func (e *ErrNoIncident) Error() string { return fmt.Sprintf("no incident %s", e.
 // ErrTablesNotDeployed is returned when the query names a table that does not
 // exist — Postgres 42P01.
 //
-// **This is the precondition criterion 34 carried and its text did not say.**
+// **This is a precondition of the anomaly detectors that is easy to miss.**
 // `jetsapi.incident` and `jetsapi.hypothesis` reach a database only through
 // `audit.InstallSchema`, which runs on `update_db -migrateDb`,
 // so on any deployment that has not been migrated since they were added these tables are
