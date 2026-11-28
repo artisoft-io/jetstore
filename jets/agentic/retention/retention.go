@@ -132,9 +132,17 @@ func (r *Report) Tables() []string {
 // is no longer held, whether the purge deleted it or a user did. A run that
 // failed, or one still running, is held by its status row even before (or
 // without) a registration.
+//
+// An input is a live registration: the purge marks a deleted session's
+// input_registry rows deleted and keeps them, and a marked row holds nothing.
+// The mark is read through to_jsonb of the row (inputregistry.DeletedExpr), not
+// through the view jetsapi.input_registry_live, so the expression stays one
+// fixed text that runs on a database the migration has not reached, where no
+// row is marked; it reads the few rows of one session, by its index.
 const sessionHeldSQL = `(EXISTS (SELECT 1 FROM jetsapi.session_registry r WHERE r.session_id = %[1]s)
      OR EXISTS (SELECT 1 FROM jetsapi.pipeline_execution_status s WHERE s.session_id = %[1]s)
-     OR EXISTS (SELECT 1 FROM jetsapi.input_registry ir WHERE ir.session_id = %[1]s)
+     OR EXISTS (SELECT 1 FROM jetsapi.input_registry ir WHERE ir.session_id = %[1]s
+                  AND (to_jsonb(ir) ->> 'deleted_at') IS NULL)
      OR EXISTS (SELECT 1 FROM jetsapi.anomaly a WHERE a.anomaly_session_id = %[1]s))`
 
 // SessionHeldSQL returns sessionHeldSQL for a SQL expression naming a session.

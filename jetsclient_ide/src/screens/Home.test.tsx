@@ -464,9 +464,9 @@ describe("the screen", () => {
       laziness rather than any particular table.
     */
     const { posts } = await mount();
-    expect(readsOf(posts, "input_registry")).toHaveLength(0);
+    expect(readsOf(posts, "input_registry_live")).toHaveLength(0);
     await openTab("Data Registry", "claim_staging");
-    expect(readsOf(posts, "input_registry")).toHaveLength(1);
+    expect(readsOf(posts, "input_registry_live")).toHaveLength(1);
   });
 });
 
@@ -501,7 +501,7 @@ describe("the three filters, none of which is visible on the screen", () => {
     await openTab("Data Registry", "claim_staging");
     for (const [table, column] of [
       ["pipeline_execution_status", "client"],
-      ["input_registry", "client"],
+      ["input_registry_live", "client"],
     ] as const) {
       const where = lastRead(posts, table)!["whereClauses"] as Record<string, unknown>[];
       expect(where).toContainEqual({ table, column, values: ["acme"] });
@@ -522,9 +522,9 @@ describe("the three filters, none of which is visible on the screen", () => {
     expect((pipelines ?? []).some((w) => w["column"] === "client")).toBe(false);
 
     await openTab("Data Registry", "claim_staging");
-    const registry = lastRead(posts, "input_registry")!["whereClauses"] as Record<string, unknown>[];
+    const registry = lastRead(posts, "input_registry_live")!["whereClauses"] as Record<string, unknown>[];
     expect(registry).toContainEqual({
-      table: "input_registry",
+      table: "input_registry_live",
       column: "client",
       not_in_values: ["Any"],
     });
@@ -563,9 +563,9 @@ describe("the three filters, none of which is visible on the screen", () => {
     expect(pipelines.some((w) => w["column"] === "last_update")).toBe(false);
 
     await openTab("Data Registry", "claim_staging");
-    const registry = lastRead(posts, "input_registry")!["whereClauses"] as Record<string, unknown>[];
+    const registry = lastRead(posts, "input_registry_live")!["whereClauses"] as Record<string, unknown>[];
     expect(registry).toContainEqual({
-      table: "input_registry",
+      table: "input_registry_live",
       column: "last_update",
       ge: "now()-interval '3 days'",
     });

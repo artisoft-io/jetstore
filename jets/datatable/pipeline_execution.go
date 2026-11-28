@@ -17,6 +17,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
+	"github.com/artisoft-io/jetstore/jets/inputregistry"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/google/uuid"
@@ -166,7 +167,17 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 		if inputRegistryKey != nil {
 			var inSessionId string
 			var requestId sql.NullString
-			stmt := "SELECT session_id, request_id FROM jetsapi.input_registry WHERE key = $1"
+			// A live registration: a run is not started on one whose session was
+			// deleted (marked), whose data is gone.
+			var live string
+			live, err = inputregistry.LiveRelation(context.Background(), ctx.Dbpool)
+			if err != nil {
+				log.Printf("While getting the live input_registry relation: %v", err)
+				httpStatus = http.StatusInternalServerError
+				err = errors.New("error while reading from a table")
+				return
+			}
+			stmt := "SELECT session_id, request_id FROM " + live + " WHERE key = $1"
 			err = ctx.Dbpool.QueryRow(context.Background(), stmt, inputRegistryKey).Scan(&inSessionId, &requestId)
 			if err != nil {
 				log.Printf("While getting session_id, request_id from input_registry for inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
@@ -900,10 +911,19 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 	var originDomainKeys []string
 	var originSchemaProviderJson string
 	var icJson, icPosCsv, inputFormatDataJson, scSchemaProviderJson sql.NullString
+	// The file's live registration: a file whose session was deleted (its
+	// registration marked) is not loaded.
+	live, err := inputregistry.LiveRelation(context.Background(), ctx.Dbpool)
+	if err != nil {
+		log.Printf("While getting the live input_registry relation: %v", err)
+		httpStatus = http.StatusInternalServerError
+		err = errors.New("error while reading from input_registry table")
+		return
+	}
 	stmt := `
 		SELECT sp.key, year, month, day, sc.input_format, sc.domain_keys, ir.schema_provider_json,
 					sc.input_columns_json, sc.input_columns_positions_csv, sc.input_format_data_json, sc.schema_provider_json
-		FROM  jetsapi.input_registry ir, jetsapi.source_period sp, jetsapi.source_config sc
+		FROM  ` + live + ` ir, jetsapi.source_period sp, jetsapi.source_config sc
 		WHERE ir.file_key = $1 
 		  AND ir.session_id = $2
 			AND sp.key = ir.source_period_key

@@ -584,7 +584,7 @@ describe("opening a flow at a named state", () => {
     expect(screen.queryByText("Select a File Data Source Configurations")).toBeNull();
     const read = posts
       .map((p) => p.body)
-      .find((b) => (b["fromClauses"] as { table: string }[] | undefined)?.[0]?.table === "input_registry")!;
+      .find((b) => (b["fromClauses"] as { table: string }[] | undefined)?.[0]?.table === "input_registry_live")!;
     expect((read["whereClauses"] as { column: string; values?: string[] }[]).find(
       (c) => c.column === "table_name",
     )?.values).toEqual(["staging_claims"]);

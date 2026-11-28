@@ -5,7 +5,7 @@
     {
       "name": "key",
       "label": "Primary Key",
-      "table": "input_registry",
+      "table": "input_registry_live",
       "isNumeric": true,
       "isHidden": true
     },
@@ -73,7 +73,7 @@
     },
     {
       "name": "source_period_key",
-      "table": "input_registry",
+      "table": "input_registry_live",
       "label": "Source Period Key",
       "isNumeric": true,
       "isHidden": true
@@ -103,7 +103,7 @@
   "from": [
     {
       "schema": "jetsapi",
-      "table": "input_registry"
+      "table": "input_registry_live"
     },
     {
       "schema": "jetsapi",

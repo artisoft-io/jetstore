@@ -198,11 +198,14 @@ type purgeConfig struct {
 //     DOMAIN_TABLES_RETENTION_DAYS that it did not delete whole (purgeTableData),
 //     sweeps the agentic incidents no session they stand for is still held
 //     (jets/agentic/retention), purges the agent audit trail when its retention
-//     is set, purges the archive and the tombstones, and runs VACUUM.
+//     is set, purges the archive, the input_registry rows marked deleted that
+//     no run refers to any more (purgeMarkedRegistrations) and the tombstones,
+//     and runs VACUUM.
 //
-// A dry run deletes the table data and sweeps the incidents inside its own
-// transaction, after its sessions, so it reports the table data and the
-// incidents a real run would delete, and counts the audit rows a real run would
+// A dry run deletes the table data, sweeps the incidents, purges the archive
+// and the marked registrations inside its own transaction, after its sessions,
+// so it reports the table data, the incidents and the registrations a real run
+// would delete, and counts the audit rows a real run would
 // delete; it writes nothing.
 //
 // A RETENTION_DAYS, AGENT_AUDIT_RETENTION_DAYS or DOMAIN_TABLES_RETENTION_DAYS
@@ -278,6 +281,15 @@ func purgeSessions(ctx context.Context, dbpool *pgxpool.Pool, cfg purgeConfig) (
 					"DRY RUN, nothing written: ")...)
 			}
 			problems = append(problems, sweepIncidents(ctx, tx, sweepOpts, "DRY RUN, nothing written: ")...)
+			// The archive, then the marked registrations it frees, as a real
+			// run purges them, so the count is a real run's.
+			n, err := sessionpurge.PurgeArchive(ctx, tx, cfg.Now.AddDate(0, 0, -archiveDays))
+			if err != nil {
+				problems = append(problems, fmt.Sprintf("the archive purge failed: %v", err))
+				return nil
+			}
+			log.Printf("DRY RUN, nothing written: Purged %d archived pipeline runs", n)
+			problems = append(problems, purgeMarkedRegistrations(ctx, tx, "DRY RUN, nothing written: ")...)
 			return nil
 		}
 		report, err := sessionpurge.ExecuteRequests(ctx, dbpool, append(sessionCands, orphans...), opts)
@@ -314,6 +326,9 @@ func purgeSessions(ctx context.Context, dbpool *pgxpool.Pool, cfg purgeConfig) (
 		return err
 	}
 	log.Printf("Purged %d archived pipeline runs last updated on or before %s", n, archiveFrom)
+	// After the archive, whose purge frees the registrations only its runs
+	// referred to.
+	problems = append(problems, purgeMarkedRegistrations(ctx, dbpool, "")...)
 	n, err = sessionpurge.PurgeTombstones(ctx, dbpool, archiveFrom, cfg.Now.AddDate(0, 0, -userTombstoneDays))
 	if err != nil {
 		return err
@@ -329,7 +344,8 @@ func purgeSessions(ctx context.Context, dbpool *pgxpool.Pool, cfg purgeConfig) (
 	return nil
 }
 
-// logReport logs a run's report: the sessions by reason, the rows per table, the
+// logReport logs a run's report: the sessions by reason, the rows per table
+// (deleted, and marked deleted for input_registry), the
 // status rows archived, the first registrations of files recorded and the
 // sessions refused or failed.
 func logReport(prefix string, r *sessionpurge.Report) {
@@ -341,6 +357,14 @@ func logReport(prefix string, r *sessionpurge.Report) {
 	sort.Strings(tables)
 	for _, t := range tables {
 		log.Printf("   %s%d rows from %s", prefix, r.Rows[t], t)
+	}
+	marked := make([]string, 0, len(r.Marked))
+	for t := range r.Marked {
+		marked = append(marked, t)
+	}
+	sort.Strings(marked)
+	for _, t := range marked {
+		log.Printf("   %s%d rows marked deleted in %s", prefix, r.Marked[t], t)
 	}
 	if r.PurgedDeliveries > 0 {
 		log.Printf("   %s%d first registrations of files recorded in jetsapi.purged_delivery", prefix,
@@ -616,6 +640,25 @@ func purgePurgedDeliveries(dbpool *pgxpool.Pool, cfg purgeConfig) []string {
 	log.Printf("%sPurged %d records of deleted first registrations from jetsapi.purged_delivery, "+
 		"files first arrived before %s (twice RETENTION_DAYS)\n", dryRunPrefix(cfg.DryRun), n,
 		before.UTC().Format(time.RFC3339))
+	return nil
+}
+
+// purgeMarkedRegistrations deletes the input_registry rows a session deletion
+// marked deleted that no run, live or archived, refers to
+// (sessionpurge.PurgeMarkedRegistrations), and logs how many. A failure is
+// logged and returned as a line for the run's failure record; the rows are
+// purged by the next run.
+func purgeMarkedRegistrations(ctx context.Context, db sessionpurge.Querier, prefix string) []string {
+	n, exists, err := sessionpurge.PurgeMarkedRegistrations(ctx, db)
+	if err != nil {
+		log.Println("Warning: while purging the marked rows of jetsapi.input_registry:", err)
+		return []string{fmt.Sprintf("the purge of marked input_registry rows failed: %v", err)}
+	}
+	if !exists {
+		log.Printf("%sjetsapi.input_registry has no deleted_at column, no row is marked, nothing to purge", prefix)
+		return nil
+	}
+	log.Printf("%sPurged %d input_registry rows marked deleted that no run refers to", prefix, n)
 	return nil
 }
 

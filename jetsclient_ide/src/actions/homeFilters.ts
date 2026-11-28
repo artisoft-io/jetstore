@@ -85,9 +85,15 @@ const SAVED_KEYS = [
   "hfEndOffset",
 ] as const;
 
-/** The two tables the Dart filters, by name. */
+/**
+ * The two tables the Dart filters, by name. The data-registry filters name
+ * `input_registry_live`, the view of the live registrations, which the three
+ * tables they apply to read since registrations of a deleted session are marked
+ * rather than deleted (2026-11-27). On a database the migration has not reached
+ * the server reads the table under that name (`resolveLiveRegistry`).
+ */
 const EXEC_STATUS = "pipeline_execution_status";
-const INPUT_REGISTRY = "input_registry";
+const INPUT_REGISTRY = "input_registry_live";
 
 /** The Session Registry tab's view. */
 const SESSION_REGISTRY = "session_registry_view";

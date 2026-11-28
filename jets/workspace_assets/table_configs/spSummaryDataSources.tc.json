@@ -41,7 +41,7 @@
   "from": [
     {
       "schema": "jetsapi",
-      "table": "input_registry"
+      "table": "input_registry_live"
     }
   ],
   "where": [

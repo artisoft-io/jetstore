@@ -8,7 +8,8 @@ sidebar:
 
 **Before you start**: your account has `delete_session`. A deletion cannot be undone: every row the
 session wrote, in every table, is deleted, with the sessions that read it, and theirs in turn. Its
-files in the bucket are kept. [Pipelines and sessions](/docs/user/concepts/pipelines-and-sessions/#deleting-a-session)
+files in the bucket are kept, and so are its registrations, marked deleted, for the archived runs
+that read them. [Pipelines and sessions](/docs/user/concepts/pipelines-and-sessions/#deleting-a-session)
 explains why the session is the unit of deletion.
 
 The example deletes a December 2025 eligibility file of `CI` that was registered and never mapped.

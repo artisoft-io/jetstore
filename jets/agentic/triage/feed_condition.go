@@ -429,8 +429,10 @@ func ConditionAt(cs []Condition, session, locus string) *Condition {
 // them in. It reads input_registry alone, the columns that order and identify
 // a delivery, so that the conditions can be computed from an export of four
 // tables (anomaly, input_registry, incident, incident_event), and a fifth where
-// it exists, purged_delivery, which the detectors read too.
-const feedRegistrationsSQL = `SELECT ir.session_id, COALESCE(ir.file_key, '')
+// it exists, purged_delivery, which the detectors read too. A registration a
+// session deletion marked deleted is read with its mark, which
+// observe.FeedRegistrations.Add reads as the detectors do.
+const feedRegistrationsSQL = `SELECT ir.session_id, COALESCE(ir.file_key, ''), ` + observe.FeedRegistrationDeletedSQL + `
   FROM jetsapi.input_registry ir
  WHERE ir.table_name = $1 AND ir.source_type = 'file'
  ORDER BY ` + observe.FeedRegistrationOrderSQL
@@ -469,17 +471,20 @@ func ReadFeedHistory(ctx context.Context, db observe.DB, feed string, registry b
 			Purged: purged}
 		for rows.Next() {
 			var d observe.FeedDelivery
-			if err := rows.Scan(&d.SessionId, &d.FileKey); err != nil {
+			var deleted bool
+			if err := rows.Scan(&d.SessionId, &d.FileKey, &deleted); err != nil {
 				rows.Close()
 				return nil, fmt.Errorf("while scanning a registration of feed %s: %w", feed, err)
 			}
 			ms, ok := sessionMillis(d.SessionId)
 			if !ok {
-				regs.Unordered[feed]++
+				if !deleted {
+					regs.Unordered[feed]++
+				}
 				continue
 			}
 			d.Arrival = time.UnixMilli(ms).UTC()
-			regs.ByTable[feed] = append(regs.ByTable[feed], d)
+			regs.Add(feed, d, deleted)
 		}
 		rows.Close()
 		if err := rows.Err(); err != nil {

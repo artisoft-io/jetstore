@@ -7,6 +7,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/inputregistry"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -66,10 +67,11 @@ func GetSchemaProviderJsonFromPipelineKey(dbpool *pgxpool.Pool, peKey int) (stri
 }
 
 // CheckResubmittable returns an error when the pipeline execution with sessionId cannot
-// be resubmitted: there is no such execution, or its main input is no longer in
-// input_registry. The purge (jets/purge_database) deletes input_registry rows after
-// RETENTION_DAYS and keeps pipeline_execution_status rows for six months, so an old
-// execution is still listed, and a resubmission of it fails at its first step.
+// be resubmitted: there is no such execution, or its main input is no longer a live
+// registration (jetsapi.input_registry_live). The purge (jets/purge_database) marks
+// input_registry rows deleted after RETENTION_DAYS, deleting the input's data, and
+// keeps pipeline_execution_status rows for six months, so an old execution is still
+// listed, and a resubmission of it fails at its first step.
 //
 // A row with pipeline_config_key 0 is a job's failure (RecordJobFailure), not a
 // run: there is no pipeline to run again, and it is refused as such, before the
@@ -77,9 +79,13 @@ func GetSchemaProviderJsonFromPipelineKey(dbpool *pgxpool.Pool, peKey int) (stri
 func CheckResubmittable(ctx context.Context, dbpool *pgxpool.Pool, sessionId string) error {
 	var hasKey, registered bool
 	var configKey int
-	err := dbpool.QueryRow(ctx, `
+	live, err := inputregistry.LiveRelation(ctx, dbpool)
+	if err != nil {
+		return fmt.Errorf("while checking the input of session_id %s: %v", sessionId, err)
+	}
+	err = dbpool.QueryRow(ctx, `
 		SELECT pe.pipeline_config_key, pe.main_input_registry_key IS NOT NULL,
-			EXISTS (SELECT 1 FROM jetsapi.input_registry ir WHERE ir.key = pe.main_input_registry_key)
+			EXISTS (SELECT 1 FROM `+live+` ir WHERE ir.key = pe.main_input_registry_key)
 		FROM jetsapi.pipeline_execution_status pe
 		WHERE pe.session_id = $1`, sessionId).Scan(&configKey, &hasKey, &registered)
 	switch {

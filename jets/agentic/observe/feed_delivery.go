@@ -151,12 +151,16 @@ type FeedDeliveryInput struct {
 const FeedRegistrationOrderSQL = `(CASE WHEN ir.session_id ~ '^[0-9]{1,18}$' THEN ir.session_id::bigint END) NULLS LAST,
           ir.key`
 
-// feedDeliverySQL reads the deliveries of the feeds named, each feed's in
-// registration order. Its text must not change: a statement export identifies
-// each statement by a hash of its text.
+// feedDeliverySQL reads the registrations of the feeds named, each feed's in
+// registration order, those a session deletion marked deleted included, with
+// the mark (FeedRegistrations.Add). Its text must not change without reason: a
+// statement export identifies each statement by a hash of its text, so a
+// results file from an export by an earlier release is not read against it.
+// It changed on 2026-11-27, when it gained the mark, read through to_jsonb of
+// the row so that it runs unchanged where input_registry has no deleted_at.
 const feedDeliverySQL = `SELECT ir.table_name, ir.session_id, ir.client, ir.org, COALESCE(ir.file_key, ''),
        sp.year, sp.month, sp.day, sp.month_period, sp.week_period, sp.day_period,
-       fks.file_size
+       fks.file_size, ` + feedRegistrationDeletedSQL + `
   FROM jetsapi.input_registry ir
   LEFT JOIN jetsapi.source_period sp ON sp.key = ir.source_period_key
   LEFT JOIN jetsapi.file_key_staging fks ON fks.file_key = ir.file_key

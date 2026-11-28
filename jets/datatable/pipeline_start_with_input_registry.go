@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/inputregistry"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -308,9 +309,15 @@ func getLatestInputRegistryKeys(dbpool *pgxpool.Pool, sourcePeriodKey int, proce
 		kstr[i] = strconv.Itoa(key)
 	}
 	piKeysString := strings.Join(kstr, ",")
+	// The latest live registration: one whose session was deleted (marked)
+	// has no data left to merge.
+	live, err := inputregistry.LiveRelation(context.TODO(), dbpool)
+	if err != nil {
+		return nil, err
+	}
 	var buf strings.Builder
 	buf.WriteString(`SELECT max(ir.key), pi.key
-  FROM jetsapi.process_input pi, jetsapi.input_registry ir
+  FROM jetsapi.process_input pi, ` + live + ` ir
   WHERE pi.key IN (`)
 	buf.WriteString(piKeysString)
 	buf.WriteString(`) 

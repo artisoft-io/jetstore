@@ -899,6 +899,11 @@
         "dataType": "datetime",
         "default": "now()",
         "isNotNull": true
+      },
+      {
+        "columnName": "deleted_at",
+        "dataType": "datetime",
+        "description": "When a session deletion (jets/sessionpurge: the retention purge or a user's Delete) marked the registration deleted; NULL while it is live. A deleted session's registrations are marked, not deleted, and kept indefinitely: a run that read the session still resolves its input (schema_provider_json, its source), and a file registered again after its first registration was deleted is still known to have arrived before. The view jetsapi.input_registry_live (jets_init_db.sql) holds the live rows; a reader of current registrations reads it, a reader of what a run read reads this table. A reset of the domain tables truncates the table, marked rows included."
       }
     ],
     "indexes": [

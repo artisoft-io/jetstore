@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/inputregistry"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/google/uuid"
@@ -607,11 +608,21 @@ NextKey:
 			err = ctx.Dbpool.QueryRow(context.Background(), stmt,
 				client, org, domainKey, fileKey, source_period_key, tableName, sessionId, schemaProviderJson, requestId).Scan(&inputRegistryKey)
 			if resuming && errors.Is(err, pgx.ErrNoRows) {
-				// Written by the unfinished registration: reuse its row.
+				// Written by the unfinished registration: reuse its row. Read
+				// from the table, marked rows included: a session deleted while
+				// its registration was unfinished had its row marked deleted,
+				// and resuming the registration revives it, as the insert
+				// recreated a row its deletion had removed before rows were
+				// marked rather than deleted.
+				var deleted bool
 				err = ctx.Dbpool.QueryRow(context.Background(),
-					`SELECT key FROM jetsapi.input_registry
+					`SELECT key, `+inputregistry.DeletedExpr("ir")+` FROM jetsapi.input_registry ir
 					 WHERE client = $1 AND org = $2 AND object_type = $3 AND table_name = $4 AND session_id = $5`,
-					client, org, domainKey, tableName, sessionId).Scan(&inputRegistryKey)
+					client, org, domainKey, tableName, sessionId).Scan(&inputRegistryKey, &deleted)
+				if err == nil && deleted {
+					_, err = ctx.Dbpool.Exec(context.Background(),
+						`UPDATE jetsapi.input_registry SET deleted_at = NULL WHERE key = $1`, inputRegistryKey)
+				}
 			}
 			if err != nil {
 				return nil, http.StatusInternalServerError, fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)

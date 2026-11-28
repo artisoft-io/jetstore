@@ -9,7 +9,10 @@
 //     refused and stays queued;
 //   - otherwise its rows are deleted from every domain table registered in
 //     input_registry, from the fixed jetsapi tables and from the pipeline
-//     coordinator tables; its pipeline_execution_status rows are copied, key
+//     coordinator tables, except its input_registry rows, which are marked
+//     deleted (deleted_at) and kept where the table has that column, so a run
+//     that read the session still resolves its input; its
+//     pipeline_execution_status rows are copied, key
 //     included, to pipeline_execution_status_archive and deleted; its
 //     session_registry row is deleted last; and its deletion row is marked done;
 //   - any error rolls the whole session back, so no session is half deleted, and
@@ -39,6 +42,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/inputregistry"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -50,7 +54,8 @@ const (
 	// ReasonRetention: the session is older than the site's retention.
 	ReasonRetention Reason = "retention"
 	// ReasonOrphan: rows carry the session id and the session was never
-	// registered, or its registration is gone.
+	// registered, or its registration is gone. A registration marked deleted
+	// is no row of the session's: a deleted session is not an orphan.
 	ReasonOrphan Reason = "orphan"
 	// ReasonUser: a user deleted the session.
 	ReasonUser Reason = "user"
@@ -217,6 +222,11 @@ func orphanSourceTables() []fixedTable {
 // session_registry nor session_deletion, and whose age is on or before before, by
 // session id.
 //
+// input_registry is read through its live rows (inputregistry.LiveRelation): a
+// deleted session's registrations are marked and kept, and once its
+// session_deletion row ages out (PurgeTombstones) they would otherwise make it
+// an orphan, queued and deleted again on every tombstone period.
+//
 // A session's age is the latest last_update among its rows in the tables that
 // have one. Failing that, when the id is all digits, it is the time the id
 // encodes: session ids are epoch milliseconds when reserved. An id that is not
@@ -258,6 +268,11 @@ func OrphanCandidates(ctx context.Context, db *pgxpool.Pool, before time.Time) (
 		return nil, err
 	}
 
+	live, err := inputregistry.LiveRelation(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
 	// One aggregate per table, so a large table is reduced to its sessions before
 	// the union.
 	var parts []string
@@ -278,6 +293,12 @@ func OrphanCandidates(ctx context.Context, db *pgxpool.Pool, before time.Time) (
 				WHEN bool_or(source_type = 'domain_table') THEN 'domain_table' ELSE min(source_type) END`
 		}
 		col := pgx.Identifier{source.column}.Sanitize()
+		from := pgx.Identifier{"jetsapi", table}.Sanitize()
+		if table == "input_registry" {
+			// The live rows. The view has every column of the table but
+			// deleted_at, so the columns read above hold for it.
+			from = live
+		}
 		// A row with no session is no session's: s3_object_event's session_id is
 		// null until its registration reserves one, and stays null for an event
 		// that registers nothing. Grouped in, the nulls would make one candidate
@@ -286,7 +307,7 @@ func OrphanCandidates(ctx context.Context, db *pgxpool.Pool, before time.Time) (
 				%s AS source_period_key, %d AS rank
 			FROM %s WHERE %s IS NOT NULL GROUP BY %s`,
 			col, pick("last_update", "max", "NULL::timestamp"), pick("client", "min", "NULL::text"), sourceType,
-			pick("source_period_key", "min", "NULL::int"), rank, pgx.Identifier{"jetsapi", table}.Sanitize(), col, col))
+			pick("source_period_key", "min", "NULL::int"), rank, from, col, col))
 	}
 	if len(parts) == 0 {
 		return nil, nil
@@ -395,7 +416,11 @@ func readRequests(ctx context.Context, db *pgxpool.Pool, stmt string, args ...an
 // PurgeArchive deletes archived runs whose own last_update is on or before
 // before, so an archived run is kept as long as it would have been in the live
 // table, whenever its session was deleted.
-func PurgeArchive(ctx context.Context, db *pgxpool.Pool, before time.Time) (int64, error) {
+//
+// db is a pool or a transaction: a dry run purges the archive in the
+// transaction it rolls back, before PurgeMarkedRegistrations, so that it counts
+// the marked registrations a real run frees.
+func PurgeArchive(ctx context.Context, db Querier, before time.Time) (int64, error) {
 	tag, err := db.Exec(ctx, `DELETE FROM jetsapi.pipeline_execution_status_archive
 		WHERE last_update <= $1::timestamptz`, before)
 	if err != nil {
