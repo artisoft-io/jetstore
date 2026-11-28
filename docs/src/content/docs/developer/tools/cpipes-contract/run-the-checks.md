@@ -79,15 +79,33 @@ change that moves a cited line fails `pytest` as well.
 ```bash
 .venv/bin/cpipes-contract relocate --code ../..             # what would move, and what cannot
 .venv/bin/cpipes-contract relocate --code ../.. --apply     # write the carried citations
+.venv/bin/cpipes-contract relocate --code ../.. --all       # also check the citations --code accepts
 ```
 
 A line added above a cited declaration moves every citation below it. `relocate` takes each
-citation `--code` rejects, finds the newest version of the cited file in git in which the line did
-name what it cites, and carries that line through the diff to the file as it is now. It keeps the
-result only when the carried line names it; a citation whose line itself changed is left for a
-reader and makes the command exit non-zero. It never touches `review` or `reviewed_hash`, so a
-reviewed row whose citation moved reads "changed since it was reviewed" until it is re-approved
-with `stamp --restamp`.
+citation `--code` rejects and finds, in the matrix's own git history, the commit that wrote it.
+The cited line must name what it cites in the file at that commit, and when it is a struct
+field's declaration, a field of the struct the row is about. `relocate` then follows that line
+forward through every later version of the file, one diff at a time. Where the line itself
+changed, it looks for the field's declaration inside the struct or function that held the line,
+and takes it only when exactly one line there declares it. It keeps the result only when the
+carried line names what it cites inside a declaration of the same name. A citation that was
+wrong when it was written is followed from the one it replaced, when that one was right. A
+citation that cannot be carried is left for a reader and makes the command exit non-zero.
+
+**`--code` cannot tell a field from its namesake**: a `Comment` citation that has drifted onto
+the next struct's `Comment`, or onto a doc comment that mentions the field, passes it. `--all`
+follows every citation, not only the rejected ones, and reports as `MISPLACED` each one that is
+not where its history says it went. With `--apply` it carries them, and it exits non-zero while
+any remain. The test suite runs the same check over the matrix
+(`test_every_citation_is_where_its_history_says`) when the checkout has its full history.
+
+`relocate` never touches `review` or `reviewed_hash`, so a reviewed row whose citation moved reads
+"changed since it was reviewed" until it is re-approved with `stamp --restamp`.
+
+Until 2026-11-27 `relocate` started from the newest version of the cited file in which the cited
+line number named the field. For 41 of 407 citations that was a neighbouring line that merely
+mentioned the name, and the citation was carried onto it.
 
 ## Measure the corpus
 
