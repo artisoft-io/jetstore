@@ -422,7 +422,7 @@ startStepId:
 	// // write to location: stage_prefix/cpipesCommands/session_id/reducingXCommands.json
 	// result.CpipesCommandsS3Key = fmt.Sprintf("%s/cpipesCommands/%s/%sCommands.json", stagePrefix, args.SessionId, *args.InputStepId)
 	// // Copy the cpipesCommands to S3 as a json file
-	// WriteCpipesArgsToS3(cpipesCommands, result.CpipesCommandsS3Key)
+	// // (as json, with awsi.UploadToS3: WriteCpipesArgsToS3, which did, was removed unused)
 
 	return result, nil
 }

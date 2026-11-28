@@ -97,7 +97,11 @@ Two consequences:
   passes `dbtest.RolesOf(dblogintest.Logins)` to `dbtest.Main`, which then drops the restricted
   logins of every database the package made. The two restricted group roles are shared by every
   database on the server: `dblogintest` marks them, and the last package to finish, finding no
-  other test database left, drops them. After a run the server holds what it held before.
+  other test database left, drops them. A package some of whose tests run `dblogin.Ensure` on a
+  database of their own, rather than through `dblogintest.Apiserver`, also passes
+  `dbtest.Shared(dblogin.Reader, dblogin.IDE)`, so that `dbtest.Main` marks them when the package
+  ends (`jets/datatable` does; until 2026-11-27 such a test run alone left the two roles behind).
+  After a run the server holds what it held before.
 - **The database `JETS_TEST_DSN` names is only where the connection starts**: the tests do not write
   to it. If it cannot be reached, `dbtest` connects to the server's `postgres` database instead.
 

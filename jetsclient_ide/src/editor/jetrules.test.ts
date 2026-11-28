@@ -74,6 +74,9 @@ describe("jetrules stream parser", () => {
     expect(tokenFor('$csv_file = "lookups/a.csv",', "$csv_file")).toBe("configProperty");
     // Enumerated in the grammar, so an unknown $name stays unhighlighted.
     expect(tokenFor("$not_a_property = 1", "$not_a_property")).toBe(null);
+    // The compiler refuses $max_rule_exec (jetstore#2672), so it is not highlighted as a key.
+    expect(tokenFor("$max_looping = 0,", "$max_looping")).toBe("configProperty");
+    expect(tokenFor("$max_rule_exec = 1000,", "$max_rule_exec")).toBe(null);
     const escaped = tokenize('"a \\" still string" class');
     expect(escaped[0]?.[1]).toBe("string");
     expect(escaped.find(([t]) => t === "class")?.[1]).toBe("keyword");

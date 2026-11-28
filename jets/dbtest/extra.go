@@ -126,12 +126,7 @@ func SharedRoles(t testing.TB, roles ...string) {
 			return
 		}
 		defer conn.Close(context.Background())
-		for _, role := range roles {
-			if exists(conn, role) {
-				_, _ = conn.Exec(context.Background(),
-					"COMMENT ON ROLE "+pgx.Identifier{role}.Sanitize()+" IS '"+sharedMarker+"'")
-			}
-		}
+		markShared(context.Background(), conn, roles)
 	})
 }
 

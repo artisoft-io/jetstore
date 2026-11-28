@@ -77,7 +77,7 @@
     },
     "config-properties": {
       "name": "support.type.property-name.jetrule",
-      "match": "\\$(base_classes|data_properties|object_properties|grouping_properties|as_table|max_looping|max_rule_exec|input_types|main_rule_sets|table_name|csv_file|key|columns)\\b"
+      "match": "\\$(base_classes|data_properties|object_properties|grouping_properties|as_table|max_looping|input_types|main_rule_sets|table_name|csv_file|key|columns)\\b"
     },
     "types": {
       "patterns": [
