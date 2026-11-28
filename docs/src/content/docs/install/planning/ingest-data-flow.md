@@ -148,6 +148,24 @@ fails the map and the post map event does not start. Until release 4.1.25 the po
 when the number of finished runs reached the number of steps, so a step with two runs started it
 early and a step with none left it waiting for ever.
 
+**A run of the map has finished when its status update has recorded it**, as its
+`pipeline_coordinator_map_items` row, which the status update writes after registering the run's
+outputs. A run that registers its `db_table` with its own schema provider (`${REGISTER_DB_TABLE}`)
+starts, on that registration, a chained run of the same map, so the map waits for the chained run
+too. Until release 4.1.25 a run counted as finished once its status was written, before its outputs
+were registered, so when it was the map's last run, or a sibling finished in between, the post map
+event started before the chained run existed.
+
+**A map's rows go with the last of its sessions.** Its item rows go with their runs' sessions and
+its map row with the last of its items. The map's lock, taken once where the post map event starts
+or the failure is announced, goes with the session that took it; when that is the map's registration
+(`register_map`, a map whose steps started no run) or a step that failed to register
+(`register_step_N`), and for the map row of a map that recorded no item, they go when the deletion
+of a session the map touched leaves no item and no live registration naming the map's `request_id`
+(`finishedRequestsStmt`, `jets/sessionpurge/coordinator.go`). A map still `registering` is kept.
+Until release 4.1.25 those rows were never deleted. A map whose first step fails to register, having
+registered nothing, has no session to go with and is still kept.
+
 **4 — Every row is read before any is written.** `RegisterFileKeys`
 (`jets/datatable/register_file_key_action.go`) first passes every row of the request through
 `readRegisterFileKeyRow`, which copies only the keys `RegisterFileKeys` reads
