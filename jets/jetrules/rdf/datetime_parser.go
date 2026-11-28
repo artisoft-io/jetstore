@@ -18,7 +18,44 @@ func init() {
 	datetimeRe = regexp.MustCompile(`(\d{1,4})-?\/?(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC|\d{1,2})-?\/?(\d{1,4})[T-]?\s?(\d{1,2})?[:.]?(\d{1,2})?[:.]?(\d{1,2})?[.,]?(\d+)?\s?([+-])?(\d{1,2})?[:.]?(\d{1,2})?`)
 }
 
+// digitsDate reads a value made only of digits. An all-digit value is a date
+// only as YYYYMMDD, eight digits; any other length (an identifier, a compact
+// datetime such as 20250307103000) is refused rather than read in part, which
+// the regular expression would do from its greedy day token. digits is false
+// when the value has a character that is not a digit, and the caller then
+// parses it as before. The scan stops at the first such character, so a date
+// written with separators pays a few byte comparisons, and an eight-digit date
+// is read without the regular expression.
+func digitsDate(s string) (y, m, d int, digits bool, err error) {
+	if len(s) == 0 {
+		return 0, 0, 0, false, nil
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return 0, 0, 0, false, nil
+		}
+	}
+	if len(s) != 8 {
+		return 0, 0, 0, true, fmt.Errorf("ParseDate: an all-digit date must have 8 digits (YYYYMMDD): %s", s)
+	}
+	num := func(from, to int) int {
+		v := 0
+		for i := from; i < to; i++ {
+			v = v*10 + int(s[i]-'0')
+		}
+		return v
+	}
+	y, m, d = num(0, 4), num(4, 6), num(6, 8)
+	return y, m, d, true, validateYMD(y, m, d)
+}
+
 func ParseDateComponents(date string) (int, int, int, error) {
+	if y, m, d, digits, err := digitsDate(date); digits {
+		if err != nil {
+			return 0, 0, 0, err
+		}
+		return y, m, d, nil
+	}
 	ntok := dateRe.FindStringSubmatch(strings.ToUpper(date))
 	if len(ntok) < 4 {
 		return 0, 0, 0, fmt.Errorf("ParseDate: Argument is not a date: %s", date)
@@ -34,6 +71,12 @@ func ParseDateComponents(date string) (int, int, int, error) {
 }
 
 func ParseDateStrictComponents(date string) (int, int, int, error) {
+	if y, m, d, digits, err := digitsDate(date); digits {
+		if err != nil {
+			return 0, 0, 0, err
+		}
+		return y, m, d, nil
+	}
 	ntok := dateStrictRe.FindStringSubmatch(strings.ToUpper(date))
 	if len(ntok) < 4 {
 		return 0, 0, 0, fmt.Errorf("ParseDate: Argument is not a date: %s", date)
