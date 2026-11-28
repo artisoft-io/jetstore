@@ -207,6 +207,8 @@ func TestValidateDistinctOn(t *testing.T) {
 		  "conditional_config": [{"then": {"distinct_config": {"distinct_on": []}}}]}`, "apply 0, conditional_config[0] is"},
 		"an override that becomes a distinct with none": {`{"type": "map_record",
 		  "conditional_config": [{"then": {"type": "distinct"}}]}`, "apply 0, conditional_config[0] is"},
+		"a host with none, overridden only by another operator": {`{"type": "distinct",
+		  "conditional_config": [{"then": {"type": "map_record"}}]}`, `(step_name "s"), pipe 0, apply 0 is`},
 		"an override of another operator's config": {`{"type": "map_record",
 		  "conditional_config": [{"then": {"distinct_config": {}}}]}`, ""},
 	} {

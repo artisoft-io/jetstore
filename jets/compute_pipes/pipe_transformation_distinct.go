@@ -172,7 +172,9 @@ func validateDistinctOn(cpConfig *ComputePipesConfig) error {
 			if becomesDistinct && setsConfig && !hasDistinctOn(then.DistinctConfig) {
 				return emptyDistinctOnError(fmt.Sprintf("%s, conditional_config[%d]", site.where, k))
 			}
-			if then.Type != "" || then.DistinctConfig != nil {
+			if becomesDistinct && setsConfig {
+				// an override that makes the step another operator supplies
+				// nothing: when its when is false the host runs as it is
 				suppliedByOverride = true
 			}
 		}
