@@ -19,8 +19,9 @@ import (
 // - pipeline_coordinator_lock
 //
 // The pipeline_coordinator_map table contains the list of the request_id that are being coordinated,
-// the status of the coordination (in_progress, completed, failed), the number of tasks to coordinate and
-// the schema provider json for the post map pipeline.
+// the status of the coordination (registering while its steps register, then in_progress, or failed),
+// the number of runs its registration started (nbr_tasks) and the schema provider json for the post
+// map pipeline.
 //
 // The pipeline_coordinator_map_items table contains the list of the tasks that are being coordinated for
 // each request_id, their status and their pe_key to link them to the executions of a client's SQS listener.
@@ -30,7 +31,8 @@ import (
 //
 // The coordination is used to coordinate the execution of the post map pipeline after all the tasks
 // linked to the same request_id are completed. The status of the coordination is updated based on the status of the tasks
-// (failed, completed, etc) and the post map pipeline execution is kicked off if all the tasks are completed.
+// (failed, completed, etc) and the post map pipeline execution is kicked off if all the tasks are completed
+// (startPostMapWhenDone).
 
 func (ca *StatusUpdate) updatePipelineCoordinator(sessionId string, schemaProvider *SchemaProviderShort) error {
 	// Query the pipeline_coordinator_map tbl
@@ -65,11 +67,10 @@ func (ca *StatusUpdate) updatePipelineCoordinator(sessionId string, schemaProvid
 		}
 		return failPipelineCoordinatorMap(ca.Dbpool, schemaProvider.RequestID, sessionId, mapStatus, schemaEventJson, &notice)
 	default:
-		// Insert in pipeline_coordinator_map_items
-		// Count the nbr of rows in pipeline_coordinator_map_items for the request_id.
-		// If the count is equal to nbr_tasks, that means no task failed and they are all completed, then
-		// insert in pipeline_coordinator_lock to lock the coordination and kick off the post map pipeline execution using schemaEventJson
-		// for the schema provider of the post map pipeline.
+		// Record the task, then start the post map pipeline if this was the
+		// map's last run to finish. Whether it was is read from the runs'
+		// statuses, this run's included: CoordinateWork wrote it before calling
+		// here (startPostMapWhenDone).
 		stmt := `INSERT INTO jetsapi.pipeline_coordinator_map_items (request_id, session_id) VALUES ($1, $2)`
 		_, err = ca.Dbpool.Exec(context.Background(), stmt, schemaProvider.RequestID, sessionId)
 		if err != nil {
@@ -78,34 +79,122 @@ func (ca *StatusUpdate) updatePipelineCoordinator(sessionId string, schemaProvid
 			return err
 		}
 		log.Printf("%s Inserted item for request_id %s in pipeline_coordinator_map_items\n", sessionId, schemaProvider.RequestID)
-		countStmt := `SELECT COUNT(*) FROM jetsapi.pipeline_coordinator_map_items WHERE request_id = $1`
-		var count int
-		err = ca.Dbpool.QueryRow(context.Background(), countStmt, schemaProvider.RequestID).Scan(&count)
+		return startPostMapWhenDone(ca.Dbpool, schemaProvider.RequestID, sessionId)
+	}
+}
+
+// A coordinator map's runs are the pipeline executions whose main input's
+// schema_provider_json carries the map's request_id: the runs its steps'
+// registrations start, and any run started later on an input registered with a
+// step's schema provider. They are what updatePipelineCoordinator is called for.
+//
+// The post map pipeline starts when every run of the map has finished, which is
+// not a count of steps: a step starts one run per automated pipeline
+// configuration on each of its source's domain keys, so two, or none. Before
+// release 4.1.25 it started when the count of finished runs reached nbr_tasks, the
+// number of steps, so a step with two runs started it early and a step with none
+// left it waiting for ever. nbr_tasks is now the number of runs the map's
+// registration started, written when the registration ends; it is a record, and
+// nothing waits on it.
+
+// mapRun is a run of a coordinator map: its session and status.
+type mapRun struct {
+	sessionId, status string
+}
+
+// mapRuns is every run of the map requestId, in the order they were started.
+func mapRuns(dbpool *pgxpool.Pool, requestId string) ([]mapRun, error) {
+	// strpos narrows to the registrations whose schema provider names the
+	// request at all; the JSON decides, as SchemaProviderShort reads it for
+	// updatePipelineCoordinator.
+	rows, err := dbpool.Query(context.Background(), `
+		SELECT pe.session_id, pe.status, ir.schema_provider_json
+		FROM jetsapi.pipeline_execution_status pe
+		JOIN jetsapi.input_registry ir ON ir.key = pe.main_input_registry_key
+		WHERE strpos(ir.schema_provider_json, $1) > 0
+		ORDER BY pe.key`, requestId)
+	if err != nil {
+		return nil, fmt.Errorf("while reading the runs of coordinator map %s: %v", requestId, err)
+	}
+	defer rows.Close()
+	var runs []mapRun
+	for rows.Next() {
+		var r mapRun
+		var spJson string
+		if err := rows.Scan(&r.sessionId, &r.status, &spJson); err != nil {
+			return nil, fmt.Errorf("while reading the runs of coordinator map %s: %v", requestId, err)
+		}
+		var sp SchemaProviderShort
+		if json.Unmarshal([]byte(spJson), &sp) != nil || sp.RequestID != requestId {
+			continue
+		}
+		runs = append(runs, r)
+	}
+	return runs, rows.Err()
+}
+
+// runFinished reports whether a run with status has ended, usable or not.
+func runFinished(status string) bool {
+	return outputsAreUsable(status) || status == "failed" || status == "interrupted"
+}
+
+// startPostMapWhenDone starts the post map pipeline of the map requestId when
+// its registration has ended (status in_progress) and every run of the map has
+// finished, once: the first caller to take the map's lock starts it. It is
+// called when a run of the map finishes and when the map's registration ends, so
+// a run that finished while the steps were still registering is not missed, and
+// a map whose steps started no run starts its post map pipeline when its
+// registration ends. sessionId takes the lock; "" is the map's registration,
+// for which the last run of the map takes it, so the lock row goes with that
+// run's session when it is deleted, or register_map when the map has no run.
+func startPostMapWhenDone(dbpool *pgxpool.Pool, requestId, sessionId string) error {
+	var mapStatus, schemaEventJson string
+	err := dbpool.QueryRow(context.Background(),
+		`SELECT status, schema_provider_json FROM jetsapi.pipeline_coordinator_map WHERE request_id = $1`,
+		requestId).Scan(&mapStatus, &schemaEventJson)
+	if err != nil {
+		return fmt.Errorf("while reading pipeline_coordinator_map for request_id %s: %v", requestId, err)
+	}
+	if mapStatus != "in_progress" {
+		log.Printf("Coordinator map %s is %s; its post map pipeline is not started here\n", requestId, mapStatus)
+		return nil
+	}
+	runs, err := mapRuns(dbpool, requestId)
+	if err != nil {
+		return fmt.Errorf("%s %v", sessionId, err)
+	}
+	running := 0
+	for _, r := range runs {
+		if !runFinished(r.status) {
+			running++
+		}
+	}
+	if sessionId == "" {
+		sessionId = "register_map"
+		if len(runs) > 0 {
+			sessionId = runs[len(runs)-1].sessionId
+		}
+	}
+	log.Printf("%s Coordinator map %s: %d of its %d runs still running\n", sessionId, requestId, running, len(runs))
+	if running > 0 {
+		return nil
+	}
+	// All tasks are completed, lock the coordination and kick off the post map pipeline execution
+	if insertPipelineCoordinatorLock(dbpool, requestId, sessionId) != nil {
+		return nil
+	}
+	// Lock successful, start the post map pipeline execution using schemaEventJson as the schema provider for the post map pipeline
+	if len(schemaEventJson) > 0 {
+		log.Printf("%s All tasks completed for request_id %s, inserted lock and performing post map pipeline execution\n", sessionId, requestId)
+		processDate := time.Now().Format("2006-01-02")
+		triggerKey := fmt.Sprintf("%s/pipeline_coordination/%s/%s_post.json", awsi.JetStoreSchemaEventsPrefix(), processDate, requestId)
+		err = awsi.UploadBufToS3("", triggerKey, []byte(schemaEventJson))
 		if err != nil {
-			err = fmt.Errorf("%s while counting items in pipeline_coordinator_map_items for request_id %s: %v\n", sessionId, schemaProvider.RequestID, err)
-			log.Println(err)
-			return err
+			return fmt.Errorf("while uploading schema trigger to s3: %v", err)
 		}
-		log.Printf("%s Counted %d/%d items for request_id %s in pipeline_coordinator_map_items\n", sessionId, count, nbrTasks, schemaProvider.RequestID)
-		if count == nbrTasks {
-			// All tasks are completed, lock the coordination and kick off the post map pipeline execution
-			err = insertPipelineCoordinatorLock(ca.Dbpool, schemaProvider.RequestID, sessionId)
-			if err == nil {
-				// Lock successful, start the post map pipeline execution using schemaEventJson as the schema provider for the post map pipeline
-				if len(schemaEventJson) > 0 {
-					log.Printf("%s All tasks completed for request_id %s, inserted lock and performing post map pipeline execution\n", sessionId, schemaProvider.RequestID)
-					processDate := time.Now().Format("2006-01-02")
-					triggerKey := fmt.Sprintf("%s/pipeline_coordination/%s/%s_post.json", awsi.JetStoreSchemaEventsPrefix(), processDate, schemaProvider.RequestID)
-					err = awsi.UploadBufToS3("", triggerKey, []byte(schemaEventJson))
-					if err != nil {
-						return fmt.Errorf("while uploading schema trigger to s3: %v", err)
-					}
-					log.Printf("Post pipeline map schema trigger uploaded to s3://%s/%s", awsi.JetStoreBucket(), triggerKey)
-				} else {
-					log.Printf("%s All tasks completed for request_id %s, inserted lock and NO post map pipeline execution is defined\n", sessionId, schemaProvider.RequestID)
-				}
-			}
-		}
+		log.Printf("Post pipeline map schema trigger uploaded to s3://%s/%s", awsi.JetStoreBucket(), triggerKey)
+	} else {
+		log.Printf("%s All tasks completed for request_id %s, inserted lock and NO post map pipeline execution is defined\n", sessionId, requestId)
 	}
 	return nil
 }
